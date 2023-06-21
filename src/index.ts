@@ -75,7 +75,7 @@ export default {
                 }
             });
         } else if (NFT_IMAGE_PATH.test(path)) {
-            let [, id] = NFT_METADATA_PATH.exec(path)!
+            let [, id] = NFT_IMAGE_PATH.exec(path)!
             return new Response(generateSvg(BigInt(id)), {
                 status: 200,
                 headers: {
