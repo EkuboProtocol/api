@@ -56,14 +56,16 @@ describe("Worker", () => {
         expect(resp.headers.get('content-type')).toEqual('image/svg+xml')
         expect(resp.headers.get('cache-control')).toMatchInlineSnapshot('"public, max-age=60, must-revalidate"')
         expect(text).toMatchInlineSnapshot(`
-          "<svg xmlns=\\"http://www.w3.org/2000/svg\\" viewBox=\\"0 0 50 50\\">
-                <g fill=\\"none\\" stroke=\\"black\\" stroke-width=\\"2\\">
-                  <path fill=\\"green\\" d=\\"M25 10 Q35 20, 35 30 Q35 35, 30 38 Q35 40, 32 42 Q35 44, 30 47 Q25 48, 20 47 Q17 44, 18 42 Q20 40, 25 38 Q20 35, 20 30 Q20 20, 30 10 z\\"/>
-                  <circle fill=\\"pink\\" cx=\\"17\\" cy=\\"20\\" r=\\"3\\"/>
-                  <circle fill=\\"pink\\" cx=\\"33\\" cy=\\"20\\" r=\\"3\\"/>
-                  <path fill=\\"pink\\" d=\\"M20 32 Q25 35, 30 32 T40 32\\"/>
-                </g>
-              </svg>"
+          "
+                  <svg xmlns=\\"http://www.w3.org/2000/svg\\" viewBox=\\"0 0 50 50\\">
+                      <g fill=\\"none\\" stroke=\\"black\\" stroke-width=\\"2\\">
+                          <path fill=\\"#100000\\" d=\\"M2.5 1 Q3.5 2, 3.5 3 Q3.5 3.5, 3 3.8000000000000003 Q3.5 4, 3.2 4.2 Q3.5 4.4, 3 4.7 Q2.5 4.800000000000001, 2 4.7 Q1.7000000000000002 4.4, 1.8 4.2 Q2 4, 2.5 3.8000000000000003 Q2 3.5, 2 3 Q2 2, 3 1 z\\"/>
+                          <circle fill=\\"#000000\\" cx=\\"1.7000000000000002\\" cy=\\"2\\" r=\\"0.30000000000000004\\"/>
+                          <circle fill=\\"#000000\\" cx=\\"3.3000000000000003\\" cy=\\"2\\" r=\\"0.30000000000000004\\"/>
+                          <path fill=\\"#000000\\" d=\\"M2 3.2 Q2.5 3.5, 3 3.2 T4 3.2\\"/>
+                      </g>
+                  </svg>
+              "
         `)
     });
 });
