@@ -31,13 +31,34 @@ const NFT_METADATA_PATH = /^\/(\d+)$/;
 const NFT_IMAGE_PATH = /^\/(\d+)\/image.svg$/;
 
 
-function generateSvg(seed: bigint): string {
-    const seedString = seed.toString();
-    const bodyColor = `#${seedString.slice(0, 6).padEnd(6, '0')}`;
-    const eyeColor = `#${seedString.slice(6, 12).padEnd(6, '0')}`;
-    const mouthColor = `#${seedString.slice(12, 18).padEnd(6, '0')}`;
+class BigIntLCG {
+    private _a: bigint;
+    private _c: bigint;
+    private _m: bigint;
+    private _seed: bigint;
 
-    const ghostSize = Number(seedString.slice(-1)) / 10;
+    constructor(seed: bigint) {
+        // Parameters for a widely used LCG (Numerical Recipes)
+        this._a = BigInt(1664525);
+        this._c = BigInt(1013904223);
+        this._m = BigInt(2) ** BigInt(32);
+        this._seed = seed;
+    }
+
+    next(): bigint {
+        this._seed = (this._a * this._seed + this._c) % this._m;
+        return this._seed;
+    }
+}
+
+function generateSvg(seed: bigint): string {
+    const lcg = new BigIntLCG(seed);
+    const randString = lcg.next().toString();
+    const bodyColor = `#${randString.slice(0, 6).padEnd(6, '0')}`;
+    const eyeColor = `#${randString.slice(6, 12).padEnd(6, '0')}`;
+    const mouthColor = `#${randString.slice(12, 18).padEnd(6, '0')}`;
+
+    const ghostSize = Number(randString.slice(-1)) / 10;
 
     const ghostSvg = `
         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 50 50">
