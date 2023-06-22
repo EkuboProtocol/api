@@ -54,7 +54,7 @@ describe("Worker", () => {
         const text: any = await resp.text();
 
         expect(resp.headers.get('content-type')).toEqual('image/svg+xml')
-        expect(resp.headers.get('cache-control')).toMatchInlineSnapshot('"public, max-age=60, must-revalidate"')
+        expect(resp.headers.get('cache-control')).toMatchInlineSnapshot('"public, max-age=86400, must-revalidate"')
         expect(text).toMatchInlineSnapshot(`
           "
                   <svg xmlns=\\"http://www.w3.org/2000/svg\\" viewBox=\\"0 0 50 50\\">
