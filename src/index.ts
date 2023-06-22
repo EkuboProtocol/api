@@ -31,16 +31,28 @@ const NFT_METADATA_PATH = /^\/(\d+)$/;
 const NFT_IMAGE_PATH = /^\/(\d+)\/image.svg$/;
 
 
-function generateSvg(token_id: bigint) {
-    return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 50 50">
-      <g fill="none" stroke="black" stroke-width="2">
-        <path fill="green" d="M25 10 Q35 20, 35 30 Q35 35, 30 38 Q35 40, 32 42 Q35 44, 30 47 Q25 48, 20 47 Q17 44, 18 42 Q20 40, 25 38 Q20 35, 20 30 Q20 20, 30 10 z"/>
-        <circle fill="pink" cx="17" cy="20" r="3"/>
-        <circle fill="pink" cx="33" cy="20" r="3"/>
-        <path fill="pink" d="M20 32 Q25 35, 30 32 T40 32"/>
-      </g>
-    </svg>`;
+function generateSvg(seed: bigint): string {
+    const seedString = seed.toString();
+    const bodyColor = `#${seedString.slice(0, 6).padEnd(6, '0')}`;
+    const eyeColor = `#${seedString.slice(6, 12).padEnd(6, '0')}`;
+    const mouthColor = `#${seedString.slice(12, 18).padEnd(6, '0')}`;
+
+    const ghostSize = Number(seedString.slice(-1)) / 10;
+
+    const ghostSvg = `
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 50 50">
+            <g fill="none" stroke="black" stroke-width="2">
+                <path fill="${bodyColor}" d="M${25 * ghostSize} ${10 * ghostSize} Q${35 * ghostSize} ${20 * ghostSize}, ${35 * ghostSize} ${30 * ghostSize} Q${35 * ghostSize} ${35 * ghostSize}, ${30 * ghostSize} ${38 * ghostSize} Q${35 * ghostSize} ${40 * ghostSize}, ${32 * ghostSize} ${42 * ghostSize} Q${35 * ghostSize} ${44 * ghostSize}, ${30 * ghostSize} ${47 * ghostSize} Q${25 * ghostSize} ${48 * ghostSize}, ${20 * ghostSize} ${47 * ghostSize} Q${17 * ghostSize} ${44 * ghostSize}, ${18 * ghostSize} ${42 * ghostSize} Q${20 * ghostSize} ${40 * ghostSize}, ${25 * ghostSize} ${38 * ghostSize} Q${20 * ghostSize} ${35 * ghostSize}, ${20 * ghostSize} ${30 * ghostSize} Q${20 * ghostSize} ${20 * ghostSize}, ${30 * ghostSize} ${10 * ghostSize} z"/>
+                <circle fill="${eyeColor}" cx="${17 * ghostSize}" cy="${20 * ghostSize}" r="${3 * ghostSize}"/>
+                <circle fill="${eyeColor}" cx="${33 * ghostSize}" cy="${20 * ghostSize}" r="${3 * ghostSize}"/>
+                <path fill="${mouthColor}" d="M${20 * ghostSize} ${32 * ghostSize} Q${25 * ghostSize} ${35 * ghostSize}, ${30 * ghostSize} ${32 * ghostSize} T${40 * ghostSize} ${32 * ghostSize}"/>
+            </g>
+        </svg>
+    `;
+
+    return ghostSvg;
 }
+
 
 export default {
     async fetch(
