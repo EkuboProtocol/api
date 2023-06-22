@@ -113,7 +113,7 @@ export default {
                 status: 200,
                 headers: {
                     'content-type': 'image/svg+xml',
-                    'cache-control': 'public, max-age=60, must-revalidate'
+                    'cache-control': 'public, max-age=86400, must-revalidate'
                 },
             })
         }
