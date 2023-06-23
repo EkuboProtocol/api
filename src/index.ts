@@ -75,6 +75,16 @@ function generateSvg(seed: bigint): string {
 }
 
 
+function errorResponse(code: number, message: string) {
+    return new Response(JSON.stringify({error: message}), {
+        status: code,
+        headers: {
+            'content-type': 'application/json',
+            'cache-control': 'public, max-age=86400, must-revalidate'
+        }
+    })
+}
+
 export default {
     async fetch(
         request: Request,
@@ -82,9 +92,7 @@ export default {
         ctx: ExecutionContext
     ): Promise<Response> {
         if (request.method !== 'GET') {
-            return new Response(JSON.stringify({error: 'Invalid method'}), {
-                status: 400,
-            })
+            return errorResponse(400, 'Invalid method')
         }
 
         const url = new URL(request.url);
@@ -119,12 +127,6 @@ export default {
         }
 
 
-        return new Response(JSON.stringify({error: 'Invalid path'}), {
-            status: 404,
-            headers: {
-                'content-type': 'application/json',
-                'cache-control': 'public, max-age=60, must-revalidate'
-            }
-        });
+        return errorResponse(404, 'Invalid path')
     },
 };
