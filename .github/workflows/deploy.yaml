@@ -12,13 +12,13 @@ jobs:
         include:
           - name: testnet
             rpc_url: testnet
-            chain_id: 0x534e5f474f45524c49
+            chain_id: "0x534e5f474f45524c49"
           - name: testnet2
             rpc_url: testnet2
-            chain_id: 0x534e5f474f45524c4932
+            chain_id: "0x534e5f474f45524c4932"
           - name: mainnet
             rpc_url: mainnet
-            chain_id: 0x534e5f4d41494e
+            chain_id: "0x534e5f4d41494e"
 
     runs-on: ubuntu-latest
     name: Deploy to Cloudflare
