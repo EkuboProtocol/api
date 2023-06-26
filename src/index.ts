@@ -11,7 +11,9 @@ export interface Env {
     // Example binding to a Service. Learn more at https://developers.cloudflare.com/workers/runtime-apis/service-bindings/
     // MY_SERVICE: Fetcher;
 
-    STARKNET_RPC_URL: string
+    STARKNET_RPC_URL: string,
+
+    STARKNET_CHAIN_ID: string,
 }
 
 interface NFTMetadata {
@@ -117,7 +119,7 @@ export default {
             });
         } else if (NFT_IMAGE_PATH.test(path)) {
             let [, id] = NFT_IMAGE_PATH.exec(path)!
-            return new Response(generateSvg(BigInt(id)), {
+            return new Response(generateSvg(BigInt(id) * BigInt(env.STARKNET_CHAIN_ID ?? 0)), {
                 status: 200,
                 headers: {
                     'content-type': 'image/svg+xml',
