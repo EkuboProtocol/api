@@ -1,11 +1,11 @@
-name: Deploy
+name: Tests
 
 on: push
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
-    name: Deploy to Cloudflare
+    name: Unit tests
     steps:
       - name: Checkout
         uses: actions/checkout@v2
