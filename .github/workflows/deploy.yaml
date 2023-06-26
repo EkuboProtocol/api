@@ -10,13 +10,13 @@ jobs:
     strategy:
       matrix:
         include:
-          - name: testnet
+          - env: testnet
             rpc_url: testnet
             chain_id: "0x534e5f474f45524c49"
-          - name: testnet2
+          - env: testnet2
             rpc_url: testnet2
             chain_id: "0x534e5f474f45524c4932"
-          - name: mainnet
+          - env: mainnet
             rpc_url: mainnet
             chain_id: "0x534e5f4d41494e"
 
@@ -39,4 +39,4 @@ jobs:
         with:
           apiToken: ${{ secrets.CF_API_TOKEN }}
           command: |
-            deploy --name ekubo_renderer_${{ matrix.name }} --var STARKNET_RPC_URL:${{ matrix.rpc_url }} --var STARKNET_CHAIN_ID:${{ matrix.chain_id }}
+            deploy --name nft_metadata --env ${{ matrix.env }} --var STARKNET_RPC_URL:${{ matrix.rpc_url }} --var STARKNET_CHAIN_ID:${{ matrix.chain_id }}
