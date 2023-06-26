@@ -10,14 +10,14 @@ jobs:
     strategy:
       matrix:
         include:
-          - env: testnet
-            rpc_url: testnet
+          - network_name: goerli
+            rpc_url: "https://starknet-goerli.infura.io/v3/5c6b5f24259f42b6b8ec9932b08a3816"
             chain_id: "0x534e5f474f45524c49"
-          - env: testnet2
-            rpc_url: testnet2
+          - network_name: goerli2
+            rpc_url: "https://starknet-goerli2.infura.io/v3/5c6b5f24259f42b6b8ec9932b08a3816"
             chain_id: "0x534e5f474f45524c4932"
-          - env: mainnet
-            rpc_url: mainnet
+          - network_name: mainnet
+            rpc_url: "https://starknet-mainnet.infura.io/v3/5c6b5f24259f42b6b8ec9932b08a3816"
             chain_id: "0x534e5f4d41494e"
 
     runs-on: ubuntu-latest
@@ -39,4 +39,4 @@ jobs:
         with:
           apiToken: ${{ secrets.CF_API_TOKEN }}
           command: |
-            deploy --name nft_metadata --env ${{ matrix.env }} --var STARKNET_RPC_URL:${{ matrix.rpc_url }} --var STARKNET_CHAIN_ID:${{ matrix.chain_id }}
+            deploy --name nft_metadata_${{ matrix.network_name }} --var STARKNET_RPC_URL:${{ matrix.rpc_url }} --var STARKNET_CHAIN_ID:${{ matrix.chain_id }}
