@@ -77,13 +77,20 @@ function generateSvg(seed: bigint): string {
 }
 
 
+const CORS_HEADERS = {
+    'access-control-allow-origin': '*',
+    'access-control-allow-methods': 'GET, OPTIONS',
+    'access-control-max-age': '86400',
+}
+
 function errorResponse(code: number, message: string) {
     return new Response(JSON.stringify({error: message}), {
         status: code,
         headers: {
+            ...CORS_HEADERS,
             'content-type': 'application/json',
             'cache-control': 'public, max-age=86400, must-revalidate'
-        }
+        },
     })
 }
 
@@ -93,8 +100,20 @@ export default {
         env: Env,
         ctx: ExecutionContext
     ): Promise<Response> {
+        if (request.method === 'OPTIONS') {
+            return new Response(null, {
+                status: 200,
+                headers: {
+                    ...CORS_HEADERS,
+                    'access-control-allow-headers': request.headers.get(
+                        "access-control-request-headers"
+                    ) ?? '',
+                },
+            })
+        }
+
         if (request.method !== 'GET') {
-            return errorResponse(400, 'Invalid method')
+            return errorResponse(405, 'Method not allowed')
         }
 
         const url = new URL(request.url);
@@ -113,6 +132,7 @@ export default {
             return new Response(JSON.stringify(metadata), {
                 status: 200,
                 headers: {
+                    ...CORS_HEADERS,
                     'content-type': 'application/json',
                     'cache-control': 'public, max-age=60, must-revalidate'
                 }
@@ -122,6 +142,7 @@ export default {
             return new Response(generateSvg(BigInt(id) * BigInt(env.STARKNET_CHAIN_ID ?? 0)), {
                 status: 200,
                 headers: {
+                    ...CORS_HEADERS,
                     'content-type': 'image/svg+xml',
                     'cache-control': 'public, max-age=86400, must-revalidate'
                 },

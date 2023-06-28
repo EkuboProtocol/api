@@ -25,11 +25,24 @@ describe("Worker", () => {
     })
 
     it('fails with wrong method', async () => {
-        for (const method of ['post','put','delete']) {
+        for (const method of ['post', 'put', 'delete']) {
             const resp = await worker.fetch('/1', {method});
-            expect(resp.status).toEqual(400)
-            expect(await resp.json()).toEqual({error: 'Invalid method'})
+            expect(resp.status).toEqual(405)
+            expect(await resp.json()).toEqual({error: 'Method not allowed'})
         }
+    })
+
+    it('cors response to options request', async () => {
+        const resp = await worker.fetch('/1', {
+            method: 'options',
+            headers: {'access-control-request-headers': 'x-auth-token'}
+        });
+        expect(resp.status).toEqual(200)
+        expect(await resp.text()).toEqual('')
+        expect(resp.headers.get('access-control-allow-origin')).toEqual('*')
+        expect(resp.headers.get('access-control-allow-methods')).toEqual('GET, OPTIONS')
+        expect(resp.headers.get('access-control-max-age')).toEqual('86400')
+        expect(resp.headers.get('access-control-allow-headers')).toEqual('x-auth-token')
     })
 
 
