@@ -38,8 +38,11 @@ interface NFTMetadata {
 const NFT_METADATA_PATH = /^\/(\d+)$/;
 const NFT_IMAGE_PATH = /^\/(\d+)\/image.svg$/;
 
-function generateSvg(id: number): string {
-  const generator = prand.xoroshiro128plus(id);
+function generateSvg(id: number, chainId: Env["STARKNET_CHAIN_ID"]): string {
+  let generator = prand.xoroshiro128plus(Number(chainId));
+  generator = prand.xoroshiro128plus(
+    id + unsafeUniformIntDistribution(0, 2 ** 32 - id, generator)
+  );
 
   const randomColor = () =>
     `#${unsafeUniformIntDistribution(0, 16777215, generator)
@@ -159,7 +162,7 @@ export default {
         return errorResponse(404, "Not found");
       }
 
-      return new Response(generateSvg(Number(id)), {
+      return new Response(generateSvg(Number(id), env.STARKNET_CHAIN_ID), {
         status: 200,
         headers: {
           ...CORS_HEADERS,
