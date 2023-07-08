@@ -1,155 +1,168 @@
+import prand from "pure-rand";
+import { Provider, constants } from "starknet";
+
 export interface Env {
-    // Example binding to KV. Learn more at https://developers.cloudflare.com/workers/runtime-apis/kv/
-    // MY_KV_NAMESPACE: KVNamespace;
-    //
-    // Example binding to Durable Object. Learn more at https://developers.cloudflare.com/workers/runtime-apis/durable-objects/
-    // MY_DURABLE_OBJECT: DurableObjectNamespace;
-    //
-    // Example binding to R2. Learn more at https://developers.cloudflare.com/workers/runtime-apis/r2/
-    // MY_BUCKET: R2Bucket;
-    //
-    // Example binding to a Service. Learn more at https://developers.cloudflare.com/workers/runtime-apis/service-bindings/
-    // MY_SERVICE: Fetcher;
+  // Example binding to KV. Learn more at https://developers.cloudflare.com/workers/runtime-apis/kv/
+  // MY_KV_NAMESPACE: KVNamespace;
+  //
+  // Example binding to Durable Object. Learn more at https://developers.cloudflare.com/workers/runtime-apis/durable-objects/
+  // MY_DURABLE_OBJECT: DurableObjectNamespace;
+  //
+  // Example binding to R2. Learn more at https://developers.cloudflare.com/workers/runtime-apis/r2/
+  // MY_BUCKET: R2Bucket;
+  //
+  // Example binding to a Service. Learn more at https://developers.cloudflare.com/workers/runtime-apis/service-bindings/
+  // MY_SERVICE: Fetcher;
 
-    STARKNET_RPC_URL: string,
+  STARKNET_RPC_URL: string;
 
-    STARKNET_CHAIN_ID: string,
+  STARKNET_CHAIN_ID:
+    | "0x534e5f474f45524c49"
+    | "0x534e5f474f45524c4932"
+    | "0x534e5f4d41494e";
 }
 
 interface NFTMetadata {
-    name: string;
+  name: string;
 
-    description: string;
+  description: string;
 
-    image: string;
+  image: string;
 
-    attributes: {
-        trait_type: string;
-        value: string;
-    }[]
+  attributes: {
+    trait_type: string;
+    value: string;
+  }[];
 }
 
 const NFT_METADATA_PATH = /^\/(\d+)$/;
 const NFT_IMAGE_PATH = /^\/(\d+)\/image.svg$/;
 
+function generateSvg(id: number): string {
+  const generator = prand.xoroshiro128plus(id);
+  const rng = generator.unsafeNext.bind(generator);
 
-class BigIntLCG {
-    private _a: bigint;
-    private _c: bigint;
-    private _m: bigint;
-    private _seed: bigint;
+  // Generate random parameters
+  const circleRadius = Math.floor(rng() * 50) + 50;
+  const stopColor1 = Math.floor(rng() * 16777215).toString(16); // random color
+  const stopColor2 = Math.floor(rng() * 16777215).toString(16); // random color
+  const rect1X = Math.floor(rng() * 30) + 10;
+  const rect2X = Math.floor(rng() * 30) + 70;
+  const rectWidth = Math.floor(rng() * 30) + 40;
+  const rotateAngle = Math.floor(rng() * 360);
 
-    constructor(seed: bigint) {
-        // Parameters for a widely used LCG (Numerical Recipes)
-        this._a = BigInt(1664525);
-        this._c = BigInt(1013904223);
-        this._m = BigInt(2) ** BigInt(32);
-        this._seed = seed;
-    }
-
-    next(): bigint {
-        this._seed = (this._a * this._seed + this._c) % this._m;
-        return this._seed;
-    }
-}
-
-function generateSvg(seed: bigint): string {
-    const lcg = new BigIntLCG(seed);
-    const randString = lcg.next().toString();
-    const bodyColor = `#${randString.slice(0, 6).padEnd(6, '0')}`;
-    const eyeColor = `#${randString.slice(6, 12).padEnd(6, '0')}`;
-    const mouthColor = `#${randString.slice(12, 18).padEnd(6, '0')}`;
-
-    const ghostSize = Number(randString.slice(-1)) / 10;
-
-    const ghostSvg = `
-        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 50 50">
-            <g fill="none" stroke="black" stroke-width="2">
-                <path fill="${bodyColor}" d="M${25 * ghostSize} ${10 * ghostSize} Q${35 * ghostSize} ${20 * ghostSize}, ${35 * ghostSize} ${30 * ghostSize} Q${35 * ghostSize} ${35 * ghostSize}, ${30 * ghostSize} ${38 * ghostSize} Q${35 * ghostSize} ${40 * ghostSize}, ${32 * ghostSize} ${42 * ghostSize} Q${35 * ghostSize} ${44 * ghostSize}, ${30 * ghostSize} ${47 * ghostSize} Q${25 * ghostSize} ${48 * ghostSize}, ${20 * ghostSize} ${47 * ghostSize} Q${17 * ghostSize} ${44 * ghostSize}, ${18 * ghostSize} ${42 * ghostSize} Q${20 * ghostSize} ${40 * ghostSize}, ${25 * ghostSize} ${38 * ghostSize} Q${20 * ghostSize} ${35 * ghostSize}, ${20 * ghostSize} ${30 * ghostSize} Q${20 * ghostSize} ${20 * ghostSize}, ${30 * ghostSize} ${10 * ghostSize} z"/>
-                <circle fill="${eyeColor}" cx="${17 * ghostSize}" cy="${20 * ghostSize}" r="${3 * ghostSize}"/>
-                <circle fill="${eyeColor}" cx="${33 * ghostSize}" cy="${20 * ghostSize}" r="${3 * ghostSize}"/>
-                <path fill="${mouthColor}" d="M${20 * ghostSize} ${32 * ghostSize} Q${25 * ghostSize} ${35 * ghostSize}, ${30 * ghostSize} ${32 * ghostSize} T${40 * ghostSize} ${32 * ghostSize}"/>
-            </g>
-        </svg>
+  return `
+    <svg width="134" height="134" viewBox="0 0 134 134" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <circle cx="67" cy="67" r="${circleRadius}" fill="url(#paint0_linear_1_30)"/>
+        <path fill-rule="evenodd" clip-rule="evenodd"
+            transform="rotate(${rotateAngle}, 67, 67)"
+            d="M${rect1X} 54.0769C${rect1X} 47.9593 ${rect1X + rectWidth} 43 ${
+    rect1X + rectWidth
+  } 43H92.9C99.0304 43 104 47.9593 104 54.0769V79.9231C104 86.0407 99.0304 91 92.9 91H41.1C34.9696 91 30 86.0407 30 79.9231V54.0769ZM67 67C67 75.1568 60.3738 81.7692 52.2 81.7692C44.0262 81.7692 37.4 75.1568 37.4 67C37.4 58.8432 44.0262 52.2308 52.2 52.2308C60.3738 52.2308 67 58.8432 67 67ZM67 67C67 58.8432 73.6262 52.2308 81.8 52.2308C89.9738 52.2308 96.6 58.8432 96.6 67C96.6 75.1568 89.9738 81.7692 81.8 81.7692C73.6262 81.7692 67 75.1568 67 67Z"
+            fill="#F1F0FA"/>
+        <defs>
+            <linearGradient id="paint0_linear_1_30" x1="0" y1="0" x2="134" y2="134" gradientUnits="userSpaceOnUse">
+                <stop stop-color="#${stopColor1}"/>
+                <stop offset="1" stop-color="#${stopColor2}"/>
+            </linearGradient>
+        </defs>
+    </svg>
     `;
-
-    return ghostSvg;
 }
-
 
 const CORS_HEADERS = {
-    'access-control-allow-origin': '*',
-    'access-control-allow-methods': 'GET, OPTIONS',
-    'access-control-max-age': '86400',
-}
+  "access-control-allow-origin": "*",
+  "access-control-allow-methods": "GET, OPTIONS",
+  "access-control-max-age": "86400",
+};
 
 function errorResponse(code: number, message: string) {
-    return new Response(JSON.stringify({error: message}), {
-        status: code,
-        headers: {
-            ...CORS_HEADERS,
-            'content-type': 'application/json',
-            'cache-control': 'public, max-age=86400, must-revalidate'
-        },
-    })
+  return new Response(JSON.stringify({ error: message }), {
+    status: code,
+    headers: {
+      ...CORS_HEADERS,
+      "content-type": "application/json",
+      "cache-control": "public, max-age=86400, must-revalidate",
+    },
+  });
 }
 
+const PROVIDERS: {
+  [chainId in Env["STARKNET_CHAIN_ID"]]?: Provider;
+} = {};
+
 export default {
-    async fetch(
-        request: Request,
-        env: Env,
-        ctx: ExecutionContext
-    ): Promise<Response> {
-        if (request.method === 'OPTIONS') {
-            return new Response(null, {
-                status: 200,
-                headers: {
-                    ...CORS_HEADERS,
-                    'access-control-allow-headers': request.headers.get(
-                        "access-control-request-headers"
-                    ) ?? '',
-                },
-            })
-        }
+  async fetch(
+    request: Request,
+    env: Env,
+    ctx: ExecutionContext
+  ): Promise<Response> {
+    const provider =
+      PROVIDERS[env.STARKNET_CHAIN_ID] ??
+      (PROVIDERS[env.STARKNET_CHAIN_ID] = new Provider({
+        rpc: {
+          nodeUrl: env.STARKNET_RPC_URL,
+          chainId: env.STARKNET_CHAIN_ID as constants.StarknetChainId,
+        },
+      }));
 
-        if (request.method !== 'GET') {
-            return errorResponse(405, 'Method not allowed')
-        }
+    if (request.method === "OPTIONS") {
+      return new Response(null, {
+        status: 200,
+        headers: {
+          ...CORS_HEADERS,
+          "access-control-allow-headers":
+            request.headers.get("access-control-request-headers") ?? "",
+        },
+      });
+    }
 
-        const url = new URL(request.url);
+    if (request.method !== "GET") {
+      return errorResponse(405, "Method not allowed");
+    }
 
-        const path = url.pathname;
+    const url = new URL(request.url);
 
-        if (NFT_METADATA_PATH.test(path)) {
-            const [, id] = NFT_METADATA_PATH.exec(path)!
+    const path = url.pathname;
 
-            const metadata: NFTMetadata = {
-                name: `Ekubo NFT #${id}`,
-                description: 'An NFT that represents a liquidity position in Ekubo',
-                image: `${url.origin}/${id}/image.svg`,
-                attributes: []
-            }
-            return new Response(JSON.stringify(metadata), {
-                status: 200,
-                headers: {
-                    ...CORS_HEADERS,
-                    'content-type': 'application/json',
-                    'cache-control': 'public, max-age=60, must-revalidate'
-                }
-            });
-        } else if (NFT_IMAGE_PATH.test(path)) {
-            let [, id] = NFT_IMAGE_PATH.exec(path)!
-            return new Response(generateSvg(BigInt(id) * BigInt(env.STARKNET_CHAIN_ID ?? 0)), {
-                status: 200,
-                headers: {
-                    ...CORS_HEADERS,
-                    'content-type': 'image/svg+xml',
-                    'cache-control': 'public, max-age=86400, must-revalidate'
-                },
-            })
-        }
+    if (NFT_METADATA_PATH.test(path)) {
+      const [, id] = NFT_METADATA_PATH.exec(path)!;
 
+      if (id.length > 10) {
+        return errorResponse(404, "Not found");
+      }
 
-        return errorResponse(404, 'Invalid path')
-    },
+      const metadata: NFTMetadata = {
+        name: `Ekubo NFT #${id}`,
+        description: "An NFT that represents a liquidity position in Ekubo",
+        image: `${url.origin}/${id}/image.svg`,
+        attributes: [],
+      };
+      return new Response(JSON.stringify(metadata), {
+        status: 200,
+        headers: {
+          ...CORS_HEADERS,
+          "content-type": "application/json",
+          "cache-control": "public, max-age=60, must-revalidate",
+        },
+      });
+    } else if (NFT_IMAGE_PATH.test(path)) {
+      let [, id] = NFT_IMAGE_PATH.exec(path)!;
+
+      if (id.length > 10) {
+        return errorResponse(404, "Not found");
+      }
+
+      return new Response(generateSvg(Number(id)), {
+        status: 200,
+        headers: {
+          ...CORS_HEADERS,
+          "content-type": "image/svg+xml",
+          "cache-control": "public, max-age=86400, must-revalidate",
+        },
+      });
+    }
+
+    return errorResponse(404, "Invalid path");
+  },
 };
