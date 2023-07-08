@@ -46,16 +46,16 @@ function generateSvg(id: number): string {
       .toString(16)
       .padStart(6, "0")}`;
 
-  const randomSize = (min: number, maxExclusive: number) =>
+  const randomIn = (min: number, maxExclusive: number) =>
     unsafeUniformIntDistribution(min, maxExclusive, generator);
 
   // Generate random parameters
-  const circleRadius = randomSize(50, 100);
+  const circleRadius = randomIn(50, 100);
   const stopColor1 = randomColor();
   const stopColor2 = randomColor();
-  const rect1X = randomSize(10, 40);
-  const rectWidth = randomSize(40, 70);
-  const rotateAngle = randomSize(0, 360);
+  const rect1X = randomIn(10, 40);
+  const rectWidth = randomIn(40, 70);
+  const rotateAngle = randomIn(0, 360);
 
   return `
     <svg width="134" height="134" viewBox="0 0 134 134" fill="none" xmlns="http://www.w3.org/2000/svg">
