@@ -1,4 +1,4 @@
-import prand from "pure-rand";
+import prand, { unsafeUniformIntDistribution } from "pure-rand";
 import { Provider, constants } from "starknet";
 
 export interface Env {
@@ -40,16 +40,22 @@ const NFT_IMAGE_PATH = /^\/(\d+)\/image.svg$/;
 
 function generateSvg(id: number): string {
   const generator = prand.xoroshiro128plus(id);
-  const rng = generator.unsafeNext.bind(generator);
+
+  const randomColor = () =>
+    `#${unsafeUniformIntDistribution(0, 16777215, generator)
+      .toString(16)
+      .padStart(6, "0")}`;
+
+  const randomSize = (min: number, maxExclusive: number) =>
+    unsafeUniformIntDistribution(min, maxExclusive, generator);
 
   // Generate random parameters
-  const circleRadius = Math.floor(rng() * 50) + 50;
-  const stopColor1 = Math.floor(rng() * 16777215).toString(16); // random color
-  const stopColor2 = Math.floor(rng() * 16777215).toString(16); // random color
-  const rect1X = Math.floor(rng() * 30) + 10;
-  const rect2X = Math.floor(rng() * 30) + 70;
-  const rectWidth = Math.floor(rng() * 30) + 40;
-  const rotateAngle = Math.floor(rng() * 360);
+  const circleRadius = randomSize(50, 100);
+  const stopColor1 = randomColor();
+  const stopColor2 = randomColor();
+  const rect1X = randomSize(10, 40);
+  const rectWidth = randomSize(40, 70);
+  const rotateAngle = randomSize(0, 360);
 
   return `
     <svg width="134" height="134" viewBox="0 0 134 134" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -62,8 +68,8 @@ function generateSvg(id: number): string {
             fill="#F1F0FA"/>
         <defs>
             <linearGradient id="paint0_linear_1_30" x1="0" y1="0" x2="134" y2="134" gradientUnits="userSpaceOnUse">
-                <stop stop-color="#${stopColor1}"/>
-                <stop offset="1" stop-color="#${stopColor2}"/>
+                <stop stop-color="${stopColor1}"/>
+                <stop offset="1" stop-color="${stopColor2}"/>
             </linearGradient>
         </defs>
     </svg>
