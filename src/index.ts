@@ -41,7 +41,7 @@ function generateSvg(id: number, chainId: Env["STARKNET_CHAIN_ID"]): string {
     unsafeUniformIntDistribution(min, max, generator);
 
   // Generate random parameters
-  const circleRadius = randomIn(50, 100);
+  const circleRadius = randomIn(45, 67);
   const stopColor1 = randomColor();
   const stopColor2 = randomColor();
   const rect1X = randomIn(10, 40);
