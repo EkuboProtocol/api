@@ -33,4 +33,4 @@ jobs:
         with:
           apiToken: ${{ secrets.CF_API_TOKEN }}
           command: |
-            deploy --name ekubo_nft_metadata --env ${{ matrix.network_name }}
+            deploy --env ${{ matrix.network_name }}
