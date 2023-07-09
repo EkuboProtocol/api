@@ -114,9 +114,16 @@ export default {
         return errorResponse(404, "Not found");
       }
 
-      const attributes: NFTMetadata["attributes"] = JSON.parse(
-        (await env.PositionsMetadata.get(BigInt(id).toString())) ?? "[]"
+      const attributesStored = await env.PositionsMetadata.get(
+        BigInt(id).toString()
       );
+
+      if (attributesStored === null) {
+        return errorResponse(404, "Token metadata not found");
+      }
+
+      const attributes: NFTMetadata["attributes"] =
+        JSON.parse(attributesStored);
 
       const metadata: NFTMetadata = {
         name: `Ekubo NFT #${id}`,
@@ -137,6 +144,10 @@ export default {
 
       if (Number(id) > MAX_ID) {
         return errorResponse(404, "Not found");
+      }
+
+      if ((await env.PositionsMetadata.get(BigInt(id).toString())) == null) {
+        return errorResponse(404, "Token metadata not found");
       }
 
       return new Response(generateSvg(Number(id), env.STARKNET_CHAIN_ID), {

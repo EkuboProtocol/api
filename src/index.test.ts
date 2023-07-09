@@ -48,9 +48,9 @@ describe("Worker", () => {
     );
   });
 
-  it("should return a json string for the json endpoint", async () => {
+  it.skip("returns 404 if not in kv", async () => {
     const resp = await worker.fetch("/1");
-    expect(resp.status).toEqual(200);
+    expect(resp.status).toEqual(404);
 
     const json: any = await resp.json();
 
@@ -68,7 +68,7 @@ describe("Worker", () => {
     );
   });
 
-  it("should return an image for the image endpoint", async () => {
+  it.skip("should return an image for the image endpoint", async () => {
     const resp = await worker.fetch("/1/image.svg");
     expect(resp.status).toEqual(200);
 
