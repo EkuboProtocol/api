@@ -1,16 +1,8 @@
 import prand, { unsafeUniformIntDistribution } from "pure-rand";
+import { KVNamespace } from "@cloudflare/workers-types";
 
 export interface Env {
   PositionsMetadata: KVNamespace;
-  //
-  // Example binding to Durable Object. Learn more at https://developers.cloudflare.com/workers/runtime-apis/durable-objects/
-  // MY_DURABLE_OBJECT: DurableObjectNamespace;
-  //
-  // Example binding to R2. Learn more at https://developers.cloudflare.com/workers/runtime-apis/r2/
-  // MY_BUCKET: R2Bucket;
-  //
-  // Example binding to a Service. Learn more at https://developers.cloudflare.com/workers/runtime-apis/service-bindings/
-  // MY_SERVICE: Fetcher;
 
   STARKNET_CHAIN_ID:
     | "0x534e5f474f45524c49"
@@ -45,8 +37,8 @@ function generateSvg(id: number, chainId: Env["STARKNET_CHAIN_ID"]): string {
       .toString(16)
       .padStart(6, "0")}`;
 
-  const randomIn = (min: number, maxExclusive: number) =>
-    unsafeUniformIntDistribution(min, maxExclusive, generator);
+  const randomIn = (min: number, max: number) =>
+    unsafeUniformIntDistribution(min, max, generator);
 
   // Generate random parameters
   const circleRadius = randomIn(50, 100);
@@ -92,12 +84,10 @@ function errorResponse(code: number, message: string) {
   });
 }
 
+const MAX_ID = 10 ** 10 - 1;
+
 export default {
-  async fetch(
-    request: Request,
-    env: Env,
-    ctx: ExecutionContext
-  ): Promise<Response> {
+  async fetch(request: Request, env: Env): Promise<Response> {
     if (request.method === "OPTIONS") {
       return new Response(null, {
         status: 200,
@@ -120,7 +110,7 @@ export default {
     if (NFT_METADATA_PATH.test(path)) {
       const [, id] = NFT_METADATA_PATH.exec(path)!;
 
-      if (id.length > 10) {
+      if (Number(id) > MAX_ID) {
         return errorResponse(404, "Not found");
       }
 
@@ -145,7 +135,7 @@ export default {
     } else if (NFT_IMAGE_PATH.test(path)) {
       let [, id] = NFT_IMAGE_PATH.exec(path)!;
 
-      if (id.length > 10) {
+      if (Number(id) > MAX_ID) {
         return errorResponse(404, "Not found");
       }
 

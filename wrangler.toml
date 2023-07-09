@@ -7,7 +7,17 @@ binding = "PositionsMetadata"
 preview_id = "03f3175a5c56494e83fa3746e3d5a9c8"
 id = "d58f8ea846e54fdca2b237f50717b60e"
 
-#[env.production]
-#[[kv_namespaces]]
-#binding = "PositionsMetadata"
-#id = "<PRODUCTION KV NAMESPACEID>"
+[env.goerli]
+kv_namespaces = [
+    { binding = "PositionsMetadata", id = "fc8880f5ea514ccb95fc6b2c295ca308" }
+]
+[env.goerli.vars]
+STARKNET_CHAIN_ID = "0x534e5f474f45524c49"
+
+[env.mainnet]
+kv_namespaces = [
+    { binding = "PositionsMetadata", id = "70c627a75a1541289ee08d08e9a5970f" }
+]
+
+[env.mainnet.vars]
+STARKNET_CHAIN_ID = "0x534e5f4d41494e"

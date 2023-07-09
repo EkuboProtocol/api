@@ -11,10 +11,7 @@ jobs:
       matrix:
         include:
           - network_name: mainnet
-            chain_id: "0x534e5f4d41494e"
           - network_name: goerli
-            chain_id: "0x534e5f474f45524c49"
-            kv_namespace_id: d58f8ea846e54fdca2b237f50717b60e
 
     runs-on: ubuntu-latest
     name: Deploy to Cloudflare
@@ -36,4 +33,4 @@ jobs:
         with:
           apiToken: ${{ secrets.CF_API_TOKEN }}
           command: |
-            deploy --name nft_metadata_${{ matrix.network_name }} --var STARKNET_CHAIN_ID:${{ matrix.chain_id }}
+            deploy --name ekubo_nft_metadata --env ${{ matrix.network_name }}
