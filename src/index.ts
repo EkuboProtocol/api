@@ -73,13 +73,15 @@ const CORS_HEADERS = {
   "access-control-max-age": "86400",
 };
 
-function errorResponse(code: number, message: string) {
+function errorResponse(code: number, message: string, retryable: boolean) {
   return new Response(JSON.stringify({ error: message }), {
     status: code,
     headers: {
       ...CORS_HEADERS,
       "content-type": "application/json",
-      "cache-control": "public, max-age=86400, must-revalidate",
+      "cache-control": `public, max-age=${
+        retryable ? 30 : 86400
+      }, must-revalidate`,
     },
   });
 }
@@ -100,7 +102,7 @@ export default {
     }
 
     if (request.method !== "GET") {
-      return errorResponse(405, "Method not allowed");
+      return errorResponse(405, "Method not allowed", false);
     }
 
     const url = new URL(request.url);
@@ -111,7 +113,7 @@ export default {
       const [, id] = NFT_METADATA_PATH.exec(path)!;
 
       if (Number(id) > MAX_ID) {
-        return errorResponse(404, "Not found");
+        return errorResponse(404, "Not found", false);
       }
 
       const attributesStored = await env.PositionsMetadata.get(
@@ -119,7 +121,7 @@ export default {
       );
 
       if (attributesStored === null) {
-        return errorResponse(404, "Token metadata not found");
+        return errorResponse(404, "Token metadata not found", true);
       }
 
       const attributes: NFTMetadata["attributes"] =
@@ -143,11 +145,11 @@ export default {
       let [, id] = NFT_IMAGE_PATH.exec(path)!;
 
       if (Number(id) > MAX_ID) {
-        return errorResponse(404, "Not found");
+        return errorResponse(404, "Not found", false);
       }
 
       if ((await env.PositionsMetadata.get(BigInt(id).toString())) == null) {
-        return errorResponse(404, "Token metadata not found");
+        return errorResponse(404, "Token metadata not found", true);
       }
 
       return new Response(generateSvg(Number(id), env.STARKNET_CHAIN_ID), {
@@ -160,6 +162,6 @@ export default {
       });
     }
 
-    return errorResponse(404, "Invalid path");
+    return errorResponse(404, "Invalid path", false);
   },
 };
