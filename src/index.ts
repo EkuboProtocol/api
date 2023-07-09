@@ -1,9 +1,7 @@
 import prand, { unsafeUniformIntDistribution } from "pure-rand";
-import { Provider, constants } from "starknet";
 
 export interface Env {
-  // Example binding to KV. Learn more at https://developers.cloudflare.com/workers/runtime-apis/kv/
-  // MY_KV_NAMESPACE: KVNamespace;
+  PositionsMetadata: KVNamespace;
   //
   // Example binding to Durable Object. Learn more at https://developers.cloudflare.com/workers/runtime-apis/durable-objects/
   // MY_DURABLE_OBJECT: DurableObjectNamespace;
@@ -13,8 +11,6 @@ export interface Env {
   //
   // Example binding to a Service. Learn more at https://developers.cloudflare.com/workers/runtime-apis/service-bindings/
   // MY_SERVICE: Fetcher;
-
-  STARKNET_RPC_URL: string;
 
   STARKNET_CHAIN_ID:
     | "0x534e5f474f45524c49"
@@ -96,25 +92,12 @@ function errorResponse(code: number, message: string) {
   });
 }
 
-const PROVIDERS: {
-  [chainId in Env["STARKNET_CHAIN_ID"]]?: Provider;
-} = {};
-
 export default {
   async fetch(
     request: Request,
     env: Env,
     ctx: ExecutionContext
   ): Promise<Response> {
-    const provider =
-      PROVIDERS[env.STARKNET_CHAIN_ID] ??
-      (PROVIDERS[env.STARKNET_CHAIN_ID] = new Provider({
-        rpc: {
-          nodeUrl: env.STARKNET_RPC_URL,
-          chainId: env.STARKNET_CHAIN_ID as constants.StarknetChainId,
-        },
-      }));
-
     if (request.method === "OPTIONS") {
       return new Response(null, {
         status: 200,
@@ -141,11 +124,15 @@ export default {
         return errorResponse(404, "Not found");
       }
 
+      const attributes: NFTMetadata["attributes"] = JSON.parse(
+        (await env.PositionsMetadata.get(BigInt(id).toString())) ?? "[]"
+      );
+
       const metadata: NFTMetadata = {
         name: `Ekubo NFT #${id}`,
         description: "An NFT that represents a liquidity position in Ekubo",
         image: `${url.origin}/${id}/image.svg`,
-        attributes: [],
+        attributes,
       };
       return new Response(JSON.stringify(metadata), {
         status: 200,

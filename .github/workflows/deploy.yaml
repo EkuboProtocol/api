@@ -10,15 +10,11 @@ jobs:
     strategy:
       matrix:
         include:
-          - network_name: goerli
-            rpc_url: "https://starknet-goerli.infura.io/v3/5c6b5f24259f42b6b8ec9932b08a3816"
-            chain_id: "0x534e5f474f45524c49"
-          - network_name: goerli2
-            rpc_url: "https://starknet-goerli2.infura.io/v3/5c6b5f24259f42b6b8ec9932b08a3816"
-            chain_id: "0x534e5f474f45524c4932"
           - network_name: mainnet
-            rpc_url: "https://starknet-mainnet.infura.io/v3/5c6b5f24259f42b6b8ec9932b08a3816"
             chain_id: "0x534e5f4d41494e"
+          - network_name: goerli
+            chain_id: "0x534e5f474f45524c49"
+            kv_namespace_id: d58f8ea846e54fdca2b237f50717b60e
 
     runs-on: ubuntu-latest
     name: Deploy to Cloudflare
@@ -40,4 +36,4 @@ jobs:
         with:
           apiToken: ${{ secrets.CF_API_TOKEN }}
           command: |
-            deploy --name nft_metadata_${{ matrix.network_name }} --var STARKNET_RPC_URL:${{ matrix.rpc_url }} --var STARKNET_CHAIN_ID:${{ matrix.chain_id }}
+            deploy --name nft_metadata_${{ matrix.network_name }} --var STARKNET_CHAIN_ID:${{ matrix.chain_id }}

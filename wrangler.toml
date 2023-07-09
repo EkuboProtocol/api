@@ -1,3 +1,13 @@
 name = "nft_metadata"
 main = "src/index.ts"
 compatibility_date = "2023-03-14"
+
+[[kv_namespaces]]
+binding = "PositionsMetadata"
+preview_id = "03f3175a5c56494e83fa3746e3d5a9c8"
+id = "d58f8ea846e54fdca2b237f50717b60e"
+
+#[env.production]
+#[[kv_namespaces]]
+#binding = "PositionsMetadata"
+#id = "<PRODUCTION KV NAMESPACEID>"
