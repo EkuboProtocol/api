@@ -68,7 +68,11 @@ router
 
       ctxt.waitUntil(client.end());
 
-      return metadata;
+      return json(metadata, {
+        headers: {
+          "cache-control": "public, max-age=3600",
+        },
+      });
     }
   )
   .get<IRequest, CF>(
@@ -95,6 +99,7 @@ router
         status: 200,
         headers: {
           "content-type": "image/svg+xml",
+          "cache-control": "public, max-age=86400",
         },
       });
     }
