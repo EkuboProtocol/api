@@ -17,6 +17,13 @@ export async function createConnectedClient(env: Env): Promise<Client> {
         }
       : false,
   });
-  await client.connect();
+
+  try {
+    await client.connect();
+  } catch (error) {
+    console.error(error);
+    throw new Error("Failed to connect to database");
+  }
+
   return client;
 }
