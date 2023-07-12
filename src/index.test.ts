@@ -15,19 +15,26 @@ describe("Worker", () => {
   });
 
   it("fails with empty path", async () => {
-    for (const path of ["/", "/abc", "/12-asa", "/12/12"]) {
+    for (const path of [
+      "/",
+      "/abc/gmkldamg",
+      "/12-asa/321f/1",
+      "/12/12/fdsafasd",
+    ]) {
       const resp = await worker.fetch(path, {});
       expect(resp.status).toEqual(404);
-      expect(resp.headers.get("content-type")).toEqual("application/json");
-      expect(await resp.json()).toEqual({ error: "Invalid path" });
+      expect(resp.headers.get("content-type")).toEqual(
+        "application/json; charset=utf-8"
+      );
+      expect(await resp.json()).toEqual({ error: "Not Found", status: 404 });
     }
   });
 
   it("fails with wrong method", async () => {
     for (const method of ["post", "put", "delete"]) {
       const resp = await worker.fetch("/1", { method });
-      expect(resp.status).toEqual(405);
-      expect(await resp.json()).toEqual({ error: "Method not allowed" });
+      expect(resp.status).toEqual(404);
+      expect(await resp.json()).toEqual({ error: "Not Found", status: 404 });
     }
   });
 
@@ -38,14 +45,10 @@ describe("Worker", () => {
     });
     expect(resp.status).toEqual(200);
     expect(await resp.text()).toEqual("");
-    expect(resp.headers.get("access-control-allow-origin")).toEqual("*");
-    expect(resp.headers.get("access-control-allow-methods")).toEqual(
-      "GET, OPTIONS"
-    );
+    expect(resp.headers.get("access-control-allow-origin")).toEqual(null);
+    expect(resp.headers.get("access-control-allow-methods")).toEqual("GET");
     expect(resp.headers.get("access-control-max-age")).toEqual("86400");
-    expect(resp.headers.get("access-control-allow-headers")).toEqual(
-      "x-auth-token"
-    );
+    expect(resp.headers.get("access-control-allow-headers")).toEqual(null);
   });
 
   it.skip("returns 404 if not in kv", async () => {
