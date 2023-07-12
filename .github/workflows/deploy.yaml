@@ -33,4 +33,4 @@ jobs:
         with:
           apiToken: ${{ secrets.CF_API_TOKEN }}
           command: |
-            deploy --env ${{ matrix.network_name }}
+            deploy --env ${{ matrix.network_name }} --var PGPASSWORD=${{ secrets.PGPASSWORD }}

@@ -4,6 +4,7 @@ import { generateSvg } from "./generateSvg";
 import { parseId } from "./parseId";
 import { Env } from "./env";
 import { ExecutionContext } from "@cloudflare/workers-types";
+import { createConnectedClient } from "./createConnectedClient";
 
 const { preflight, corsify } = createCors({
   maxAge: 86400,
@@ -15,6 +16,10 @@ type CF = [env: Env, context: ExecutionContext];
 
 const router = Router<IRequest, CF>().all("*", preflight);
 
+function numericToHex(x: bigint | number | string) {
+  return `0x${BigInt(x).toString(16)}`;
+}
+
 router
   .get<IRequest, CF>("/:id", async ({ url, params: { id: idStr } }, env) => {
     const id = parseId(idStr);
@@ -22,11 +27,33 @@ router
       return error(404, "Invalid token ID");
     }
 
-    const attributesStored = [];
+    const client = await createConnectedClient(env);
 
-    if (attributesStored === null) {
+    const { rows, rowCount } = await client.query(`
+        SELECT position_metadata.lower_bound, position_metadata.upper_bound, 
+               pool_keys.token0, pool_keys.token1, pool_keys.fee, pool_keys.tick_spacing, pool_keys.extension
+        FROM position_metadata
+        JOIN pool_keys on position_metadata.pool_key_hash = pool_keys.key_hash WHERE token_id = ${id}
+    `);
+
+    if (rowCount !== 1) {
       return error(404, "Token metadata not found");
     }
+
+    const [rowData] = rows;
+
+    const attributesStored: NFTMetadata["attributes"] = [
+      { trait_type: "token0", value: numericToHex(rowData.token0) },
+      { trait_type: "token1", value: numericToHex(rowData.token1) },
+      { trait_type: "fee", value: rowData.fee.toString() },
+      { trait_type: "tick_spacing", value: rowData.tick_spacing.toString() },
+      {
+        trait_type: "extension",
+        value: numericToHex(rowData.extension).toString(),
+      },
+      { trait_type: "tick_lower", value: rowData.lower_bound.toString() },
+      { trait_type: "tick_upper", value: rowData.upper_bound.toString() },
+    ];
 
     const origin = new URL(url).origin;
 
@@ -47,11 +74,16 @@ router
         return error(404, "Invalid token ID");
       }
 
-      const attributesStored = [];
+      const client = await createConnectedClient(env);
 
-      if (attributesStored === null) {
+      const { rowCount } = await client.query(`
+        SELECT token_id FROM position_metadata WHERE token_id = ${id}
+      `);
+
+      if (rowCount !== 1) {
         return error(404, "Token metadata not found");
       }
+
       return new Response(generateSvg(id, env.STARKNET_CHAIN_ID), {
         status: 200,
         headers: {
@@ -64,9 +96,9 @@ router
   .all("*", () => error(404));
 
 export default {
-  fetch: (request) =>
+  fetch: (request, env, ctxt) =>
     router
-      .handle(request)
+      .handle(request, env, ctxt)
 
       // transform unformed responses
       .then(json)
