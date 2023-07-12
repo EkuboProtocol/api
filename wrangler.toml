@@ -20,7 +20,7 @@ PGDATABASE = "goerli"
 PGCERT = "AWS_US_EAST_1"
 
 [env.mainnet.vars]
-STARKNET_CHAIN_ID = "0x534e5f474f45524c"
+STARKNET_CHAIN_ID = "0x534e5f4d41494e"
 PGHOST = "ekubo-indexer.cpdn2seddwma.us-east-1.rds.amazonaws.com"
 PGPORT="5432"
 PGUSER="postgres"
