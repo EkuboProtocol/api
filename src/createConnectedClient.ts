@@ -1,5 +1,6 @@
 import { Env } from "./env";
 import { Client } from "pg";
+import { CERTIFICATE_AUTHORITIES } from "./certs";
 
 export async function createConnectedClient(env: Env): Promise<Client> {
   const client = new Client({
@@ -8,11 +9,12 @@ export async function createConnectedClient(env: Env): Promise<Client> {
     host: env.PGHOST,
     port: Number(env.PGPORT),
     database: env.PGDATABASE,
-    ssl: env.PGCERT
-      ? {
-          ca: env.PGCERT,
-        }
-      : false,
+    ssl:
+      env.PGCERT && CERTIFICATE_AUTHORITIES[env.PGCERT]
+        ? {
+            ca: CERTIFICATE_AUTHORITIES[env.PGCERT],
+          }
+        : false,
   });
   await client.connect();
   return client;
