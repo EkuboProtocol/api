@@ -5,6 +5,9 @@ on:
     branches:
       - main
 
+
+concurrency: deploy
+
 jobs:
   deploy:
     strategy:
