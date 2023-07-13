@@ -21,63 +21,58 @@ function numericToHex(x: bigint | number | string) {
 }
 
 router
-  .get<IRequest, CF>(
-    "/:id",
-    async ({ url, params: { id: idStr } }, env, ctxt) => {
-      const id = parseId(idStr);
-      if (id === null) {
-        return error(404, "Invalid token ID");
-      }
+  .get<IRequest, CF>("/:id", async ({ url, params: { id: idStr } }, env) => {
+    const id = parseId(idStr);
+    if (id === null) {
+      return error(404, "Invalid token ID");
+    }
 
-      const client = await createConnectedClient(env);
+    const client = await createConnectedClient(env);
 
-      const { rows, rowCount } = await client.query(`
+    const { rows, rowCount } = await client.query(`
         SELECT position_metadata.lower_bound, position_metadata.upper_bound, 
                pool_keys.token0, pool_keys.token1, pool_keys.fee, pool_keys.tick_spacing, pool_keys.extension
         FROM position_metadata
         JOIN pool_keys on position_metadata.pool_key_hash = pool_keys.key_hash WHERE token_id = ${id}
     `);
 
-      if (rowCount !== 1) {
-        return error(404, "Token metadata not found");
-      }
-
-      const [rowData] = rows;
-
-      const attributesStored: NFTMetadata["attributes"] = [
-        { trait_type: "token0", value: numericToHex(rowData.token0) },
-        { trait_type: "token1", value: numericToHex(rowData.token1) },
-        { trait_type: "fee", value: rowData.fee.toString() },
-        { trait_type: "tick_spacing", value: rowData.tick_spacing.toString() },
-        {
-          trait_type: "extension",
-          value: numericToHex(rowData.extension).toString(),
-        },
-        { trait_type: "tick_lower", value: rowData.lower_bound.toString() },
-        { trait_type: "tick_upper", value: rowData.upper_bound.toString() },
-      ];
-
-      const origin = new URL(url).origin;
-
-      const metadata: NFTMetadata = {
-        name: `Ekubo NFT #${id}`,
-        description: "An NFT that represents a liquidity position in Ekubo",
-        image: `${origin}/${id}/image.svg`,
-        attributes: attributesStored,
-      };
-
-      ctxt.waitUntil(client.end());
-
-      return json(metadata, {
-        headers: {
-          "cache-control": "public, max-age=3600",
-        },
-      });
+    if (rowCount !== 1) {
+      return error(404, "Token metadata not found");
     }
-  )
+
+    const [rowData] = rows;
+
+    const attributesStored: NFTMetadata["attributes"] = [
+      { trait_type: "token0", value: numericToHex(rowData.token0) },
+      { trait_type: "token1", value: numericToHex(rowData.token1) },
+      { trait_type: "fee", value: rowData.fee.toString() },
+      { trait_type: "tick_spacing", value: rowData.tick_spacing.toString() },
+      {
+        trait_type: "extension",
+        value: numericToHex(rowData.extension).toString(),
+      },
+      { trait_type: "tick_lower", value: rowData.lower_bound.toString() },
+      { trait_type: "tick_upper", value: rowData.upper_bound.toString() },
+    ];
+
+    const origin = new URL(url).origin;
+
+    const metadata: NFTMetadata = {
+      name: `Ekubo NFT #${id}`,
+      description: "An NFT that represents a liquidity position in Ekubo",
+      image: `${origin}/${id}/image.svg`,
+      attributes: attributesStored,
+    };
+
+    return json(metadata, {
+      headers: {
+        "cache-control": "public, max-age=3600",
+      },
+    });
+  })
   .get<IRequest, CF>(
     "/:id/image.svg",
-    async ({ params: { id: idStr } }, env, ctxt) => {
+    async ({ params: { id: idStr } }, env) => {
       const id = parseId(idStr);
       if (id === null) {
         return error(404, "Invalid token ID");
@@ -93,8 +88,6 @@ router
         return error(404, "Token metadata not found");
       }
 
-      ctxt.waitUntil(client.end());
-
       return new Response(generateSvg(id, env.STARKNET_CHAIN_ID), {
         status: 200,
         headers: {
@@ -104,6 +97,61 @@ router
       });
     }
   )
+  .get<IRequest, CF>(
+    "/pool/:key_hash/liquidity",
+    async ({ params: { key_hash } }, env) => {
+      let pool_key_hash: bigint;
+      try {
+        pool_key_hash = BigInt(key_hash);
+      } catch (e) {
+        return error(404, "Invalid pool key hash");
+      }
+
+      const client = await createConnectedClient(env);
+
+      const { rows } = await client.query({
+        name: `get-liquidity-graph`,
+        text: `
+          WITH lower AS (SELECT lower_bound as       tick,
+                                SUM(liquidity_delta) net_liquidity_delta
+                         FROM position_updates
+                         WHERE pool_key_hash = $1
+                         GROUP BY lower_bound, pool_key_hash),
+
+               upper AS (SELECT upper_bound as       tick,
+                                SUM(liquidity_delta) net_liquidity_delta
+                         FROM position_updates
+                         WHERE pool_key_hash = $1
+                         GROUP BY upper_bound, pool_key_hash)
+
+          SELECT COALESCE(lower.tick, upper.tick)                                                AS tick,
+                 COALESCE(lower.net_liquidity_delta, 0) -
+                 COALESCE(upper.net_liquidity_delta, 0)                                          as net_liquidity_delta_diff
+          FROM lower
+                   FULL JOIN upper ON lower.tick = upper.tick
+          WHERE COALESCE(lower.net_liquidity_delta, 0) - COALESCE(upper.net_liquidity_delta, 0) != 0
+          ORDER BY tick ASC;
+      `,
+        values: [pool_key_hash],
+      });
+
+      return json(
+        {
+          data: rows,
+        },
+        {
+          headers: {
+            "cache-control": "public, max-age=600",
+          },
+        }
+      );
+    }
+  )
+  .get<IRequest, CF>("/overview", async ({}, env) => {
+    const client = await createConnectedClient(env);
+
+    return error(501, "Not implemented");
+  })
   // catch missed routes
   .all("*", () => error(404));
 
