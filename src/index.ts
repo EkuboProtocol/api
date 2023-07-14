@@ -4,7 +4,7 @@ import { generateSvg } from "./generateSvg";
 import { parseId } from "./parseId";
 import { Env } from "./env";
 import { ExecutionContext } from "@cloudflare/workers-types";
-import { createConnectedClient } from "./createConnectedClient";
+import { createQueries } from "./createQueries";
 
 const { preflight, corsify } = createCors({
   maxAge: 86400,
@@ -27,32 +27,30 @@ router
       return error(404, "Invalid token ID");
     }
 
-    const client = await createConnectedClient(env);
+    const queries = await createQueries(env);
 
-    const { rows, rowCount } = await client.query(`
-        SELECT position_metadata.lower_bound, position_metadata.upper_bound, 
-               pool_keys.token0, pool_keys.token1, pool_keys.fee, pool_keys.tick_spacing, pool_keys.extension
-        FROM position_metadata
-        JOIN pool_keys on position_metadata.pool_key_hash = pool_keys.key_hash WHERE token_id = ${id}
-    `);
-
-    if (rowCount !== 1) {
-      return error(404, "Token metadata not found");
-    }
-
-    const [rowData] = rows;
+    const positionMetadata = await queries.getTokenMetadata(id);
 
     const attributesStored: NFTMetadata["attributes"] = [
-      { trait_type: "token0", value: numericToHex(rowData.token0) },
-      { trait_type: "token1", value: numericToHex(rowData.token1) },
-      { trait_type: "fee", value: rowData.fee.toString() },
-      { trait_type: "tick_spacing", value: rowData.tick_spacing.toString() },
+      { trait_type: "token0", value: numericToHex(positionMetadata.token0) },
+      { trait_type: "token1", value: numericToHex(positionMetadata.token1) },
+      { trait_type: "fee", value: positionMetadata.fee.toString() },
+      {
+        trait_type: "tick_spacing",
+        value: positionMetadata.tick_spacing.toString(),
+      },
       {
         trait_type: "extension",
-        value: numericToHex(rowData.extension).toString(),
+        value: numericToHex(positionMetadata.extension).toString(),
       },
-      { trait_type: "tick_lower", value: rowData.lower_bound.toString() },
-      { trait_type: "tick_upper", value: rowData.upper_bound.toString() },
+      {
+        trait_type: "tick_lower",
+        value: positionMetadata.lower_bound.toString(),
+      },
+      {
+        trait_type: "tick_upper",
+        value: positionMetadata.upper_bound.toString(),
+      },
     ];
 
     const origin = new URL(url).origin;
@@ -78,13 +76,11 @@ router
         return error(404, "Invalid token ID");
       }
 
-      const client = await createConnectedClient(env);
+      const queries = await createQueries(env);
 
-      const { rowCount } = await client.query(`
-        SELECT token_id FROM position_metadata WHERE token_id = ${id}
-      `);
+      const positionMetadata = await queries.getTokenMetadata(id);
 
-      if (rowCount !== 1) {
+      if (positionMetadata === null) {
         return error(404, "Token metadata not found");
       }
 
@@ -107,33 +103,9 @@ router
         return error(404, "Invalid pool key hash");
       }
 
-      const client = await createConnectedClient(env);
+      const client = await createQueries(env);
 
-      const { rows } = await client.query({
-        name: `get-liquidity-graph`,
-        text: `
-          WITH lower AS (SELECT lower_bound as       tick,
-                                SUM(liquidity_delta) net_liquidity_delta
-                         FROM position_updates
-                         WHERE pool_key_hash = $1
-                         GROUP BY lower_bound, pool_key_hash),
-
-               upper AS (SELECT upper_bound as       tick,
-                                SUM(liquidity_delta) net_liquidity_delta
-                         FROM position_updates
-                         WHERE pool_key_hash = $1
-                         GROUP BY upper_bound, pool_key_hash)
-
-          SELECT COALESCE(lower.tick, upper.tick)                                                AS tick,
-                 COALESCE(lower.net_liquidity_delta, 0) -
-                 COALESCE(upper.net_liquidity_delta, 0)                                          as net_liquidity_delta_diff
-          FROM lower
-                   FULL JOIN upper ON lower.tick = upper.tick
-          WHERE COALESCE(lower.net_liquidity_delta, 0) - COALESCE(upper.net_liquidity_delta, 0) != 0
-          ORDER BY tick ASC;
-      `,
-        values: [pool_key_hash],
-      });
+      const { rows } = await client.getLiquidityGraph(pool_key_hash);
 
       return json(
         {
@@ -148,9 +120,20 @@ router
     }
   )
   .get<IRequest, CF>("/overview", async ({}, env) => {
-    const client = await createConnectedClient(env);
+    const queries = await createQueries(env);
 
-    return error(501, "Not implemented");
+    const { rows } = await queries.getTvlByToken();
+
+    return json(
+      {
+        tvl: rows,
+      },
+      {
+        headers: {
+          "cache-control": "public, max-age=600",
+        },
+      }
+    );
   })
   // catch missed routes
   .all("*", () => error(404));

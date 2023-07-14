@@ -1,8 +1,9 @@
 import { Env } from "./env";
 import { Client } from "pg";
 import { CERTIFICATE_AUTHORITIES } from "./certs";
+import { Queries } from "./queries";
 
-export async function createConnectedClient(env: Env): Promise<Client> {
+export async function createQueries(env: Env) {
   const ca = env.PGCERT ? CERTIFICATE_AUTHORITIES[env.PGCERT] : null;
 
   const client = new Client({
@@ -25,5 +26,5 @@ export async function createConnectedClient(env: Env): Promise<Client> {
     throw new Error("Failed to connect to database");
   }
 
-  return client;
+  return new Queries(client);
 }
