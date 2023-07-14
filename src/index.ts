@@ -21,6 +21,52 @@ function numericToHex(x: bigint | number | string) {
 }
 
 router
+  .get<IRequest, CF>("/overview", async ({}, env) => {
+    const queries = await createQueries(env);
+
+    const [{ rows: tvlByToken }, { rows: volumeByToken }] = await Promise.all([
+      queries.getTvlByToken(),
+      queries.getVolumeByToken(),
+    ]);
+
+    return json(
+      {
+        tvlByToken,
+        volumeByToken,
+      },
+      {
+        headers: {
+          "cache-control": "public, max-age=600",
+        },
+      }
+    );
+  })
+  .get<IRequest, CF>(
+    "/pool/:key_hash/liquidity",
+    async ({ params: { key_hash } }, env) => {
+      let pool_key_hash: bigint;
+      try {
+        pool_key_hash = BigInt(key_hash);
+      } catch (e) {
+        return error(404, "Invalid pool key hash");
+      }
+
+      const client = await createQueries(env);
+
+      const { rows } = await client.getLiquidityGraph(pool_key_hash);
+
+      return json(
+        {
+          data: rows,
+        },
+        {
+          headers: {
+            "cache-control": "public, max-age=600",
+          },
+        }
+      );
+    }
+  )
   .get<IRequest, CF>("/:id", async ({ url, params: { id: idStr } }, env) => {
     const id = parseId(idStr);
     if (id === null) {
@@ -93,48 +139,6 @@ router
       });
     }
   )
-  .get<IRequest, CF>(
-    "/pool/:key_hash/liquidity",
-    async ({ params: { key_hash } }, env) => {
-      let pool_key_hash: bigint;
-      try {
-        pool_key_hash = BigInt(key_hash);
-      } catch (e) {
-        return error(404, "Invalid pool key hash");
-      }
-
-      const client = await createQueries(env);
-
-      const { rows } = await client.getLiquidityGraph(pool_key_hash);
-
-      return json(
-        {
-          data: rows,
-        },
-        {
-          headers: {
-            "cache-control": "public, max-age=600",
-          },
-        }
-      );
-    }
-  )
-  .get<IRequest, CF>("/overview", async ({}, env) => {
-    const queries = await createQueries(env);
-
-    const { rows } = await queries.getTvlByToken();
-
-    return json(
-      {
-        tvl: rows,
-      },
-      {
-        headers: {
-          "cache-control": "public, max-age=600",
-        },
-      }
-    );
-  })
   // catch missed routes
   .all("*", () => error(404));
 

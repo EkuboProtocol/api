@@ -67,6 +67,29 @@ export class Queries {
     });
   }
 
+  public getVolumeByToken() {
+    return this.client.query<{ token: string; volume: string }>({
+      name: `get-volume-by-token`,
+      text: `
+                WITH token_deltas AS (SELECT pool_keys.token0  as token,
+                                             ABS(swaps.delta0) as delta
+                                      FROM swaps
+                                               INNER JOIN
+                                           pool_keys ON pool_keys.key_hash = swaps.pool_key_hash
+                                      UNION
+                                      SELECT pool_keys.token1  as token,
+                                             ABS(swaps.delta1) as delta
+                                      FROM swaps
+                                               INNER JOIN
+                                           pool_keys ON pool_keys.key_hash = swaps.pool_key_hash)
+                SELECT token,
+                       SUM(delta) as volume
+                FROM token_deltas
+                GROUP BY token_deltas.token
+            `,
+    });
+  }
+
   public getTvlByToken() {
     return this.client.query<{ token: string; balance: string }>({
       name: `get-tvl-by-token`,
