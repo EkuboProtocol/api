@@ -17,15 +17,15 @@ export class Queries {
       tick_spacing: string;
       extension: string;
     }>(`
-            SELECT position_metadata.lower_bound,
-                   position_metadata.upper_bound,
+            SELECT position_minted.lower_bound,
+                   position_minted.upper_bound,
                    pool_keys.token0,
                    pool_keys.token1,
                    pool_keys.fee,
                    pool_keys.tick_spacing,
                    pool_keys.extension
-            FROM position_metadata
-                     JOIN pool_keys on position_metadata.pool_key_hash = pool_keys.key_hash
+            FROM position_minted
+                     JOIN pool_keys on position_minted.pool_key_hash = pool_keys.key_hash
             WHERE token_id = ${id}
         `);
 
