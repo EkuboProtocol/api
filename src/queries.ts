@@ -36,7 +36,46 @@ export class Queries {
     return rows[0];
   }
 
-  public getLiquidityGraph(pool_key_hash: bigint) {
+  public getPairLiquidityGraph({
+    token0,
+    token1,
+  }: {
+    token0: bigint;
+    token1: bigint;
+  }) {
+    return this.client.query<{
+      tick: string;
+      net_liquidity_delta_diff: string;
+    }>({
+      name: `get-liquidity-graph-pair`,
+      text: `
+          WITH pool_key_hashes AS (SELECT key_hash
+                                   FROM pool_keys
+                                   WHERE (token0 = $1 AND token1 = $2)),
+               lower AS (SELECT lower_bound as       tick,
+                                SUM(liquidity_delta) net_liquidity_delta
+                         FROM position_updates
+                         WHERE pool_key_hash in (SELECT key_hash FROM pool_key_hashes)
+                         GROUP BY lower_bound, pool_key_hash),
+
+               upper AS (SELECT upper_bound as       tick,
+                                SUM(liquidity_delta) net_liquidity_delta
+                         FROM position_updates
+                         WHERE pool_key_hash in (SELECT key_hash FROM pool_key_hashes)
+                         GROUP BY upper_bound, pool_key_hash)
+
+          SELECT COALESCE(lower.tick, upper.tick)       AS tick,
+                 COALESCE(lower.net_liquidity_delta, 0) -
+                 COALESCE(upper.net_liquidity_delta, 0) as net_liquidity_delta_diff
+          FROM lower
+                   FULL JOIN upper ON lower.tick = upper.tick
+          WHERE COALESCE(lower.net_liquidity_delta, 0) - COALESCE(upper.net_liquidity_delta, 0) != 0
+          ORDER BY tick ASC;
+      `,
+      values: [token0, token1],
+    });
+  }
+  public getPoolLiquidityGraph(pool_key_hash: bigint) {
     return this.client.query<{
       tick: string;
       net_liquidity_delta_diff: string;

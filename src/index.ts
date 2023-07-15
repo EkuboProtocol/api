@@ -53,7 +53,44 @@ router
 
       const client = await createQueries(env);
 
-      const { rows } = await client.getLiquidityGraph(pool_key_hash);
+      const { rows } = await client.getPoolLiquidityGraph(pool_key_hash);
+
+      return json(
+        {
+          data: rows,
+        },
+        {
+          headers: {
+            "cache-control": "public, max-age=600",
+          },
+        }
+      );
+    }
+  )
+  .get<IRequest, CF>(
+    "/tokens/:tokenA/:tokenB/liquidity",
+    async ({ params: { tokenAStr, tokenBStr } }, env) => {
+      let tokenA: bigint, tokenB: bigint;
+      try {
+        tokenA = BigInt(tokenAStr);
+        tokenB = BigInt(tokenBStr);
+      } catch (e) {
+        return error(404, "Invalid tokens");
+      }
+
+      const client = await createQueries(env);
+
+      const [token0, token1] =
+        tokenA < tokenB ? [tokenA, tokenB] : [tokenB, tokenA];
+
+      if (token0 === 0n) {
+        return error(400, "Invalid tokens");
+      }
+
+      const { rows } = await client.getPairLiquidityGraph({
+        token0: tokenA,
+        token1: tokenB,
+      });
 
       return json(
         {
