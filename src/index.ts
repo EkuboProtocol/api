@@ -69,7 +69,7 @@ router
   )
   .get<IRequest, CF>(
     "/tokens/:tokenA/:tokenB/liquidity",
-    async ({ params: { tokenAStr, tokenBStr } }, env) => {
+    async ({ params: { tokenA: tokenAStr, tokenB: tokenBStr } }, env) => {
       let tokenA: bigint, tokenB: bigint;
       try {
         tokenA = BigInt(tokenAStr);
