@@ -31,11 +31,13 @@ router
       { rows: volumeByToken },
       { rows: tvlDeltaByTokenByDate },
       { rows: volumeByTokenByDate },
+      { rows: topPools },
     ] = await Promise.all([
       queries.getTvlByToken(),
       queries.getVolumeByToken(),
       queries.getTvlDeltaByTokenByDate(thirtyDaysAgo),
       queries.getVolumeByTokenByDate(thirtyDaysAgo),
+      queries.getTopPools(),
     ]);
 
     return json(
@@ -44,6 +46,7 @@ router
         volumeByToken,
         tvlDeltaByTokenByDate,
         volumeByTokenByDate,
+        topPools,
       },
       {
         headers: {

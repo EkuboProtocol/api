@@ -253,4 +253,23 @@ export class Queries {
       values: [after],
     });
   }
+
+  public async getTopPools() {
+    return this.client.query<{ token: string; volume: string }>({
+      name: `get-top-pools`,
+      text: `
+          SELECT token0, token1, fee, tick_spacing, extension
+          FROM pool_keys
+          WHERE key_hash IN
+                (SELECT pool_key_hash
+                 FROM position_updates
+                          JOIN blocks ON blocks.number = position_updates.block_number
+                 WHERE blocks.timestamp >= $1
+                 GROUP BY pool_key_hash
+                 ORDER BY count(*) DESC
+                 LIMIT 10)
+      `,
+      values: [new Date(Date.now() - 1000 * 60 * 60 * 24 * 7)],
+    });
+  }
 }
