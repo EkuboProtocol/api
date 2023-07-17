@@ -42,6 +42,7 @@ router
 
     return json(
       {
+        timestamp: Date.now(),
         tvlByToken,
         volumeByToken,
         tvlDeltaByTokenByDate,
