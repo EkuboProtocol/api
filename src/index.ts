@@ -24,15 +24,26 @@ router
   .get<IRequest, CF>("/overview", async ({}, env) => {
     const queries = await createQueries(env);
 
-    const [{ rows: tvlByToken }, { rows: volumeByToken }] = await Promise.all([
+    const thirtyDaysAgo = new Date(Date.now() - 1000 * 60 * 60 * 24 * 30);
+
+    const [
+      { rows: tvlByToken },
+      { rows: volumeByToken },
+      { rows: tvlDeltaByTokenByDate },
+      { rows: volumeByTokenByDate },
+    ] = await Promise.all([
       queries.getTvlByToken(),
       queries.getVolumeByToken(),
+      queries.getTvlDeltaByTokenByDate(thirtyDaysAgo),
+      queries.getVolumeByTokenByDate(thirtyDaysAgo),
     ]);
 
     return json(
       {
         tvlByToken,
         volumeByToken,
+        tvlDeltaByTokenByDate,
+        volumeByTokenByDate,
       },
       {
         headers: {

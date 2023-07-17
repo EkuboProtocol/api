@@ -164,4 +164,93 @@ export class Queries {
             `,
     });
   }
+
+  public getTvlDeltaByTokenByDate(after: Date) {
+    return this.client.query<{ token: string; balance: string }>({
+      name: `get-tvl-by-token-by-day`,
+      text: `
+        WITH token_deltas AS (SELECT pool_keys.token0        as token,
+                                     position_updates.delta0 as delta,
+                                     DATE(blocks.timestamp)  as date
+                              FROM position_updates
+                                     INNER JOIN
+                                   pool_keys ON pool_keys.key_hash = position_updates.pool_key_hash
+                                     INNER JOIN blocks
+                                                ON position_updates.block_number = blocks.number
+                              WHERE blocks.timestamp >= $1
+                              UNION
+                              SELECT pool_keys.token1        as token,
+                                     position_updates.delta1 as delta,
+                                     DATE(blocks.timestamp)  as date
+                              FROM position_updates
+                                     INNER JOIN
+                                   pool_keys ON pool_keys.key_hash = position_updates.pool_key_hash
+                                     INNER JOIN blocks
+                                                ON position_updates.block_number = blocks.number
+                              WHERE blocks.timestamp >= $1
+                              UNION
+                              SELECT pool_keys.token0       as token,
+                                     swaps.delta0           as delta,
+                                     DATE(blocks.timestamp) as date
+                              FROM swaps
+                                     INNER JOIN
+                                   pool_keys ON pool_keys.key_hash = swaps.pool_key_hash
+                                     INNER JOIN blocks
+                                                ON swaps.block_number = blocks.number
+                              WHERE blocks.timestamp >= $1
+                              UNION
+                              SELECT pool_keys.token1       as token,
+                                     swaps.delta1           as delta,
+                                     DATE(blocks.timestamp) as date
+                              FROM swaps
+                                     INNER JOIN
+                                   pool_keys ON pool_keys.key_hash = swaps.pool_key_hash
+                                     INNER JOIN blocks
+                                                ON swaps.block_number = blocks.number
+                              WHERE blocks.timestamp >= $1)
+
+        SELECT token,
+               date,
+               SUM(delta) as delta
+        FROM token_deltas
+        GROUP BY token, date
+        ORDER BY token, date;
+      `,
+      values: [after],
+    });
+  }
+
+  public async getVolumeByTokenByDate(after: Date) {
+    return this.client.query<{ token: string; volume: string }>({
+      name: `get-volume-by-token-by-date`,
+      text: `
+          WITH token_deltas AS (SELECT pool_keys.token0       as token,
+                                       DATE(blocks.timestamp) as date,
+                                       ABS(swaps.delta0)      as delta
+                                FROM swaps
+                                         INNER JOIN
+                                     pool_keys ON pool_keys.key_hash = swaps.pool_key_hash
+                                         INNER JOIN blocks
+                                                    ON swaps.block_number = blocks.number
+                                WHERE blocks.timestamp >= $1
+                                UNION
+                                SELECT pool_keys.token1       as token,
+                                       DATE(blocks.timestamp) as date,
+                                       ABS(swaps.delta1)      as delta
+                                FROM swaps
+                                         INNER JOIN
+                                     pool_keys ON pool_keys.key_hash = swaps.pool_key_hash
+                                         INNER JOIN blocks on blocks.number = swaps.block_number
+                                WHERE blocks.timestamp >= $1)
+
+          SELECT token,
+                 date,
+                 SUM(delta) as volume
+          FROM token_deltas
+          GROUP BY token, date
+          ORDER BY token, date;
+      `,
+      values: [after],
+    });
+  }
 }
