@@ -133,35 +133,56 @@ export class Queries {
     return this.client.query<{ token: string; balance: string }>({
       name: `get-tvl-by-token`,
       text: `
-                WITH token_deltas AS (SELECT pool_keys.token0        as token,
-                                             position_updates.delta0 as delta
-                                      FROM position_updates
-                                               INNER JOIN
-                                           pool_keys ON pool_keys.key_hash = position_updates.pool_key_hash
-                                      UNION ALL
-                                      SELECT pool_keys.token1        as token,
-                                             position_updates.delta1 as delta
-                                      FROM position_updates
-                                               INNER JOIN
-                                           pool_keys ON pool_keys.key_hash = position_updates.pool_key_hash
+          WITH token_deltas AS (SELECT pool_keys.token0        as token,
+                                       position_updates.delta0 as delta
+                                FROM position_updates
+                                         INNER JOIN
+                                     pool_keys ON pool_keys.key_hash = position_updates.pool_key_hash
 
-                                      UNION ALL
-                                      SELECT pool_keys.token0 as token,
-                                             swaps.delta0     as delta
-                                      FROM swaps
-                                               INNER JOIN
-                                           pool_keys ON pool_keys.key_hash = swaps.pool_key_hash
-                                      UNION ALL
-                                      SELECT pool_keys.token1 as token,
-                                             swaps.delta1     as delta
-                                      FROM swaps
-                                               INNER JOIN
-                                           pool_keys ON pool_keys.key_hash = swaps.pool_key_hash)
-                SELECT token,
-                       SUM(delta) as balance
-                FROM token_deltas
-                GROUP BY token_deltas.token;
-            `,
+                                UNION ALL
+
+                                SELECT pool_keys.token1        as token,
+                                       position_updates.delta1 as delta
+                                FROM position_updates
+                                         INNER JOIN
+                                     pool_keys ON pool_keys.key_hash = position_updates.pool_key_hash
+
+                                UNION ALL
+
+                                SELECT pool_keys.token0 as token,
+                                       swaps.delta0     as delta
+                                FROM swaps
+                                         INNER JOIN
+                                     pool_keys ON pool_keys.key_hash = swaps.pool_key_hash
+
+                                UNION ALL
+
+                                SELECT pool_keys.token1 as token,
+                                       swaps.delta1     as delta
+                                FROM swaps
+                                         INNER JOIN
+                                     pool_keys ON pool_keys.key_hash = swaps.pool_key_hash
+
+                                UNION ALL
+
+                                SELECT pool_keys.token0               as token,
+                                       position_fees_collected.delta0 as delta
+                                FROM position_fees_collected
+                                         INNER JOIN
+                                     pool_keys ON pool_keys.key_hash = position_fees_collected.pool_key_hash
+
+                                UNION ALL
+
+                                SELECT pool_keys.token1               as token,
+                                       position_fees_collected.delta1 as delta
+                                FROM position_fees_collected
+                                         INNER JOIN
+                                     pool_keys ON pool_keys.key_hash = position_fees_collected.pool_key_hash)
+          SELECT token,
+                 SUM(delta) as balance
+          FROM token_deltas
+          GROUP BY token_deltas.token;
+      `,
     });
   }
 
@@ -285,16 +306,48 @@ export class Queries {
                                               ON swaps.block_number = blocks.number
                           WHERE blocks.timestamp >= $2
                             AND swaps.pool_key_hash IN (SELECT pool_key_hash from most_active_pools)
-                          GROUP BY swaps.pool_key_hash)
+                          GROUP BY swaps.pool_key_hash),
+               tvl_impact_events AS (SELECT pool_key_hash,
+                                            SUM(delta0) AS delta0,
+                                            SUM(delta1) AS delta1
+                                     FROM swaps
+                                     WHERE pool_key_hash IN (SELECT pool_key_hash from most_active_pools)
+                                     GROUP BY pool_key_hash
+
+                                     UNION ALL
+
+                                     SELECT pool_key_hash,
+                                            SUM(delta0) AS delta0,
+                                            SUM(delta1) AS delta1
+                                     FROM position_updates
+                                     WHERE pool_key_hash IN (SELECT pool_key_hash from most_active_pools)
+                                     GROUP BY pool_key_hash
+
+                                     UNION ALL
+
+                                     SELECT pool_key_hash,
+                                            SUM(delta0) AS delta0,
+                                            SUM(delta1) AS delta1
+                                     FROM position_fees_collected
+                                     WHERE pool_key_hash IN (SELECT pool_key_hash from most_active_pools)
+                                     GROUP BY pool_key_hash),
+               tvl_total AS (SELECT pool_key_hash,
+                                    SUM(delta0) as tvl0,
+                                    SUM(delta1) as tvl1
+                             FROM tvl_impact_events
+                             GROUP BY pool_key_hash)
           SELECT most_active_pools.token0,
                  most_active_pools.token1,
                  most_active_pools.fee,
                  most_active_pools.tick_spacing,
                  most_active_pools.extension,
                  COALESCE(volume.volume0, 0) as volume0_24h,
-                 COALESCE(volume.volume1, 0) as volume1_24h
+                 COALESCE(volume.volume1, 0) as volume1_24h,
+                 COALESCE(tvl_total.tvl0, 0) as tvl0,
+                 COALESCE(tvl_total.tvl1, 0) as tvl1
           FROM most_active_pools
-                   LEFT JOIN volume ON volume.pool_key_hash = most_active_pools.key_hash;
+                   LEFT JOIN volume ON volume.pool_key_hash = most_active_pools.key_hash
+                   LEFT JOIN tvl_total ON tvl_total.pool_key_hash = most_active_pools.key_hash;
       `,
       values: [
         new Date(Date.now() - 1000 * 60 * 60 * 24 * 7),
