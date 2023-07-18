@@ -115,7 +115,7 @@ export class Queries {
                                       FROM swaps
                                                INNER JOIN
                                            pool_keys ON pool_keys.key_hash = swaps.pool_key_hash
-                                      UNION
+                                      UNION ALL
                                       SELECT pool_keys.token1  as token,
                                              ABS(swaps.delta1) as delta
                                       FROM swaps
@@ -138,20 +138,20 @@ export class Queries {
                                       FROM position_updates
                                                INNER JOIN
                                            pool_keys ON pool_keys.key_hash = position_updates.pool_key_hash
-                                      UNION
+                                      UNION ALL
                                       SELECT pool_keys.token1        as token,
                                              position_updates.delta1 as delta
                                       FROM position_updates
                                                INNER JOIN
                                            pool_keys ON pool_keys.key_hash = position_updates.pool_key_hash
 
-                                      UNION
+                                      UNION ALL
                                       SELECT pool_keys.token0 as token,
                                              swaps.delta0     as delta
                                       FROM swaps
                                                INNER JOIN
                                            pool_keys ON pool_keys.key_hash = swaps.pool_key_hash
-                                      UNION
+                                      UNION ALL
                                       SELECT pool_keys.token1 as token,
                                              swaps.delta1     as delta
                                       FROM swaps
@@ -178,7 +178,7 @@ export class Queries {
                                      INNER JOIN blocks
                                                 ON position_updates.block_number = blocks.number
                               WHERE blocks.timestamp >= $1
-                              UNION
+                              UNION ALL
                               SELECT pool_keys.token1        as token,
                                      position_updates.delta1 as delta,
                                      DATE(blocks.timestamp)  as date
@@ -188,7 +188,7 @@ export class Queries {
                                      INNER JOIN blocks
                                                 ON position_updates.block_number = blocks.number
                               WHERE blocks.timestamp >= $1
-                              UNION
+                              UNION ALL
                               SELECT pool_keys.token0       as token,
                                      swaps.delta0           as delta,
                                      DATE(blocks.timestamp) as date
@@ -198,7 +198,7 @@ export class Queries {
                                      INNER JOIN blocks
                                                 ON swaps.block_number = blocks.number
                               WHERE blocks.timestamp >= $1
-                              UNION
+                              UNION ALL
                               SELECT pool_keys.token1       as token,
                                      swaps.delta1           as delta,
                                      DATE(blocks.timestamp) as date
@@ -233,7 +233,7 @@ export class Queries {
                                          INNER JOIN blocks
                                                     ON swaps.block_number = blocks.number
                                 WHERE blocks.timestamp >= $1
-                                UNION
+                                UNION ALL
                                 SELECT pool_keys.token1       as token,
                                        DATE(blocks.timestamp) as date,
                                        ABS(swaps.delta1)      as delta
