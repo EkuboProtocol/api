@@ -228,6 +228,26 @@ export class Queries {
                                    pool_keys ON pool_keys.key_hash = swaps.pool_key_hash
                                      INNER JOIN blocks
                                                 ON swaps.block_number = blocks.number
+                              WHERE blocks.timestamp >= $1
+                              UNION ALL
+                              SELECT pool_keys.token0               as token,
+                                     position_fees_collected.delta0 as delta,
+                                     DATE(blocks.timestamp)         as date
+                              FROM position_fees_collected
+                                     INNER JOIN
+                                   pool_keys ON pool_keys.key_hash = position_fees_collected.pool_key_hash
+                                     INNER JOIN blocks
+                                                ON position_fees_collected.block_number = blocks.number
+                              WHERE blocks.timestamp >= $1
+                              UNION ALL
+                              SELECT pool_keys.token1               as token,
+                                     position_fees_collected.delta1 as delta,
+                                     DATE(blocks.timestamp)         as date
+                              FROM position_fees_collected
+                                     INNER JOIN
+                                   pool_keys ON pool_keys.key_hash = position_fees_collected.pool_key_hash
+                                     INNER JOIN blocks
+                                                ON position_fees_collected.block_number = blocks.number
                               WHERE blocks.timestamp >= $1)
 
         SELECT token,
