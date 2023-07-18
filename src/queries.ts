@@ -258,18 +258,48 @@ export class Queries {
     return this.client.query<{ token: string; volume: string }>({
       name: `get-top-pools`,
       text: `
-          SELECT token0, token1, fee, tick_spacing, extension
-          FROM pool_keys
-          WHERE key_hash IN
-                (SELECT pool_key_hash
-                 FROM position_updates
-                          JOIN blocks ON blocks.number = position_updates.block_number
-                 WHERE blocks.timestamp >= $1
-                 GROUP BY pool_key_hash
-                 ORDER BY count(*) DESC
-                 LIMIT 10)
+          WITH countable_events AS (SELECT pool_key_hash
+                                    FROM position_updates
+                                             JOIN blocks ON blocks.number = position_updates.block_number
+                                    WHERE blocks.timestamp >= $1
+                                    UNION ALL
+                                    SELECT pool_key_hash
+                                    FROM swaps
+                                             JOIN blocks ON blocks.number = swaps.block_number
+                                    WHERE blocks.timestamp >= $1),
+               most_eventful_pools AS (SELECT pool_key_hash
+                                       FROM countable_events
+                                       GROUP BY pool_key_hash
+                                       ORDER BY count(*) DESC
+                                       LIMIT 10),
+               most_active_pools AS (SELECT key_hash, token0, token1, fee, tick_spacing, extension
+                                     FROM pool_keys
+                                     WHERE key_hash IN
+                                           (SELECT pool_key_hash
+                                            FROM most_eventful_pools)),
+               volume AS (SELECT swaps.pool_key_hash,
+                                 SUM(ABS(swaps.delta0)) as volume0,
+                                 SUM(ABS(swaps.delta1)) as volume1
+                          FROM swaps
+                                   INNER JOIN blocks
+                                              ON swaps.block_number = blocks.number
+                          WHERE blocks.timestamp >= $2
+                            AND swaps.pool_key_hash IN (SELECT pool_key_hash from most_active_pools)
+                          GROUP BY swaps.pool_key_hash)
+          SELECT most_active_pools.token0,
+                 most_active_pools.token1,
+                 most_active_pools.fee,
+                 most_active_pools.tick_spacing,
+                 most_active_pools.extension,
+                 COALESCE(volume.volume0, 0) as volume0_24h,
+                 COALESCE(volume.volume1, 0) as volume1_24h
+          FROM most_active_pools
+                   LEFT JOIN volume ON volume.pool_key_hash = most_active_pools.key_hash;
       `,
-      values: [new Date(Date.now() - 1000 * 60 * 60 * 24 * 7)],
+      values: [
+        new Date(Date.now() - 1000 * 60 * 60 * 24 * 7),
+        new Date(Date.now() - 86_400_000),
+      ],
     });
   }
 }
