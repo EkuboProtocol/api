@@ -308,16 +308,11 @@ export class Queries {
                                     FROM swaps
                                              JOIN blocks ON blocks.number = swaps.block_number
                                     WHERE blocks.timestamp >= $1),
-               most_eventful_pools AS (SELECT pool_key_hash
+               most_eventful_pools AS (SELECT pool_key_hash, count(1) as num_events
                                        FROM countable_events
                                        GROUP BY pool_key_hash
                                        ORDER BY count(*) DESC
                                        LIMIT 10),
-               most_active_pools AS (SELECT key_hash, token0, token1, fee, tick_spacing, extension
-                                     FROM pool_keys
-                                     WHERE key_hash IN
-                                           (SELECT pool_key_hash
-                                            FROM most_eventful_pools)),
                volume AS (SELECT swaps.pool_key_hash,
                                  SUM(ABS(swaps.delta0)) as volume0,
                                  SUM(ABS(swaps.delta1)) as volume1
@@ -325,13 +320,13 @@ export class Queries {
                                    INNER JOIN blocks
                                               ON swaps.block_number = blocks.number
                           WHERE blocks.timestamp >= $2
-                            AND swaps.pool_key_hash IN (SELECT pool_key_hash from most_active_pools)
+                            AND swaps.pool_key_hash IN (SELECT pool_key_hash from most_eventful_pools)
                           GROUP BY swaps.pool_key_hash),
                tvl_impact_events AS (SELECT pool_key_hash,
                                             SUM(delta0) AS delta0,
                                             SUM(delta1) AS delta1
                                      FROM swaps
-                                     WHERE pool_key_hash IN (SELECT pool_key_hash from most_active_pools)
+                                     WHERE pool_key_hash IN (SELECT pool_key_hash from most_eventful_pools)
                                      GROUP BY pool_key_hash
 
                                      UNION ALL
@@ -340,7 +335,7 @@ export class Queries {
                                             SUM(delta0) AS delta0,
                                             SUM(delta1) AS delta1
                                      FROM position_updates
-                                     WHERE pool_key_hash IN (SELECT pool_key_hash from most_active_pools)
+                                     WHERE pool_key_hash IN (SELECT pool_key_hash from most_eventful_pools)
                                      GROUP BY pool_key_hash
 
                                      UNION ALL
@@ -349,25 +344,28 @@ export class Queries {
                                             SUM(delta0) AS delta0,
                                             SUM(delta1) AS delta1
                                      FROM position_fees_collected
-                                     WHERE pool_key_hash IN (SELECT pool_key_hash from most_active_pools)
+                                     WHERE pool_key_hash IN (SELECT pool_key_hash from most_eventful_pools)
                                      GROUP BY pool_key_hash),
                tvl_total AS (SELECT pool_key_hash,
                                     SUM(delta0) as tvl0,
                                     SUM(delta1) as tvl1
                              FROM tvl_impact_events
                              GROUP BY pool_key_hash)
-          SELECT most_active_pools.token0,
-                 most_active_pools.token1,
-                 most_active_pools.fee,
-                 most_active_pools.tick_spacing,
-                 most_active_pools.extension,
+          SELECT pool_keys.token0,
+                 pool_keys.token1,
+                 pool_keys.fee,
+                 pool_keys.tick_spacing,
+                 pool_keys.extension,
+                 num_events,
                  COALESCE(volume.volume0, 0) as volume0_24h,
                  COALESCE(volume.volume1, 0) as volume1_24h,
                  COALESCE(tvl_total.tvl0, 0) as tvl0,
                  COALESCE(tvl_total.tvl1, 0) as tvl1
-          FROM most_active_pools
-                   LEFT JOIN volume ON volume.pool_key_hash = most_active_pools.key_hash
-                   LEFT JOIN tvl_total ON tvl_total.pool_key_hash = most_active_pools.key_hash;
+          FROM most_eventful_pools
+              JOIN pool_keys ON pool_keys.key_hash = most_eventful_pools.pool_key_hash
+                   LEFT JOIN volume ON volume.pool_key_hash = most_eventful_pools.pool_key_hash
+                   LEFT JOIN tvl_total ON tvl_total.pool_key_hash = most_eventful_pools.pool_key_hash
+          ORDER BY num_events DESC;
       `,
       values: [
         new Date(Date.now() - 1000 * 60 * 60 * 24 * 7),
