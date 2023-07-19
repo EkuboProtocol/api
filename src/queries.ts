@@ -177,7 +177,23 @@ export class Queries {
                                        position_fees_collected.delta1 as delta
                                 FROM position_fees_collected
                                          INNER JOIN
-                                     pool_keys ON pool_keys.key_hash = position_fees_collected.pool_key_hash)
+                                     pool_keys ON pool_keys.key_hash = position_fees_collected.pool_key_hash
+                                
+                                UNION ALL
+
+                                SELECT pool_keys.token0               as token,
+                                       protocol_fees_paid.delta0 as delta
+                                FROM protocol_fees_paid
+                                         INNER JOIN
+                                     pool_keys ON pool_keys.key_hash = protocol_fees_paid.pool_key_hash
+                                
+                                UNION ALL
+
+                                SELECT pool_keys.token1               as token,
+                                       protocol_fees_paid.delta1 as delta
+                                FROM protocol_fees_paid
+                                         INNER JOIN
+                                     pool_keys ON pool_keys.key_hash = protocol_fees_paid.pool_key_hash)
           SELECT token,
                  SUM(delta) as balance
           FROM token_deltas
@@ -248,6 +264,26 @@ export class Queries {
                                    pool_keys ON pool_keys.key_hash = position_fees_collected.pool_key_hash
                                      INNER JOIN blocks
                                                 ON position_fees_collected.block_number = blocks.number
+                              WHERE blocks.timestamp >= $1
+                              UNION ALL
+                              SELECT pool_keys.token0               as token,
+                                     protocol_fees_paid.delta0 as delta,
+                                     DATE(blocks.timestamp)         as date
+                              FROM protocol_fees_paid
+                                     INNER JOIN
+                                   pool_keys ON pool_keys.key_hash = protocol_fees_paid.pool_key_hash
+                                     INNER JOIN blocks
+                                                ON protocol_fees_paid.block_number = blocks.number
+                              WHERE blocks.timestamp >= $1
+                              UNION ALL
+                              SELECT pool_keys.token1               as token,
+                                     protocol_fees_paid.delta1 as delta,
+                                     DATE(blocks.timestamp)         as date
+                              FROM protocol_fees_paid
+                                     INNER JOIN
+                                   pool_keys ON pool_keys.key_hash = protocol_fees_paid.pool_key_hash
+                                     INNER JOIN blocks
+                                                ON protocol_fees_paid.block_number = blocks.number
                               WHERE blocks.timestamp >= $1)
 
         SELECT token,
@@ -344,6 +380,15 @@ export class Queries {
                                             SUM(delta0) AS delta0,
                                             SUM(delta1) AS delta1
                                      FROM position_fees_collected
+                                     WHERE pool_key_hash IN (SELECT pool_key_hash from most_eventful_pools)
+                                     GROUP BY pool_key_hash
+                                     
+                                     UNION ALL
+
+                                     SELECT pool_key_hash,
+                                            SUM(delta0) AS delta0,
+                                            SUM(delta1) AS delta1
+                                     FROM protocol_fees_paid
                                      WHERE pool_key_hash IN (SELECT pool_key_hash from most_eventful_pools)
                                      GROUP BY pool_key_hash),
                tvl_total AS (SELECT pool_key_hash,
