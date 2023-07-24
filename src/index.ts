@@ -63,7 +63,7 @@ router
       try {
         pool_key_hash = BigInt(key_hash);
       } catch (e) {
-        return error(404, "Invalid pool key hash");
+        return error(400, "Invalid pool key hash");
       }
 
       const client = await createQueries(env);
@@ -90,7 +90,7 @@ router
         tokenA = BigInt(tokenAStr);
         tokenB = BigInt(tokenBStr);
       } catch (e) {
-        return error(404, "Invalid tokens");
+        return error(400, "Invalid tokens");
       }
 
       const client = await createQueries(env);
@@ -103,8 +103,8 @@ router
       }
 
       const { rows } = await client.getPairLiquidityGraph({
-        token0: tokenA,
-        token1: tokenB,
+        token0,
+        token1,
       });
 
       return json(
@@ -119,10 +119,65 @@ router
       );
     }
   )
+  .get<IRequest, CF>(
+    "/tokens/:tokenA/:tokenB/events",
+    async (
+      {
+        params: { tokenA: tokenAStr, tokenB: tokenBStr },
+        query: { limit: limitStr },
+      },
+      env
+    ) => {
+      let tokenA: bigint, tokenB: bigint;
+      try {
+        tokenA = BigInt(tokenAStr);
+        tokenB = BigInt(tokenBStr);
+      } catch (e) {
+        return error(400, "Invalid tokens");
+      }
+
+      let limit: number;
+      try {
+        limit = typeof limitStr === "string" ? parseInt(limitStr) : 20;
+      } catch (error) {
+        return error(400, "Limit parameter invalid");
+      }
+
+      if (limit < 1 || limit > 100) {
+        return error(400, "Limit must be >= 1 and <= 100");
+      }
+
+      const client = await createQueries(env);
+
+      const [token0, token1] =
+        tokenA < tokenB ? [tokenA, tokenB] : [tokenB, tokenA];
+
+      if (token0 === 0n) {
+        return error(400, "Invalid tokens");
+      }
+
+      const { rows, rowCount } = await client.getPairEvents({
+        token0,
+        token1,
+        limit,
+      });
+
+      return json(
+        {
+          data: rows,
+        },
+        {
+          headers: {
+            "cache-control": "public, max-age=180",
+          },
+        }
+      );
+    }
+  )
   .get<IRequest, CF>("/:id", async ({ url, params: { id: idStr } }, env) => {
     const id = parseId(idStr);
     if (id === null) {
-      return error(404, "Invalid token ID");
+      return error(400, "Invalid token ID");
     }
 
     const queries = await createQueries(env);
@@ -171,7 +226,7 @@ router
     async ({ params: { id: idStr } }, env) => {
       const id = parseId(idStr);
       if (id === null) {
-        return error(404, "Invalid token ID");
+        return error(400, "Invalid token ID");
       }
 
       const queries = await createQueries(env);

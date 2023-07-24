@@ -106,6 +106,82 @@ export class Queries {
     });
   }
 
+  public getPairEvents({
+    token0,
+    token1,
+    limit,
+  }: {
+    token0: bigint;
+    token1: bigint;
+    limit: number;
+  }) {
+    return this.client.query<{
+      type: 0 | 1;
+
+      key_hash: string;
+      fee: string;
+      tick_spacing: string;
+      extension: string;
+
+      timestamp: string;
+
+      transaction_hash: string;
+      block_number: bigint;
+      index: bigint;
+
+      delta0: string;
+      delta1: string;
+    }>({
+      name: `get-pair-events`,
+      text: `
+          WITH relevant_pool_keys AS (SELECT key_hash, fee, extension, tick_spacing
+                                      FROM pool_keys
+                                      WHERE token0 = $1
+                                        AND token1 = $2),
+               relevant_swaps AS (SELECT 0 as type,
+                                         relevant_pool_keys.key_hash as pool_key_hash,
+                                         relevant_pool_keys.fee,
+                                         relevant_pool_keys.tick_spacing,
+                                         relevant_pool_keys.extension,
+                                         blocks.timestamp,
+                                         transaction_hash,
+                                         block_number,
+                                         index,
+                                         delta0,
+                                         delta1
+                                  FROM swaps
+                                           JOIN relevant_pool_keys ON key_hash = pool_key_hash
+                                           JOIN blocks ON swaps.block_number = blocks.number),
+               relevant_updates AS (SELECT 1 as type,
+                                           relevant_pool_keys.key_hash as pool_key_hash,
+                                           relevant_pool_keys.fee,
+                                           relevant_pool_keys.tick_spacing,
+                                           relevant_pool_keys.extension,
+                                           blocks.timestamp,
+                                           transaction_hash,
+                                           block_number,
+                                           index,
+                                           delta0,
+                                           delta1
+                                    FROM position_updates
+                                             JOIN relevant_pool_keys
+                                                  ON key_hash = pool_key_hash
+                                             JOIN blocks ON position_updates.block_number = blocks.number),
+               combined AS (SELECT *
+                            from relevant_updates
+                            UNION ALL
+                            SELECT *
+                            from relevant_swaps)
+
+          SELECT *
+          FROM combined
+          ORDER BY timestamp DESC
+          LIMIT $3
+      `,
+      values: [token0, token1, limit],
+    });
+  }
+
   public getVolumeByToken() {
     return this.client.query<{ token: string; volume: string }>({
       name: `get-volume-by-token`,
