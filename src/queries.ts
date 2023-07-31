@@ -1,5 +1,15 @@
 import { Client } from "pg";
 
+interface TokenMetadata {
+  lower_bound: string;
+  upper_bound: string;
+  token0: string;
+  token1: string;
+  fee: string;
+  tick_spacing: string;
+  extension: string;
+}
+
 export class Queries {
   private readonly client: Client;
 
@@ -7,16 +17,8 @@ export class Queries {
     this.client = client;
   }
 
-  public async getTokenMetadata(id: number) {
-    const { rows, rowCount } = await this.client.query<{
-      lower_bound: string;
-      upper_bound: string;
-      token0: string;
-      token1: string;
-      fee: string;
-      tick_spacing: string;
-      extension: string;
-    }>(`
+  public async getTokenMetadata(id: number): Promise<TokenMetadata | null> {
+    const { rows, rowCount } = await this.client.query<TokenMetadata>(`
             SELECT position_minted.lower_bound,
                    position_minted.upper_bound,
                    pool_keys.token0,
