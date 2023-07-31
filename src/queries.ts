@@ -407,91 +407,82 @@ export class Queries {
     });
   }
 
-  public async getTopPools() {
+  public async getTopPairs() {
     return this.client.query<{ token: string; volume: string }>({
-      name: `get-top-pools`,
+      name: `get-top-pairs`,
       text: `
-          WITH countable_events AS (SELECT pool_key_hash
-                                    FROM position_updates
-                                             JOIN blocks ON blocks.number = position_updates.block_number
-                                    WHERE blocks.timestamp >= $1
-                                    UNION ALL
-                                    SELECT pool_key_hash
-                                    FROM swaps
-                                             JOIN blocks ON blocks.number = swaps.block_number
-                                    WHERE blocks.timestamp >= $1),
-               most_eventful_pools AS (SELECT pool_key_hash, count(1) as num_events
-                                       FROM countable_events
-                                       GROUP BY pool_key_hash
-                                       ORDER BY count(*) DESC
-                                       LIMIT 10),
-               volume AS (SELECT swaps.pool_key_hash,
+          WITH relevant_blocks AS (SELECT number
+                                   FROM blocks
+                                   WHERE timestamp >= $1),
+               volume AS (SELECT token0,
+                                 token1,
                                  SUM(ABS(swaps.delta0)) as volume0,
                                  SUM(ABS(swaps.delta1)) as volume1
                           FROM swaps
-                                   INNER JOIN blocks
-                                              ON swaps.block_number = blocks.number
-                          WHERE blocks.timestamp >= $2
-                            AND swaps.pool_key_hash IN (SELECT pool_key_hash from most_eventful_pools)
-                          GROUP BY swaps.pool_key_hash),
-               tvl_impact_events AS (SELECT pool_key_hash,
+                                   INNER JOIN pool_keys ON swaps.pool_key_hash = pool_keys.key_hash
+                                   INNER JOIN relevant_blocks
+                                              ON swaps.block_number = relevant_blocks.number
+                          GROUP BY token0, token1),
+               tvl_impact_events AS (SELECT token0,
+                                            token1,
                                             SUM(delta0) AS delta0,
                                             SUM(delta1) AS delta1
                                      FROM swaps
-                                     WHERE pool_key_hash IN (SELECT pool_key_hash from most_eventful_pools)
-                                     GROUP BY pool_key_hash
+                                              JOIN pool_keys ON pool_key_hash = pool_keys.key_hash
+                                     GROUP BY token0, token1
 
                                      UNION ALL
 
-                                     SELECT pool_key_hash,
+                                     SELECT token0,
+                                            token1,
                                             SUM(delta0) AS delta0,
                                             SUM(delta1) AS delta1
                                      FROM position_updates
-                                     WHERE pool_key_hash IN (SELECT pool_key_hash from most_eventful_pools)
-                                     GROUP BY pool_key_hash
+                                              JOIN pool_keys ON pool_key_hash = pool_keys.key_hash
+                                              JOIN relevant_blocks
+                                                   ON block_number = relevant_blocks.number
+                                     GROUP BY token0, token1
 
                                      UNION ALL
 
-                                     SELECT pool_key_hash,
+                                     SELECT token0,
+                                            token1,
                                             SUM(delta0) AS delta0,
                                             SUM(delta1) AS delta1
                                      FROM position_fees_collected
-                                     WHERE pool_key_hash IN (SELECT pool_key_hash from most_eventful_pools)
-                                     GROUP BY pool_key_hash
-                                     
+                                              JOIN pool_keys ON pool_key_hash = pool_keys.key_hash
+                                              JOIN relevant_blocks
+                                                   ON block_number = relevant_blocks.number
+                                     GROUP BY token0, token1
+
                                      UNION ALL
 
-                                     SELECT pool_key_hash,
+                                     SELECT token0,
+                                            token1,
                                             SUM(delta0) AS delta0,
                                             SUM(delta1) AS delta1
                                      FROM protocol_fees_paid
-                                     WHERE pool_key_hash IN (SELECT pool_key_hash from most_eventful_pools)
-                                     GROUP BY pool_key_hash),
-               tvl_total AS (SELECT pool_key_hash,
+                                              JOIN pool_keys ON pool_key_hash = pool_keys.key_hash
+                                              JOIN relevant_blocks
+                                                   ON block_number = relevant_blocks.number
+                                     GROUP BY token0, token1),
+               tvl_total AS (SELECT token0,
+                                    token1,
                                     SUM(delta0) as tvl0,
                                     SUM(delta1) as tvl1
                              FROM tvl_impact_events
-                             GROUP BY pool_key_hash)
-          SELECT pool_keys.token0,
-                 pool_keys.token1,
-                 pool_keys.fee,
-                 pool_keys.tick_spacing,
-                 pool_keys.extension,
-                 num_events,
-                 COALESCE(volume.volume0, 0) as volume0_24h,
-                 COALESCE(volume.volume1, 0) as volume1_24h,
-                 COALESCE(tvl_total.tvl0, 0) as tvl0,
-                 COALESCE(tvl_total.tvl1, 0) as tvl1
-          FROM most_eventful_pools
-              JOIN pool_keys ON pool_keys.key_hash = most_eventful_pools.pool_key_hash
-                   LEFT JOIN volume ON volume.pool_key_hash = most_eventful_pools.pool_key_hash
-                   LEFT JOIN tvl_total ON tvl_total.pool_key_hash = most_eventful_pools.pool_key_hash
-          ORDER BY num_events DESC;
+                             GROUP BY token0, token1)
+          SELECT COALESCE(volume.token0, tvl_total.token0) as token0,
+                 COALESCE(volume.token1, tvl_total.token1) as token1,
+                 COALESCE(volume.volume0, 0)               as volume0_24h,
+                 COALESCE(volume.volume1, 0)               as volume1_24h,
+                 COALESCE(tvl_total.tvl0, 0)               as tvl0,
+                 COALESCE(tvl_total.tvl1, 0)               as tvl1
+          FROM volume
+                   FULL OUTER JOIN
+               tvl_total ON volume.token0 = tvl_total.token0 AND volume.token1 = tvl_total.token1;
       `,
-      values: [
-        new Date(Date.now() - 1000 * 60 * 60 * 24 * 7),
-        new Date(Date.now() - 86_400_000),
-      ],
+      values: [new Date(Date.now() - 86_400_000)],
     });
   }
 }
