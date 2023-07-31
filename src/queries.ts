@@ -429,6 +429,8 @@ export class Queries {
                                             SUM(delta1) AS delta1
                                      FROM swaps
                                               JOIN pool_keys ON pool_key_hash = pool_keys.key_hash
+                                              JOIN relevant_blocks
+                                                   ON block_number = relevant_blocks.number
                                      GROUP BY token0, token1
 
                                      UNION ALL
