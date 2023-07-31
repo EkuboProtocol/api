@@ -184,6 +184,10 @@ router
 
     const positionMetadata = await queries.getTokenMetadata(id);
 
+    if (positionMetadata === null) {
+      return error(404, `Token ID ${id} not found`);
+    }
+
     const attributesStored: NFTMetadata["attributes"] = [
       { trait_type: "token0", value: numericToHex(positionMetadata.token0) },
       { trait_type: "token1", value: numericToHex(positionMetadata.token1) },
@@ -234,7 +238,7 @@ router
       const positionMetadata = await queries.getTokenMetadata(id);
 
       if (positionMetadata === null) {
-        return error(404, "Token metadata not found");
+        return error(404, `Token ID ${id} not found`);
       }
 
       return new Response(generateSvg(id, env.STARKNET_CHAIN_ID), {
