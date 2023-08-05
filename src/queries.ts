@@ -49,7 +49,6 @@ export class Queries {
       tick: string;
       net_liquidity_delta_diff: string;
     }>({
-      name: `get-liquidity-graph-pair`,
       text: `
           WITH pool_key_hashes AS (SELECT key_hash
                                    FROM pool_keys
@@ -82,7 +81,6 @@ export class Queries {
       tick: string;
       net_liquidity_delta_diff: string;
     }>({
-      name: `get-liquidity-graph`,
       text: `
                 WITH lower AS (SELECT lower_bound as       tick,
                                       SUM(liquidity_delta) net_liquidity_delta
@@ -134,7 +132,6 @@ export class Queries {
       delta0: string;
       delta1: string;
     }>({
-      name: `get-pair-events`,
       text: `
           WITH relevant_pool_keys AS (SELECT key_hash, fee, extension, tick_spacing
                                       FROM pool_keys
@@ -186,7 +183,6 @@ export class Queries {
 
   public getVolumeByToken() {
     return this.client.query<{ token: string; volume: string }>({
-      name: `get-volume-by-token`,
       text: `
                 WITH token_deltas AS (SELECT pool_keys.token0  as token,
                                              ABS(swaps.delta0) as delta
@@ -209,7 +205,6 @@ export class Queries {
 
   public getTvlByToken() {
     return this.client.query<{ token: string; balance: string }>({
-      name: `get-tvl-by-token`,
       text: `
           WITH token_deltas AS (SELECT pool_keys.token0        as token,
                                        position_updates.delta0 as delta
@@ -282,7 +277,6 @@ export class Queries {
 
   public getTvlDeltaByTokenByDate(after: Date) {
     return this.client.query<{ token: string; balance: string }>({
-      name: `get-tvl-by-token-by-day`,
       text: `
         WITH token_deltas AS (SELECT pool_keys.token0        as token,
                                      position_updates.delta0 as delta,
@@ -377,7 +371,6 @@ export class Queries {
 
   public async getVolumeByTokenByDate(after: Date) {
     return this.client.query<{ token: string; volume: string }>({
-      name: `get-volume-by-token-by-date`,
       text: `
           WITH token_deltas AS (SELECT pool_keys.token0       as token,
                                        DATE(blocks.timestamp) as date,
@@ -411,7 +404,6 @@ export class Queries {
 
   public async getTopPairs() {
     return this.client.query<{ token: string; volume: string }>({
-      name: `get-top-pairs`,
       text: `
           WITH relevant_blocks AS (SELECT number
                                    FROM blocks
@@ -487,6 +479,38 @@ export class Queries {
                tvl_total ON volume.token0 = tvl_total.token0 AND volume.token1 = tvl_total.token1;
       `,
       values: [new Date(Date.now() - 86_400_000)],
+    });
+  }
+
+  public async getPositionsByAddress(address: bigint) {
+    return this.client.query<TokenMetadata & { id: string }>({
+      text: `
+          WITH ranked_transfers AS (SELECT token_id,
+                                           to_address,
+                                           ROW_NUMBER() OVER (
+                                               PARTITION BY token_id
+                                               ORDER BY block_number DESC, index DESC
+                                               ) AS row_no
+                                    FROM position_transfers
+                                    WHERE from_address = $1
+                                       OR to_address = $1),
+               final_transfer AS (SELECT token_id,
+                                         to_address AS current_owner
+                                  FROM ranked_transfers
+                                  WHERE row_no = 1)
+          SELECT token_id,
+                 token0,
+                 token1,
+                 fee,
+                 tick_spacing,
+                 extension,
+                 lower_bound,
+                 upper_bound
+          FROM position_minted
+                   JOIN pool_keys ON position_minted.pool_key_hash = pool_keys.key_hash
+          WHERE token_id IN (SELECT token_id FROM final_transfer WHERE current_owner = $1)
+      `,
+      values: [address],
     });
   }
 }

@@ -82,6 +82,31 @@ router
       );
     }
   )
+  .get(
+    "/positions/:address",
+    async ({ params: { address: addressStr } }, env) => {
+      let address: bigint;
+      try {
+        address = BigInt(addressStr);
+      } catch (e) {
+        return error(400, "Invalid address");
+      }
+
+      const client = await createQueries(env);
+      const { rows } = await client.getPositionsByAddress(address);
+
+      return json(
+        {
+          data: rows,
+        },
+        {
+          headers: {
+            "cache-control": "no-cache",
+          },
+        }
+      );
+    }
+  )
   .get<IRequest, CF>(
     "/tokens/:tokenA/:tokenB/liquidity",
     async ({ params: { tokenA: tokenAStr, tokenB: tokenBStr } }, env) => {
