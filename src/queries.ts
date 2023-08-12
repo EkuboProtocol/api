@@ -145,7 +145,8 @@ export class Queries {
                                          blocks.timestamp,
                                          transaction_hash,
                                          block_number,
-                                         index,
+                                         transaction_index,
+                                         event_index,
                                          delta0,
                                          delta1
                                   FROM swaps
@@ -159,7 +160,8 @@ export class Queries {
                                            blocks.timestamp,
                                            transaction_hash,
                                            block_number,
-                                           index,
+                                           transaction_index,
+                                           event_index,
                                            delta0,
                                            delta1
                                     FROM position_updates
@@ -174,7 +176,7 @@ export class Queries {
 
           SELECT *
           FROM combined
-          ORDER BY timestamp DESC
+          ORDER BY block_number DESC, transaction_index DESC, event_index DESC
           LIMIT $3
       `,
       values: [token0, token1, limit],
@@ -489,7 +491,7 @@ export class Queries {
                                            to_address,
                                            ROW_NUMBER() OVER (
                                                PARTITION BY token_id
-                                               ORDER BY block_number DESC, index DESC
+                                               ORDER BY block_number DESC, transaction_index DESC
                                                ) AS row_no
                                     FROM position_transfers
                                     WHERE from_address = $1
