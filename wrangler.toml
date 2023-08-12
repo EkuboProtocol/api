@@ -6,7 +6,6 @@ node_compat = true
 [vars]
 STARKNET_CHAIN_ID = "0x534e5f474f45524c49"
 PG_CONNECTION_STRING="postgresql://postgres:postgres@localhost:5432"
-NODE_TLS_REJECT_UNAUTHORIZED=0
 
 [env.goerli.vars]
 STARKNET_CHAIN_ID = "0x534e5f474f45524c49"
