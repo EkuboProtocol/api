@@ -39,4 +39,4 @@ jobs:
         with:
           apiToken: ${{ secrets.CF_API_TOKEN }}
           command: |
-            deploy --env ${{ matrix.network_name }} --var PG_CONNECTION_STRING:${{ secrets[matrix.secret_name] }}
+            deploy --env ${{ matrix.network_name }} --var "PG_CONNECTION_STRING:${{ secrets[matrix.secret_name] }}"
