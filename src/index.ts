@@ -84,7 +84,7 @@ router
   )
   .get(
     "/positions/:address",
-    async ({ params: { address: addressStr } }, env) => {
+    async ({ params: { address: addressStr }, url }, env) => {
       let address: bigint;
       try {
         address = BigInt(addressStr);
@@ -95,9 +95,26 @@ router
       const client = await createQueries(env);
       const { rows } = await client.getPositionsByAddress(address);
 
+      const origin = new URL(url).origin;
+
       return json(
         {
-          data: rows,
+          data: rows.map((row) => ({
+            id: Number(row.token_id),
+            pool_key: {
+              token0: numericToHex(row.token0),
+              token1: numericToHex(row.token1),
+              fee: numericToHex(row.fee),
+              tick_spacing: numericToHex(row.tick_spacing),
+              extension: numericToHex(row.extension),
+            },
+            bounds: {
+              lower: Number(row.lower_bound),
+              upper: Number(row.upper_bound),
+            },
+            metadata_url: `${origin}/${row.token_id}`,
+            image: `${origin}/${row.token_id}/image.svg`,
+          })),
         },
         {
           headers: {

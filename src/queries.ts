@@ -485,7 +485,7 @@ export class Queries {
   }
 
   public async getPositionsByAddress(address: bigint) {
-    return this.client.query<TokenMetadata & { id: string }>({
+    return this.client.query<TokenMetadata & { token_id: string }>({
       text: `
           WITH ranked_transfers AS (SELECT token_id,
                                            to_address,
