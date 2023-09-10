@@ -56,6 +56,35 @@ router
       }
     );
   })
+  .get<IRequest, CF>("/stats", async ({ query }, env) => {
+    if (
+      !query.start ||
+      !query.end ||
+      typeof query.start !== "string" ||
+      typeof query.end !== "string"
+    ) {
+      return error(
+        400,
+        "Query parameters must include `start` and `end` timestamps"
+      );
+    }
+
+    const DATE_REGEX = /^20\d\d-\d\d-\d\d$/;
+
+    if (!DATE_REGEX.test(query.start) || !DATE_REGEX.test(query.end)) {
+      return error(
+        400,
+        "`start` and `end` parameters must be in the format YYYY-MM-DD"
+      );
+    }
+
+    const start = new Date(query.start);
+    const end = new Date(query.end);
+
+    console.log(start, end);
+
+    return error(501, "This endpoint not yet implemented");
+  })
   .get<IRequest, CF>(
     "/pool/:key_hash/liquidity",
     async ({ params: { key_hash } }, env) => {

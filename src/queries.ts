@@ -10,6 +10,8 @@ interface TokenMetadata {
   extension: string;
 }
 
+const U128_DENOMINATOR = 2n ** 128n;
+
 export class Queries {
   private readonly client: Client;
 
@@ -186,22 +188,31 @@ export class Queries {
   public getVolumeByToken() {
     return this.client.query<{ token: string; volume: string }>({
       text: `
-                WITH token_deltas AS (SELECT pool_keys.token0  as token,
-                                             ABS(swaps.delta0) as delta
-                                      FROM swaps
-                                               INNER JOIN
-                                           pool_keys ON pool_keys.key_hash = swaps.pool_key_hash
-                                      UNION ALL
-                                      SELECT pool_keys.token1  as token,
-                                             ABS(swaps.delta1) as delta
-                                      FROM swaps
-                                               INNER JOIN
-                                           pool_keys ON pool_keys.key_hash = swaps.pool_key_hash)
-                SELECT token,
-                       SUM(delta) as volume
-                FROM token_deltas
-                GROUP BY token_deltas.token
-            `,
+          WITH token_deltas AS (SELECT pool_keys.token0  as token,
+                                       ABS(swaps.delta0) as delta,
+                                       CASE
+                                           WHEN swaps.delta0 > 0 THEN FLOOR(swaps.delta0 * pool_keys.fee /
+                                                                            ${U128_DENOMINATOR})
+                                           ELSE 0 END    AS fees
+                                FROM swaps
+                                         INNER JOIN
+                                     pool_keys ON pool_keys.key_hash = swaps.pool_key_hash
+                                UNION ALL
+                                SELECT pool_keys.token1  as token,
+                                       ABS(swaps.delta1) as delta,
+                                       CASE
+                                           WHEN swaps.delta1 > 0 THEN FLOOR(swaps.delta1 * pool_keys.fee /
+                                                                            ${U128_DENOMINATOR})
+                                           ELSE 0 END    AS fees
+                                FROM swaps
+                                         INNER JOIN
+                                     pool_keys ON pool_keys.key_hash = swaps.pool_key_hash)
+          SELECT token,
+                 SUM(delta) as volume,
+                 SUM(fees)  as fees
+          FROM token_deltas
+          GROUP BY token_deltas.token
+      `,
     });
   }
 
@@ -376,7 +387,11 @@ export class Queries {
       text: `
           WITH token_deltas AS (SELECT pool_keys.token0       as token,
                                        DATE(blocks.timestamp) as date,
-                                       ABS(swaps.delta0)      as delta
+                                       ABS(swaps.delta0)      as delta,
+                                       CASE
+                                           WHEN swaps.delta0 > 0 THEN FLOOR(swaps.delta0 * pool_keys.fee /
+                                                                            ${U128_DENOMINATOR})
+                                           ELSE 0 END         AS fees
                                 FROM swaps
                                          INNER JOIN
                                      pool_keys ON pool_keys.key_hash = swaps.pool_key_hash
@@ -386,7 +401,11 @@ export class Queries {
                                 UNION ALL
                                 SELECT pool_keys.token1       as token,
                                        DATE(blocks.timestamp) as date,
-                                       ABS(swaps.delta1)      as delta
+                                       ABS(swaps.delta1)      as delta,
+                                       CASE
+                                           WHEN swaps.delta0 > 0 THEN FLOOR(swaps.delta0 * pool_keys.fee /
+                                                                            ${U128_DENOMINATOR})
+                                           ELSE 0 END         AS fees
                                 FROM swaps
                                          INNER JOIN
                                      pool_keys ON pool_keys.key_hash = swaps.pool_key_hash
@@ -395,7 +414,8 @@ export class Queries {
 
           SELECT token,
                  date,
-                 SUM(delta) as volume
+                 SUM(delta) as volume,
+                 SUM(fees)  as fees
           FROM token_deltas
           GROUP BY token, date
           ORDER BY token, date;
