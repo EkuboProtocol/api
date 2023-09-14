@@ -545,6 +545,7 @@ export class Queries {
           FROM position_minted
                    JOIN pool_keys ON position_minted.pool_key_hash = pool_keys.key_hash
           WHERE token_id IN (SELECT token_id FROM final_transfer WHERE current_owner = $1)
+          ORDER BY token_id DESC
       `,
       values: [address],
     });
