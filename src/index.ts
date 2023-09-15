@@ -61,12 +61,14 @@ router
   })
   .get<IRequest, CF>("/pair/:tokenA/:tokenB", async ({ params }, env) => {
     if (
+      typeof params.tokenA !== "string" ||
       !ADDRESS_REGEX.test(params.tokenA) ||
+      typeof params.tokenB !== "string" ||
       !ADDRESS_REGEX.test(params.tokenB)
     ) {
       return error(
         400,
-        "`tokenA` and `tokenB` path parameters must be token addresses"
+        "`tokenA` and `tokenB` path parameters must be token addresses in hex format"
       );
     }
 
@@ -82,15 +84,23 @@ router
     const timestamp = Date.now();
     const thirtyDaysAgo = new Date(timestamp - 1000 * 60 * 60 * 24 * 30);
 
-    const [{ rows: tvlDeltaByTokenByDate }, { rows: volumeByTokenByDate }] =
-      await Promise.all([
-        queries.getTvlDeltaByTokenByDate(thirtyDaysAgo, pair),
-        queries.getVolumeByTokenByDate(thirtyDaysAgo, pair),
-      ]);
+    const [
+      { rows: tvlByToken },
+      { rows: volumeByToken },
+      { rows: tvlDeltaByTokenByDate },
+      { rows: volumeByTokenByDate },
+    ] = await Promise.all([
+      queries.getTvlByToken(pair),
+      queries.getVolumeByToken(pair),
+      queries.getTvlDeltaByTokenByDate(thirtyDaysAgo, pair),
+      queries.getVolumeByTokenByDate(thirtyDaysAgo, pair),
+    ]);
 
     return json(
       {
         timestamp,
+        tvlByToken,
+        volumeByToken,
         tvlDeltaByTokenByDate,
         volumeByTokenByDate,
       },

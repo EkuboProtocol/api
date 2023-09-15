@@ -185,106 +185,120 @@ export class Queries {
     });
   }
 
-  public getVolumeByToken() {
+  public getVolumeByToken(pair?: { token0: bigint; token1: bigint }) {
     return this.client.query<{ token: string; volume: string }>({
       text: `
-          WITH token_deltas AS (SELECT pool_keys.token0  as token,
+          WITH relevant_pool_keys AS (SELECT key_hash, token0, token1, fee
+                                      FROM pool_keys
+                                      WHERE COALESCE($1, token0) = token0
+                                        AND COALESCE($2, token1) = token1),
+               token_deltas AS (SELECT relevant_pool_keys.token0  as token,
                                        ABS(swaps.delta0) as delta,
                                        CASE
-                                           WHEN swaps.delta0 > 0 THEN FLOOR(swaps.delta0 * pool_keys.fee /
+                                           WHEN swaps.delta0 > 0 THEN FLOOR(swaps.delta0 * relevant_pool_keys.fee /
                                                                             ${U128_DENOMINATOR})
                                            ELSE 0 END    AS fees
                                 FROM swaps
                                          INNER JOIN
-                                     pool_keys ON pool_keys.key_hash = swaps.pool_key_hash
+                                     relevant_pool_keys ON relevant_pool_keys.key_hash = swaps.pool_key_hash
                                 UNION ALL
-                                SELECT pool_keys.token1  as token,
+                                SELECT relevant_pool_keys.token1  as token,
                                        ABS(swaps.delta1) as delta,
                                        CASE
-                                           WHEN swaps.delta1 > 0 THEN FLOOR(swaps.delta1 * pool_keys.fee /
+                                           WHEN swaps.delta1 > 0 THEN FLOOR(swaps.delta1 * relevant_pool_keys.fee /
                                                                             ${U128_DENOMINATOR})
                                            ELSE 0 END    AS fees
                                 FROM swaps
                                          INNER JOIN
-                                     pool_keys ON pool_keys.key_hash = swaps.pool_key_hash)
+                                     relevant_pool_keys ON relevant_pool_keys.key_hash = swaps.pool_key_hash)
           SELECT token,
                  SUM(delta) as volume,
                  SUM(fees)  as fees
           FROM token_deltas
           GROUP BY token_deltas.token
       `,
+      values: [pair?.token0 ?? null, pair?.token1 ?? null],
     });
   }
 
-  public getTvlByToken() {
+  public getTvlByToken(pair?: { token0: bigint; token1: bigint }) {
     return this.client.query<{ token: string; balance: string }>({
       text: `
-          WITH token_deltas AS (SELECT pool_keys.token0        as token,
-                                       position_updates.delta0 as delta
+          WITH relevant_pool_keys AS (SELECT key_hash, token0, token1
+                                      FROM pool_keys
+                                      WHERE COALESCE($1, token0) = token0
+                                        AND COALESCE($2, token1) = token1),
+               token_deltas AS (SELECT relevant_pool_keys.token0 as token,
+                                       position_updates.delta0   as delta
                                 FROM position_updates
                                          INNER JOIN
-                                     pool_keys ON pool_keys.key_hash = position_updates.pool_key_hash
+                                     relevant_pool_keys ON relevant_pool_keys.key_hash = position_updates.pool_key_hash
 
                                 UNION ALL
 
-                                SELECT pool_keys.token1        as token,
-                                       position_updates.delta1 as delta
+                                SELECT relevant_pool_keys.token1 as token,
+                                       position_updates.delta1   as delta
                                 FROM position_updates
                                          INNER JOIN
-                                     pool_keys ON pool_keys.key_hash = position_updates.pool_key_hash
+                                     relevant_pool_keys ON relevant_pool_keys.key_hash = position_updates.pool_key_hash
 
                                 UNION ALL
 
-                                SELECT pool_keys.token0 as token,
-                                       swaps.delta0     as delta
+                                SELECT relevant_pool_keys.token0 as token,
+                                       swaps.delta0              as delta
                                 FROM swaps
                                          INNER JOIN
-                                     pool_keys ON pool_keys.key_hash = swaps.pool_key_hash
+                                     relevant_pool_keys ON relevant_pool_keys.key_hash = swaps.pool_key_hash
 
                                 UNION ALL
 
-                                SELECT pool_keys.token1 as token,
-                                       swaps.delta1     as delta
+                                SELECT relevant_pool_keys.token1 as token,
+                                       swaps.delta1              as delta
                                 FROM swaps
                                          INNER JOIN
-                                     pool_keys ON pool_keys.key_hash = swaps.pool_key_hash
+                                     relevant_pool_keys ON relevant_pool_keys.key_hash = swaps.pool_key_hash
 
                                 UNION ALL
 
-                                SELECT pool_keys.token0               as token,
+                                SELECT relevant_pool_keys.token0      as token,
                                        position_fees_collected.delta0 as delta
                                 FROM position_fees_collected
                                          INNER JOIN
-                                     pool_keys ON pool_keys.key_hash = position_fees_collected.pool_key_hash
+                                     relevant_pool_keys
+                                     ON relevant_pool_keys.key_hash = position_fees_collected.pool_key_hash
 
                                 UNION ALL
 
-                                SELECT pool_keys.token1               as token,
+                                SELECT relevant_pool_keys.token1      as token,
                                        position_fees_collected.delta1 as delta
                                 FROM position_fees_collected
                                          INNER JOIN
-                                     pool_keys ON pool_keys.key_hash = position_fees_collected.pool_key_hash
-                                
+                                     relevant_pool_keys
+                                     ON relevant_pool_keys.key_hash = position_fees_collected.pool_key_hash
+
                                 UNION ALL
 
-                                SELECT pool_keys.token0               as token,
+                                SELECT relevant_pool_keys.token0 as token,
                                        protocol_fees_paid.delta0 as delta
                                 FROM protocol_fees_paid
                                          INNER JOIN
-                                     pool_keys ON pool_keys.key_hash = protocol_fees_paid.pool_key_hash
-                                
+                                     relevant_pool_keys
+                                     ON relevant_pool_keys.key_hash = protocol_fees_paid.pool_key_hash
+
                                 UNION ALL
 
-                                SELECT pool_keys.token1               as token,
+                                SELECT relevant_pool_keys.token1 as token,
                                        protocol_fees_paid.delta1 as delta
                                 FROM protocol_fees_paid
                                          INNER JOIN
-                                     pool_keys ON pool_keys.key_hash = protocol_fees_paid.pool_key_hash)
+                                     relevant_pool_keys
+                                     ON relevant_pool_keys.key_hash = protocol_fees_paid.pool_key_hash)
           SELECT token,
                  SUM(delta) as balance
           FROM token_deltas
           GROUP BY token_deltas.token;
       `,
+      values: [pair?.token0 ?? null, pair?.token1 ?? null],
     });
   }
 
