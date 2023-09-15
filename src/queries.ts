@@ -288,129 +288,146 @@ export class Queries {
     });
   }
 
-  public getTvlDeltaByTokenByDate(after: Date) {
+  public getTvlDeltaByTokenByDate(
+    after: Date,
+    pair?: { token0: bigint; token1: bigint }
+  ) {
     return this.client.query<{ token: string; balance: string }>({
       text: `
-        WITH token_deltas AS (SELECT pool_keys.token0        as token,
-                                     position_updates.delta0 as delta,
-                                     DATE(blocks.timestamp)  as date
-                              FROM position_updates
-                                     INNER JOIN
-                                   pool_keys ON pool_keys.key_hash = position_updates.pool_key_hash
-                                     INNER JOIN blocks
-                                                ON position_updates.block_number = blocks.number
-                              WHERE blocks.timestamp >= $1
-                              UNION ALL
-                              SELECT pool_keys.token1        as token,
-                                     position_updates.delta1 as delta,
-                                     DATE(blocks.timestamp)  as date
-                              FROM position_updates
-                                     INNER JOIN
-                                   pool_keys ON pool_keys.key_hash = position_updates.pool_key_hash
-                                     INNER JOIN blocks
-                                                ON position_updates.block_number = blocks.number
-                              WHERE blocks.timestamp >= $1
-                              UNION ALL
-                              SELECT pool_keys.token0       as token,
-                                     swaps.delta0           as delta,
-                                     DATE(blocks.timestamp) as date
-                              FROM swaps
-                                     INNER JOIN
-                                   pool_keys ON pool_keys.key_hash = swaps.pool_key_hash
-                                     INNER JOIN blocks
-                                                ON swaps.block_number = blocks.number
-                              WHERE blocks.timestamp >= $1
-                              UNION ALL
-                              SELECT pool_keys.token1       as token,
-                                     swaps.delta1           as delta,
-                                     DATE(blocks.timestamp) as date
-                              FROM swaps
-                                     INNER JOIN
-                                   pool_keys ON pool_keys.key_hash = swaps.pool_key_hash
-                                     INNER JOIN blocks
-                                                ON swaps.block_number = blocks.number
-                              WHERE blocks.timestamp >= $1
-                              UNION ALL
-                              SELECT pool_keys.token0               as token,
-                                     position_fees_collected.delta0 as delta,
-                                     DATE(blocks.timestamp)         as date
-                              FROM position_fees_collected
-                                     INNER JOIN
-                                   pool_keys ON pool_keys.key_hash = position_fees_collected.pool_key_hash
-                                     INNER JOIN blocks
-                                                ON position_fees_collected.block_number = blocks.number
-                              WHERE blocks.timestamp >= $1
-                              UNION ALL
-                              SELECT pool_keys.token1               as token,
-                                     position_fees_collected.delta1 as delta,
-                                     DATE(blocks.timestamp)         as date
-                              FROM position_fees_collected
-                                     INNER JOIN
-                                   pool_keys ON pool_keys.key_hash = position_fees_collected.pool_key_hash
-                                     INNER JOIN blocks
-                                                ON position_fees_collected.block_number = blocks.number
-                              WHERE blocks.timestamp >= $1
-                              UNION ALL
-                              SELECT pool_keys.token0               as token,
-                                     protocol_fees_paid.delta0 as delta,
-                                     DATE(blocks.timestamp)         as date
-                              FROM protocol_fees_paid
-                                     INNER JOIN
-                                   pool_keys ON pool_keys.key_hash = protocol_fees_paid.pool_key_hash
-                                     INNER JOIN blocks
-                                                ON protocol_fees_paid.block_number = blocks.number
-                              WHERE blocks.timestamp >= $1
-                              UNION ALL
-                              SELECT pool_keys.token1               as token,
-                                     protocol_fees_paid.delta1 as delta,
-                                     DATE(blocks.timestamp)         as date
-                              FROM protocol_fees_paid
-                                     INNER JOIN
-                                   pool_keys ON pool_keys.key_hash = protocol_fees_paid.pool_key_hash
-                                     INNER JOIN blocks
-                                                ON protocol_fees_paid.block_number = blocks.number
-                              WHERE blocks.timestamp >= $1)
+          WITH relevant_pool_keys AS (SELECT key_hash, token0, token1
+                                      FROM pool_keys
+                                      WHERE COALESCE($1, token0) = token0 AND COALESCE($2, token1) = token1),
+               token_deltas AS (SELECT relevant_pool_keys.token0 as token,
+                                       position_updates.delta0   as delta,
+                                       DATE(blocks.timestamp)    as date
+                                FROM position_updates
+                                         INNER JOIN
+                                     relevant_pool_keys ON relevant_pool_keys.key_hash = position_updates.pool_key_hash
+                                         INNER JOIN blocks
+                                                    ON position_updates.block_number = blocks.number
+                                WHERE blocks.timestamp >= $3
+                                UNION ALL
+                                SELECT relevant_pool_keys.token1 as token,
+                                       position_updates.delta1   as delta,
+                                       DATE(blocks.timestamp)    as date
+                                FROM position_updates
+                                         INNER JOIN
+                                     relevant_pool_keys ON relevant_pool_keys.key_hash = position_updates.pool_key_hash
+                                         INNER JOIN blocks
+                                                    ON position_updates.block_number = blocks.number
+                                WHERE blocks.timestamp >= $3
+                                UNION ALL
+                                SELECT relevant_pool_keys.token0 as token,
+                                       swaps.delta0              as delta,
+                                       DATE(blocks.timestamp)    as date
+                                FROM swaps
+                                         INNER JOIN
+                                     relevant_pool_keys ON relevant_pool_keys.key_hash = swaps.pool_key_hash
+                                         INNER JOIN blocks
+                                                    ON swaps.block_number = blocks.number
+                                WHERE blocks.timestamp >= $3
+                                UNION ALL
+                                SELECT relevant_pool_keys.token1 as token,
+                                       swaps.delta1              as delta,
+                                       DATE(blocks.timestamp)    as date
+                                FROM swaps
+                                         INNER JOIN
+                                     relevant_pool_keys ON relevant_pool_keys.key_hash = swaps.pool_key_hash
+                                         INNER JOIN blocks
+                                                    ON swaps.block_number = blocks.number
+                                WHERE blocks.timestamp >= $3
+                                UNION ALL
+                                SELECT relevant_pool_keys.token0      as token,
+                                       position_fees_collected.delta0 as delta,
+                                       DATE(blocks.timestamp)         as date
+                                FROM position_fees_collected
+                                         INNER JOIN
+                                     relevant_pool_keys
+                                     ON relevant_pool_keys.key_hash = position_fees_collected.pool_key_hash
+                                         INNER JOIN blocks
+                                                    ON position_fees_collected.block_number = blocks.number
+                                WHERE blocks.timestamp >= $3
+                                UNION ALL
+                                SELECT relevant_pool_keys.token1      as token,
+                                       position_fees_collected.delta1 as delta,
+                                       DATE(blocks.timestamp)         as date
+                                FROM position_fees_collected
+                                         INNER JOIN
+                                     relevant_pool_keys
+                                     ON relevant_pool_keys.key_hash = position_fees_collected.pool_key_hash
+                                         INNER JOIN blocks
+                                                    ON position_fees_collected.block_number = blocks.number
+                                WHERE blocks.timestamp >= $3
+                                UNION ALL
+                                SELECT relevant_pool_keys.token0 as token,
+                                       protocol_fees_paid.delta0 as delta,
+                                       DATE(blocks.timestamp)    as date
+                                FROM protocol_fees_paid
+                                         INNER JOIN
+                                     relevant_pool_keys
+                                     ON relevant_pool_keys.key_hash = protocol_fees_paid.pool_key_hash
+                                         INNER JOIN blocks
+                                                    ON protocol_fees_paid.block_number = blocks.number
+                                WHERE blocks.timestamp >= $3
+                                UNION ALL
+                                SELECT relevant_pool_keys.token1 as token,
+                                       protocol_fees_paid.delta1 as delta,
+                                       DATE(blocks.timestamp)    as date
+                                FROM protocol_fees_paid
+                                         INNER JOIN
+                                     relevant_pool_keys
+                                     ON relevant_pool_keys.key_hash = protocol_fees_paid.pool_key_hash
+                                         INNER JOIN blocks
+                                                    ON protocol_fees_paid.block_number = blocks.number
+                                WHERE blocks.timestamp >= $3)
 
-        SELECT token,
-               date,
-               SUM(delta) as delta
-        FROM token_deltas
-        GROUP BY token, date
-        ORDER BY token, date;
+          SELECT token,
+                 date,
+                 SUM(delta) as delta
+          FROM token_deltas
+          GROUP BY token, date
+          ORDER BY token, date;
       `,
-      values: [after],
+      values: [pair?.token0 ?? null, pair?.token1 ?? null, after],
     });
   }
 
-  public async getVolumeByTokenByDate(after: Date) {
+  public async getVolumeByTokenByDate(
+    after: Date,
+    pair?: { token0: bigint; token1: bigint }
+  ) {
     return this.client.query<{ token: string; volume: string }>({
       text: `
-          WITH token_deltas AS (SELECT pool_keys.token0       as token,
-                                       DATE(blocks.timestamp) as date,
-                                       ABS(swaps.delta0)      as delta,
+          WITH relevant_pool_keys AS (SELECT key_hash, token0, token1, fee
+                                      FROM pool_keys
+                                      WHERE COALESCE($1, token0) = token0
+                                        AND COALESCE($2, token1) = token1),
+               token_deltas AS (SELECT relevant_pool_keys.token0 as token,
+                                       DATE(blocks.timestamp)    as date,
+                                       ABS(swaps.delta0)         as delta,
                                        CASE
-                                           WHEN swaps.delta0 > 0 THEN FLOOR(swaps.delta0 * pool_keys.fee /
+                                           WHEN swaps.delta0 > 0 THEN FLOOR(swaps.delta0 * relevant_pool_keys.fee /
                                                                             ${U128_DENOMINATOR})
-                                           ELSE 0 END         AS fees
+                                           ELSE 0 END            AS fees
                                 FROM swaps
                                          INNER JOIN
-                                     pool_keys ON pool_keys.key_hash = swaps.pool_key_hash
+                                     relevant_pool_keys ON relevant_pool_keys.key_hash = swaps.pool_key_hash
                                          INNER JOIN blocks
                                                     ON swaps.block_number = blocks.number
-                                WHERE blocks.timestamp >= $1
+                                WHERE blocks.timestamp >= $3
                                 UNION ALL
-                                SELECT pool_keys.token1       as token,
-                                       DATE(blocks.timestamp) as date,
-                                       ABS(swaps.delta1)      as delta,
+                                SELECT relevant_pool_keys.token1 as token,
+                                       DATE(blocks.timestamp)    as date,
+                                       ABS(swaps.delta1)         as delta,
                                        CASE
-                                           WHEN swaps.delta0 > 0 THEN FLOOR(swaps.delta0 * pool_keys.fee /
+                                           WHEN swaps.delta0 > 0 THEN FLOOR(swaps.delta0 * relevant_pool_keys.fee /
                                                                             ${U128_DENOMINATOR})
-                                           ELSE 0 END         AS fees
+                                           ELSE 0 END            AS fees
                                 FROM swaps
                                          INNER JOIN
-                                     pool_keys ON pool_keys.key_hash = swaps.pool_key_hash
+                                     relevant_pool_keys ON relevant_pool_keys.key_hash = swaps.pool_key_hash
                                          INNER JOIN blocks on blocks.number = swaps.block_number
-                                WHERE blocks.timestamp >= $1)
+                                WHERE blocks.timestamp >= $3)
 
           SELECT token,
                  date,
@@ -420,99 +437,104 @@ export class Queries {
           GROUP BY token, date
           ORDER BY token, date;
       `,
-      values: [after],
+      values: [pair?.token0 ?? null, pair?.token1 ?? null, after],
     });
   }
 
   public async getTopPairs() {
     return this.client.query<{ token: string; volume: string }>({
       text: `
-          WITH relevant_blocks AS (SELECT number
-                                   FROM blocks
-                                   WHERE timestamp >= $1),
-               volume AS (SELECT token0,
-                                 token1,
-                                 SUM(ABS(swaps.delta0)) as volume0,
-                                 SUM(ABS(swaps.delta1)) as volume1,
-                                 SUM(
-                                         CASE
-                                             WHEN swaps.delta0 > 0 THEN FLOOR(swaps.delta0 * pool_keys.fee /
-                                                                              ${U128_DENOMINATOR})
-                                             ELSE 0 END
-                                     )                  AS fees0,
-                                 SUM(
-                                         CASE
-                                             WHEN swaps.delta1 > 0 THEN FLOOR(swaps.delta1 * pool_keys.fee /
-                                                                              ${U128_DENOMINATOR})
-                                             ELSE 0 END
-                                     )                  AS fees1
-                          FROM swaps
-                                   INNER JOIN pool_keys ON swaps.pool_key_hash = pool_keys.key_hash
-                                   INNER JOIN relevant_blocks
-                                              ON swaps.block_number = relevant_blocks.number
-                          GROUP BY token0, token1),
-               tvl_impact_events AS (SELECT token0,
-                                            token1,
-                                            SUM(delta0) AS delta0,
-                                            SUM(delta1) AS delta1
-                                     FROM swaps
-                                              JOIN pool_keys ON pool_key_hash = pool_keys.key_hash
-                                              JOIN relevant_blocks
-                                                   ON block_number = relevant_blocks.number
-                                     GROUP BY token0, token1
-
-                                     UNION ALL
-
-                                     SELECT token0,
-                                            token1,
-                                            SUM(delta0) AS delta0,
-                                            SUM(delta1) AS delta1
-                                     FROM position_updates
-                                              JOIN pool_keys ON pool_key_hash = pool_keys.key_hash
-                                              JOIN relevant_blocks
-                                                   ON block_number = relevant_blocks.number
-                                     GROUP BY token0, token1
-
-                                     UNION ALL
-
-                                     SELECT token0,
-                                            token1,
-                                            SUM(delta0) AS delta0,
-                                            SUM(delta1) AS delta1
-                                     FROM position_fees_collected
-                                              JOIN pool_keys ON pool_key_hash = pool_keys.key_hash
-                                              JOIN relevant_blocks
-                                                   ON block_number = relevant_blocks.number
-                                     GROUP BY token0, token1
-
-                                     UNION ALL
-
-                                     SELECT token0,
-                                            token1,
-                                            SUM(delta0) AS delta0,
-                                            SUM(delta1) AS delta1
-                                     FROM protocol_fees_paid
-                                              JOIN pool_keys ON pool_key_hash = pool_keys.key_hash
-                                              JOIN relevant_blocks
-                                                   ON block_number = relevant_blocks.number
-                                     GROUP BY token0, token1),
-               tvl_total AS (SELECT token0,
+        WITH relevant_blocks AS (SELECT number
+                                 FROM blocks
+                                 WHERE timestamp >= $1),
+             volume AS (SELECT token0,
+                               token1,
+                               SUM(ABS(swaps.delta0)) as volume0,
+                               SUM(ABS(swaps.delta1)) as volume1,
+                               SUM(
+                                   CASE
+                                     WHEN swaps.delta0 > 0 THEN FLOOR(swaps.delta0 * pool_keys.fee /
+                                                                      ${U128_DENOMINATOR})
+                                     ELSE 0 END
+                                 )                    AS fees0,
+                               SUM(
+                                   CASE
+                                     WHEN swaps.delta1 > 0 THEN FLOOR(swaps.delta1 * pool_keys.fee /
+                                                                      ${U128_DENOMINATOR})
+                                     ELSE 0 END
+                                 )                    AS fees1
+                        FROM swaps
+                               INNER JOIN pool_keys ON swaps.pool_key_hash = pool_keys.key_hash
+                               INNER JOIN relevant_blocks
+                                          ON swaps.block_number = relevant_blocks.number
+                        GROUP BY token0, token1),
+             tvl_changes AS (SELECT block_number,
+                                    token0,
                                     token1,
-                                    SUM(delta0) as tvl0,
-                                    SUM(delta1) as tvl1
-                             FROM tvl_impact_events
-                             GROUP BY token0, token1)
-          SELECT COALESCE(volume.token0, tvl_total.token0) as token0,
-                 COALESCE(volume.token1, tvl_total.token1) as token1,
-                 COALESCE(volume.volume0, 0)               as volume0_24h,
-                 COALESCE(volume.volume1, 0)               as volume1_24h,
-                 COALESCE(volume.fees0, 0)                 as fees0_24h,
-                 COALESCE(volume.fees1, 0)                 as fees1_24h,
-                 COALESCE(tvl_total.tvl0, 0)               as tvl0,
-                 COALESCE(tvl_total.tvl1, 0)               as tvl1
-          FROM volume
-                   FULL OUTER JOIN
-               tvl_total ON volume.token0 = tvl_total.token0 AND volume.token1 = tvl_total.token1;
+                                    delta0,
+                                    delta1
+                             FROM swaps
+                                    JOIN pool_keys ON pool_key_hash = pool_keys.key_hash
+
+                             UNION ALL
+
+                             SELECT block_number,
+                                    token0,
+                                    token1,
+                                    delta0,
+                                    delta1
+                             FROM position_updates
+                                    JOIN pool_keys ON pool_key_hash = pool_keys.key_hash
+
+                             UNION ALL
+
+                             SELECT block_number,
+                                    token0,
+                                    token1,
+                                    delta0,
+                                    delta1
+                             FROM position_fees_collected
+                                    JOIN pool_keys ON pool_key_hash = pool_keys.key_hash
+
+                             UNION ALL
+
+                             SELECT block_number,
+                                    token0,
+                                    token1,
+                                    delta0,
+                                    delta1
+                             FROM protocol_fees_paid
+                                    JOIN pool_keys ON pool_key_hash = pool_keys.key_hash),
+             tvl_total AS (SELECT token0,
+                                  token1,
+                                  SUM(delta0) as tvl0,
+                                  SUM(delta1) as tvl1
+                           FROM tvl_changes
+                           GROUP BY token0, token1),
+             tvl_delta_24h AS (SELECT token0,
+                                      token1,
+                                      SUM(delta0) as tvl0,
+                                      SUM(delta1) as tvl1
+                               FROM tvl_changes
+                                      JOIN relevant_blocks
+                                           ON tvl_changes.block_number = relevant_blocks.number
+                               GROUP BY token0, token1)
+        SELECT COALESCE(volume.token0, tvl_total.token0) as token0,
+               COALESCE(volume.token1, tvl_total.token1) as token1,
+               COALESCE(volume.volume0, 0)               as volume0_24h,
+               COALESCE(volume.volume1, 0)               as volume1_24h,
+               COALESCE(volume.fees0, 0)                 as fees0_24h,
+               COALESCE(volume.fees1, 0)                 as fees1_24h,
+               COALESCE(tvl_total.tvl0, 0)               as tvl0_total,
+               COALESCE(tvl_total.tvl1, 0)               as tvl1_total,
+               COALESCE(tvl_delta_24h.tvl0, 0)           as tvl0,
+               COALESCE(tvl_delta_24h.tvl1, 0)           as tvl1
+        FROM volume
+               FULL OUTER JOIN
+             tvl_total ON volume.token0 = tvl_total.token0 AND volume.token1 = tvl_total.token1
+               FULL OUTER JOIN tvl_delta_24h
+                               ON tvl_delta_24h.token0 = COALESCE(volume.token0, tvl_total.token0) AND
+                                  tvl_delta_24h.token1 = COALESCE(volume.token1, tvl_total.token1);
       `,
       values: [new Date(Date.now() - 86_400_000)],
     });

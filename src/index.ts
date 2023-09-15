@@ -20,11 +20,14 @@ function numericToHex(x: bigint | number | string) {
   return `0x${BigInt(x).toString(16)}`;
 }
 
+const ADDRESS_REGEX = /^0x[a-fA-F0-9]+$/;
+
 router
   .get<IRequest, CF>("/overview", async ({}, env) => {
     const queries = await createQueries(env);
 
-    const thirtyDaysAgo = new Date(Date.now() - 1000 * 60 * 60 * 24 * 30);
+    const timestamp = Date.now();
+    const thirtyDaysAgo = new Date(timestamp - 1000 * 60 * 60 * 24 * 30);
 
     const [
       { rows: tvlByToken },
@@ -42,7 +45,7 @@ router
 
     return json(
       {
-        timestamp: Date.now(),
+        timestamp,
         tvlByToken,
         volumeByToken,
         tvlDeltaByTokenByDate,
@@ -52,6 +55,48 @@ router
       {
         headers: {
           "cache-control": "public, max-age=600",
+        },
+      }
+    );
+  })
+  .get<IRequest, CF>("/pair/:tokenA/:tokenB", async ({ params }, env) => {
+    if (
+      !ADDRESS_REGEX.test(params.tokenA) ||
+      !ADDRESS_REGEX.test(params.tokenB)
+    ) {
+      return error(
+        400,
+        "`tokenA` and `tokenB` path parameters must be token addresses"
+      );
+    }
+
+    const [token0, token1] =
+      BigInt(params.tokenA) < BigInt(params.tokenB)
+        ? [BigInt(params.tokenA), BigInt(params.tokenB)]
+        : [BigInt(params.tokenB), BigInt(params.tokenA)];
+
+    const pair = { token0, token1 };
+
+    const queries = await createQueries(env);
+
+    const timestamp = Date.now();
+    const thirtyDaysAgo = new Date(timestamp - 1000 * 60 * 60 * 24 * 30);
+
+    const [{ rows: tvlDeltaByTokenByDate }, { rows: volumeByTokenByDate }] =
+      await Promise.all([
+        queries.getTvlDeltaByTokenByDate(thirtyDaysAgo, pair),
+        queries.getVolumeByTokenByDate(thirtyDaysAgo, pair),
+      ]);
+
+    return json(
+      {
+        timestamp,
+        tvlDeltaByTokenByDate,
+        volumeByTokenByDate,
+      },
+      {
+        headers: {
+          "cache-control": "public, max-age=180",
         },
       }
     );
