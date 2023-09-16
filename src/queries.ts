@@ -192,22 +192,22 @@ export class Queries {
                                       FROM pool_keys
                                       WHERE COALESCE($1, token0) = token0
                                         AND COALESCE($2, token1) = token1),
-               token_deltas AS (SELECT relevant_pool_keys.token0  as token,
-                                       ABS(swaps.delta0) as delta,
+               token_deltas AS (SELECT relevant_pool_keys.token0                               as token,
+                                       CASE WHEN swaps.delta0 > 0 THEN swaps.delta0 ELSE 0 END as delta,
                                        CASE
                                            WHEN swaps.delta0 > 0 THEN FLOOR(swaps.delta0 * relevant_pool_keys.fee /
                                                                             ${U128_DENOMINATOR})
-                                           ELSE 0 END    AS fees
+                                           ELSE 0 END                                          AS fees
                                 FROM swaps
                                          INNER JOIN
                                      relevant_pool_keys ON relevant_pool_keys.key_hash = swaps.pool_key_hash
                                 UNION ALL
-                                SELECT relevant_pool_keys.token1  as token,
-                                       ABS(swaps.delta1) as delta,
+                                SELECT relevant_pool_keys.token1                               as token,
+                                       CASE WHEN swaps.delta1 > 0 THEN swaps.delta1 ELSE 0 END as delta,
                                        CASE
                                            WHEN swaps.delta1 > 0 THEN FLOOR(swaps.delta1 * relevant_pool_keys.fee /
                                                                             ${U128_DENOMINATOR})
-                                           ELSE 0 END    AS fees
+                                           ELSE 0 END                                          AS fees
                                 FROM swaps
                                          INNER JOIN
                                      relevant_pool_keys ON relevant_pool_keys.key_hash = swaps.pool_key_hash)
@@ -418,7 +418,7 @@ export class Queries {
                                         AND COALESCE($2, token1) = token1),
                token_deltas AS (SELECT relevant_pool_keys.token0 as token,
                                        DATE(blocks.timestamp)    as date,
-                                       ABS(swaps.delta0)         as delta,
+                                       CASE WHEN swaps.delta0 > 0 THEN swaps.delta0 ELSE 0 END         as delta,
                                        CASE
                                            WHEN swaps.delta0 > 0 THEN FLOOR(swaps.delta0 * relevant_pool_keys.fee /
                                                                             ${U128_DENOMINATOR})
@@ -432,7 +432,7 @@ export class Queries {
                                 UNION ALL
                                 SELECT relevant_pool_keys.token1 as token,
                                        DATE(blocks.timestamp)    as date,
-                                       ABS(swaps.delta1)         as delta,
+                                       CASE WHEN swaps.delta1 > 0 THEN swaps.delta1 ELSE 0 END         as delta,
                                        CASE
                                            WHEN swaps.delta0 > 0 THEN FLOOR(swaps.delta0 * relevant_pool_keys.fee /
                                                                             ${U128_DENOMINATOR})
@@ -463,8 +463,8 @@ export class Queries {
                                  WHERE timestamp >= $1),
              volume AS (SELECT token0,
                                token1,
-                               SUM(ABS(swaps.delta0)) as volume0,
-                               SUM(ABS(swaps.delta1)) as volume1,
+                               SUM(CASE WHEN swaps.delta0 > 0 THEN swaps.delta0 ELSE 0 END) as volume0,
+                               SUM(CASE WHEN swaps.delta1 > 0 THEN swaps.delta1 ELSE 0 END) as volume1,
                                SUM(
                                    CASE
                                      WHEN swaps.delta0 > 0 THEN FLOOR(swaps.delta0 * pool_keys.fee /
@@ -565,8 +565,8 @@ export class Queries {
                                  FROM blocks
                                  WHERE timestamp >= $3),
              volume AS (SELECT key_hash,
-                               SUM(ABS(swaps.delta0)) as volume0,
-                               SUM(ABS(swaps.delta1)) as volume1,
+                               SUM(CASE WHEN swaps.delta0 > 0 THEN swaps.delta0 ELSE 0 END) as volume0,
+                               SUM(CASE WHEN swaps.delta1 > 0 THEN swaps.delta1 ELSE 0 END) as volume1,
                                SUM(
                                    CASE
                                      WHEN swaps.delta0 > 0 THEN FLOOR(swaps.delta0 * relevant_pool_keys.fee /
