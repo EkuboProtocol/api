@@ -4,7 +4,7 @@ compatibility_date = "2023-03-14"
 node_compat = true
 
 [vars]
-STARKNET_CHAIN_ID = "0x534e5f474f45524c49"
+STARKNET_CHAIN_ID = "0x534e5f4d41494e"
 PG_CONNECTION_STRING="postgresql://postgres:postgres@localhost:5432"
 
 [env.goerli.vars]

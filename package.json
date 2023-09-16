@@ -18,5 +18,8 @@
     "start": "wrangler dev",
     "deploy": "wrangler deploy",
     "test": "jest"
+  },
+  "dependencies": {
+    "decimal.js-light": "^2.5.1"
   }
 }
