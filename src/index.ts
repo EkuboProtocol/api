@@ -434,7 +434,7 @@ router
           denominator.name
         } tokens, active between the prices of ${lowerPrice} ${
           numerator.symbol
-        } / ${denominator.symbol} to ${upperPrice} ${
+        } / ${denominator.symbol} to ${upperPrice} ${numerator.symbol} / ${
           denominator.symbol
         }. This position charges a ${feeToPercent(
           positionMetadata.fee
