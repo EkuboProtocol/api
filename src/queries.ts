@@ -544,8 +544,6 @@ export class Queries {
                COALESCE(volume.fees1, 0)                 as fees1_24h,
                COALESCE(tvl_total.tvl0, 0)               as tvl0_total,
                COALESCE(tvl_total.tvl1, 0)               as tvl1_total,
-               COALESCE(tvl_delta_24h.tvl0, 0)           as tvl0,
-               COALESCE(tvl_delta_24h.tvl1, 0)           as tvl1,
                COALESCE(tvl_delta_24h.tvl0, 0)           as tvl0_delta_24h,
                COALESCE(tvl_delta_24h.tvl1, 0)           as tvl1_delta_24h
         FROM volume
@@ -643,8 +641,6 @@ export class Queries {
                COALESCE(volume.fees1, 0)       as fees1_24h,
                COALESCE(tvl_total.tvl0, 0)     as tvl0_total,
                COALESCE(tvl_total.tvl1, 0)     as tvl1_total,
-               COALESCE(tvl_delta_24h.tvl0, 0) as tvl0,
-               COALESCE(tvl_delta_24h.tvl1, 0) as tvl1,
                COALESCE(tvl_delta_24h.tvl0, 0) as tvl0_delta_24h,
                COALESCE(tvl_delta_24h.tvl1, 0) as tvl1_delta_24h
         FROM volume
