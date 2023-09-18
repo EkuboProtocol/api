@@ -8,6 +8,7 @@ interface TokenMetadata {
   fee: string;
   tick_spacing: string;
   extension: string;
+  minted_timestamp: Date;
 }
 
 const U128_DENOMINATOR = 2n ** 128n;
@@ -21,17 +22,19 @@ export class Queries {
 
   public async getTokenMetadata(id: number): Promise<TokenMetadata | null> {
     const { rows, rowCount } = await this.client.query<TokenMetadata>(`
-            SELECT position_minted.lower_bound,
-                   position_minted.upper_bound,
-                   pool_keys.token0,
-                   pool_keys.token1,
-                   pool_keys.fee,
-                   pool_keys.tick_spacing,
-                   pool_keys.extension
-            FROM position_minted
-                     JOIN pool_keys on position_minted.pool_key_hash = pool_keys.key_hash
-            WHERE token_id = ${id}
-        `);
+        SELECT position_minted.lower_bound,
+               position_minted.upper_bound,
+               pool_keys.token0,
+               pool_keys.token1,
+               pool_keys.fee,
+               pool_keys.tick_spacing,
+               pool_keys.extension,
+               blocks.timestamp AS minted_timestamp
+        FROM position_minted
+                 JOIN pool_keys on position_minted.pool_key_hash = pool_keys.key_hash
+                 JOIN blocks ON position_minted.block_number = blocks.number
+        WHERE token_id = ${id}
+    `);
 
     if (rowCount !== 1) {
       return null;
@@ -675,9 +678,11 @@ export class Queries {
                  tick_spacing,
                  extension,
                  lower_bound,
-                 upper_bound
+                 upper_bound,
+                 blocks.timestamp AS minted_timestamp
           FROM position_minted
                    JOIN pool_keys ON position_minted.pool_key_hash = pool_keys.key_hash
+                   JOIN blocks ON position_minted.block_number = blocks.number
           WHERE token_id IN (SELECT token_id FROM final_transfer WHERE current_owner = $1)
           ORDER BY token_id DESC
       `,

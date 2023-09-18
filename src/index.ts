@@ -247,6 +247,7 @@ router
             },
             metadata_url: `${origin}/${row.token_id}`,
             image: `${origin}/${row.token_id}/image.svg`,
+            minted_timestamp: row.minted_timestamp.getTime(),
           })),
         },
         {
@@ -382,6 +383,10 @@ router
       {
         trait_type: "tick_upper",
         value: positionMetadata.upper_bound.toString(),
+      },
+      {
+        trait_type: "minted_timestamp",
+        value: positionMetadata.minted_timestamp.getTime().toString(),
       },
     ];
 
