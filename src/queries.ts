@@ -545,7 +545,9 @@ export class Queries {
                COALESCE(tvl_total.tvl0, 0)               as tvl0_total,
                COALESCE(tvl_total.tvl1, 0)               as tvl1_total,
                COALESCE(tvl_delta_24h.tvl0, 0)           as tvl0,
-               COALESCE(tvl_delta_24h.tvl1, 0)           as tvl1
+               COALESCE(tvl_delta_24h.tvl1, 0)           as tvl1,
+               COALESCE(tvl_delta_24h.tvl0, 0)           as tvl0_delta_24h,
+               COALESCE(tvl_delta_24h.tvl1, 0)           as tvl1_delta_24h
         FROM volume
                FULL OUTER JOIN
              tvl_total ON volume.token0 = tvl_total.token0 AND volume.token1 = tvl_total.token1
@@ -642,7 +644,9 @@ export class Queries {
                COALESCE(tvl_total.tvl0, 0)     as tvl0_total,
                COALESCE(tvl_total.tvl1, 0)     as tvl1_total,
                COALESCE(tvl_delta_24h.tvl0, 0) as tvl0,
-               COALESCE(tvl_delta_24h.tvl1, 0) as tvl1
+               COALESCE(tvl_delta_24h.tvl1, 0) as tvl1,
+               COALESCE(tvl_delta_24h.tvl0, 0) as tvl0_delta_24h,
+               COALESCE(tvl_delta_24h.tvl1, 0) as tvl1_delta_24h
         FROM volume
                FULL OUTER JOIN
              tvl_total ON volume.key_hash = tvl_total.key_hash
