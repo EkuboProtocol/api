@@ -78,14 +78,18 @@ router
     const [
       { rows: tvlByToken },
       { rows: volumeByToken },
+      { rows: revenueByToken },
       { rows: tvlDeltaByTokenByDate },
       { rows: volumeByTokenByDate },
+      { rows: revenueByTokenByDate },
       { rows: topPairs },
     ] = await Promise.all([
       queries.getTvlByToken(),
-      queries.getVolumeByToken(),
+      queries.getTotalVolume(),
+      queries.getRevenueByToken(),
       queries.getTvlDeltaByTokenByDate(thirtyDaysAgo),
       queries.getVolumeByTokenByDate(thirtyDaysAgo),
+      queries.getRevenueByTokenByDate(thirtyDaysAgo),
       queries.getTopPairs(),
     ]);
 
@@ -94,8 +98,10 @@ router
         timestamp,
         tvlByToken,
         volumeByToken,
+        revenueByToken,
         tvlDeltaByTokenByDate,
         volumeByTokenByDate,
+        revenueByTokenByDate,
         topPairs,
       },
       {
@@ -133,14 +139,18 @@ router
     const [
       { rows: tvlByToken },
       { rows: volumeByToken },
+      { rows: revenueByToken },
       { rows: tvlDeltaByTokenByDate },
       { rows: volumeByTokenByDate },
+      { rows: revenueByTokenByDate },
       { rows: topPools },
     ] = await Promise.all([
       queries.getTvlByToken(pair),
-      queries.getVolumeByToken(pair),
+      queries.getTotalVolume(pair),
+      queries.getRevenueByToken(pair),
       queries.getTvlDeltaByTokenByDate(thirtyDaysAgo, pair),
       queries.getVolumeByTokenByDate(thirtyDaysAgo, pair),
+      queries.getRevenueByTokenByDate(thirtyDaysAgo, pair),
       queries.getTopPools(pair),
     ]);
 
@@ -151,6 +161,7 @@ router
         volumeByToken,
         tvlDeltaByTokenByDate,
         volumeByTokenByDate,
+        revenueByTokenByDate,
         topPools,
       },
       {
