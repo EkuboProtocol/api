@@ -83,15 +83,17 @@ router
       { rows: volumeByTokenByDate },
       { rows: revenueByTokenByDate },
       { rows: topPairs },
-    ] = await Promise.all([
-      queries.getTvlByToken(),
-      queries.getTotalVolume(),
-      queries.getRevenueByToken(),
-      queries.getTvlDeltaByTokenByDate(thirtyDaysAgo),
-      queries.getVolumeByTokenByDate(thirtyDaysAgo),
-      queries.getRevenueByTokenByDate(thirtyDaysAgo),
-      queries.getTopPairs(),
-    ]);
+    ] = await queries.withinTransaction(() =>
+      Promise.all([
+        queries.getTvlByToken(),
+        queries.getTotalVolume(),
+        queries.getRevenueByToken(),
+        queries.getTvlDeltaByTokenByDate(thirtyDaysAgo),
+        queries.getVolumeByTokenByDate(thirtyDaysAgo),
+        queries.getRevenueByTokenByDate(thirtyDaysAgo),
+        queries.getTopPairs(),
+      ])
+    );
 
     return json(
       {
@@ -144,21 +146,24 @@ router
       { rows: volumeByTokenByDate },
       { rows: revenueByTokenByDate },
       { rows: topPools },
-    ] = await Promise.all([
-      queries.getTvlByToken(pair),
-      queries.getTotalVolume(pair),
-      queries.getRevenueByToken(pair),
-      queries.getTvlDeltaByTokenByDate(thirtyDaysAgo, pair),
-      queries.getVolumeByTokenByDate(thirtyDaysAgo, pair),
-      queries.getRevenueByTokenByDate(thirtyDaysAgo, pair),
-      queries.getTopPools(pair),
-    ]);
+    ] = await queries.withinTransaction(() =>
+      Promise.all([
+        queries.getTvlByToken(pair),
+        queries.getTotalVolume(pair),
+        queries.getRevenueByToken(pair),
+        queries.getTvlDeltaByTokenByDate(thirtyDaysAgo, pair),
+        queries.getVolumeByTokenByDate(thirtyDaysAgo, pair),
+        queries.getRevenueByTokenByDate(thirtyDaysAgo, pair),
+        queries.getTopPools(pair),
+      ])
+    );
 
     return json(
       {
         timestamp,
         tvlByToken,
         volumeByToken,
+        revenueByToken,
         tvlDeltaByTokenByDate,
         volumeByTokenByDate,
         revenueByTokenByDate,

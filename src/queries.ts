@@ -487,6 +487,13 @@ export class Queries {
     });
   }
 
+  public async withinTransaction<T>(doX: () => Promise<T>): Promise<T> {
+    await this.client.query(`BEGIN`);
+    const result = await doX();
+    await this.client.query("COMMIT");
+    return result;
+  }
+
   public async getRevenueByTokenByDate(
     after: Date,
     pair?: { token0: bigint; token1: bigint }
