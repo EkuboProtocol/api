@@ -188,13 +188,19 @@ export class Queries {
     });
   }
 
-  public getTotalVolume(pair?: { token0: bigint; token1: bigint }) {
+  public getTotalVolume(
+    since: Date,
+    pair?: { token0: bigint; token1: bigint }
+  ) {
     return this.client.query<{ token: string; volume: string }>({
       text: `
-          WITH relevant_pool_keys AS (SELECT key_hash, token0, token1, fee
+          WITH relevant_blocks AS (SELECT number
+                                   FROM blocks
+                                   WHERE timestamp >= $1),
+               relevant_pool_keys AS (SELECT key_hash, token0, token1, fee
                                       FROM pool_keys
-                                      WHERE COALESCE($1, token0) = token0
-                                        AND COALESCE($2, token1) = token1),
+                                      WHERE COALESCE($2, token0) = token0
+                                        AND COALESCE($3, token1) = token1),
                token_deltas AS (SELECT relevant_pool_keys.token0                               as token,
                                        CASE WHEN swaps.delta0 > 0 THEN swaps.delta0 ELSE 0 END as delta,
                                        CASE
@@ -202,6 +208,7 @@ export class Queries {
                                                                             ${U128_DENOMINATOR})
                                            ELSE 0 END                                          AS fees
                                 FROM swaps
+                                         INNER JOIN relevant_blocks ON block_number = relevant_blocks.number
                                          INNER JOIN
                                      relevant_pool_keys ON relevant_pool_keys.key_hash = swaps.pool_key_hash
                                 UNION ALL
@@ -212,6 +219,7 @@ export class Queries {
                                                                             ${U128_DENOMINATOR})
                                            ELSE 0 END                                          AS fees
                                 FROM swaps
+                                         INNER JOIN relevant_blocks ON block_number = relevant_blocks.number
                                          INNER JOIN
                                      relevant_pool_keys ON relevant_pool_keys.key_hash = swaps.pool_key_hash)
           SELECT token,
@@ -220,36 +228,46 @@ export class Queries {
           FROM token_deltas
           GROUP BY token_deltas.token
       `,
-      values: [pair?.token0 ?? null, pair?.token1 ?? null],
+      values: [since, pair?.token0 ?? null, pair?.token1 ?? null],
     });
   }
 
-  public getRevenueByToken(pair?: { token0: bigint; token1: bigint }) {
+  public getRevenueByToken(
+    since: Date,
+    pair?: { token0: bigint; token1: bigint }
+  ) {
     return this.client.query<{ token: string; volume: string }>({
       text: `
-          WITH relevant_pool_keys AS (SELECT key_hash, token0, token1, fee
+          WITH relevant_blocks AS (SELECT number
+                                   FROM blocks
+                                   WHERE timestamp >= $1),
+               relevant_pool_keys AS (SELECT key_hash, token0, token1, fee
                                       FROM pool_keys
-                                      WHERE COALESCE($1, token0) = token0
-                                        AND COALESCE($2, token1) = token1),
+                                      WHERE COALESCE($2, token0) = token0
+                                        AND COALESCE($3, token1) = token1),
                token_fees_paid AS (SELECT relevant_pool_keys.token0  as token,
-                                       -protocol_fees_paid.delta0 as delta
-                                FROM protocol_fees_paid
-                                         INNER JOIN
-                                     relevant_pool_keys
-                                     ON relevant_pool_keys.key_hash = protocol_fees_paid.pool_key_hash
-                                UNION ALL
-                                SELECT relevant_pool_keys.token1  as token,
-                                       -protocol_fees_paid.delta1 as delta
-                                FROM protocol_fees_paid
-                                         INNER JOIN
-                                     relevant_pool_keys
-                                     ON relevant_pool_keys.key_hash = protocol_fees_paid.pool_key_hash)
+                                          -protocol_fees_paid.delta0 as delta
+                                   FROM protocol_fees_paid
+                                            INNER JOIN relevant_blocks
+                                                       ON protocol_fees_paid.block_number = relevant_blocks.number
+                                            INNER JOIN
+                                        relevant_pool_keys
+                                        ON relevant_pool_keys.key_hash = protocol_fees_paid.pool_key_hash
+                                   UNION ALL
+                                   SELECT relevant_pool_keys.token1  as token,
+                                          -protocol_fees_paid.delta1 as delta
+                                   FROM protocol_fees_paid
+                                            INNER JOIN relevant_blocks
+                                                       ON protocol_fees_paid.block_number = relevant_blocks.number
+                                            INNER JOIN
+                                        relevant_pool_keys
+                                        ON relevant_pool_keys.key_hash = protocol_fees_paid.pool_key_hash)
           SELECT token,
                  SUM(delta) as revenue
           FROM token_fees_paid
           GROUP BY token_fees_paid.token
       `,
-      values: [pair?.token0 ?? null, pair?.token1 ?? null],
+      values: [since, pair?.token0 ?? null, pair?.token1 ?? null],
     });
   }
 

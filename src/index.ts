@@ -27,6 +27,8 @@ Decimal.set({ precision: 39 });
 
 const BASE = new Decimal("1.000001");
 
+const ALL_TIME = new Date(0);
+
 function formattedPrice(
   tick: bigint,
   numeratorDecimals: number,
@@ -73,12 +75,15 @@ router
     const queries = await createQueries(env);
 
     const timestamp = Date.now();
+    const twentyFourHoursAgo = new Date(timestamp - 1000 * 60 * 60 * 24);
     const thirtyDaysAgo = new Date(timestamp - 1000 * 60 * 60 * 24 * 30);
 
     const [
       { rows: tvlByToken },
       { rows: volumeByToken },
       { rows: revenueByToken },
+      { rows: volumeByToken_24h },
+      { rows: revenueByToken_24h },
       { rows: tvlDeltaByTokenByDate },
       { rows: volumeByTokenByDate },
       { rows: revenueByTokenByDate },
@@ -86,8 +91,10 @@ router
     ] = await queries.withinTransaction(() =>
       Promise.all([
         queries.getTvlByToken(),
-        queries.getTotalVolume(),
-        queries.getRevenueByToken(),
+        queries.getTotalVolume(ALL_TIME),
+        queries.getRevenueByToken(ALL_TIME),
+        queries.getTotalVolume(twentyFourHoursAgo),
+        queries.getRevenueByToken(twentyFourHoursAgo),
         queries.getTvlDeltaByTokenByDate(thirtyDaysAgo),
         queries.getVolumeByTokenByDate(thirtyDaysAgo),
         queries.getRevenueByTokenByDate(thirtyDaysAgo),
@@ -100,7 +107,9 @@ router
         timestamp,
         tvlByToken,
         volumeByToken,
+        volumeByToken_24h,
         revenueByToken,
+        revenueByToken_24h,
         tvlDeltaByTokenByDate,
         volumeByTokenByDate,
         revenueByTokenByDate,
@@ -149,8 +158,8 @@ router
     ] = await queries.withinTransaction(() =>
       Promise.all([
         queries.getTvlByToken(pair),
-        queries.getTotalVolume(pair),
-        queries.getRevenueByToken(pair),
+        queries.getTotalVolume(ALL_TIME, pair),
+        queries.getRevenueByToken(ALL_TIME, pair),
         queries.getTvlDeltaByTokenByDate(thirtyDaysAgo, pair),
         queries.getVolumeByTokenByDate(thirtyDaysAgo, pair),
         queries.getRevenueByTokenByDate(thirtyDaysAgo, pair),
