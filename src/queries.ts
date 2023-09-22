@@ -9,6 +9,7 @@ interface TokenMetadata {
   tick_spacing: string;
   extension: string;
   minted_timestamp: Date;
+  minted_tx_hash: string;
 }
 
 const U128_DENOMINATOR = 2n ** 128n;
@@ -22,14 +23,15 @@ export class Queries {
 
   public async getTokenMetadata(id: number): Promise<TokenMetadata | null> {
     const { rows, rowCount } = await this.client.query<TokenMetadata>(`
-        SELECT position_minted.lower_bound,
+        SELECT position_minted.transaction_hash as minted_tx_hash,
+               position_minted.lower_bound,
                position_minted.upper_bound,
                pool_keys.token0,
                pool_keys.token1,
                pool_keys.fee,
                pool_keys.tick_spacing,
                pool_keys.extension,
-               blocks.timestamp AS minted_timestamp
+               blocks.timestamp                 AS minted_timestamp
         FROM position_minted
                  JOIN pool_keys on position_minted.pool_key_hash = pool_keys.key_hash
                  JOIN blocks ON position_minted.block_number = blocks.number
@@ -768,6 +770,7 @@ export class Queries {
                                   FROM ranked_transfers
                                   WHERE row_no = 1)
           SELECT token_id,
+                 position_minted.transaction_hash as minted_tx_hash,
                  token0,
                  token1,
                  fee,
@@ -775,7 +778,7 @@ export class Queries {
                  extension,
                  lower_bound,
                  upper_bound,
-                 blocks.timestamp AS minted_timestamp
+                 blocks.timestamp                 AS minted_timestamp
           FROM position_minted
                    JOIN pool_keys ON position_minted.pool_key_hash = pool_keys.key_hash
                    JOIN blocks ON position_minted.block_number = blocks.number

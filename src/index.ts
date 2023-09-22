@@ -390,6 +390,10 @@ router
     }
 
     const attributesStored: NFTMetadata["attributes"] = [
+      {
+        trait_type: "minted_tx_hash",
+        value: numericToHex(positionMetadata.minted_tx_hash),
+      },
       { trait_type: "token0", value: numericToHex(positionMetadata.token0) },
       { trait_type: "token1", value: numericToHex(positionMetadata.token1) },
       { trait_type: "fee", value: positionMetadata.fee.toString() },
