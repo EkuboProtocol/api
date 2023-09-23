@@ -254,7 +254,8 @@ router
 
         if (!quoteFt || !baseFt) return error(404, "No prices for this pair");
 
-        return error(501, "Indirect pairs work in progress");
+        // we have quote/ft and ft/base so if we multiply quote/ft and ft/base it should be quote/base
+        price = quoteFt.mul(baseFt);
       }
 
       const scaled = price.mul(new Decimal(10).pow(bt.decimals - qt.decimals));
