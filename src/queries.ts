@@ -1,4 +1,5 @@
 import { Client } from "pg";
+import Decimal from "decimal.js-light";
 
 interface TokenMetadata {
   lower_bound: string;
@@ -456,6 +457,46 @@ export class Queries {
       `,
       values: [pair?.token0 ?? null, pair?.token1 ?? null, after],
     });
+  }
+
+  public async getVolumeWeightedPrice({
+    baseToken,
+    quoteToken,
+    since,
+  }: {
+    baseToken: bigint;
+    quoteToken: bigint;
+    since: Date;
+  }): Promise<Decimal | null> {
+    const [token0, token1] =
+      baseToken < quoteToken
+        ? [baseToken, quoteToken]
+        : [quoteToken, baseToken];
+
+    const { rows } = await this.client.query<{
+      total: string;
+      k_volume: string;
+    }>({
+      text: `
+          SELECT SUM(delta1 * delta1) AS total, SUM(delta0 * delta1) AS k_volume 
+          FROM swaps
+                   JOIN blocks ON swaps.block_number = blocks.number
+                   JOIN pool_keys ON swaps.pool_key_hash = pool_keys.key_hash
+          WHERE token0 = $1
+            AND token1 = $2
+            AND blocks.timestamp > $3
+          GROUP BY token0, token1
+      `,
+      values: [token0, token1, since],
+    });
+
+    if (rows.length !== 1) return null;
+
+    const { total, k_volume } = rows[0];
+
+    return baseToken < quoteToken
+      ? new Decimal(total).div(k_volume).abs()
+      : new Decimal(k_volume).div(total).abs();
   }
 
   public async getVolumeByTokenByDate(

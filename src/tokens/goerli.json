@@ -1,0 +1,44 @@
+[
+  {
+    "name": "Wrapped BTC",
+    "symbol": "WBTC",
+    "decimals": 8,
+    "l2_token_address": "0x12d537dc323c439dc65c976fad242d5610d27cfb5f31689a0a319b8be7f3d56",
+    "sortOrder": -1
+  },
+  {
+    "name": "Goerli USD Coin",
+    "symbol": "USDC",
+    "decimals": 6,
+    "l2_token_address": "0x005a643907b9a4bc6a55e9069c4fd5fd1f5c79a22470690f75556c4736e34426",
+    "sortOrder": 1
+  },
+  {
+    "name": "Tether USD",
+    "symbol": "USDT",
+    "decimals": 6,
+    "l2_token_address": "0x386e8d061177f19b3b485c20e31137e6f6bc497cc635ccdfcab96fadf5add6a",
+    "sortOrder": 1
+  },
+  {
+    "name": "SelfService",
+    "symbol": "SLF",
+    "decimals": 6,
+    "l2_token_address": "0x07a39a50bf689e9430fc81fba0f4d46e245e1657e77455548ed7e32c808cfc10",
+    "sortOrder": 1
+  },
+  {
+    "name": "Ether",
+    "symbol": "ETH",
+    "decimals": 18,
+    "l2_token_address": "0x049d36570d4e46f48e99674bd3fcc84644ddd6b96f7c741b1562b82f9e004dc7",
+    "sortOrder": 0
+  },
+  {
+    "name": "DAI",
+    "symbol": "DAI",
+    "decimals": 18,
+    "l2_token_address": "0x03e85bfbb8e2a42b7bead9e88e9a1b19dbccf661471061807292120462396ec9",
+    "sortOrder": 1
+  }
+]

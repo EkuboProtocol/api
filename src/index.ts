@@ -6,13 +6,28 @@ import { Env } from "./env";
 import { ExecutionContext } from "@cloudflare/workers-types";
 import { createQueries } from "./createQueries";
 import MAINNET_TOKENS from "./tokens/mainnet.json";
+import GOERLI_TOKENS from "./tokens/goerli.json";
 import Decimal from "decimal.js-light";
 
 const TOKENS_BY_CHAIN_ID: {
-  [key in "0x534e5f474f45524c49" | "0x534e5f4d41494e"]?: typeof MAINNET_TOKENS;
+  [key in "0x534e5f474f45524c49" | "0x534e5f4d41494e"]?:
+    | typeof MAINNET_TOKENS
+    | typeof GOERLI_TOKENS;
 } = {
   ["0x534e5f4d41494e"]: MAINNET_TOKENS,
+  ["0x534e5f474f45524c49"]: GOERLI_TOKENS,
 };
+
+export function feeToken(chainId: "0x534e5f474f45524c49" | "0x534e5f4d41494e") {
+  return findToken(
+    chainId,
+    chainId === "0x534e5f4d41494e"
+      ? "0x049d36570d4e46f48e99674bd3fcc84644ddd6b96f7c741b1562b82f9e004dc7"
+      : chainId === "0x534e5f474f45524c49"
+      ? "0x049d36570d4e46f48e99674bd3fcc84644ddd6b96f7c741b1562b82f9e004dc7"
+      : "0"
+  );
+}
 
 function findToken(
   chainId: "0x534e5f474f45524c49" | "0x534e5f4d41494e",
@@ -185,6 +200,78 @@ router
       }
     );
   })
+  .get<IRequest, CF>(
+    "/price/:baseToken/:quoteToken",
+    async ({ params }, env) => {
+      if (
+        typeof params.baseToken !== "string" ||
+        !ADDRESS_REGEX.test(params.baseToken) ||
+        typeof params.quoteToken !== "string" ||
+        !ADDRESS_REGEX.test(params.quoteToken)
+      ) {
+        return error(
+          400,
+          "`baseToken` and `quoteToken` path parameters must be token addresses in hex format"
+        );
+      }
+
+      const baseToken = BigInt(params.baseToken);
+      const quoteToken = BigInt(params.quoteToken);
+
+      const bt = findToken(env.STARKNET_CHAIN_ID, baseToken);
+      const qt = findToken(env.STARKNET_CHAIN_ID, quoteToken);
+
+      if (!bt || !qt) {
+        return error(400, "Base token or quote token not known");
+      }
+
+      const queries = await createQueries(env);
+
+      const timestamp = Date.now();
+      const oneHourAgo = new Date(timestamp - 3_600_000);
+
+      let price = await queries.getVolumeWeightedPrice({
+        quoteToken,
+        baseToken,
+        since: oneHourAgo,
+      });
+
+      if (price === null) {
+        const ft = feeToken(env.STARKNET_CHAIN_ID);
+
+        const [quoteFt, baseFt] = await Promise.all([
+          queries.getVolumeWeightedPrice({
+            quoteToken,
+            baseToken: BigInt(ft.l2_token_address),
+            since: oneHourAgo,
+          }),
+          queries.getVolumeWeightedPrice({
+            quoteToken: BigInt(ft.l2_token_address),
+            baseToken,
+            since: oneHourAgo,
+          }),
+        ]);
+
+        if (!quoteFt || !baseFt) return error(404, "No prices for this pair");
+
+        return error(501, "Indirect pairs work in progress");
+      }
+
+      const scaled = price.mul(new Decimal(10).pow(bt.decimals - qt.decimals));
+
+      return json(
+        {
+          timestamp,
+          price: scaled.toSignificantDigits(10).toString(),
+        },
+        {
+          headers: {
+            "cache-control": "public, max-age=180",
+          },
+        }
+      );
+    }
+  )
   .get<IRequest, CF>("/stats", async ({ query }, env) => {
     if (
       !query.start ||
