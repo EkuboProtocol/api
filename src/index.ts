@@ -259,6 +259,8 @@ router
         } else {
           if (quoteFt.k_volume * baseFt.k_volume > direct.k_volume ** 2n) {
             price = quoteFt.price.mul(baseFt.price);
+          } else {
+            price = direct.price;
           }
         }
       } else {
