@@ -467,11 +467,12 @@ export class Queries {
     baseToken: bigint;
     quoteToken: bigint;
     since: Date;
-  }): Promise<Decimal | null> {
+  }): Promise<{ price: Decimal; k_volume: bigint } | null> {
     const [token0, token1] =
       baseToken < quoteToken
         ? [baseToken, quoteToken]
         : [quoteToken, baseToken];
+    if (baseToken === quoteToken) return null;
 
     const { rows } = await this.client.query<{
       total: string;
@@ -494,9 +495,11 @@ export class Queries {
 
     const { total, k_volume } = rows[0];
 
-    return baseToken < quoteToken
-      ? new Decimal(total).div(k_volume).abs()
-      : new Decimal(k_volume).div(total).abs();
+    const price =
+      baseToken < quoteToken
+        ? new Decimal(total).div(k_volume).abs()
+        : new Decimal(k_volume).div(total).abs();
+    return { price, k_volume: BigInt(k_volume) };
   }
 
   public async getVolumeByTokenByDate(

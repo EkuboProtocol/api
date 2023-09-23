@@ -230,16 +230,15 @@ router
       const timestamp = Date.now();
       const oneHourAgo = new Date(timestamp - 3_600_000);
 
-      let price = await queries.getVolumeWeightedPrice({
-        quoteToken,
-        baseToken,
-        since: oneHourAgo,
-      });
+      const ft = feeToken(env.STARKNET_CHAIN_ID);
 
-      if (price === null) {
-        const ft = feeToken(env.STARKNET_CHAIN_ID);
-
-        const [quoteFt, baseFt] = await Promise.all([
+      const [direct, quoteFt, baseFt] = await queries.withinTransaction(() =>
+        Promise.all([
+          queries.getVolumeWeightedPrice({
+            quoteToken,
+            baseToken,
+            since: oneHourAgo,
+          }),
           queries.getVolumeWeightedPrice({
             quoteToken,
             baseToken: BigInt(ft.l2_token_address),
@@ -250,12 +249,24 @@ router
             baseToken,
             since: oneHourAgo,
           }),
-        ]);
+        ])
+      );
 
-        if (!quoteFt || !baseFt) return error(404, "No prices for this pair");
+      let price: Decimal;
+      if (direct) {
+        if (!quoteFt || !baseFt) {
+          price = direct.price;
+        }
 
-        // we have quote/ft and ft/base so if we multiply quote/ft and ft/base it should be quote/base
-        price = quoteFt.mul(baseFt);
+        if (quoteFt.k_volume * baseFt.k_volume > direct.k_volume ** 2n) {
+          price = quoteFt.price.mul(baseFt.price);
+        }
+      } else {
+        if (!quoteFt || !baseFt) {
+          return error(404, "No volume for this pair");
+        }
+
+        price = quoteFt.price.mul(baseFt.price);
       }
 
       const scaled = price.mul(new Decimal(10).pow(bt.decimals - qt.decimals));
