@@ -256,10 +256,10 @@ router
       if (direct) {
         if (!quoteFt || !baseFt) {
           price = direct.price;
-        }
-
-        if (quoteFt.k_volume * baseFt.k_volume > direct.k_volume ** 2n) {
-          price = quoteFt.price.mul(baseFt.price);
+        } else {
+          if (quoteFt.k_volume * baseFt.k_volume > direct.k_volume ** 2n) {
+            price = quoteFt.price.mul(baseFt.price);
+          }
         }
       } else {
         if (!quoteFt || !baseFt) {
