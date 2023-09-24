@@ -133,6 +133,7 @@ router
       {
         headers: {
           "cache-control": "public, max-age=600",
+          "Cloudflare-CDN-Cache-Control": "public, max-age=600",
         },
       }
     );
@@ -196,6 +197,7 @@ router
       {
         headers: {
           "cache-control": "public, max-age=180",
+          "Cloudflare-CDN-Cache-Control": "public, max-age=180",
         },
       }
     );
@@ -281,6 +283,7 @@ router
         {
           headers: {
             "cache-control": "public, max-age=180",
+            "Cloudflare-CDN-Cache-Control": "public, max-age=180",
           },
         }
       );
@@ -341,6 +344,7 @@ router
       {
         headers: {
           "cache-control": "public, max-age=600",
+          "Cloudflare-CDN-Cache-Control": "public, max-age=600",
         },
       }
     );
@@ -395,6 +399,7 @@ router
         {
           headers: {
             "cache-control": "public, max-age=600",
+            "Cloudflare-CDN-Cache-Control": "public, max-age=600",
           },
         }
       );
@@ -475,6 +480,7 @@ router
         {
           headers: {
             "cache-control": "public, max-age=600",
+            "Cloudflare-CDN-Cache-Control": "public, max-age=600",
           },
         }
       );
@@ -530,6 +536,7 @@ router
         {
           headers: {
             "cache-control": "public, max-age=180",
+            "Cloudflare-CDN-Cache-Control": "public, max-age=180",
           },
         }
       );
@@ -648,6 +655,7 @@ router
     return json(metadata, {
       headers: {
         "cache-control": "public, max-age=3600",
+        "Cloudflare-CDN-Cache-Control": "public, max-age=3600",
       },
     });
   })
@@ -672,6 +680,7 @@ router
         headers: {
           "content-type": "image/svg+xml",
           "cache-control": "public, max-age=86400",
+          "Cloudflare-CDN-Cache-Control": "public, max-age=86400",
         },
       });
     }
