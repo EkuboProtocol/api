@@ -286,6 +286,65 @@ router
       );
     }
   )
+  .get<IRequest, CF>("/price/:quoteToken", async ({ params }, env) => {
+    if (
+      typeof params.quoteToken !== "string" ||
+      !ADDRESS_REGEX.test(params.quoteToken)
+    ) {
+      return error(
+        400,
+        "`quoteToken` path parameters must be a token address in hex format"
+      );
+    }
+
+    const quoteToken = BigInt(params.quoteToken);
+
+    const qt = findToken(env.STARKNET_CHAIN_ID, quoteToken);
+
+    if (!qt) {
+      return error(400, "Quote token not known");
+    }
+
+    const queries = await createQueries(env);
+
+    const timestamp = Date.now();
+    const oneHourAgo = new Date(timestamp - 3_600_000);
+
+    const prices = await queries.getAllVolumeWeightedPrices({
+      quoteToken,
+      end: new Date(timestamp),
+      start: oneHourAgo,
+    });
+
+    const scaledPrices = prices
+      .map(({ price, k_volume, token }) => {
+        const base = findToken(env.STARKNET_CHAIN_ID, token);
+        if (!base) return null;
+
+        const scaled = price.mul(
+          new Decimal(10).pow(base.decimals - qt.decimals)
+        );
+
+        return {
+          token,
+          price: scaled.toSignificantDigits(6).toString(),
+          k_volume: k_volume.toString(),
+        };
+      })
+      .filter((p) => !!p);
+
+    return json(
+      {
+        timestamp,
+        prices: scaledPrices,
+      },
+      {
+        headers: {
+          "cache-control": "public, max-age=600",
+        },
+      }
+    );
+  })
   .get<IRequest, CF>("/stats", async ({ query }, env) => {
     if (
       !query.start ||

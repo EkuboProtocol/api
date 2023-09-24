@@ -479,7 +479,7 @@ export class Queries {
       k_volume: string;
     }>({
       text: `
-          SELECT SUM(delta1 * delta1) AS total, SUM(delta0 * delta1) AS k_volume 
+          SELECT SUM(ABS(delta1 * delta1)) AS total, SUM(ABS(delta0 * delta1)) AS k_volume 
           FROM swaps
                    JOIN blocks ON swaps.block_number = blocks.number
                    JOIN pool_keys ON swaps.pool_key_hash = pool_keys.key_hash
@@ -497,9 +497,51 @@ export class Queries {
 
     const price =
       baseToken < quoteToken
-        ? new Decimal(total).div(k_volume).abs()
-        : new Decimal(k_volume).div(total).abs();
+        ? new Decimal(total).div(k_volume)
+        : new Decimal(k_volume).div(total);
     return { price, k_volume: BigInt(k_volume) };
+  }
+
+  public async getAllVolumeWeightedPrices({
+    start,
+    end,
+    quoteToken,
+  }: {
+    start: Date;
+    end: Date;
+    quoteToken: bigint;
+  }): Promise<{ token: string; price: Decimal; k_volume: bigint }[]> {
+    const { rows } = await this.client.query<{
+      token0: string;
+      token1: string;
+      total: string;
+      k_volume: string;
+    }>({
+      text: `
+          SELECT token0, token1, SUM(ABS(delta1 * delta1)) AS total, SUM(ABS(delta0 * delta1)) AS k_volume
+          FROM swaps
+                   JOIN blocks ON swaps.block_number = blocks.number
+                   JOIN pool_keys ON swaps.pool_key_hash = pool_keys.key_hash
+          WHERE (token0 = $1
+              OR token1 = $1)
+            AND blocks.timestamp > $2
+            AND blocks.timestamp < $3
+          GROUP BY token0, token1
+      `,
+      values: [quoteToken, start, end],
+    });
+
+    return rows.map(({ token0, token1, k_volume, total }) => ({
+      token: `0x${(BigInt(token0) === quoteToken
+        ? BigInt(token1)
+        : BigInt(token0)
+      ).toString(16)}`,
+      price:
+        BigInt(token0) !== quoteToken
+          ? new Decimal(total).div(k_volume)
+          : new Decimal(k_volume).div(total),
+      k_volume: BigInt(k_volume),
+    }));
   }
 
   public async getVolumeByTokenByDate(
