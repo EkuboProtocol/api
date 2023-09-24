@@ -3,6 +3,8 @@
 		"target": "ESNext",
 		"esModuleInterop": true,
 		"moduleResolution": "nodenext",
-		"resolveJsonModule": true
+		"resolveJsonModule": true,
+		"lib": ["ESNext"],
+		"types": ["@cloudflare/workers-types", "@types/jest"]
 	}
 }

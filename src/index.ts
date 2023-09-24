@@ -3,7 +3,6 @@ import { NFTMetadata } from "./nft";
 import { generateSvg } from "./generateSvg";
 import { parseId } from "./parseId";
 import { Env } from "./env";
-import { ExecutionContext } from "@cloudflare/workers-types";
 import { createQueries } from "./createQueries";
 import MAINNET_TOKENS from "./tokens/mainnet.json";
 import GOERLI_TOKENS from "./tokens/goerli.json";
@@ -63,7 +62,13 @@ const { preflight, corsify } = createCors({
 // create a convenient duple
 type CF = [env: Env, context: ExecutionContext];
 
-const router = Router<IRequest, CF>().all("*", preflight);
+const cache = caches.default;
+const router = Router<IRequest, CF>()
+  .all("*", preflight)
+  .all("*", async (request) => {
+    const response = await cache.match(request);
+    if (response) return response;
+  });
 
 function numericToHex(x: bigint | number | string) {
   return `0x${BigInt(x).toString(16)}`;
@@ -679,13 +684,20 @@ router
   // catch missed routes
   .all("*", () => error(404));
 
+async function cacheResponse(request: IRequest, response: Response) {
+  await cache.put(request, response.clone());
+  return response;
+}
+
 export default {
   fetch: (request, env, ctxt) =>
     router
+
       .handle(request, env, ctxt)
 
       // transform unformed responses
       .then(json)
+      .then((response) => cacheResponse(request, response))
 
       // catch any errors
       .catch(error)
