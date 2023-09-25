@@ -12,3 +12,7 @@ STARKNET_CHAIN_ID = "0x534e5f474f45524c49"
 
 [env.mainnet.vars]
 STARKNET_CHAIN_ID = "0x534e5f4d41494e"
+
+[placement]
+mode = "smart"
+
