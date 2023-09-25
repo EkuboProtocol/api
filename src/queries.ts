@@ -1,7 +1,7 @@
 import { Client } from "pg";
 import Decimal from "decimal.js-light";
 
-interface TokenMetadata {
+interface PositionMetadata {
   lower_bound: string;
   upper_bound: string;
   token0: string;
@@ -22,8 +22,11 @@ export class Queries {
     this.client = client;
   }
 
-  public async getTokenMetadata(id: number): Promise<TokenMetadata | null> {
-    const { rows, rowCount } = await this.client.query<TokenMetadata>(`
+  public async getPositionMetadata(
+    id: number
+  ): Promise<PositionMetadata | null> {
+    const { rows, rowCount } = await this.client.query<PositionMetadata>({
+      text: `
         SELECT position_minted.transaction_hash as minted_tx_hash,
                position_minted.lower_bound,
                position_minted.upper_bound,
@@ -36,14 +39,63 @@ export class Queries {
         FROM position_minted
                  JOIN pool_keys on position_minted.pool_key_hash = pool_keys.key_hash
                  JOIN blocks ON position_minted.block_number = blocks.number
-        WHERE token_id = ${id}
-    `);
+        WHERE token_id = $1
+    `,
+      values: [id],
+    });
 
     if (rowCount !== 1) {
       return null;
     }
 
     return rows[0];
+  }
+
+  public async getPositionHistory(id: number) {
+    const { rows } = await this.client.query<{
+      transaction_hash: string;
+      timestamp: number;
+      liquidity_delta: string;
+      delta0: string;
+      delta1: string;
+      collect_fees: boolean | null;
+      recipient: string | null;
+    }>({
+      text: `
+          WITH all_events AS (SELECT transaction_hash,
+                                     timestamp,
+                                     liquidity as liquidity_delta,
+                                     delta0,
+                                     delta1,
+                                     NULL      as collect_fees,
+                                     NULL      as recipient
+                              FROM position_deposit
+                                       JOIN blocks ON position_deposit.block_number = blocks.number
+                              WHERE token_id = $1
+                              UNION ALL
+                              SELECT transaction_hash,
+                                     timestamp,
+                                     -liquidity as liquidity_delta,
+                                     delta0,
+                                     delta1,
+                                     collect_fees,
+                                     recipient
+                              from position_withdraw
+                                       JOIN blocks ON position_withdraw.block_number = blocks.number
+                              WHERE token_id = $1)
+          SELECT transaction_hash,
+                 timestamp,
+                 liquidity_delta,
+                 delta0,
+                 delta1,
+                 collect_fees,
+                 recipient
+          FROM all_events
+          ORDER BY timestamp DESC
+      `,
+      values: [id],
+    });
+    return rows;
   }
 
   public getPairLiquidityGraph({
@@ -840,7 +892,7 @@ export class Queries {
   }
 
   public async getPositionsByAddress(address: bigint) {
-    return this.client.query<TokenMetadata & { token_id: string }>({
+    return this.client.query<PositionMetadata & { token_id: string }>({
       text: `
           WITH ranked_transfers AS (SELECT token_id,
                                            to_address,

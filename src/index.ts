@@ -519,7 +519,7 @@ router
 
     const queries = await createQueries(env);
 
-    const positionMetadata = await queries.getTokenMetadata(id);
+    const positionMetadata = await queries.getPositionMetadata(id);
 
     if (positionMetadata === null) {
       return error(404, `Token ID ${id} not found`);
@@ -628,6 +628,52 @@ router
     });
   })
   .get<IRequest, CF>(
+    "/:id/history",
+    async ({ url, params: { id: idStr } }, env) => {
+      const id = parseId(idStr);
+      if (id === null) {
+        return error(400, "Invalid token ID");
+      }
+
+      const queries = await createQueries(env);
+
+      if (!(await queries.getPositionMetadata(id))) {
+        return error(404, "Token ID not found");
+      }
+
+      const history = await queries.getPositionHistory(id);
+
+      return json(
+        {
+          events: history.map(
+            ({
+              delta0,
+              liquidity_delta,
+              delta1,
+              recipient,
+              transaction_hash,
+              timestamp,
+              collect_fees,
+            }) => ({
+              transaction_hash: numericToHex(transaction_hash),
+              timestamp,
+              recipient: recipient === null ? null : numericToHex(recipient),
+              liquidity_delta,
+              delta0,
+              delta1,
+              collect_fees,
+            })
+          ),
+        },
+        {
+          headers: {
+            "cache-control": "public, max-age=180",
+          },
+        }
+      );
+    }
+  )
+  .get<IRequest, CF>(
     "/:id/image.svg",
     async ({ params: { id: idStr } }, env) => {
       const id = parseId(idStr);
@@ -637,7 +683,7 @@ router
 
       const queries = await createQueries(env);
 
-      const positionMetadata = await queries.getTokenMetadata(id);
+      const positionMetadata = await queries.getPositionMetadata(id);
 
       if (positionMetadata === null) {
         return error(404, `Token ID ${id} not found`);
