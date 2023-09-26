@@ -113,29 +113,30 @@ export class Queries {
           WITH pool_key_hashes AS (SELECT key_hash
                                    FROM pool_keys
                                    WHERE (token0 = $1 AND token1 = $2)),
-               lower AS (SELECT lower_bound as       tick,
-                                SUM(liquidity_delta) net_liquidity_delta
-                         FROM position_updates
-                         WHERE pool_key_hash in (SELECT key_hash FROM pool_key_hashes)
-                         GROUP BY lower_bound, pool_key_hash),
-
-               upper AS (SELECT upper_bound as       tick,
-                                SUM(liquidity_delta) net_liquidity_delta
-                         FROM position_updates
-                         WHERE pool_key_hash in (SELECT key_hash FROM pool_key_hashes)
-                         GROUP BY upper_bound, pool_key_hash)
-
-          SELECT COALESCE(lower.tick, upper.tick)       AS tick,
-                 COALESCE(lower.net_liquidity_delta, 0) -
-                 COALESCE(upper.net_liquidity_delta, 0) as net_liquidity_delta_diff
-          FROM lower
-                   FULL JOIN upper ON lower.tick = upper.tick
-          WHERE COALESCE(lower.net_liquidity_delta, 0) - COALESCE(upper.net_liquidity_delta, 0) != 0
-          ORDER BY tick ASC;
+               all_tick_deltas AS (SELECT lower_bound as       tick,
+                                          SUM(liquidity_delta) net_liquidity_delta
+                                   FROM position_updates
+                                            JOIN pool_key_hashes ON pool_key_hash = pool_key_hashes.key_hash
+                                   GROUP BY lower_bound
+                                   UNION ALL
+                                   SELECT upper_bound as tick, SUM(-liquidity_delta) net_liquidity_delta
+                                   FROM position_updates
+                                            JOIN pool_key_hashes
+                                                 ON pool_key_hash = pool_key_hashes.key_hash
+                                   GROUP BY upper_bound),
+               summed as (SELECT tick,
+                                 SUM(net_liquidity_delta) as net_liquidity_delta
+                          FROM all_tick_deltas
+                          GROUP BY tick)
+          SELECT tick, net_liquidity_delta
+          FROM summed
+          WHERE net_liquidity_delta != 0
+          ORDER BY tick;
       `,
       values: [token0, token1],
     });
   }
+
   public getPoolLiquidityGraph(pool_key_hash: bigint) {
     return this.client.query<{
       tick: string;
