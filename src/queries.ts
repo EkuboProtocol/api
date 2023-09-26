@@ -646,10 +646,19 @@ export class Queries {
   }
 
   public async withinTransaction<T>(doX: () => Promise<T>): Promise<T> {
-    await this.client.query(`BEGIN`);
-    const result = await doX();
-    await this.client.query("COMMIT");
-    return result;
+    await this.client.query(
+      `BEGIN TRANSACTION ISOLATION LEVEL REPEATABLE READ`
+    );
+    try {
+      const result = await doX();
+      await this.client.query(`ROLLBACK`);
+      return result;
+    } catch (error) {
+      if (error.code === "40001") {
+        console.log("Serialization failure!", error);
+      }
+      throw error;
+    }
   }
 
   public async getRevenueByTokenByDate(
