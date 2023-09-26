@@ -362,7 +362,9 @@ router
 
       const client = await createQueries(env);
 
-      const { rows } = await client.getPoolLiquidityGraph(pool_key_hash);
+      const { rows } = await client.withinTransaction(() =>
+        client.getPoolLiquidityGraph(pool_key_hash)
+      );
 
       return json(
         {
@@ -439,10 +441,12 @@ router
         return error(400, "Invalid tokens");
       }
 
-      const { rows } = await client.getPairLiquidityGraph({
-        token0,
-        token1,
-      });
+      const { rows } = await client.withinTransaction(() =>
+        client.getPairLiquidityGraph({
+          token0,
+          token1,
+        })
+      );
 
       return json(
         {
