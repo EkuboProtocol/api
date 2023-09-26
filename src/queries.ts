@@ -125,12 +125,12 @@ export class Queries {
                                                  ON pool_key_hash = pool_key_hashes.key_hash
                                    GROUP BY upper_bound),
                summed as (SELECT tick,
-                                 SUM(net_liquidity_delta) as net_liquidity_delta
+                                 SUM(net_liquidity_delta) as net_liquidity_delta_diff
                           FROM all_tick_deltas
                           GROUP BY tick)
-          SELECT tick, net_liquidity_delta
+          SELECT tick, net_liquidity_delta_diff
           FROM summed
-          WHERE net_liquidity_delta != 0
+          WHERE net_liquidity_delta_diff != 0
           ORDER BY tick;
       `,
       values: [token0, token1],
