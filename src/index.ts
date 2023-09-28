@@ -697,7 +697,7 @@ router
         status: 200,
         headers: {
           "content-type": "image/svg+xml",
-          "cache-control": "public, max-age=86400",
+          "cache-control": "public, max-age=86400, immutable",
         },
       });
     }
