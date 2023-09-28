@@ -137,7 +137,7 @@ router
       },
       {
         headers: {
-          "cache-control": "public, max-age=600",
+          "cache-control": "public, max-age=600, must-revalidate",
         },
       }
     );
@@ -200,7 +200,7 @@ router
       },
       {
         headers: {
-          "cache-control": "public, max-age=180",
+          "cache-control": "public, max-age=180, must-revalidate",
         },
       }
     );
@@ -285,7 +285,7 @@ router
         },
         {
           headers: {
-            "cache-control": "public, max-age=180",
+            "cache-control": "public, max-age=180, must-revalidate",
           },
         }
       );
@@ -345,7 +345,7 @@ router
       },
       {
         headers: {
-          "cache-control": "public, max-age=600",
+          "cache-control": "public, max-age=600, must-revalidate",
         },
       }
     );
@@ -372,7 +372,7 @@ router
         },
         {
           headers: {
-            "cache-control": "public, max-age=600",
+            "cache-control": "public, max-age=600, must-revalidate",
           },
         }
       );
@@ -454,7 +454,7 @@ router
         },
         {
           headers: {
-            "cache-control": "public, max-age=600",
+            "cache-control": "public, max-age=600, must-revalidate",
           },
         }
       );
@@ -509,7 +509,7 @@ router
         },
         {
           headers: {
-            "cache-control": "public, max-age=180",
+            "cache-control": "public, max-age=180, must-revalidate",
           },
         }
       );
@@ -627,7 +627,7 @@ router
 
     return json(metadata, {
       headers: {
-        "cache-control": "public, max-age=3600",
+        "cache-control": "public, max-age=3600, immutable",
       },
     });
   })
@@ -671,7 +671,7 @@ router
         },
         {
           headers: {
-            "cache-control": "public, max-age=180",
+            "cache-control": "public, max-age=60, must-revalidate",
           },
         }
       );
