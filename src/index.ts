@@ -137,7 +137,7 @@ router
       },
       {
         headers: {
-          "cache-control": "public, max-age=600, must-revalidate",
+          "cache-control": "public, max-age=3600, must-revalidate",
         },
       }
     );
