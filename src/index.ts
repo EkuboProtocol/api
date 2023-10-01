@@ -462,30 +462,13 @@ router
   )
   .get<IRequest, CF>(
     "/tokens/:tokenA/:tokenB/events",
-    async (
-      {
-        params: { tokenA: tokenAStr, tokenB: tokenBStr },
-        query: { limit: limitStr },
-      },
-      env
-    ) => {
+    async ({ params: { tokenA: tokenAStr, tokenB: tokenBStr } }, env) => {
       let tokenA: bigint, tokenB: bigint;
       try {
         tokenA = BigInt(tokenAStr);
         tokenB = BigInt(tokenBStr);
       } catch (e) {
         return error(400, "Invalid tokens");
-      }
-
-      let limit: number;
-      try {
-        limit = typeof limitStr === "string" ? parseInt(limitStr) : 20;
-      } catch (error) {
-        return error(400, "Limit parameter invalid");
-      }
-
-      if (limit < 1 || limit > 100) {
-        return error(400, "Limit must be >= 1 and <= 100");
       }
 
       const client = await createQueries(env);
@@ -497,10 +480,10 @@ router
         return error(400, "Invalid tokens");
       }
 
-      const { rows, rowCount } = await client.getPairEvents({
+      const { rows } = await client.getPairEvents({
         token0,
         token1,
-        limit,
+        limit: 300,
       });
 
       return json(

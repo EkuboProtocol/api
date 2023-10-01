@@ -404,7 +404,7 @@ export class Queries {
           FROM token_deltas
           GROUP BY token_deltas.token;
       `,
-      values: [pair?.token0 ?? null, pair?.token1 ?? null],
+      values: pair ? [pair.token0, pair.token1] : [null, null],
     });
   }
 
