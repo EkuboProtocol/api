@@ -244,7 +244,7 @@ export class Queries {
     });
   }
 
-  public getTotalVolume(
+  public getTotalVolumeByToken(
     since: Date,
     pair?: { token0: bigint; token1: bigint }
   ) {

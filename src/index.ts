@@ -92,35 +92,49 @@ function tickSpacingToPercent(tick_spacing: string) {
 
 router
   .get<IRequest, CF>("/overview", async ({}, env) => {
-    const queries = await createQueries(env);
-
     const timestamp = Date.now();
     const twentyFourHoursAgo = new Date(timestamp - 1000 * 60 * 60 * 24);
     const thirtyDaysAgo = new Date(timestamp - 1000 * 60 * 60 * 24 * 30);
 
+    const [queries1, queries2] = await Promise.all([
+      createQueries(env),
+      createQueries(env),
+    ]);
+
     const [
-      { rows: tvlByToken },
-      { rows: volumeByToken },
-      { rows: revenueByToken },
-      { rows: volumeByToken_24h },
-      { rows: revenueByToken_24h },
-      { rows: tvlDeltaByTokenByDate },
-      { rows: volumeByTokenByDate },
-      { rows: revenueByTokenByDate },
-      { rows: topPairs },
-    ] = await queries.withinTransaction(() =>
-      Promise.all([
-        queries.getTvlByToken(),
-        queries.getTotalVolume(ALL_TIME),
-        queries.getRevenueByToken(ALL_TIME),
-        queries.getTotalVolume(twentyFourHoursAgo),
-        queries.getRevenueByToken(twentyFourHoursAgo),
-        queries.getTvlDeltaByTokenByDate(thirtyDaysAgo),
-        queries.getVolumeByTokenByDate(thirtyDaysAgo),
-        queries.getRevenueByTokenByDate(thirtyDaysAgo),
-        queries.getTopPairs(),
-      ])
-    );
+      [
+        { rows: tvlByToken },
+        { rows: volumeByToken },
+        { rows: revenueByToken },
+        { rows: tvlDeltaByTokenByDate },
+        { rows: volumeByTokenByDate },
+        { rows: revenueByTokenByDate },
+      ],
+
+      [
+        { rows: volumeByToken_24h },
+        { rows: revenueByToken_24h },
+        { rows: topPairs },
+      ],
+    ] = await Promise.all([
+      queries1.withinTransaction(() =>
+        Promise.all([
+          queries1.getTvlByToken(),
+          queries1.getTotalVolumeByToken(ALL_TIME),
+          queries1.getRevenueByToken(ALL_TIME),
+          queries1.getTvlDeltaByTokenByDate(thirtyDaysAgo),
+          queries1.getVolumeByTokenByDate(thirtyDaysAgo),
+          queries1.getRevenueByTokenByDate(thirtyDaysAgo),
+        ])
+      ),
+      queries2.withinTransaction(() =>
+        Promise.all([
+          queries2.getTotalVolumeByToken(twentyFourHoursAgo),
+          queries2.getRevenueByToken(twentyFourHoursAgo),
+          queries2.getTopPairs(),
+        ])
+      ),
+    ]);
 
     return json(
       {
@@ -178,7 +192,7 @@ router
     ] = await queries.withinTransaction(() =>
       Promise.all([
         queries.getTvlByToken(pair),
-        queries.getTotalVolume(ALL_TIME, pair),
+        queries.getTotalVolumeByToken(ALL_TIME, pair),
         queries.getRevenueByToken(ALL_TIME, pair),
         queries.getTvlDeltaByTokenByDate(thirtyDaysAgo, pair),
         queries.getVolumeByTokenByDate(thirtyDaysAgo, pair),
