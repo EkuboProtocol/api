@@ -151,7 +151,8 @@ router
       },
       {
         headers: {
-          "cache-control": "public, max-age=3600, must-revalidate",
+          "cache-control":
+            "public, max-age=3600, stale-while-revalidate=180, stale-if-error=180",
         },
       }
     );
@@ -214,7 +215,8 @@ router
       },
       {
         headers: {
-          "cache-control": "public, max-age=180, must-revalidate",
+          "cache-control":
+            "public, max-age=600, stale-while-revalidate=180, stale-if-error=180",
         },
       }
     );
