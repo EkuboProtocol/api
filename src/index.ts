@@ -485,14 +485,14 @@ router
         return error(400, "Invalid tokens");
       }
 
-      const client = await createQueries(env);
-
       const [token0, token1] =
         tokenA < tokenB ? [tokenA, tokenB] : [tokenB, tokenA];
 
       if (token0 === 0n) {
         return error(400, "Invalid tokens");
       }
+
+      const client = await createQueries(env);
 
       const { rows } = await client.getPairEvents({
         token0,
