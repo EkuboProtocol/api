@@ -15,9 +15,7 @@ jobs:
       matrix:
         include:
           - network_name: mainnet
-            secret_name: PG_CONNECTION_STRING_MAINNET
           - network_name: goerli
-            secret_name: PG_CONNECTION_STRING_GOERLI
 
     runs-on: ubuntu-latest
     name: Deploy to Cloudflare
@@ -39,4 +37,4 @@ jobs:
         with:
           apiToken: ${{ secrets.CF_API_TOKEN }}
           command: |
-            deploy --env ${{ matrix.network_name }} --var "PG_CONNECTION_STRING:${{ secrets[matrix.secret_name] }}"
+            deploy --env ${{ matrix.network_name }}
