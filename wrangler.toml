@@ -10,6 +10,15 @@ PG_CONNECTION_STRING="postgresql://postgres:postgres@localhost:5432"
 [env.goerli.vars]
 STARKNET_CHAIN_ID = "0x534e5f474f45524c49"
 
+[[env.goerli.hyperdrive]]
+binding = "HYPERDRIVE"
+id = "ea0b41549b16437d8d89fdb769395f43"
+
 [env.mainnet.vars]
 STARKNET_CHAIN_ID = "0x534e5f4d41494e"
+
+[[env.goerli.hyperdrive]]
+binding = "HYPERDRIVE"
+id = "da493ecfaf3f40f4985fa006d3c574a6"
+
 
