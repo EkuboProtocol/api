@@ -162,7 +162,7 @@ router
     const twentyFourHoursAgo = new Date(timestamp - 1000 * 60 * 60 * 24);
     const thirtyDaysAgo = new Date(timestamp - 1000 * 60 * 60 * 24 * 30);
 
-    const [queries] = await Promise.all([createQueries(env)]);
+    const queries = await createQueries(env);
 
     const [
       { rows: volumeByToken },
@@ -182,6 +182,40 @@ router
         volumeByToken,
         volumeByToken_24h,
         volumeByTokenByDate,
+      },
+      {
+        headers: {
+          "cache-control":
+            "public, max-age=3600, stale-while-revalidate=180, stale-if-error=180",
+        },
+      }
+    );
+  })
+  .get<IRequest, CF>("/overview/revenue", async ({}, env) => {
+    const timestamp = Date.now();
+    const twentyFourHoursAgo = new Date(timestamp - 1000 * 60 * 60 * 24);
+    const thirtyDaysAgo = new Date(timestamp - 1000 * 60 * 60 * 24 * 30);
+
+    const queries = await createQueries(env);
+
+    const [
+      { rows: revenueByToken },
+      { rows: revenueByTokenByDate },
+      { rows: revenueByToken_24h },
+    ] = await queries.withinTransaction(() =>
+      Promise.all([
+        queries.getRevenueByToken(ALL_TIME),
+        queries.getRevenueByTokenByDate(thirtyDaysAgo),
+        queries.getRevenueByToken(twentyFourHoursAgo),
+      ])
+    );
+
+    return json(
+      {
+        timestamp,
+        revenueByToken,
+        revenueByToken_24h,
+        revenueByTokenByDate,
       },
       {
         headers: {
