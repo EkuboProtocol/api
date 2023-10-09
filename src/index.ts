@@ -157,6 +157,91 @@ router
       }
     );
   })
+  .get<IRequest, CF>("/overview/volume", async ({}, env) => {
+    const timestamp = Date.now();
+    const twentyFourHoursAgo = new Date(timestamp - 1000 * 60 * 60 * 24);
+    const thirtyDaysAgo = new Date(timestamp - 1000 * 60 * 60 * 24 * 30);
+
+    const [queries] = await Promise.all([createQueries(env)]);
+
+    const [
+      { rows: volumeByToken },
+      { rows: volumeByTokenByDate },
+      { rows: volumeByToken_24h },
+    ] = await queries.withinTransaction(() =>
+      Promise.all([
+        queries.getTotalVolumeByToken(ALL_TIME),
+        queries.getVolumeByTokenByDate(thirtyDaysAgo),
+        queries.getTotalVolumeByToken(twentyFourHoursAgo),
+      ])
+    );
+
+    return json(
+      {
+        timestamp,
+        volumeByToken,
+        volumeByToken_24h,
+        volumeByTokenByDate,
+      },
+      {
+        headers: {
+          "cache-control":
+            "public, max-age=3600, stale-while-revalidate=180, stale-if-error=180",
+        },
+      }
+    );
+  })
+  .get<IRequest, CF>("/overview/tvl", async ({}, env) => {
+    const timestamp = Date.now();
+    const thirtyDaysAgo = new Date(timestamp - 1000 * 60 * 60 * 24 * 30);
+
+    const queries = await createQueries(env);
+
+    const [{ rows: tvlByToken }, { rows: tvlDeltaByTokenByDate }] =
+      await queries.withinTransaction(() =>
+        Promise.all([
+          queries.getTvlByToken(),
+          queries.getTvlDeltaByTokenByDate(thirtyDaysAgo),
+        ])
+      );
+
+    return json(
+      {
+        timestamp,
+        tvlByToken,
+        tvlDeltaByTokenByDate,
+      },
+      {
+        headers: {
+          "cache-control":
+            "public, max-age=3600, stale-while-revalidate=180, stale-if-error=180",
+        },
+      }
+    );
+  })
+  .get<IRequest, CF>("/overview/top-pairs", async ({}, env) => {
+    const timestamp = Date.now();
+    const thirtyDaysAgo = new Date(timestamp - 1000 * 60 * 60 * 24 * 30);
+
+    const queries = await createQueries(env);
+
+    const { rows: topPairs } = await queries.withinTransaction(() =>
+      queries.getTopPairs()
+    );
+
+    return json(
+      {
+        timestamp,
+        topPairs,
+      },
+      {
+        headers: {
+          "cache-control":
+            "public, max-age=3600, stale-while-revalidate=180, stale-if-error=180",
+        },
+      }
+    );
+  })
   .get<IRequest, CF>("/pair/:tokenA/:tokenB", async ({ params }, env) => {
     if (
       typeof params.tokenA !== "string" ||
@@ -221,6 +306,148 @@ router
       }
     );
   })
+  .get<IRequest, CF>(
+    "/pair/:tokenA/:tokenB/top-pools",
+    async ({ params }, env) => {
+      if (
+        typeof params.tokenA !== "string" ||
+        !ADDRESS_REGEX.test(params.tokenA) ||
+        typeof params.tokenB !== "string" ||
+        !ADDRESS_REGEX.test(params.tokenB)
+      ) {
+        return error(
+          400,
+          "`tokenA` and `tokenB` path parameters must be token addresses in hex format"
+        );
+      }
+
+      const [token0, token1] =
+        BigInt(params.tokenA) < BigInt(params.tokenB)
+          ? [BigInt(params.tokenA), BigInt(params.tokenB)]
+          : [BigInt(params.tokenB), BigInt(params.tokenA)];
+
+      const pair = { token0, token1 };
+
+      const queries = await createQueries(env);
+
+      const timestamp = Date.now();
+      const thirtyDaysAgo = new Date(timestamp - 1000 * 60 * 60 * 24 * 30);
+
+      const { rows: topPools } = await queries.withinTransaction(() =>
+        queries.getTopPools(pair)
+      );
+
+      return json(
+        {
+          timestamp,
+          topPools,
+        },
+        {
+          headers: {
+            "cache-control":
+              "public, max-age=600, stale-while-revalidate=180, stale-if-error=180",
+          },
+        }
+      );
+    }
+  )
+  .get<IRequest, CF>("/pair/:tokenA/:tokenB/tvl", async ({ params }, env) => {
+    if (
+      typeof params.tokenA !== "string" ||
+      !ADDRESS_REGEX.test(params.tokenA) ||
+      typeof params.tokenB !== "string" ||
+      !ADDRESS_REGEX.test(params.tokenB)
+    ) {
+      return error(
+        400,
+        "`tokenA` and `tokenB` path parameters must be token addresses in hex format"
+      );
+    }
+
+    const [token0, token1] =
+      BigInt(params.tokenA) < BigInt(params.tokenB)
+        ? [BigInt(params.tokenA), BigInt(params.tokenB)]
+        : [BigInt(params.tokenB), BigInt(params.tokenA)];
+
+    const pair = { token0, token1 };
+
+    const queries = await createQueries(env);
+
+    const timestamp = Date.now();
+    const thirtyDaysAgo = new Date(timestamp - 1000 * 60 * 60 * 24 * 30);
+
+    const [{ rows: tvlByToken }, { rows: tvlDeltaByTokenByDate }] =
+      await queries.withinTransaction(() =>
+        Promise.all([
+          queries.getTvlByToken(pair),
+          queries.getTvlDeltaByTokenByDate(thirtyDaysAgo, pair),
+        ])
+      );
+
+    return json(
+      {
+        timestamp,
+        tvlByToken,
+        tvlDeltaByTokenByDate,
+      },
+      {
+        headers: {
+          "cache-control":
+            "public, max-age=600, stale-while-revalidate=180, stale-if-error=180",
+        },
+      }
+    );
+  })
+  .get<IRequest, CF>(
+    "/pair/:tokenA/:tokenB/volume",
+    async ({ params }, env) => {
+      if (
+        typeof params.tokenA !== "string" ||
+        !ADDRESS_REGEX.test(params.tokenA) ||
+        typeof params.tokenB !== "string" ||
+        !ADDRESS_REGEX.test(params.tokenB)
+      ) {
+        return error(
+          400,
+          "`tokenA` and `tokenB` path parameters must be token addresses in hex format"
+        );
+      }
+
+      const [token0, token1] =
+        BigInt(params.tokenA) < BigInt(params.tokenB)
+          ? [BigInt(params.tokenA), BigInt(params.tokenB)]
+          : [BigInt(params.tokenB), BigInt(params.tokenA)];
+
+      const pair = { token0, token1 };
+
+      const queries = await createQueries(env);
+
+      const timestamp = Date.now();
+      const thirtyDaysAgo = new Date(timestamp - 1000 * 60 * 60 * 24 * 30);
+
+      const [{ rows: volumeByToken }, { rows: volumeByTokenByDate }] =
+        await queries.withinTransaction(() =>
+          Promise.all([
+            queries.getTotalVolumeByToken(ALL_TIME, pair),
+            queries.getVolumeByTokenByDate(thirtyDaysAgo, pair),
+          ])
+        );
+
+      return json(
+        {
+          timestamp,
+          volumeByToken,
+          volumeByTokenByDate,
+        },
+        {
+          headers: {
+            "cache-control":
+              "public, max-age=600, stale-while-revalidate=180, stale-if-error=180",
+          },
+        }
+      );
+    }
+  )
   .get<IRequest, CF>(
     "/price/:baseToken/:quoteToken",
     async ({ params }, env) => {
