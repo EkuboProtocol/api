@@ -92,7 +92,12 @@ function tickSpacingToPercent(tick_spacing: string) {
 
 router
   .get<IRequest, CF>("/tokens", async ({}, env) => {
-    return TOKENS_BY_CHAIN_ID[env.STARKNET_CHAIN_ID];
+    return json(TOKENS_BY_CHAIN_ID[env.STARKNET_CHAIN_ID] ?? [], {
+      headers: {
+        "cache-control":
+          "public, max-age=3600, stale-while-revalidate=3600, stale-if-error=86400",
+      },
+    });
   })
   .get<IRequest, CF>("/overview", async ({}, env) => {
     const timestamp = Date.now();
