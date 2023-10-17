@@ -8,14 +8,10 @@ import MAINNET_TOKENS from "./tokens/mainnet.json";
 import GOERLI_TOKENS from "./tokens/goerli.json";
 import Decimal from "decimal.js-light";
 
-const TOKENS_BY_CHAIN_ID: {
-  [key in "0x534e5f474f45524c49" | "0x534e5f4d41494e"]?:
-    | typeof MAINNET_TOKENS
-    | typeof GOERLI_TOKENS;
-} = {
+const TOKENS_BY_CHAIN_ID = {
   ["0x534e5f4d41494e"]: MAINNET_TOKENS,
   ["0x534e5f474f45524c49"]: GOERLI_TOKENS,
-};
+} as const;
 
 export function feeToken(chainId: "0x534e5f474f45524c49" | "0x534e5f4d41494e") {
   return findToken(
@@ -572,7 +568,7 @@ router
 
     let metadata: NFTMetadata;
     if (token0 && token1) {
-      const reversed = token0.sortOrder >= token1.sortOrder;
+      const reversed = token0.sort_order >= token1.sort_order;
       const [numerator, denominator, lowerPrice, upperPrice] = reversed
         ? [
             token0,
