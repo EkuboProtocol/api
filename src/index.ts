@@ -91,6 +91,9 @@ function tickSpacingToPercent(tick_spacing: string) {
 }
 
 router
+  .get<IRequest, CF>("/tokens", async ({}, env) => {
+    return TOKENS_BY_CHAIN_ID[env.STARKNET_CHAIN_ID];
+  })
   .get<IRequest, CF>("/overview", async ({}, env) => {
     const timestamp = Date.now();
     const twentyFourHoursAgo = new Date(timestamp - 1000 * 60 * 60 * 24);
