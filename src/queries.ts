@@ -560,7 +560,7 @@ export class Queries {
                                       FROM pool_keys
                                       WHERE token0 = $1
                                         AND token1 = $2),
-               volume AS (SELECT key_hash,
+               volume AS (SELECT vbt.key_hash,
                                  SUM(CASE WHEN vbt.token = token0 THEN vbt.volume ELSE 0 END) as volume0,
                                  SUM(CASE WHEN vbt.token = token1 THEN vbt.volume ELSE 0 END) as volume1,
                                  SUM(CASE WHEN vbt.token = token0 THEN vbt.fees ELSE 0 END)   as fees0,
@@ -568,20 +568,20 @@ export class Queries {
                           FROM volume_by_token_by_hour_by_key_hash vbt
                                    JOIN relevant_pool_keys ON vbt.key_hash = relevant_pool_keys.key_hash
                           WHERE hour >= $3
-                          GROUP BY key_hash),
-               tvl_total AS (SELECT key_hash,
+                          GROUP BY vbt.key_hash),
+               tvl_total AS (SELECT tbt.key_hash,
                                     SUM(CASE when token = token0 THEN delta ELSE 0 END) as tvl0,
                                     SUM(CASE when token = token1 THEN delta ELSE 0 END) as tvl1
                              FROM tvl_delta_by_token_by_hour_by_key_hash tbt
                                       JOIN pool_keys pk on tbt.key_hash = pk.key_hash
-                             GROUP BY key_hash),
-               tvl_delta_24h AS (SELECT key_hash,
+                             GROUP BY tbt.key_hash),
+               tvl_delta_24h AS (SELECT tbt.key_hash,
                                         SUM(CASE when token = token0 THEN delta ELSE 0 END) as tvl0,
                                         SUM(CASE when token = token1 THEN delta ELSE 0 END) as tvl1
                                  FROM tvl_delta_by_token_by_hour_by_key_hash tbt
                                           JOIN pool_keys pk on tbt.key_hash = pk.key_hash
                                  WHERE hour >= $3
-                                 GROUP BY key_hash)
+                                 GROUP BY tbt.key_hash)
           SELECT relevant_pool_keys.fee,
                  relevant_pool_keys.tick_spacing,
                  relevant_pool_keys.extension,
