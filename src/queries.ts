@@ -605,39 +605,40 @@ export class Queries {
     });
   }
 
-  public async getPositionsByAddress(address: bigint) {
+  public async getPositionsByAddress(address: bigint, showClosed: boolean) {
     return this.client.query<PositionMetadata & { token_id: string }>({
       text: `
-                WITH ranked_transfers AS (SELECT token_id,
-                                                 to_address,
-                                                 ROW_NUMBER() OVER (
-                                                     PARTITION BY token_id
-                                                     ORDER BY block_number DESC, transaction_index DESC
-                                                     ) AS row_no
-                                          FROM position_transfers
-                                          WHERE from_address = $1
-                                             OR to_address = $1),
-                     final_transfer AS (SELECT token_id,
-                                               to_address AS current_owner
-                                        FROM ranked_transfers
-                                        WHERE row_no = 1)
-                SELECT token_id,
-                       position_minted.transaction_hash as minted_tx_hash,
-                       token0,
-                       token1,
-                       fee,
-                       tick_spacing,
-                       extension,
-                       lower_bound,
-                       upper_bound,
-                       blocks.timestamp                 AS minted_timestamp
-                FROM position_minted
-                         JOIN pool_keys ON position_minted.pool_key_hash = pool_keys.key_hash
-                         JOIN blocks ON position_minted.block_number = blocks.number
-                WHERE token_id IN (SELECT token_id FROM final_transfer WHERE current_owner = $1)
-                ORDER BY token_id DESC
-            `,
-      values: [address],
+        WITH ranked_transfers AS (SELECT token_id,
+                                         to_address,
+                                         ROW_NUMBER() OVER (
+                                           PARTITION BY token_id
+                                           ORDER BY block_number DESC, transaction_index DESC
+                                           ) AS row_no
+                                  FROM position_transfers
+                                  WHERE (from_address = $1
+                                    OR to_address = $1)
+                                    AND (CASE WHEN $2 THEN to_address != 0 ELSE true END)),
+             final_transfer AS (SELECT token_id,
+                                       to_address AS current_owner
+                                FROM ranked_transfers
+                                WHERE row_no = 1)
+        SELECT token_id,
+               position_minted.transaction_hash as minted_tx_hash,
+               token0,
+               token1,
+               fee,
+               tick_spacing,
+               extension,
+               lower_bound,
+               upper_bound,
+               blocks.timestamp                 AS minted_timestamp
+        FROM position_minted
+               JOIN pool_keys ON position_minted.pool_key_hash = pool_keys.key_hash
+               JOIN blocks ON position_minted.block_number = blocks.number
+        WHERE token_id IN (SELECT token_id FROM final_transfer WHERE current_owner = $1)
+        ORDER BY token_id DESC
+      `,
+      values: [address, showClosed],
     });
   }
 }

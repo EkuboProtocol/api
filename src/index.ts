@@ -400,7 +400,7 @@ router
   )
   .get(
     "/positions/:address",
-    async ({ params: { address: addressStr }, url }, env) => {
+    async ({ params: { address: addressStr }, query, url }, env) => {
       let address: bigint;
       try {
         address = BigInt(addressStr);
@@ -408,8 +408,10 @@ router
         return error(400, "Invalid address");
       }
 
+      const showClosed = "showClosed" in query && query.showClosed === "true";
+
       const client = await createQueries(env);
-      const { rows } = await client.getPositionsByAddress(address);
+      const { rows } = await client.getPositionsByAddress(address, showClosed);
 
       const origin = new URL(url).origin;
 
