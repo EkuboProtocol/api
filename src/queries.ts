@@ -22,12 +22,99 @@ export class Queries {
     this.client = client;
   }
 
+  public async getAllPoolsWithStates() {
+    return this.client.query<{
+      pool_key_hash: string;
+      token0: string;
+      token1: string;
+      fee: string;
+      tick_spacing: string;
+      extension: string;
+      sqrt_ratio: string;
+      tick: string;
+      liquidity: string;
+    }>(`
+            WITH last_swap_state_per_pool AS (SELECT key_hash,
+                                                     (SELECT block_number
+                                                      FROM swaps
+                                                      WHERE key_hash = swaps.pool_key_hash
+                                                      ORDER BY block_number DESC, transaction_index DESC, event_index DESC
+                                                      LIMIT 1)                      AS block_number,
+                                                     (SELECT transaction_index
+                                                      FROM swaps
+                                                      WHERE key_hash = swaps.pool_key_hash
+                                                      ORDER BY block_number DESC, transaction_index DESC, event_index DESC
+                                                      LIMIT 1)                      AS transaction_index,
+                                                     (SELECT event_index
+                                                      FROM swaps
+                                                      WHERE key_hash = swaps.pool_key_hash
+                                                      ORDER BY block_number DESC, transaction_index DESC, event_index DESC
+                                                      LIMIT 1)                      AS event_index,
+                                                     COALESCE((SELECT sqrt_ratio_after
+                                                               FROM swaps
+                                                               WHERE key_hash = swaps.pool_key_hash
+                                                               ORDER BY block_number DESC, transaction_index DESC, event_index DESC
+                                                               LIMIT 1), (SELECT sqrt_ratio
+                                                                          FROM pool_initializations
+                                                                          WHERE key_hash = pool_initializations.pool_key_hash
+                                                                          LIMIT 1)) AS sqrt_ratio,
+                                                     COALESCE((SELECT tick_after
+                                                               FROM swaps
+                                                               WHERE key_hash = swaps.pool_key_hash
+                                                               ORDER BY block_number DESC, transaction_index DESC, event_index DESC
+                                                               LIMIT 1), (SELECT tick
+                                                                          FROM pool_initializations
+                                                                          WHERE key_hash = pool_initializations.pool_key_hash
+                                                                          LIMIT 1)) AS tick,
+                                                     COALESCE((SELECT liquidity_after
+                                                               FROM swaps
+                                                               WHERE key_hash = swaps.pool_key_hash
+                                                               ORDER BY block_number DESC, transaction_index DESC, event_index DESC
+                                                               LIMIT 1), 0)         AS liquidity
+                                              FROM pool_keys),
+                 pool_states AS (SELECT key_hash,
+                                        sqrt_ratio,
+                                        tick,
+                                        (COALESCE(liquidity, 0) + COALESCE((SELECT SUM(liquidity_delta)
+                                                                            FROM position_updates
+                                                                            WHERE position_updates.pool_key_hash =
+                                                                                  last_swap_state_per_pool.key_hash
+                                                                                AND lower_bound <= tick AND
+                                                                                  upper_bound > tick
+                                                                                AND
+                                                                                  last_swap_state_per_pool.block_number <
+                                                                                  position_updates.block_number
+                                                                               OR (
+                                                                                        last_swap_state_per_pool.block_number =
+                                                                                        position_updates.block_number AND
+                                                                                        (last_swap_state_per_pool.transaction_index <
+                                                                                         position_updates.transaction_index OR
+                                                                                         (last_swap_state_per_pool.transaction_index =
+                                                                                          position_updates.transaction_index AND
+                                                                                          last_swap_state_per_pool.event_index <
+                                                                                          position_updates.event_index))
+                                                                                )), 0)) AS liquidity
+                                 FROM last_swap_state_per_pool)
+            SELECT pool_states.key_hash AS pool_key_hash,
+                   token0,
+                   token1,
+                   fee,
+                   tick_spacing,
+                   extension,
+                   sqrt_ratio,
+                   tick,
+                   liquidity
+            FROM pool_states
+                     JOIN pool_keys ON pool_states.key_hash = pool_keys.key_hash
+        `);
+  }
+
   public async getPositionMetadata(
     id: number
   ): Promise<PositionMetadata | null> {
     const { rows, rowCount } = await this.client.query<PositionMetadata>({
       text: `
-                SELECT position_minted.transaction_hash as minted_tx_hash,
+                SELECT position_minted.transaction_hash AS minted_tx_hash,
                        position_minted.lower_bound,
                        position_minted.upper_bound,
                        pool_keys.token0,
@@ -37,7 +124,7 @@ export class Queries {
                        pool_keys.extension,
                        blocks.timestamp                 AS minted_timestamp
                 FROM position_minted
-                         JOIN pool_keys on position_minted.pool_key_hash = pool_keys.key_hash
+                         JOIN pool_keys ON position_minted.pool_key_hash = pool_keys.key_hash
                          JOIN blocks ON position_minted.block_number = blocks.number
                 WHERE token_id = $1
             `,
@@ -64,23 +151,23 @@ export class Queries {
       text: `
                 WITH all_events AS (SELECT transaction_hash,
                                            timestamp,
-                                           liquidity as liquidity_delta,
+                                           liquidity AS liquidity_delta,
                                            delta0,
                                            delta1,
-                                           NULL      as collect_fees,
-                                           NULL      as recipient
+                                           NULL      AS collect_fees,
+                                           NULL      AS recipient
                                     FROM position_deposit
                                              JOIN blocks ON position_deposit.block_number = blocks.number
                                     WHERE token_id = $1
                                     UNION ALL
                                     SELECT transaction_hash,
                                            timestamp,
-                                           -liquidity as liquidity_delta,
+                                           -liquidity AS liquidity_delta,
                                            delta0,
                                            delta1,
                                            collect_fees,
                                            recipient
-                                    from position_withdraw
+                                    FROM position_withdraw
                                              JOIN blocks ON position_withdraw.block_number = blocks.number
                                     WHERE token_id = $1)
                 SELECT transaction_hash,
@@ -113,19 +200,19 @@ export class Queries {
                 WITH pool_key_hashes AS (SELECT key_hash
                                          FROM pool_keys
                                          WHERE (token0 = $1 AND token1 = $2)),
-                     all_tick_deltas AS (SELECT lower_bound as       tick,
+                     all_tick_deltas AS (SELECT lower_bound AS       tick,
                                                 SUM(liquidity_delta) net_liquidity_delta
                                          FROM position_updates
                                                   JOIN pool_key_hashes ON pool_key_hash = pool_key_hashes.key_hash
                                          GROUP BY lower_bound
                                          UNION ALL
-                                         SELECT upper_bound as tick, SUM(-liquidity_delta) net_liquidity_delta
+                                         SELECT upper_bound AS tick, SUM(-liquidity_delta) net_liquidity_delta
                                          FROM position_updates
                                                   JOIN pool_key_hashes
                                                        ON pool_key_hash = pool_key_hashes.key_hash
                                          GROUP BY upper_bound),
-                     summed as (SELECT tick,
-                                       SUM(net_liquidity_delta) as net_liquidity_delta_diff
+                     summed AS (SELECT tick,
+                                       SUM(net_liquidity_delta) AS net_liquidity_delta_diff
                                 FROM all_tick_deltas
                                 GROUP BY tick)
                 SELECT tick, net_liquidity_delta_diff
@@ -143,13 +230,13 @@ export class Queries {
       net_liquidity_delta_diff: string;
     }>({
       text: `
-                WITH lower AS (SELECT lower_bound as       tick,
+                WITH lower AS (SELECT lower_bound AS       tick,
                                       SUM(liquidity_delta) net_liquidity_delta
                                FROM position_updates
                                WHERE pool_key_hash = $1
                                GROUP BY lower_bound, pool_key_hash),
 
-                     upper AS (SELECT upper_bound as       tick,
+                     upper AS (SELECT upper_bound AS       tick,
                                       SUM(liquidity_delta) net_liquidity_delta
                                FROM position_updates
                                WHERE pool_key_hash = $1
@@ -157,7 +244,7 @@ export class Queries {
 
                 SELECT COALESCE(lower.tick, upper.tick)       AS tick,
                        COALESCE(lower.net_liquidity_delta, 0) -
-                       COALESCE(upper.net_liquidity_delta, 0) as net_liquidity_delta_diff
+                       COALESCE(upper.net_liquidity_delta, 0) AS net_liquidity_delta_diff
                 FROM lower
                          FULL JOIN upper ON lower.tick = upper.tick
                 WHERE COALESCE(lower.net_liquidity_delta, 0) - COALESCE(upper.net_liquidity_delta, 0) != 0
@@ -198,8 +285,8 @@ export class Queries {
                                             FROM pool_keys
                                             WHERE token0 = $1
                                               AND token1 = $2),
-                     relevant_swaps AS (SELECT 0                           as type,
-                                               relevant_pool_keys.key_hash as pool_key_hash,
+                     relevant_swaps AS (SELECT 0                           AS type,
+                                               relevant_pool_keys.key_hash AS pool_key_hash,
                                                relevant_pool_keys.fee,
                                                relevant_pool_keys.tick_spacing,
                                                relevant_pool_keys.extension,
@@ -213,8 +300,8 @@ export class Queries {
                                         FROM swaps
                                                  JOIN relevant_pool_keys ON key_hash = pool_key_hash
                                                  JOIN blocks ON swaps.block_number = blocks.number),
-                     relevant_updates AS (SELECT 1                           as type,
-                                                 relevant_pool_keys.key_hash as pool_key_hash,
+                     relevant_updates AS (SELECT 1                           AS type,
+                                                 relevant_pool_keys.key_hash AS pool_key_hash,
                                                  relevant_pool_keys.fee,
                                                  relevant_pool_keys.tick_spacing,
                                                  relevant_pool_keys.extension,
@@ -230,10 +317,10 @@ export class Queries {
                                                         ON key_hash = pool_key_hash
                                                    JOIN blocks ON position_updates.block_number = blocks.number),
                      combined AS (SELECT *
-                                  from relevant_updates
+                                  FROM relevant_updates
                                   UNION ALL
                                   SELECT *
-                                  from relevant_swaps)
+                                  FROM relevant_swaps)
 
                 SELECT *
                 FROM combined
@@ -257,8 +344,8 @@ export class Queries {
                                             FROM pool_keys
                                             WHERE COALESCE($2, token0) = token0
                                               AND COALESCE($3, token1) = token1),
-                     token_fees_paid AS (SELECT relevant_pool_keys.token0  as token,
-                                                -protocol_fees_paid.delta0 as delta
+                     token_fees_paid AS (SELECT relevant_pool_keys.token0  AS token,
+                                                -protocol_fees_paid.delta0 AS delta
                                          FROM protocol_fees_paid
                                                   INNER JOIN relevant_blocks
                                                              ON protocol_fees_paid.block_number = relevant_blocks.number
@@ -266,8 +353,8 @@ export class Queries {
                                               relevant_pool_keys
                                               ON relevant_pool_keys.key_hash = protocol_fees_paid.pool_key_hash
                                          UNION ALL
-                                         SELECT relevant_pool_keys.token1  as token,
-                                                -protocol_fees_paid.delta1 as delta
+                                         SELECT relevant_pool_keys.token1  AS token,
+                                                -protocol_fees_paid.delta1 AS delta
                                          FROM protocol_fees_paid
                                                   INNER JOIN relevant_blocks
                                                              ON protocol_fees_paid.block_number = relevant_blocks.number
@@ -275,7 +362,7 @@ export class Queries {
                                               relevant_pool_keys
                                               ON relevant_pool_keys.key_hash = protocol_fees_paid.pool_key_hash)
                 SELECT token,
-                       SUM(delta) as revenue
+                       SUM(delta) AS revenue
                 FROM token_fees_paid
                 GROUP BY token_fees_paid.token
             `,
@@ -286,13 +373,15 @@ export class Queries {
   public getTvlByToken(pair?: { token0: bigint; token1: bigint }) {
     return this.client.query<{ token: string; balance: string }>({
       text: `
-          SELECT token,
-                 SUM(delta) as balance
-          FROM tvl_delta_by_token_by_hour_by_key_hash
-          WHERE key_hash IN
-                (SELECT key_hash FROM pool_keys WHERE token0 = COALESCE($1, token0) AND token1 = COALESCE($2, token1))
-          GROUP BY token;
-      `,
+                SELECT token,
+                       SUM(delta) AS balance
+                FROM tvl_delta_by_token_by_hour_by_key_hash
+                WHERE key_hash IN
+                      (SELECT key_hash
+                       FROM pool_keys
+                       WHERE token0 = COALESCE($1, token0) AND token1 = COALESCE($2, token1))
+                GROUP BY token;
+            `,
       values: [pair?.token0 ?? null, pair?.token1 ?? null],
     });
   }
@@ -303,15 +392,16 @@ export class Queries {
   ) {
     return this.client.query<{ token: string; date: string; balance: string }>({
       text: `
-        SELECT token,
-               date_trunc('day', hour) as date,
-               SUM(delta) as delta
-        FROM tvl_delta_by_token_by_hour_by_key_hash
-        WHERE
-            hour >= $3 AND
-            key_hash IN
-              (SELECT key_hash FROM pool_keys WHERE token0 = COALESCE($1, token0) AND token1 = COALESCE($2, token1))
-        GROUP BY token, date;
+                SELECT token,
+                       DATE_TRUNC('day', hour) AS date,
+                       SUM(delta)              AS delta
+                FROM tvl_delta_by_token_by_hour_by_key_hash
+                WHERE hour >= $3
+                  AND key_hash IN
+                      (SELECT key_hash
+                       FROM pool_keys
+                       WHERE token0 = COALESCE($1, token0) AND token1 = COALESCE($2, token1))
+                GROUP BY token, date;
             `,
       values: [pair?.token0 ?? null, pair?.token1 ?? null, after],
     });
@@ -366,15 +456,17 @@ export class Queries {
   ) {
     return this.client.query<{ token: string; volume: string }>({
       text: `
-          SELECT token,
-                 SUM(volume) as volume,
-                 SUM(fees)           as fees
-          FROM volume_by_token_by_hour_by_key_hash
-          WHERE hour >= $3
-            AND key_hash IN
-                (SELECT key_hash FROM pool_keys WHERE token0 = COALESCE($1, token0) AND token1 = COALESCE($2, token1))
-          GROUP BY token
-      `,
+                SELECT token,
+                       SUM(volume) AS volume,
+                       SUM(fees)   AS fees
+                FROM volume_by_token_by_hour_by_key_hash
+                WHERE hour >= $3
+                  AND key_hash IN
+                      (SELECT key_hash
+                       FROM pool_keys
+                       WHERE token0 = COALESCE($1, token0) AND token1 = COALESCE($2, token1))
+                GROUP BY token
+            `,
       values: [pair?.token0 ?? null, pair?.token1 ?? null, since],
     });
   }
@@ -390,16 +482,18 @@ export class Queries {
       fees: string;
     }>({
       text: `
-          SELECT token,
-                 date_trunc('day', hour) as date,
-                 SUM(volume)             as volume,
-                 SUM(fees)               as fees
-          FROM volume_by_token_by_hour_by_key_hash
-          WHERE hour >= $3
-            AND key_hash IN
-                (SELECT key_hash FROM pool_keys WHERE token0 = COALESCE($1, token0) AND token1 = COALESCE($2, token1))
-          GROUP BY token, date
-      `,
+                SELECT token,
+                       DATE_TRUNC('day', hour) AS date,
+                       SUM(volume)             AS volume,
+                       SUM(fees)               AS fees
+                FROM volume_by_token_by_hour_by_key_hash
+                WHERE hour >= $3
+                  AND key_hash IN
+                      (SELECT key_hash
+                       FROM pool_keys
+                       WHERE token0 = COALESCE($1, token0) AND token1 = COALESCE($2, token1))
+                GROUP BY token, date
+            `,
       values: [pair?.token0 ?? null, pair?.token1 ?? null, after],
     });
   }
@@ -472,9 +566,9 @@ export class Queries {
                                             FROM pool_keys
                                             WHERE COALESCE($1, token0) = token0
                                               AND COALESCE($2, token1) = token1),
-                     revenue_deltas AS (SELECT relevant_pool_keys.token0  as token,
-                                               DATE(blocks.timestamp)     as date,
-                                               -protocol_fees_paid.delta0 as delta
+                     revenue_deltas AS (SELECT relevant_pool_keys.token0  AS token,
+                                               date(blocks.timestamp)     AS date,
+                                               -protocol_fees_paid.delta0 AS delta
                                         FROM protocol_fees_paid
                                                  INNER JOIN
                                              relevant_pool_keys
@@ -483,19 +577,19 @@ export class Queries {
                                                             ON protocol_fees_paid.block_number = blocks.number
                                         WHERE blocks.timestamp >= $3
                                         UNION ALL
-                                        SELECT relevant_pool_keys.token1  as token,
-                                               DATE(blocks.timestamp)     as date,
-                                               -protocol_fees_paid.delta1 as delta
+                                        SELECT relevant_pool_keys.token1  AS token,
+                                               date(blocks.timestamp)     AS date,
+                                               -protocol_fees_paid.delta1 AS delta
                                         FROM protocol_fees_paid
                                                  INNER JOIN
                                              relevant_pool_keys
                                              ON relevant_pool_keys.key_hash = protocol_fees_paid.pool_key_hash
-                                                 INNER JOIN blocks on blocks.number = protocol_fees_paid.block_number
+                                                 INNER JOIN blocks ON blocks.number = protocol_fees_paid.block_number
                                         WHERE blocks.timestamp >= $3)
 
                 SELECT token,
                        date,
-                       SUM(delta) as revenue
+                       SUM(delta) AS revenue
                 FROM revenue_deltas
                 GROUP BY token, date
                 ORDER BY token, date;
@@ -507,48 +601,48 @@ export class Queries {
   public async getTopPairs(since: Date = new Date(Date.now() - 86_400_000)) {
     return this.client.query({
       text: `
-        WITH volume AS (SELECT token0,
-                               token1,
-                               SUM(CASE WHEN token0 = vbt.token THEN volume ELSE 0 END) as volume0,
-                               SUM(CASE WHEN token1 = vbt.token THEN volume ELSE 0 END) as volume1,
-                               SUM(CASE WHEN token0 = vbt.token THEN fees ELSE 0 END)   as fees0,
-                               SUM(CASE WHEN token1 = vbt.token THEN fees ELSE 0 END)   as fees1
-                        FROM volume_by_token_by_hour_by_key_hash vbt
-                               INNER JOIN pool_keys ON vbt.key_hash = pool_keys.key_hash
-                        WHERE hour >= $1
-                        GROUP BY token0, token1),
-             tvl_total AS (SELECT token0,
-                                  token1,
-                                  SUM(CASE WHEN token0 = token THEN delta ELSE 0 END) as tvl0,
-                                  SUM(CASE WHEN token1 = token THEN delta ELSE 0 END) as tvl1
-                           FROM tvl_delta_by_token_by_hour_by_key_hash tvd
-                                  JOIN pool_keys ON pool_keys.key_hash = tvd.key_hash
-                           GROUP BY token0, token1),
-             tvl_delta_24h AS (SELECT token0,
-                                      token1,
-                                      SUM(CASE WHEN token0 = token THEN delta ELSE 0 END) as tvl0,
-                                      SUM(CASE WHEN token1 = token THEN delta ELSE 0 END) as tvl1
-                               FROM tvl_delta_by_token_by_hour_by_key_hash tvd
-                                      JOIN pool_keys ON pool_keys.key_hash = tvd.key_hash
-                               WHERE hour >= $1
-                               GROUP BY token0, token1)
-        SELECT COALESCE(volume.token0, tvl_total.token0) as token0,
-               COALESCE(volume.token1, tvl_total.token1) as token1,
-               COALESCE(volume.volume0, 0)               as volume0_24h,
-               COALESCE(volume.volume1, 0)               as volume1_24h,
-               COALESCE(volume.fees0, 0)                 as fees0_24h,
-               COALESCE(volume.fees1, 0)                 as fees1_24h,
-               COALESCE(tvl_total.tvl0, 0)               as tvl0_total,
-               COALESCE(tvl_total.tvl1, 0)               as tvl1_total,
-               COALESCE(tvl_delta_24h.tvl0, 0)           as tvl0_delta_24h,
-               COALESCE(tvl_delta_24h.tvl1, 0)           as tvl1_delta_24h
-        FROM volume
-               FULL OUTER JOIN
-             tvl_total ON volume.token0 = tvl_total.token0 AND volume.token1 = tvl_total.token1
-               FULL OUTER JOIN tvl_delta_24h
-                               ON tvl_delta_24h.token0 = COALESCE(volume.token0, tvl_total.token0) AND
-                                  tvl_delta_24h.token1 = COALESCE(volume.token1, tvl_total.token1);
-      `,
+                WITH volume AS (SELECT token0,
+                                       token1,
+                                       SUM(CASE WHEN token0 = vbt.token THEN volume ELSE 0 END) AS volume0,
+                                       SUM(CASE WHEN token1 = vbt.token THEN volume ELSE 0 END) AS volume1,
+                                       SUM(CASE WHEN token0 = vbt.token THEN fees ELSE 0 END)   AS fees0,
+                                       SUM(CASE WHEN token1 = vbt.token THEN fees ELSE 0 END)   AS fees1
+                                FROM volume_by_token_by_hour_by_key_hash vbt
+                                         INNER JOIN pool_keys ON vbt.key_hash = pool_keys.key_hash
+                                WHERE hour >= $1
+                                GROUP BY token0, token1),
+                     tvl_total AS (SELECT token0,
+                                          token1,
+                                          SUM(CASE WHEN token0 = token THEN delta ELSE 0 END) AS tvl0,
+                                          SUM(CASE WHEN token1 = token THEN delta ELSE 0 END) AS tvl1
+                                   FROM tvl_delta_by_token_by_hour_by_key_hash tvd
+                                            JOIN pool_keys ON pool_keys.key_hash = tvd.key_hash
+                                   GROUP BY token0, token1),
+                     tvl_delta_24h AS (SELECT token0,
+                                              token1,
+                                              SUM(CASE WHEN token0 = token THEN delta ELSE 0 END) AS tvl0,
+                                              SUM(CASE WHEN token1 = token THEN delta ELSE 0 END) AS tvl1
+                                       FROM tvl_delta_by_token_by_hour_by_key_hash tvd
+                                                JOIN pool_keys ON pool_keys.key_hash = tvd.key_hash
+                                       WHERE hour >= $1
+                                       GROUP BY token0, token1)
+                SELECT COALESCE(volume.token0, tvl_total.token0) AS token0,
+                       COALESCE(volume.token1, tvl_total.token1) AS token1,
+                       COALESCE(volume.volume0, 0)               AS volume0_24h,
+                       COALESCE(volume.volume1, 0)               AS volume1_24h,
+                       COALESCE(volume.fees0, 0)                 AS fees0_24h,
+                       COALESCE(volume.fees1, 0)                 AS fees1_24h,
+                       COALESCE(tvl_total.tvl0, 0)               AS tvl0_total,
+                       COALESCE(tvl_total.tvl1, 0)               AS tvl1_total,
+                       COALESCE(tvl_delta_24h.tvl0, 0)           AS tvl0_delta_24h,
+                       COALESCE(tvl_delta_24h.tvl1, 0)           AS tvl1_delta_24h
+                FROM volume
+                         FULL OUTER JOIN
+                     tvl_total ON volume.token0 = tvl_total.token0 AND volume.token1 = tvl_total.token1
+                         FULL OUTER JOIN tvl_delta_24h
+                                         ON tvl_delta_24h.token0 = COALESCE(volume.token0, tvl_total.token0) AND
+                                            tvl_delta_24h.token1 = COALESCE(volume.token1, tvl_total.token1);
+            `,
       values: [since],
     });
   }
@@ -556,51 +650,51 @@ export class Queries {
   public async getTopPools(pair: { token0: bigint; token1: bigint }) {
     return this.client.query<{ token: string; volume: string }>({
       text: `
-          WITH relevant_pool_keys AS (SELECT key_hash, token0, token1, fee, tick_spacing, extension
-                                      FROM pool_keys
-                                      WHERE token0 = $1
-                                        AND token1 = $2),
-               volume AS (SELECT vbt.key_hash,
-                                 SUM(CASE WHEN vbt.token = token0 THEN vbt.volume ELSE 0 END) as volume0,
-                                 SUM(CASE WHEN vbt.token = token1 THEN vbt.volume ELSE 0 END) as volume1,
-                                 SUM(CASE WHEN vbt.token = token0 THEN vbt.fees ELSE 0 END)   as fees0,
-                                 SUM(CASE WHEN vbt.token = token1 THEN vbt.fees ELSE 0 END)   as fees1
-                          FROM volume_by_token_by_hour_by_key_hash vbt
-                                   JOIN relevant_pool_keys ON vbt.key_hash = relevant_pool_keys.key_hash
-                          WHERE hour >= $3
-                          GROUP BY vbt.key_hash),
-               tvl_total AS (SELECT tbt.key_hash,
-                                    SUM(CASE when token = token0 THEN delta ELSE 0 END) as tvl0,
-                                    SUM(CASE when token = token1 THEN delta ELSE 0 END) as tvl1
-                             FROM tvl_delta_by_token_by_hour_by_key_hash tbt
-                                      JOIN pool_keys pk on tbt.key_hash = pk.key_hash
-                             GROUP BY tbt.key_hash),
-               tvl_delta_24h AS (SELECT tbt.key_hash,
-                                        SUM(CASE when token = token0 THEN delta ELSE 0 END) as tvl0,
-                                        SUM(CASE when token = token1 THEN delta ELSE 0 END) as tvl1
-                                 FROM tvl_delta_by_token_by_hour_by_key_hash tbt
-                                          JOIN pool_keys pk on tbt.key_hash = pk.key_hash
-                                 WHERE hour >= $3
-                                 GROUP BY tbt.key_hash)
-          SELECT relevant_pool_keys.fee,
-                 relevant_pool_keys.tick_spacing,
-                 relevant_pool_keys.extension,
-                 COALESCE(volume.volume0, 0)     as volume0_24h,
-                 COALESCE(volume.volume1, 0)     as volume1_24h,
-                 COALESCE(volume.fees0, 0)       as fees0_24h,
-                 COALESCE(volume.fees1, 0)       as fees1_24h,
-                 COALESCE(tvl_total.tvl0, 0)     as tvl0_total,
-                 COALESCE(tvl_total.tvl1, 0)     as tvl1_total,
-                 COALESCE(tvl_delta_24h.tvl0, 0) as tvl0_delta_24h,
-                 COALESCE(tvl_delta_24h.tvl1, 0) as tvl1_delta_24h
-          FROM volume
-                   FULL OUTER JOIN
-               tvl_total ON volume.key_hash = tvl_total.key_hash
-                   FULL OUTER JOIN tvl_delta_24h
-                                   ON tvl_delta_24h.key_hash = COALESCE(volume.key_hash, tvl_total.key_hash)
-                   JOIN relevant_pool_keys
-                        ON COALESCE(volume.key_hash, tvl_total.key_hash) = relevant_pool_keys.key_hash;
-      `,
+                WITH relevant_pool_keys AS (SELECT key_hash, token0, token1, fee, tick_spacing, extension
+                                            FROM pool_keys
+                                            WHERE token0 = $1
+                                              AND token1 = $2),
+                     volume AS (SELECT vbt.key_hash,
+                                       SUM(CASE WHEN vbt.token = token0 THEN vbt.volume ELSE 0 END) AS volume0,
+                                       SUM(CASE WHEN vbt.token = token1 THEN vbt.volume ELSE 0 END) AS volume1,
+                                       SUM(CASE WHEN vbt.token = token0 THEN vbt.fees ELSE 0 END)   AS fees0,
+                                       SUM(CASE WHEN vbt.token = token1 THEN vbt.fees ELSE 0 END)   AS fees1
+                                FROM volume_by_token_by_hour_by_key_hash vbt
+                                         JOIN relevant_pool_keys ON vbt.key_hash = relevant_pool_keys.key_hash
+                                WHERE hour >= $3
+                                GROUP BY vbt.key_hash),
+                     tvl_total AS (SELECT tbt.key_hash,
+                                          SUM(CASE WHEN token = token0 THEN delta ELSE 0 END) AS tvl0,
+                                          SUM(CASE WHEN token = token1 THEN delta ELSE 0 END) AS tvl1
+                                   FROM tvl_delta_by_token_by_hour_by_key_hash tbt
+                                            JOIN pool_keys pk ON tbt.key_hash = pk.key_hash
+                                   GROUP BY tbt.key_hash),
+                     tvl_delta_24h AS (SELECT tbt.key_hash,
+                                              SUM(CASE WHEN token = token0 THEN delta ELSE 0 END) AS tvl0,
+                                              SUM(CASE WHEN token = token1 THEN delta ELSE 0 END) AS tvl1
+                                       FROM tvl_delta_by_token_by_hour_by_key_hash tbt
+                                                JOIN pool_keys pk ON tbt.key_hash = pk.key_hash
+                                       WHERE hour >= $3
+                                       GROUP BY tbt.key_hash)
+                SELECT relevant_pool_keys.fee,
+                       relevant_pool_keys.tick_spacing,
+                       relevant_pool_keys.extension,
+                       COALESCE(volume.volume0, 0)     AS volume0_24h,
+                       COALESCE(volume.volume1, 0)     AS volume1_24h,
+                       COALESCE(volume.fees0, 0)       AS fees0_24h,
+                       COALESCE(volume.fees1, 0)       AS fees1_24h,
+                       COALESCE(tvl_total.tvl0, 0)     AS tvl0_total,
+                       COALESCE(tvl_total.tvl1, 0)     AS tvl1_total,
+                       COALESCE(tvl_delta_24h.tvl0, 0) AS tvl0_delta_24h,
+                       COALESCE(tvl_delta_24h.tvl1, 0) AS tvl1_delta_24h
+                FROM volume
+                         FULL OUTER JOIN
+                     tvl_total ON volume.key_hash = tvl_total.key_hash
+                         FULL OUTER JOIN tvl_delta_24h
+                                         ON tvl_delta_24h.key_hash = COALESCE(volume.key_hash, tvl_total.key_hash)
+                         JOIN relevant_pool_keys
+                              ON COALESCE(volume.key_hash, tvl_total.key_hash) = relevant_pool_keys.key_hash;
+            `,
       values: [pair.token0, pair.token1, new Date(Date.now() - 86_400_000)],
     });
   }
@@ -608,36 +702,36 @@ export class Queries {
   public async getPositionsByAddress(address: bigint, showClosed: boolean) {
     return this.client.query<PositionMetadata & { token_id: string }>({
       text: `
-        WITH ranked_transfers AS (SELECT token_id,
-                                         to_address,
-                                         ROW_NUMBER() OVER (
-                                           PARTITION BY token_id
-                                           ORDER BY block_number DESC, transaction_index DESC
-                                           ) AS row_no
-                                  FROM position_transfers
-                                  WHERE (from_address = $1
-                                    OR to_address = $1)
-                                    AND (CASE WHEN $2 THEN to_address != 0 ELSE true END)),
-             final_transfer AS (SELECT token_id,
-                                       to_address AS current_owner
-                                FROM ranked_transfers
-                                WHERE row_no = 1)
-        SELECT token_id,
-               position_minted.transaction_hash as minted_tx_hash,
-               token0,
-               token1,
-               fee,
-               tick_spacing,
-               extension,
-               lower_bound,
-               upper_bound,
-               blocks.timestamp                 AS minted_timestamp
-        FROM position_minted
-               JOIN pool_keys ON position_minted.pool_key_hash = pool_keys.key_hash
-               JOIN blocks ON position_minted.block_number = blocks.number
-        WHERE token_id IN (SELECT token_id FROM final_transfer WHERE current_owner = $1)
-        ORDER BY token_id DESC
-      `,
+                WITH ranked_transfers AS (SELECT token_id,
+                                                 to_address,
+                                                 ROW_NUMBER() OVER (
+                                                     PARTITION BY token_id
+                                                     ORDER BY block_number DESC, transaction_index DESC
+                                                     ) AS row_no
+                                          FROM position_transfers
+                                          WHERE (from_address = $1
+                                              OR to_address = $1)
+                                            AND (CASE WHEN $2 THEN to_address != 0 ELSE TRUE END)),
+                     final_transfer AS (SELECT token_id,
+                                               to_address AS current_owner
+                                        FROM ranked_transfers
+                                        WHERE row_no = 1)
+                SELECT token_id,
+                       position_minted.transaction_hash AS minted_tx_hash,
+                       token0,
+                       token1,
+                       fee,
+                       tick_spacing,
+                       extension,
+                       lower_bound,
+                       upper_bound,
+                       blocks.timestamp                 AS minted_timestamp
+                FROM position_minted
+                         JOIN pool_keys ON position_minted.pool_key_hash = pool_keys.key_hash
+                         JOIN blocks ON position_minted.block_number = blocks.number
+                WHERE token_id IN (SELECT token_id FROM final_transfer WHERE current_owner = $1)
+                ORDER BY token_id DESC
+            `,
       values: [address, showClosed],
     });
   }

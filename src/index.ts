@@ -370,6 +370,30 @@ router
       }
     );
   })
+  .get("/pools", async (_, env) => {
+    const client = await createQueries(env);
+
+    const { rows } = await client.getAllPoolsWithStates();
+
+    return json(
+      rows.map((p) => ({
+        key_hash: numericToHex(p.pool_key_hash),
+        token0: numericToHex(p.token0),
+        token1: numericToHex(p.token1),
+        fee: numericToHex(p.fee),
+        tick_spacing: numericToHex(p.tick_spacing),
+        extension: numericToHex(p.extension),
+        sqrt_ratio: numericToHex(p.sqrt_ratio),
+        tick: Number(p.tick),
+        liquidity: p.liquidity,
+      })),
+      {
+        headers: {
+          "cache-control": "public, max-age=15, stale-while-revalidate=15",
+        },
+      }
+    );
+  })
   .get<IRequest, CF>(
     "/pool/:key_hash/liquidity",
     async ({ params: { key_hash } }, env) => {
