@@ -77,47 +77,13 @@ export class Queries {
                                                                     FROM position_updates AS pu
                                                                     WHERE pu.pool_key_hash =
                                                                           lss.key_hash
-                                                                      AND lower_bound <= COALESCE((SELECT tick_after
-                                                                                                   FROM swaps AS s
-                                                                                                   WHERE (s.block_number,
-                                                                                                          s.transaction_index,
-                                                                                                          s.event_index) <=
-                                                                                                         (
-                                                                                                          pu.block_number,
-                                                                                                          pu.transaction_index,
-                                                                                                          pu.event_index
-                                                                                                             )
-                                                                                                   ORDER BY s.block_number DESC,
-                                                                                                            s.transaction_index DESC,
-                                                                                                            s.event_index DESC
-                                                                                                   LIMIT 1),
-                                                                                                  (SELECT tick
-                                                                                                   FROM pool_initializations AS pi
-                                                                                                   WHERE pi.pool_key_hash = pu.pool_key_hash))
-                                                                      AND upper_bound > COALESCE((SELECT tick_after
-                                                                                                  FROM swaps AS s
-                                                                                                  WHERE (s.block_number,
-                                                                                                         s.transaction_index,
-                                                                                                         s.event_index) <=
-                                                                                                        (
-                                                                                                         pu.block_number,
-                                                                                                         pu.transaction_index,
-                                                                                                         pu.event_index
-                                                                                                            )
-                                                                                                  ORDER BY s.block_number DESC,
-                                                                                                           s.transaction_index DESC,
-                                                                                                           s.event_index DESC
-                                                                                                  LIMIT 1),
-                                                                                                 (SELECT tick
-                                                                                                  FROM pool_initializations AS pi
-                                                                                                  WHERE pi.pool_key_hash = pu.pool_key_hash))
+                                                                      AND lss.tick BETWEEN pu.lower_bound AND (pu.upper_bound - 1)
                                                                       AND (lss.block_number,
                                                                            lss.transaction_index,
                                                                            lss.event_index) <
                                                                           (pu.block_number,
                                                                            pu.transaction_index,
-                                                                           pu.event_index)),
-                                                                   0)) AS liquidity
+                                                                           pu.event_index)), 0)) AS liquidity
                     FROM lss)
         SELECT lss.key_hash AS pool_key_hash,
                token0,
