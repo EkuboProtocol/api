@@ -381,7 +381,7 @@ router
         token0: numericToHex(p.token0),
         token1: numericToHex(p.token1),
         fee: numericToHex(p.fee),
-        tick_spacing: numericToHex(p.tick_spacing),
+        tick_spacing: Number(p.tick_spacing),
         extension: numericToHex(p.extension),
         sqrt_ratio: numericToHex(p.sqrt_ratio),
         tick: Number(p.tick),
