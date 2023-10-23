@@ -221,26 +221,29 @@ export class Queries {
       net_liquidity_delta_diff: string;
     }>({
       text: `
-                WITH lower AS (SELECT lower_bound AS       tick,
-                                      SUM(liquidity_delta) net_liquidity_delta
-                               FROM position_updates
-                               WHERE pool_key_hash = $1
-                               GROUP BY lower_bound, pool_key_hash),
+          WITH lower AS (SELECT lower_bound AS       tick,
+                                SUM(liquidity_delta) net_liquidity_delta
+                         FROM position_updates
+                         WHERE pool_key_hash = $1
+                         GROUP BY lower_bound),
 
-                     upper AS (SELECT upper_bound AS       tick,
-                                      SUM(liquidity_delta) net_liquidity_delta
-                               FROM position_updates
-                               WHERE pool_key_hash = $1
-                               GROUP BY upper_bound, pool_key_hash)
-
-                SELECT COALESCE(lower.tick, upper.tick)       AS tick,
-                       COALESCE(lower.net_liquidity_delta, 0) -
-                       COALESCE(upper.net_liquidity_delta, 0) AS net_liquidity_delta_diff
-                FROM lower
-                         FULL JOIN upper ON lower.tick = upper.tick
-                WHERE COALESCE(lower.net_liquidity_delta, 0) - COALESCE(upper.net_liquidity_delta, 0) != 0
-                ORDER BY tick ASC;
-            `,
+               upper AS (SELECT upper_bound AS       tick,
+                                SUM(liquidity_delta) net_liquidity_delta
+                         FROM position_updates
+                         WHERE pool_key_hash = $1
+                         GROUP BY upper_bound),
+              
+               summed AS (SELECT COALESCE(lower.tick, upper.tick)       AS tick,
+                                 COALESCE(lower.net_liquidity_delta, 0) -
+                                 COALESCE(upper.net_liquidity_delta, 0) AS net_liquidity_delta_diff
+                          FROM lower
+                                   FULL JOIN upper ON lower.tick = upper.tick)
+          
+          SELECT tick, net_liquidity_delta_diff
+          FROM summed
+          WHERE net_liquidity_delta_diff != 0
+          ORDER BY tick
+      `,
       values: [pool_key_hash],
     });
   }
