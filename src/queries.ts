@@ -34,58 +34,7 @@ export class Queries {
       tick: string;
       liquidity: string;
     }>(`
-        WITH lss AS (SELECT key_hash,
-                            (SELECT block_number
-                             FROM swaps
-                             WHERE key_hash = swaps.pool_key_hash
-                             ORDER BY block_number DESC, transaction_index DESC, event_index DESC
-                             LIMIT 1)                      AS block_number,
-                            (SELECT transaction_index
-                             FROM swaps
-                             WHERE key_hash = swaps.pool_key_hash
-                             ORDER BY block_number DESC, transaction_index DESC, event_index DESC
-                             LIMIT 1)                      AS transaction_index,
-                            (SELECT event_index
-                             FROM swaps
-                             WHERE key_hash = swaps.pool_key_hash
-                             ORDER BY block_number DESC, transaction_index DESC, event_index DESC
-                             LIMIT 1)                      AS event_index,
-                            COALESCE((SELECT sqrt_ratio_after
-                                      FROM swaps
-                                      WHERE key_hash = swaps.pool_key_hash
-                                      ORDER BY block_number DESC, transaction_index DESC, event_index DESC
-                                      LIMIT 1), (SELECT sqrt_ratio
-                                                 FROM pool_initializations
-                                                 WHERE key_hash = pool_initializations.pool_key_hash
-                                                 LIMIT 1)) AS sqrt_ratio,
-                            COALESCE((SELECT tick_after
-                                      FROM swaps
-                                      WHERE key_hash = swaps.pool_key_hash
-                                      ORDER BY block_number DESC, transaction_index DESC, event_index DESC
-                                      LIMIT 1), (SELECT tick
-                                                 FROM pool_initializations
-                                                 WHERE key_hash = pool_initializations.pool_key_hash
-                                                 LIMIT 1)) AS tick,
-                            COALESCE((SELECT liquidity_after
-                                      FROM swaps
-                                      WHERE key_hash = swaps.pool_key_hash
-                                      ORDER BY block_number DESC, transaction_index DESC, event_index DESC
-                                      LIMIT 1), 0)         AS liquidity_last
-                     FROM pool_keys),
-             pl AS (SELECT key_hash,
-                           (COALESCE(liquidity_last, 0) + COALESCE((SELECT SUM(liquidity_delta)
-                                                                    FROM position_updates AS pu
-                                                                    WHERE pu.pool_key_hash =
-                                                                          lss.key_hash
-                                                                      AND lss.tick BETWEEN pu.lower_bound AND (pu.upper_bound - 1)
-                                                                      AND (lss.block_number,
-                                                                           lss.transaction_index,
-                                                                           lss.event_index) <
-                                                                          (pu.block_number,
-                                                                           pu.transaction_index,
-                                                                           pu.event_index)), 0)) AS liquidity
-                    FROM lss)
-        SELECT lss.key_hash AS pool_key_hash,
+        SELECT pool_key_hash,
                token0,
                token1,
                fee,
@@ -94,9 +43,8 @@ export class Queries {
                sqrt_ratio,
                tick,
                liquidity
-        FROM lss
-                 JOIN pl ON lss.key_hash = pl.key_hash
-                 JOIN pool_keys ON pl.key_hash = pool_keys.key_hash
+        FROM pool_states
+                 JOIN pool_keys ON pool_key_hash = key_hash
     `);
   }
 
