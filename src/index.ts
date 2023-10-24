@@ -395,7 +395,7 @@ router
     );
   })
   .get<IRequest, CF>(
-    "/pool/:key_hash/liquidity",
+    "/pools/:key_hash/liquidity",
     async ({ params: { key_hash } }, env) => {
       let pool_key_hash: bigint;
       try {
