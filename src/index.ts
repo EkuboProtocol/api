@@ -373,7 +373,9 @@ router
   .get("/pools", async (_, env) => {
     const client = await createQueries(env);
 
-    const { rows } = await client.getAllPoolsWithStates();
+    const { rows } = await client.withinTransaction(() =>
+      client.getAllPoolsWithStates()
+    );
 
     return json(
       rows.map((p) => ({
