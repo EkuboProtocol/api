@@ -389,7 +389,7 @@ router
       })),
       {
         headers: {
-          "cache-control": "public, max-age=15, stale-while-revalidate=15",
+          "cache-control": "public, max-age=15, must-revalidate",
         },
       }
     );
@@ -416,7 +416,7 @@ router
         },
         {
           headers: {
-            "cache-control": "public, max-age=600, must-revalidate",
+            "cache-control": "public, max-age=15, must-revalidate",
           },
         }
       );
