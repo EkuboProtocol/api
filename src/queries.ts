@@ -22,6 +22,21 @@ export class Queries {
     this.client = client;
   }
 
+  public async getLatestBlock() {
+    const { rows } = await this.client.query<{
+      number: string;
+      hash: string;
+      timestamp: string;
+    }>(`
+        SELECT number, hash, timestamp
+        FROM blocks
+        ORDER BY number DESC
+        LIMIT 1
+    `);
+    if (rows.length !== 1) throw new Error("No blocks");
+    return rows[0];
+  }
+
   public async getAllPoolsWithStates() {
     return this.client.query<{
       pool_key_hash: string;
@@ -136,29 +151,15 @@ export class Queries {
       net_liquidity_delta_diff: string;
     }>({
       text: `
-                WITH pool_key_hashes AS (SELECT key_hash
-                                         FROM pool_keys
-                                         WHERE (token0 = $1 AND token1 = $2)),
-                     all_tick_deltas AS (SELECT lower_bound AS       tick,
-                                                SUM(liquidity_delta) net_liquidity_delta
-                                         FROM position_updates
-                                                  JOIN pool_key_hashes ON pool_key_hash = pool_key_hashes.key_hash
-                                         GROUP BY lower_bound
-                                         UNION ALL
-                                         SELECT upper_bound AS tick, SUM(-liquidity_delta) net_liquidity_delta
-                                         FROM position_updates
-                                                  JOIN pool_key_hashes
-                                                       ON pool_key_hash = pool_key_hashes.key_hash
-                                         GROUP BY upper_bound),
-                     summed AS (SELECT tick,
-                                       SUM(net_liquidity_delta) AS net_liquidity_delta_diff
-                                FROM all_tick_deltas
-                                GROUP BY tick)
-                SELECT tick, net_liquidity_delta_diff
-                FROM summed
-                WHERE net_liquidity_delta_diff != 0
-                ORDER BY tick;
-            `,
+          SELECT tick, SUM(net_liquidity_delta_diff) AS net_liquidity_delta_diff
+          FROM per_pool_per_tick_liquidity
+                   JOIN pool_keys ON pool_key_hash = key_hash
+          WHERE net_liquidity_delta_diff != 0
+            AND token0 = $1
+            AND token1 = $2
+          GROUP BY tick
+          ORDER BY tick
+      `,
       values: [token0, token1],
     });
   }
@@ -169,27 +170,9 @@ export class Queries {
       net_liquidity_delta_diff: string;
     }>({
       text: `
-          WITH lower AS (SELECT lower_bound AS       tick,
-                                SUM(liquidity_delta) net_liquidity_delta
-                         FROM position_updates
-                         WHERE pool_key_hash = $1
-                         GROUP BY lower_bound),
-
-               upper AS (SELECT upper_bound AS       tick,
-                                SUM(liquidity_delta) net_liquidity_delta
-                         FROM position_updates
-                         WHERE pool_key_hash = $1
-                         GROUP BY upper_bound),
-              
-               summed AS (SELECT COALESCE(lower.tick, upper.tick)       AS tick,
-                                 COALESCE(lower.net_liquidity_delta, 0) -
-                                 COALESCE(upper.net_liquidity_delta, 0) AS net_liquidity_delta_diff
-                          FROM lower
-                                   FULL JOIN upper ON lower.tick = upper.tick)
-          
           SELECT tick, net_liquidity_delta_diff
-          FROM summed
-          WHERE net_liquidity_delta_diff != 0
+          FROM per_pool_per_tick_liquidity
+          WHERE pool_key_hash = $1
           ORDER BY tick
       `,
       values: [pool_key_hash],
