@@ -14,6 +14,14 @@
     "sort_order": 3
   },
   {
+    "name": "LUSD Stablecoin",
+    "symbol": "LUSD",
+    "decimals": 18,
+    "l2_token_address": "0x070a76fd48ca0ef910631754d77dd822147fe98a569b826ec85e3c33fde586ac",
+    "sort_order": 3,
+    "hidden": true
+  },
+  {
     "name": "Tether USD",
     "symbol": "USDT",
     "decimals": 6,
