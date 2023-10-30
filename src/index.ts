@@ -253,7 +253,7 @@ router
       const queries = await createQueries(env);
 
       const timestamp = Date.now();
-      const oneHourAgo = new Date(timestamp - 3_600_000);
+      const sixHoursAgo = new Date(timestamp - 3_600_000 * 6);
 
       const ft = feeToken(env.STARKNET_CHAIN_ID);
 
@@ -262,17 +262,17 @@ router
           queries.getVolumeWeightedPrice({
             quoteToken,
             baseToken,
-            since: oneHourAgo,
+            since: sixHoursAgo,
           }),
           queries.getVolumeWeightedPrice({
             quoteToken,
             baseToken: BigInt(ft.l2_token_address),
-            since: oneHourAgo,
+            since: sixHoursAgo,
           }),
           queries.getVolumeWeightedPrice({
             quoteToken: BigInt(ft.l2_token_address),
             baseToken,
-            since: oneHourAgo,
+            since: sixHoursAgo,
           }),
         ])
       );
@@ -333,12 +333,12 @@ router
     const queries = await createQueries(env);
 
     const timestamp = Date.now();
-    const oneHourAgo = new Date(timestamp - 3_600_000);
+    const sixHoursAgo = new Date(timestamp - 3_600_000 * 6);
 
     const prices = await queries.getAllVolumeWeightedPrices({
       quoteToken,
       end: new Date(timestamp),
-      start: oneHourAgo,
+      start: sixHoursAgo,
     });
 
     const scaledPrices = prices
