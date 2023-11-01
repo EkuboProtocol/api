@@ -13,8 +13,6 @@ interface PositionMetadata {
   minted_tx_hash: string;
 }
 
-const U128_DENOMINATOR = 2n ** 128n;
-
 export class Queries {
   private readonly client: Client;
 
