@@ -95,6 +95,27 @@ router
       },
     });
   })
+  .get<IRequest, CF>("/blocks/:number", async ({ params }, env) => {
+    const queries = await createQueries(env);
+
+    if (params.number !== "latest") {
+      return error(501, "Not implemented");
+    }
+
+    const block = await queries.getLatestBlock();
+
+    return json(
+      {
+        number: Number(block.number),
+        timestamp: block.timestamp,
+      },
+      {
+        headers: {
+          "cache-control": "public, max-age=10, must-revalidate",
+        },
+      }
+    );
+  })
   .get<IRequest, CF>("/overview", async ({}, env) => {
     const timestamp = Date.now();
     const twentyFourHoursAgo = new Date(timestamp - 1000 * 60 * 60 * 24);
