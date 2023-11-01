@@ -758,6 +758,7 @@ router
   .all("*", () => error(404));
 
 async function cacheResponse(request: IRequest, response: Response) {
+  if (!response.ok) return response;
   await cache.put(request, response.clone());
   return response;
 }
