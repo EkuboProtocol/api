@@ -4,51 +4,18 @@ import { generateSvg } from "./generateSvg";
 import { parseId } from "./parseId";
 import { Env } from "./env";
 import { createQueries } from "./createQueries";
-import MAINNET_TOKENS from "./tokens/mainnet.json";
-import GOERLI_TOKENS from "./tokens/goerli.json";
 import Decimal from "decimal.js-light";
-
-const TOKENS_BY_CHAIN_ID = {
-  ["0x534e5f4d41494e"]: MAINNET_TOKENS,
-  ["0x534e5f474f45524c49"]: GOERLI_TOKENS,
-} as const;
-
-export function feeToken(chainId: "0x534e5f474f45524c49" | "0x534e5f4d41494e") {
-  return findToken(
-    chainId,
-    chainId === "0x534e5f4d41494e"
-      ? "0x049d36570d4e46f48e99674bd3fcc84644ddd6b96f7c741b1562b82f9e004dc7"
-      : chainId === "0x534e5f474f45524c49"
-      ? "0x049d36570d4e46f48e99674bd3fcc84644ddd6b96f7c741b1562b82f9e004dc7"
-      : "0"
-  );
-}
-
-function findToken(
-  chainId: "0x534e5f474f45524c49" | "0x534e5f4d41494e",
-  address: string | bigint
-) {
-  return (TOKENS_BY_CHAIN_ID[chainId] ?? [])?.find(
-    (x) => BigInt(x.l2_token_address) === BigInt(address)
-  );
-}
+import {
+  feeToPercent,
+  formattedPrice,
+  numericToHex,
+  tickSpacingToPercent,
+} from "./format";
+import { feeToken, findToken, TOKENS_BY_CHAIN_ID } from "./tokenUtils";
 
 Decimal.set({ precision: 39 });
 
-const BASE = new Decimal("1.000001");
-
 const ALL_TIME = new Date(0);
-
-function formattedPrice(
-  tick: bigint,
-  numeratorDecimals: number,
-  denominatorDecimals: number
-): string {
-  return BASE.pow(tick.toString())
-    .mul(new Decimal(10).pow(denominatorDecimals - numeratorDecimals))
-    .toSignificantDigits(6)
-    .toString();
-}
 
 const { preflight, corsify } = createCors({
   maxAge: 86400,
@@ -66,25 +33,7 @@ const router = Router<IRequest, CF>()
     if (response) return response;
   });
 
-function numericToHex(x: bigint | number | string) {
-  return `0x${BigInt(x).toString(16)}`;
-}
-
 const ADDRESS_REGEX = /^0x[a-fA-F0-9]+$/;
-
-const U128 = new Decimal(2).pow(128);
-
-function feeToPercent(fee: string) {
-  return new Decimal(fee).div(U128).mul(100).toSignificantDigits(4).toString();
-}
-
-function tickSpacingToPercent(tick_spacing: string) {
-  return BASE.pow(tick_spacing)
-    .sub(1)
-    .mul(100)
-    .toSignificantDigits(4)
-    .toString();
-}
 
 router
   .get<IRequest, CF>("/tokens", async ({}, env) => {
@@ -116,6 +65,18 @@ router
       }
     );
   })
+  .get<IRequest, CF>(
+    "/quote/sell/:amount/:sell_token/:buy_token",
+    async ({ params }, env) => {
+      return error(501, "Not implemented");
+    }
+  )
+  .get<IRequest, CF>(
+    "/quote/buy/:amount/:buy_token/:sell_token",
+    async ({ params }, env) => {
+      return error(501, "Not implemented");
+    }
+  )
   .get<IRequest, CF>("/overview", async ({}, env) => {
     const timestamp = Date.now();
     const twentyFourHoursAgo = new Date(timestamp - 1000 * 60 * 60 * 24);
