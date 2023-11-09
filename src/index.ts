@@ -59,6 +59,11 @@ function translatePool(pool: PoolState) {
     sqrt_ratio: numericToHex(pool.sqrt_ratio),
     tick: pool.tick,
     liquidity: pool.liquidity,
+    lastUpdate: {
+      blockNumber: Number(pool.block_number),
+      transactionIndex: pool.transaction_index,
+      eventIndex: pool.event_index,
+    },
   };
 }
 

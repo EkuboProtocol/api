@@ -23,6 +23,9 @@ export interface PoolState {
   sqrt_ratio: string;
   tick: string;
   liquidity: string;
+  block_number: string;
+  transaction_index: number;
+  event_index: number;
 }
 
 export class Queries {
@@ -57,7 +60,10 @@ export class Queries {
                extension,
                sqrt_ratio,
                tick,
-               liquidity
+               liquidity,
+               block_number,
+               transaction_index,
+               event_index
         FROM pool_states_materialized
                  JOIN pool_keys ON pool_key_hash = key_hash
     `);
@@ -82,7 +88,10 @@ export class Queries {
                extension,
                sqrt_ratio,
                tick,
-               liquidity
+               liquidity,
+               block_number,
+               transaction_index,
+               event_index
         FROM pool_states_materialized
                  JOIN pool_keys ON pool_key_hash = key_hash
         WHERE token0 IN ($1, $2)
