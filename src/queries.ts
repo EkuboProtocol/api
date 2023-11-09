@@ -13,6 +13,18 @@ interface PositionMetadata {
   minted_tx_hash: string;
 }
 
+export interface PoolState {
+  pool_key_hash: string;
+  token0: string;
+  token1: string;
+  fee: string;
+  tick_spacing: string;
+  extension: string;
+  sqrt_ratio: string;
+  tick: string;
+  liquidity: string;
+}
+
 export class Queries {
   private readonly client: Client;
 
@@ -36,17 +48,7 @@ export class Queries {
   }
 
   public async getAllPoolsWithStates() {
-    return this.client.query<{
-      pool_key_hash: string;
-      token0: string;
-      token1: string;
-      fee: string;
-      tick_spacing: string;
-      extension: string;
-      sqrt_ratio: string;
-      tick: string;
-      liquidity: string;
-    }>(`
+    return this.client.query<PoolState>(`
         SELECT pool_key_hash,
                token0,
                token1,
@@ -59,6 +61,35 @@ export class Queries {
         FROM pool_states
                  JOIN pool_keys ON pool_key_hash = key_hash
     `);
+  }
+
+  // Returns all pools containing either tokenA or tokenB and their states
+  // Used to compute a route
+  public async getRelevantPoolsWithStates({
+    tokenA,
+    tokenB,
+  }: {
+    tokenA: bigint;
+    tokenB: bigint;
+  }) {
+    return this.client.query<PoolState>({
+      text: `
+        SELECT pool_key_hash,
+               token0,
+               token1,
+               fee,
+               tick_spacing,
+               extension,
+               sqrt_ratio,
+               tick,
+               liquidity
+        FROM pool_states
+                 JOIN pool_keys ON pool_key_hash = key_hash
+        WHERE token0 IN ($1, $2)
+           OR token1 IN ($1, $2)
+    `,
+      values: [tokenA, tokenB],
+    });
   }
 
   public async getPositionMetadata(

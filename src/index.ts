@@ -12,6 +12,8 @@ import {
   tickSpacingToPercent,
 } from "./format";
 import { feeToken, findToken, TOKENS_BY_CHAIN_ID } from "./tokenUtils";
+import { findAllRoutes } from "./find-all-routes";
+import { PoolState } from "./queries";
 
 Decimal.set({ precision: 39 });
 
@@ -34,6 +36,31 @@ const router = Router<IRequest, CF>()
   });
 
 const ADDRESS_REGEX = /^0x[a-fA-F0-9]+$/;
+
+function scoreRoute(route: PoolState[]): number {
+  return route.length === 0
+    ? 0
+    : Math.pow(
+        route.reduce((memo, pool) => {
+          return Number(pool.liquidity) * memo;
+        }, 1),
+        1 / route.length
+      );
+}
+
+function translatePool(pool: PoolState) {
+  return {
+    key_hash: numericToHex(pool.pool_key_hash),
+    token0: numericToHex(pool.token0),
+    token1: numericToHex(pool.token1),
+    fee: numericToHex(pool.fee),
+    tick_spacing: Number(pool.tick_spacing),
+    extension: numericToHex(pool.extension),
+    sqrt_ratio: numericToHex(pool.sqrt_ratio),
+    tick: pool.tick,
+    liquidity: pool.liquidity,
+  };
+}
 
 router
   .get<IRequest, CF>("/tokens", async ({}, env) => {
@@ -67,14 +94,48 @@ router
   })
   .get<IRequest, CF>(
     "/quote/sell/:amount/:sell_token/:buy_token",
-    async ({ params }, env) => {
-      return error(501, "Not implemented");
-    }
-  )
-  .get<IRequest, CF>(
-    "/quote/buy/:amount/:buy_token/:sell_token",
-    async ({ params }, env) => {
-      return error(501, "Not implemented");
+    async ({ params, query }, env) => {
+      let amount: bigint, sellToken: bigint, buyToken: bigint;
+      try {
+        amount = BigInt(params.amount);
+        sellToken = BigInt(params.sell_token);
+        buyToken = BigInt(params.buy_token);
+      } catch (error) {
+        return error(400, "Failed to parse path parameters");
+      }
+
+      if (amount <= 0n || sellToken <= 0n || buyToken <= 0n) {
+        return error(400, "Invalid path parameters");
+      }
+
+      const dao = await createQueries(env);
+
+      const { rows: relevantPools } = await dao.getRelevantPoolsWithStates({
+        tokenA: sellToken,
+        tokenB: buyToken,
+      });
+
+      const allRoutes = findAllRoutes(sellToken, buyToken, relevantPools, 2);
+
+      const bestRoute = allRoutes.sort((r1, r2) => {
+        return scoreRoute(r2) - scoreRoute(r1);
+      })[0];
+
+      if (!bestRoute) {
+        return error(404, "Route not found");
+      }
+
+      return json(
+        {
+          numRoutesConsidered: allRoutes.length,
+          route: bestRoute.map(translatePool),
+        },
+        {
+          headers: {
+            "cache-control": "no-cache",
+          },
+        }
+      );
     }
   )
   .get<IRequest, CF>("/overview", async ({}, env) => {
@@ -359,24 +420,11 @@ router
       client.getAllPoolsWithStates()
     );
 
-    return json(
-      rows.map((p) => ({
-        key_hash: numericToHex(p.pool_key_hash),
-        token0: numericToHex(p.token0),
-        token1: numericToHex(p.token1),
-        fee: numericToHex(p.fee),
-        tick_spacing: Number(p.tick_spacing),
-        extension: numericToHex(p.extension),
-        sqrt_ratio: numericToHex(p.sqrt_ratio),
-        tick: Number(p.tick),
-        liquidity: p.liquidity,
-      })),
-      {
-        headers: {
-          "cache-control": "public, max-age=15, must-revalidate",
-        },
-      }
-    );
+    return json(rows.map(translatePool), {
+      headers: {
+        "cache-control": "public, max-age=15, must-revalidate",
+      },
+    });
   })
   .get<IRequest, CF>(
     "/pools/:key_hash/liquidity",
