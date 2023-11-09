@@ -12,7 +12,7 @@ import {
   tickSpacingToPercent,
 } from "./format";
 import { feeToken, findToken, TOKENS_BY_CHAIN_ID } from "./tokenUtils";
-import { findAllRoutes } from "./find-all-routes";
+import { findAllRoutes } from "./findAllRoutes";
 import { PoolState } from "./queries";
 
 Decimal.set({ precision: 39 });
