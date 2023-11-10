@@ -1,13 +1,15 @@
 import { computeStep, isPriceIncreasing } from "../math/swap";
 import { toSqrtRatio } from "../math/tick";
-import { Node } from "../quoting";
+import { QuoteNode } from "./quoteNode";
 
 export interface Tick {
   readonly liquidity_delta: bigint;
   readonly tick: number;
 }
 
-export class PlainPool implements Node<{ initializedTicksCrossed: number }> {
+export class PlainPool
+  implements QuoteNode<{ initializedTicksCrossed: number }>
+{
   public static readonly MAX_SQRT_RATIO: bigint =
     6277100250585753475930931601400621808602321654880405518632n;
   public static readonly MIN_SQRT_RATIO: bigint = 18446748437148339061n;
@@ -148,7 +150,7 @@ export class PlainPool implements Node<{ initializedTicksCrossed: number }> {
         (isIncreasing && nextTickSqrtRatio > sqrtRatioLimit) ||
         (!isIncreasing && nextTickSqrtRatio < sqrtRatioLimit);
 
-      const nextSqrtRatioLimit = isLimited ? sqrtRatioLimit : nextTickSqrtRatio;
+      const nextSqrtRatioLimit = isLimited ? nextTickSqrtRatio : sqrtRatioLimit;
 
       const step = computeStep({
         sqrtRatio,

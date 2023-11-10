@@ -1,4 +1,4 @@
-export interface Node<T> {
+export interface QuoteNode<T> {
   quote(params: {
     specifiedAmount: bigint;
     isToken1: boolean;

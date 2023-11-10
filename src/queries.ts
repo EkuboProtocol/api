@@ -1,5 +1,6 @@
 import { Client } from "pg";
 import Decimal from "decimal.js-light";
+import { Tick } from "./nodes/plainPool";
 
 interface PositionMetadata {
   lower_bound: string;
@@ -21,7 +22,7 @@ export interface PoolState {
   tick_spacing: string;
   extension: string;
   sqrt_ratio: string;
-  tick: string;
+  tick: number;
   liquidity: string;
   block_number: string;
   transaction_index: number;
@@ -41,37 +42,37 @@ export class Queries {
       hash: string;
       timestamp: string;
     }>(`
-        SELECT number, hash, timestamp
-        FROM blocks
-        ORDER BY number DESC
-        LIMIT 1
-    `);
+            SELECT number, hash, timestamp
+            FROM blocks
+            ORDER BY number DESC
+            LIMIT 1
+        `);
     if (rows.length !== 1) throw new Error("No blocks");
     return rows[0];
   }
 
   public async getAllPoolsWithStates() {
     return this.client.query<PoolState>(`
-        SELECT pool_key_hash,
-               token0,
-               token1,
-               fee,
-               tick_spacing,
-               extension,
-               sqrt_ratio,
-               tick,
-               liquidity,
-               block_number,
-               transaction_index,
-               event_index
-        FROM pool_states_materialized
-                 JOIN pool_keys ON pool_key_hash = key_hash
-    `);
+            SELECT pool_key_hash,
+                   token0,
+                   token1,
+                   fee,
+                   tick_spacing,
+                   extension,
+                   sqrt_ratio,
+                   tick,
+                   liquidity,
+                   block_number,
+                   transaction_index,
+                   event_index
+            FROM pool_states_materialized
+                     JOIN pool_keys ON pool_key_hash = key_hash
+        `);
   }
 
   // Returns all pools containing either tokenA or tokenB and their states
   // Used to compute a route
-  public async getRelevantPoolsWithStates({
+  public async getAllRoutablePools({
     tokenA,
     tokenB,
   }: {
@@ -80,23 +81,24 @@ export class Queries {
   }) {
     return this.client.query<PoolState>({
       text: `
-        SELECT pool_key_hash,
-               token0,
-               token1,
-               fee,
-               tick_spacing,
-               extension,
-               sqrt_ratio,
-               tick,
-               liquidity,
-               block_number,
-               transaction_index,
-               event_index
-        FROM pool_states_materialized
-                 JOIN pool_keys ON pool_key_hash = key_hash
-        WHERE token0 IN ($1, $2)
-           OR token1 IN ($1, $2)
-    `,
+                SELECT pool_key_hash,
+                       token0,
+                       token1,
+                       fee,
+                       tick_spacing,
+                       extension,
+                       sqrt_ratio,
+                       tick,
+                       liquidity,
+                       block_number,
+                       transaction_index,
+                       event_index
+                FROM pool_states_materialized
+                         JOIN pool_keys ON pool_key_hash = key_hash
+                WHERE (token0 IN ($1, $2)
+                    OR token1 IN ($1, $2))
+                  AND extension = 0
+            `,
       values: [tokenA, tokenB],
     });
   }
@@ -189,15 +191,15 @@ export class Queries {
       net_liquidity_delta_diff: string;
     }>({
       text: `
-          SELECT tick, SUM(net_liquidity_delta_diff) AS net_liquidity_delta_diff
-          FROM per_pool_per_tick_liquidity
-                   JOIN pool_keys ON pool_key_hash = key_hash
-          WHERE net_liquidity_delta_diff != 0
-            AND token0 = $1
-            AND token1 = $2
-          GROUP BY tick
-          ORDER BY tick
-      `,
+                SELECT tick, SUM(net_liquidity_delta_diff) AS net_liquidity_delta_diff
+                FROM per_pool_per_tick_liquidity
+                         JOIN pool_keys ON pool_key_hash = key_hash
+                WHERE net_liquidity_delta_diff != 0
+                  AND token0 = $1
+                  AND token1 = $2
+                GROUP BY tick
+                ORDER BY tick
+            `,
       values: [token0, token1],
     });
   }
@@ -208,11 +210,11 @@ export class Queries {
       net_liquidity_delta_diff: string;
     }>({
       text: `
-          SELECT tick, net_liquidity_delta_diff
-          FROM per_pool_per_tick_liquidity
-          WHERE pool_key_hash = $1
-          ORDER BY tick
-      `,
+                SELECT tick, net_liquidity_delta_diff
+                FROM per_pool_per_tick_liquidity
+                WHERE pool_key_hash = $1
+                ORDER BY tick
+            `,
       values: [pool_key_hash],
     });
   }
@@ -342,7 +344,8 @@ export class Queries {
                 WHERE key_hash IN
                       (SELECT key_hash
                        FROM pool_keys
-                       WHERE token0 = COALESCE($1, token0) AND token1 = COALESCE($2, token1))
+                       WHERE token0 = COALESCE($1, token0)
+                         AND token1 = COALESCE($2, token1))
                 GROUP BY token;
             `,
       values: [pair?.token0 ?? null, pair?.token1 ?? null],
@@ -363,7 +366,8 @@ export class Queries {
                   AND key_hash IN
                       (SELECT key_hash
                        FROM pool_keys
-                       WHERE token0 = COALESCE($1, token0) AND token1 = COALESCE($2, token1))
+                       WHERE token0 = COALESCE($1, token0)
+                         AND token1 = COALESCE($2, token1))
                 GROUP BY token, date;
             `,
       values: [pair?.token0 ?? null, pair?.token1 ?? null, after],
@@ -427,7 +431,8 @@ export class Queries {
                   AND key_hash IN
                       (SELECT key_hash
                        FROM pool_keys
-                       WHERE token0 = COALESCE($1, token0) AND token1 = COALESCE($2, token1))
+                       WHERE token0 = COALESCE($1, token0)
+                         AND token1 = COALESCE($2, token1))
                 GROUP BY token
             `,
       values: [pair?.token0 ?? null, pair?.token1 ?? null, since],
@@ -454,7 +459,8 @@ export class Queries {
                   AND key_hash IN
                       (SELECT key_hash
                        FROM pool_keys
-                       WHERE token0 = COALESCE($1, token0) AND token1 = COALESCE($2, token1))
+                       WHERE token0 = COALESCE($1, token0)
+                         AND token1 = COALESCE($2, token1))
                 GROUP BY token, date
             `,
       values: [pair?.token0 ?? null, pair?.token1 ?? null, after],
@@ -512,7 +518,12 @@ export class Queries {
       await this.client.query(`ROLLBACK`);
       return result;
     } catch (error) {
-      if (error.code === "40001") {
+      if (
+        typeof error === "object" &&
+        error &&
+        "code" in error &&
+        error.code === "40001"
+      ) {
         console.log("Serialization failure!", error);
       }
       throw error;
@@ -697,5 +708,39 @@ export class Queries {
             `,
       values: [address, showClosed],
     });
+  }
+
+  public async getTickData({
+    poolKeyHashes,
+  }: {
+    poolKeyHashes: bigint[];
+  }): Promise<{ [key_hash: string]: Tick[] }> {
+    const { rows } = await this.client.query<{
+      pool_key_hash: string;
+      liquidity_delta: string;
+      tick: number;
+    }>({
+      text: `
+          SELECT pool_key_hash, tick, net_liquidity_delta_diff AS liquidity_delta
+          FROM per_pool_per_tick_liquidity
+          WHERE pool_key_hash = ANY ($1::NUMERIC[])
+      `,
+      values: [poolKeyHashes],
+    });
+
+    return rows.reduce<{ [key_hash: string]: Tick[] }>((memo, value) => {
+      if (memo[value.pool_key_hash]) {
+        memo[value.pool_key_hash].push({
+          tick: value.tick,
+          liquidity_delta: BigInt(value.liquidity_delta),
+        });
+      } else {
+        memo[value.pool_key_hash] = [
+          { tick: value.tick, liquidity_delta: BigInt(value.liquidity_delta) },
+        ];
+      }
+
+      return memo;
+    }, {});
   }
 }

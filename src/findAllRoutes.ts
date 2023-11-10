@@ -6,7 +6,7 @@ export function findAllRoutes(
   pools: PoolState[],
   maxPools: number = 2,
   currentRoute: PoolState[] = []
-) {
+): PoolState[][] {
   return pools.flatMap((pool) => {
     if (currentRoute.includes(pool)) return [];
     const [token0, token1] = [BigInt(pool.token0), BigInt(pool.token1)];

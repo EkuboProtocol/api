@@ -14,6 +14,7 @@ import {
 import { feeToken, findToken, TOKENS_BY_CHAIN_ID } from "./tokenUtils";
 import { findAllRoutes } from "./findAllRoutes";
 import { PoolState } from "./queries";
+import { PlainPool } from "./nodes/plainPool";
 
 Decimal.set({ precision: 39 });
 
@@ -37,7 +38,7 @@ const router = Router<IRequest, CF>()
 
 const ADDRESS_REGEX = /^0x[a-fA-F0-9]+$/;
 
-function scoreRoute(route: PoolState[]): number {
+function currentLiquidityScore(route: PoolState[]): number {
   return route.length === 0
     ? 0
     : Math.pow(
@@ -105,7 +106,7 @@ router
         amount = BigInt(params.amount);
         sellToken = BigInt(params.sell_token);
         buyToken = BigInt(params.buy_token);
-      } catch (error) {
+      } catch (e) {
         return error(400, "Failed to parse path parameters");
       }
 
@@ -115,25 +116,83 @@ router
 
       const dao = await createQueries(env);
 
-      const { rows: relevantPools } = await dao.getRelevantPoolsWithStates({
-        tokenA: sellToken,
-        tokenB: buyToken,
-      });
+      const { rows: relevantPools } = await dao.withinTransaction(() =>
+        dao.getAllRoutablePools({
+          tokenA: sellToken,
+          tokenB: buyToken,
+        })
+      );
 
       const allRoutes = findAllRoutes(sellToken, buyToken, relevantPools, 2);
 
-      const bestRoute = allRoutes.sort((r1, r2) => {
-        return scoreRoute(r2) - scoreRoute(r1);
-      })[0];
+      // get the top 10 most liquid 2-hop routes
+      const mostLiquidRoutes = allRoutes
+        .map((route) => ({ route, score: currentLiquidityScore(route) }))
+        .sort((r1, r2) => {
+          return r2.score - r1.score;
+        })
+        .slice(0, 10);
 
-      if (!bestRoute) {
+      if (!mostLiquidRoutes.length) {
         return error(404, "Route not found");
       }
 
+      const uniquePoolKeyHashes = mostLiquidRoutes
+        .flatMap((route) => route.route.map((p) => p.pool_key_hash))
+        .sort()
+        .filter((hash, ix, list) => ix === 0 || hash !== list[ix - 1]);
+
+      const tickData = await dao.withinTransaction(() =>
+        dao.getTickData({
+          poolKeyHashes: uniquePoolKeyHashes.map((pk) => BigInt(pk)),
+        })
+      );
+
+      const quotedRoutes = mostLiquidRoutes.map(({ route }) => {
+        const quote = route.reduce<{ amount: bigint; token: bigint }>(
+          (memo, pool) => {
+            const node = new PlainPool({
+              fee: BigInt(pool.fee),
+              tick: pool.tick,
+              liquidity: BigInt(pool.liquidity),
+              sortedTicks: tickData[pool.pool_key_hash] ?? [],
+              sqrtRatio: BigInt(pool.sqrt_ratio),
+            });
+
+            const isToken1 = BigInt(pool.token1) === BigInt(memo.token);
+
+            const quote = node.quote({
+              specifiedAmount: memo.amount,
+              isToken1,
+            });
+
+            return {
+              amount: quote.calculatedAmount,
+              token: BigInt(isToken1 ? pool.token0 : pool.token1),
+            };
+          },
+          {
+            amount,
+            token: sellToken,
+          }
+        );
+
+        return {
+          quote,
+          route,
+        };
+      });
+
+      const bestRoute = quotedRoutes.sort((q1, q2) => {
+        return Number(q1.quote.amount - q2.quote.amount);
+      })[0];
+
       return json(
         {
-          numRoutesConsidered: allRoutes.length,
-          route: bestRoute.map(translatePool),
+          route: bestRoute.route.map(translatePool),
+          quote: {
+            amount: bestRoute.quote.amount.toString(),
+          },
         },
         {
           headers: {
@@ -304,6 +363,10 @@ router
       const sixHoursAgo = new Date(timestamp - 3_600_000 * 6);
 
       const ft = feeToken(env.STARKNET_CHAIN_ID);
+
+      if (!ft) {
+        return error(500, "Fee token not defined for chain");
+      }
 
       const [direct, quoteFt, baseFt] = await queries.withinTransaction(() =>
         Promise.all([
@@ -778,7 +841,7 @@ async function cacheResponse(request: IRequest, response: Response) {
 }
 
 export default {
-  fetch: (request, env, ctxt) =>
+  fetch: (request: IRequest, env: Env, ctxt: CF) =>
     router
 
       .handle(request, env, ctxt)

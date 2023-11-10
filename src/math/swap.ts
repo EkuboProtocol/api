@@ -48,8 +48,9 @@ export function computeStep({
 
   const increasing = isPriceIncreasing(amount, isToken1);
 
-  if (sqrtRatioLimit < sqrtRatio === increasing)
+  if (sqrtRatioLimit < sqrtRatio === increasing) {
     throw new Error("computeStep: wrong direction");
+  }
 
   if (liquidity === 0n) {
     return noOp(sqrtRatioLimit);
