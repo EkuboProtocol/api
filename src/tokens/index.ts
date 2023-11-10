@@ -1,5 +1,5 @@
-import MAINNET_TOKENS from "./tokens/mainnet.json";
-import GOERLI_TOKENS from "./tokens/goerli.json";
+import MAINNET_TOKENS from "./mainnet.json";
+import GOERLI_TOKENS from "./goerli.json";
 
 export const TOKENS_BY_CHAIN_ID = {
   ["0x534e5f4d41494e"]: MAINNET_TOKENS,

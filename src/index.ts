@@ -11,7 +11,7 @@ import {
   numericToHex,
   tickSpacingToPercent,
 } from "./format";
-import { feeToken, findToken, TOKENS_BY_CHAIN_ID } from "./tokenUtils";
+import { feeToken, findToken, TOKENS_BY_CHAIN_ID } from "./tokens";
 import { findAllRoutes } from "./findAllRoutes";
 import { PoolState } from "./queries";
 import { PlainPool } from "./nodes/plainPool";
@@ -68,6 +68,20 @@ function translatePool(pool: PoolState) {
   };
 }
 
+function humanReadablePoolDescription(pool: PoolState, env: Env) {
+  return `${
+    findToken(env.STARKNET_CHAIN_ID, pool.token0)?.symbol ?? pool.token0
+  }/${
+    findToken(env.STARKNET_CHAIN_ID, pool.token1)?.symbol ?? pool.token1
+  }(${feeToPercent(pool.fee)}-${tickSpacingToPercent(pool.tick_spacing)})`;
+}
+
+function humanReadableRouteDescription(route: PoolState[], env: Env) {
+  return route
+    .map((pool) => humanReadablePoolDescription(pool, env))
+    .join(" -> ");
+}
+
 router
   .get<IRequest, CF>("/tokens", async ({}, env) => {
     return json(TOKENS_BY_CHAIN_ID[env.STARKNET_CHAIN_ID] ?? [], {
@@ -99,46 +113,38 @@ router
     );
   })
   .get<IRequest, CF>(
-    "/quote/sell/:amount/:sell_token/:buy_token",
+    "/quote/sell/:amount/:inputToken/:outputToken",
     async ({ params, query }, env) => {
-      let amount: bigint, sellToken: bigint, buyToken: bigint;
+      let sellAmount: bigint, inputToken: bigint, outputToken: bigint;
       try {
-        amount = BigInt(params.amount);
-        sellToken = BigInt(params.sell_token);
-        buyToken = BigInt(params.buy_token);
+        sellAmount = BigInt(params.amount);
+        inputToken = BigInt(params.inputToken);
+        outputToken = BigInt(params.outputToken);
       } catch (e) {
         return error(400, "Failed to parse path parameters");
       }
 
-      if (amount <= 0n || sellToken <= 0n || buyToken <= 0n) {
+      if (sellAmount <= 0n || inputToken <= 0n || outputToken <= 0n) {
         return error(400, "Invalid path parameters");
       }
 
       const dao = await createQueries(env);
 
-      const { rows: relevantPools } = await dao.withinTransaction(() =>
-        dao.getAllRoutablePools({
-          tokenA: sellToken,
-          tokenB: buyToken,
-        })
+      // todo: this should be consistent with the following liquidity query
+      const { rows: relevantPools } = await dao.getAllRoutablePools({
+        tokenA: inputToken,
+        tokenB: outputToken,
+      });
+
+      const allRoutes = findAllRoutes(
+        inputToken,
+        outputToken,
+        relevantPools,
+        2
       );
 
-      const allRoutes = findAllRoutes(sellToken, buyToken, relevantPools, 2);
-
-      // get the top 10 most liquid 2-hop routes
-      const mostLiquidRoutes = allRoutes
-        .map((route) => ({ route, score: currentLiquidityScore(route) }))
-        .sort((r1, r2) => {
-          return r2.score - r1.score;
-        })
-        .slice(0, 10);
-
-      if (!mostLiquidRoutes.length) {
-        return error(404, "Route not found");
-      }
-
-      const uniquePoolKeyHashes = mostLiquidRoutes
-        .flatMap((route) => route.route.map((p) => p.pool_key_hash))
+      const uniquePoolKeyHashes = allRoutes
+        .flatMap((route) => route.map((p) => p.pool_key_hash))
         .sort()
         .filter((hash, ix, list) => ix === 0 || hash !== list[ix - 1]);
 
@@ -148,8 +154,8 @@ router
         })
       );
 
-      const quotedRoutes = mostLiquidRoutes.map(({ route }) => {
-        const quote = route.reduce<{ amount: bigint; token: bigint }>(
+      const quotedRoutes = allRoutes.map((route) => {
+        const quote = route.reduce(
           (memo, pool) => {
             const node = new PlainPool({
               fee: BigInt(pool.fee),
@@ -169,11 +175,21 @@ router
             return {
               amount: quote.calculatedAmount,
               token: BigInt(isToken1 ? pool.token0 : pool.token1),
+              totalResources: {
+                poolsSwapped: memo.totalResources.poolsSwapped + 1,
+                initializedTicksCrossed:
+                  memo.totalResources.initializedTicksCrossed +
+                  quote.executionResources.initializedTicksCrossed,
+              },
             };
           },
           {
-            amount,
-            token: sellToken,
+            amount: sellAmount,
+            token: inputToken,
+            totalResources: {
+              poolsSwapped: 0,
+              initializedTicksCrossed: 0,
+            },
           }
         );
 
@@ -184,15 +200,17 @@ router
       });
 
       const bestRoute = quotedRoutes.sort((q1, q2) => {
-        return Number(q1.quote.amount - q2.quote.amount);
+        return Number(q2.quote.amount - q1.quote.amount);
       })[0];
 
       return json(
         {
+          description: humanReadableRouteDescription(bestRoute.route, env),
           route: bestRoute.route.map(translatePool),
           quote: {
             amount: bestRoute.quote.amount.toString(),
           },
+          resources: bestRoute.quote.totalResources,
         },
         {
           headers: {

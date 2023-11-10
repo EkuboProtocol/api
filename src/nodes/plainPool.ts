@@ -123,7 +123,8 @@ export class PlainPool
         : PlainPool.MIN_SQRT_RATIO;
     }
 
-    let { sqrtRatio, liquidity } = this;
+    let sqrtRatio = this.sqrtRatio;
+    let liquidity = this.liquidity;
 
     // the index of the sorted ticks array of the tick that is <= current tick
     let activeTickIndex = this.findNearestInitializedTickIndex(this.tick);

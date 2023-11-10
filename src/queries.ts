@@ -71,13 +71,14 @@ export class Queries {
   }
 
   // Returns all pools containing either tokenA or tokenB and their states
-  // Used to compute a route
   public async getAllRoutablePools({
     tokenA,
     tokenB,
+    extension = 0n,
   }: {
     tokenA: bigint;
     tokenB: bigint;
+    extension?: bigint;
   }) {
     return this.client.query<PoolState>({
       text: `
@@ -97,9 +98,9 @@ export class Queries {
                          JOIN pool_keys ON pool_key_hash = key_hash
                 WHERE (token0 IN ($1, $2)
                     OR token1 IN ($1, $2))
-                  AND extension = 0
+                  AND extension = $3
             `,
-      values: [tokenA, tokenB],
+      values: [tokenA, tokenB, extension],
     });
   }
 

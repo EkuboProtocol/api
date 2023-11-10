@@ -1,12 +1,15 @@
 import { PoolState } from "./queries";
 
-export function findAllRoutes(
+type Pair = Pick<PoolState, "token0" | "token1">;
+
+export function findAllRoutes<T extends Pair>(
   fromToken: bigint,
   toToken: bigint,
-  pools: PoolState[],
+  pools: T[],
   maxPools: number = 2,
-  currentRoute: PoolState[] = []
-): PoolState[][] {
+  currentRoute: T[] = []
+): T[][] {
+  if (maxPools < 1) return [];
   return pools.flatMap((pool) => {
     if (currentRoute.includes(pool)) return [];
     const [token0, token1] = [BigInt(pool.token0), BigInt(pool.token1)];
@@ -18,11 +21,7 @@ export function findAllRoutes(
         return [nextRoute];
       }
 
-      if (maxPools > 1) {
-        return findAllRoutes(token1, toToken, pools, maxPools - 1, nextRoute);
-      }
-
-      return [];
+      return findAllRoutes(token1, toToken, pools, maxPools - 1, nextRoute);
     } else if (token1 === fromToken) {
       const nextRoute = currentRoute.concat([pool]);
 
@@ -30,11 +29,7 @@ export function findAllRoutes(
         return [nextRoute];
       }
 
-      if (maxPools > 1) {
-        return findAllRoutes(token1, toToken, pools, maxPools - 1, nextRoute);
-      }
-
-      return [];
+      return findAllRoutes(token0, toToken, pools, maxPools - 1, nextRoute);
     } else {
       return [];
     }
