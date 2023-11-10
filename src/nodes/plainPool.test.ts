@@ -1,9 +1,10 @@
-import { PlainPool } from "./quoting";
+import { PlainPool } from "./plainPool";
 
 describe("PoolNode", () => {
   describe("findNearestInitializedTickIndex", () => {
     it("no ticks", () => {
       const pool = new PlainPool({
+        fee: 0n,
         tick: 0,
         sortedTicks: [],
         liquidity: 0n,
@@ -14,6 +15,7 @@ describe("PoolNode", () => {
     });
     it("one tick less than", () => {
       const pool = new PlainPool({
+        fee: 0n,
         tick: 0,
         sortedTicks: [{ tick: -1, liquidity_delta: 1n }],
         liquidity: 0n,
@@ -24,6 +26,7 @@ describe("PoolNode", () => {
     });
     it("one tick equal to", () => {
       const pool = new PlainPool({
+        fee: 0n,
         tick: 0,
         sortedTicks: [{ tick: 0, liquidity_delta: 1n }],
         liquidity: 0n,
@@ -34,6 +37,7 @@ describe("PoolNode", () => {
     });
     it("one tick greater than", () => {
       const pool = new PlainPool({
+        fee: 0n,
         tick: 0,
         sortedTicks: [{ tick: 1, liquidity_delta: 1n }],
         liquidity: 0n,
@@ -44,6 +48,7 @@ describe("PoolNode", () => {
     });
     it("many ticks", () => {
       const pool = new PlainPool({
+        fee: 0n,
         tick: 0,
         sortedTicks: [
           { tick: -100, liquidity_delta: 0n },
@@ -80,6 +85,7 @@ describe("PoolNode", () => {
   describe("quote", () => {
     it("works for 0 liquidity 1 token1 input", () => {
       const pool = new PlainPool({
+        fee: 0n,
         tick: 0,
         sortedTicks: [],
         liquidity: 0n,
@@ -99,6 +105,7 @@ describe("PoolNode", () => {
     });
     it("works for 0 liquidity 1 token0 input", () => {
       const pool = new PlainPool({
+        fee: 0n,
         tick: 0,
         sortedTicks: [],
         liquidity: 0n,

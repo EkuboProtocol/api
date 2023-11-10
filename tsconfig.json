@@ -5,6 +5,8 @@
 		"moduleResolution": "nodenext",
 		"resolveJsonModule": true,
 		"lib": ["ESNext"],
-		"types": ["@cloudflare/workers-types", "@types/jest"]
+		"types": ["@cloudflare/workers-types", "@types/jest"],
+		"strict": true,
+		"alwaysStrict": true
 	}
 }

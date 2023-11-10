@@ -1,0 +1,144 @@
+import { nextSqrtRatioFromAmount0, nextSqrtRatioFromAmount1 } from "./price";
+import { amount0Delta, amount1Delta } from "./delta";
+
+interface SwapResult {
+  consumedAmount: bigint;
+  calculatedAmount: bigint;
+  sqrtRatioNext: bigint;
+  feeAmount: bigint;
+}
+
+export function isPriceIncreasing(amount: bigint, isToken1: boolean): boolean {
+  return amount < 0n != isToken1;
+}
+
+function noOp(sqrtRatioNext: bigint): SwapResult {
+  return {
+    consumedAmount: 0n,
+    calculatedAmount: 0n,
+    sqrtRatioNext,
+    feeAmount: 0n,
+  };
+}
+
+function amountBeforeFee(amount: bigint, fee: bigint): bigint {
+  const num = amount << 128n;
+  const val = num / fee;
+  return val + (num % fee !== 0n ? 1n : 0n);
+}
+
+export function computeStep({
+  sqrtRatio,
+  liquidity,
+  sqrtRatioLimit,
+  amount,
+  isToken1,
+  fee,
+}: {
+  sqrtRatio: bigint;
+  liquidity: bigint;
+  sqrtRatioLimit: bigint;
+  amount: bigint;
+  isToken1: boolean;
+  fee: bigint;
+}): SwapResult {
+  if (amount === 0n || sqrtRatio === sqrtRatioLimit) {
+    return noOp(sqrtRatio);
+  }
+
+  const increasing = isPriceIncreasing(amount, isToken1);
+
+  if (sqrtRatioLimit < sqrtRatio === increasing)
+    throw new Error("computeStep: wrong direction");
+
+  if (liquidity === 0n) {
+    return noOp(sqrtRatioLimit);
+  }
+
+  let priceImpactAmount: bigint;
+  if (amount < 0n) {
+    priceImpactAmount = amount;
+  } else {
+    priceImpactAmount = amount - ((amount * fee) >> 128n);
+  }
+
+  let sqrtRatioNextFromAmount: bigint | null;
+  if (isToken1) {
+    sqrtRatioNextFromAmount = nextSqrtRatioFromAmount1(
+      sqrtRatio,
+      liquidity,
+      amount
+    );
+  } else {
+    sqrtRatioNextFromAmount = nextSqrtRatioFromAmount0(
+      sqrtRatio,
+      liquidity,
+      amount
+    );
+  }
+
+  if (
+    sqrtRatioNextFromAmount === null ||
+    sqrtRatioNextFromAmount > sqrtRatioLimit == increasing
+  ) {
+    const [specifiedAmountDelta, calculatedAmountDelta] = isToken1
+      ? [
+          amount1Delta(sqrtRatioLimit, sqrtRatio, liquidity, amount >= 0n) *
+            (amount < 0n ? -1n : 1n),
+          amount0Delta(sqrtRatioLimit, sqrtRatio, liquidity, amount < 0n),
+        ]
+      : [
+          amount0Delta(sqrtRatioLimit, sqrtRatio, liquidity, amount >= 0n) *
+            (amount < 0n ? -1n : 1n),
+          amount1Delta(sqrtRatioLimit, sqrtRatio, liquidity, amount < 0n),
+        ];
+
+    if (amount < 0n) {
+      const beforeFee = amountBeforeFee(calculatedAmountDelta, fee);
+      return {
+        consumedAmount: specifiedAmountDelta,
+        calculatedAmount: beforeFee,
+        feeAmount: beforeFee - calculatedAmountDelta,
+        sqrtRatioNext: sqrtRatioLimit,
+      };
+    } else {
+      const beforeFee = amountBeforeFee(specifiedAmountDelta, fee);
+      return {
+        consumedAmount: beforeFee,
+        calculatedAmount: calculatedAmountDelta,
+        feeAmount: beforeFee - specifiedAmountDelta,
+        sqrtRatioNext: sqrtRatioLimit,
+      };
+    }
+  }
+
+  if (sqrtRatioNextFromAmount === sqrtRatio) {
+    return {
+      consumedAmount: amount,
+      feeAmount: amount,
+      calculatedAmount: 0n,
+      sqrtRatioNext: sqrtRatio,
+    };
+  }
+
+  const calculatedAmountExcludingFee = isToken1
+    ? amount0Delta(sqrtRatioNextFromAmount, sqrtRatio, liquidity, amount < 0n)
+    : amount1Delta(sqrtRatioNextFromAmount, sqrtRatio, liquidity, amount < 0n);
+
+  if (amount < 0n) {
+    const includingFee = amountBeforeFee(calculatedAmountExcludingFee, fee);
+    return {
+      calculatedAmount: includingFee,
+      sqrtRatioNext: sqrtRatioNextFromAmount,
+      feeAmount: includingFee - calculatedAmountExcludingFee,
+      consumedAmount: amount,
+    };
+  } else {
+    return {
+      calculatedAmount: calculatedAmountExcludingFee,
+      sqrtRatioNext: sqrtRatioNextFromAmount,
+      consumedAmount: amount,
+      feeAmount: amount - priceImpactAmount,
+    };
+  }
+}
