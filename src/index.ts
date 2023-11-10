@@ -157,12 +157,15 @@ router
       const quotedRoutes = allRoutes.map((route) => {
         const quote = route.reduce(
           (memo, pool) => {
+            const sortedTicks = tickData[pool.pool_key_hash] ?? [];
+            const liquidity = BigInt(pool.liquidity);
+
             const node = new PlainPool({
-              fee: BigInt(pool.fee),
-              tick: pool.tick,
-              liquidity: BigInt(pool.liquidity),
-              sortedTicks: tickData[pool.pool_key_hash] ?? [],
               sqrtRatio: BigInt(pool.sqrt_ratio),
+              tick: pool.tick,
+              liquidity,
+              fee: BigInt(pool.fee),
+              sortedTicks,
             });
 
             const isToken1 = BigInt(pool.token1) === BigInt(memo.token);
@@ -869,7 +872,11 @@ export default {
       .then((response) => cacheResponse(request, response))
 
       // catch any errors
-      .catch(error)
+      .catch((e) => {
+        console.error(e);
+
+        return error(e);
+      })
 
       // add CORS headers to all requests,
       // including errors

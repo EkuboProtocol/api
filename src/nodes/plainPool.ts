@@ -3,7 +3,7 @@ import { toSqrtRatio } from "../math/tick";
 import { QuoteNode } from "./quoteNode";
 
 export interface Tick {
-  readonly liquidity_delta: bigint;
+  readonly liquidityDelta: bigint;
   readonly tick: number;
 }
 
@@ -47,7 +47,7 @@ export class PlainPool
    * @param tick the tick to search for
    * @private
    */
-  public findNearestInitializedTickIndex(tick: number): number | null {
+  public findNearestInitializedTickIndex(tick: number): number {
     let l = 0,
       r = this.sortedTicks.length;
 
@@ -71,7 +71,7 @@ export class PlainPool
       }
     }
 
-    return null;
+    return -1;
   }
 
   public quote({
@@ -93,17 +93,17 @@ export class PlainPool
     if (specifiedAmount === 0n) {
       return {
         consumedAmount: 0n,
+        calculatedAmount: 0n,
         executionResources: {
           initializedTicksCrossed: 0,
           sqrtRatioAfter: this.sqrtRatio,
         },
-        calculatedAmount: 0n,
       };
     }
 
     const isIncreasing = isPriceIncreasing(specifiedAmount, isToken1);
 
-    if (typeof sqrtRatioLimit === "bigint") {
+    if (sqrtRatioLimit) {
       // validate sqrtRatioLimit
       if (isIncreasing && sqrtRatioLimit < this.sqrtRatio) {
         throw new Error("sqrtRatioLimit cannot be less than sqrtRatio");
@@ -123,43 +123,45 @@ export class PlainPool
         : PlainPool.MIN_SQRT_RATIO;
     }
 
-    let sqrtRatio = this.sqrtRatio;
-    let liquidity = this.liquidity;
+    let { sqrtRatio, liquidity } = this;
 
     // the index of the sorted ticks array of the tick that is <= current tick
-    let activeTickIndex = this.findNearestInitializedTickIndex(this.tick);
+    let tickIndex = this.findNearestInitializedTickIndex(this.tick);
     let calculatedAmount: bigint = 0n;
     let initializedTicksCrossed = 0;
     let amountRemaining = specifiedAmount;
 
     let totalFee: bigint = 0n;
 
+    let iterations = 0;
+
     while (amountRemaining !== 0n && sqrtRatio !== sqrtRatioLimit) {
-      const nextInitializedTick = activeTickIndex
-        ? isIncreasing
-          ? this.sortedTicks[activeTickIndex + 1]
-          : this.sortedTicks[activeTickIndex]
+      const nextInitializedTick: Tick | null =
+        (isIncreasing
+          ? this.sortedTicks[tickIndex + 1]
+          : this.sortedTicks[tickIndex]) ?? null;
+
+      const nextInitializedTickSqrtRatio = nextInitializedTick
+        ? toSqrtRatio(nextInitializedTick.tick)
         : null;
 
-      const nextTickSqrtRatio = nextInitializedTick
-        ? toSqrtRatio(nextInitializedTick.tick)
-        : isIncreasing
-        ? PlainPool.MAX_SQRT_RATIO
-        : PlainPool.MIN_SQRT_RATIO;
-
-      const isLimited =
-        (isIncreasing && nextTickSqrtRatio > sqrtRatioLimit) ||
-        (!isIncreasing && nextTickSqrtRatio < sqrtRatioLimit);
-
-      const nextSqrtRatioLimit = isLimited ? nextTickSqrtRatio : sqrtRatioLimit;
+      let stepSqrtRatioLimit: bigint;
+      if (nextInitializedTickSqrtRatio !== null) {
+        stepSqrtRatioLimit =
+          nextInitializedTickSqrtRatio > sqrtRatioLimit === isIncreasing
+            ? sqrtRatioLimit
+            : nextInitializedTickSqrtRatio;
+      } else {
+        stepSqrtRatioLimit = sqrtRatioLimit;
+      }
 
       const step = computeStep({
+        fee: this.fee,
         sqrtRatio,
         liquidity,
         isToken1,
-        fee: this.fee,
-        sqrtRatioLimit: nextSqrtRatioLimit,
-        amount: specifiedAmount,
+        sqrtRatioLimit: stepSqrtRatioLimit,
+        amount: amountRemaining,
       });
 
       amountRemaining -= step.consumedAmount;
@@ -168,19 +170,15 @@ export class PlainPool
       sqrtRatio = step.sqrtRatioNext;
 
       // cross the tick if the price moved all the way to the next initialized tick price
-      if (
-        sqrtRatio === nextTickSqrtRatio &&
-        nextInitializedTick &&
-        activeTickIndex
-      ) {
-        activeTickIndex = isIncreasing
-          ? activeTickIndex + 1
-          : activeTickIndex - 1;
+      if (nextInitializedTick && sqrtRatio === nextInitializedTickSqrtRatio) {
+        tickIndex = isIncreasing ? tickIndex + 1 : tickIndex - 1;
         initializedTicksCrossed++;
         liquidity += isIncreasing
-          ? nextInitializedTick.liquidity_delta
-          : -nextInitializedTick.liquidity_delta;
+          ? nextInitializedTick.liquidityDelta
+          : -nextInitializedTick.liquidityDelta;
       }
+
+      if (++iterations > 100) throw new Error("iterations");
     }
 
     return {

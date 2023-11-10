@@ -733,11 +733,11 @@ export class Queries {
       if (memo[value.pool_key_hash]) {
         memo[value.pool_key_hash].push({
           tick: value.tick,
-          liquidity_delta: BigInt(value.liquidity_delta),
+          liquidityDelta: BigInt(value.liquidity_delta),
         });
       } else {
         memo[value.pool_key_hash] = [
-          { tick: value.tick, liquidity_delta: BigInt(value.liquidity_delta) },
+          { tick: value.tick, liquidityDelta: BigInt(value.liquidity_delta) },
         ];
       }
 

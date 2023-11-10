@@ -22,9 +22,20 @@ function noOp(sqrtRatioNext: bigint): SwapResult {
 }
 
 function amountBeforeFee(amount: bigint, fee: bigint): bigint {
+  if (fee === 0n) return amount;
   const num = amount << 128n;
   const val = num / fee;
   return val + (num % fee !== 0n ? 1n : 0n);
+}
+
+function computeFee(amount: bigint, fee: bigint) {
+  const num = amount * fee;
+  const denom = 2n ** 128n;
+  if (num % denom !== 0n) {
+    return num / denom + 1n;
+  } else {
+    return num / denom;
+  }
 }
 
 export function computeStep({
@@ -60,7 +71,7 @@ export function computeStep({
   if (amount < 0n) {
     priceImpactAmount = amount;
   } else {
-    priceImpactAmount = amount - ((amount * fee) >> 128n);
+    priceImpactAmount = amount - computeFee(amount, fee);
   }
 
   let sqrtRatioNextFromAmount: bigint | null;
@@ -129,16 +140,16 @@ export function computeStep({
   if (amount < 0n) {
     const includingFee = amountBeforeFee(calculatedAmountExcludingFee, fee);
     return {
+      consumedAmount: amount,
       calculatedAmount: includingFee,
       sqrtRatioNext: sqrtRatioNextFromAmount,
       feeAmount: includingFee - calculatedAmountExcludingFee,
-      consumedAmount: amount,
     };
   } else {
     return {
+      consumedAmount: amount,
       calculatedAmount: calculatedAmountExcludingFee,
       sqrtRatioNext: sqrtRatioNextFromAmount,
-      consumedAmount: amount,
       feeAmount: amount - priceImpactAmount,
     };
   }
