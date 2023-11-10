@@ -145,15 +145,14 @@ export class PlainPool
         ? toSqrtRatio(nextInitializedTick.tick)
         : null;
 
-      let stepSqrtRatioLimit: bigint;
-      if (nextInitializedTickSqrtRatio !== null) {
-        stepSqrtRatioLimit =
-          nextInitializedTickSqrtRatio > sqrtRatioLimit === isIncreasing
-            ? sqrtRatioLimit
-            : nextInitializedTickSqrtRatio;
-      } else {
-        stepSqrtRatioLimit = sqrtRatioLimit;
-      }
+      const stepSqrtRatioLimit =
+        nextInitializedTickSqrtRatio === null
+          ? sqrtRatioLimit
+          : nextInitializedTickSqrtRatio < sqrtRatioLimit === isIncreasing
+          ? nextInitializedTickSqrtRatio
+          : sqrtRatioLimit;
+
+      console.log(sqrtRatio < stepSqrtRatioLimit, isIncreasing);
 
       const step = computeStep({
         fee: this.fee,

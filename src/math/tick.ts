@@ -1,6 +1,8 @@
 import { MAX_U256 } from "./constants";
 
 export function toSqrtRatio(tick: number): bigint {
+  let sign = tick < 0;
+  tick = Math.abs(tick);
   let ratio = 0x100000000000000000000000000000000n;
   if ((tick & 0x1) != 0) {
     ratio = 0xfffff79c8499329c7cbb2510d893283bn;
@@ -84,11 +86,8 @@ export function toSqrtRatio(tick: number): bigint {
     ratio = (ratio * 0xc0d55d4d7152c25fb139n) >> 128n;
   }
 
-  // if positive and non-zero, invert, because we were computng a negative value
-  if (tick >= 0) {
-    if (tick != 0) {
-      ratio = MAX_U256 / ratio;
-    }
+  if (tick > 0 && !sign) {
+    ratio = MAX_U256 / ratio;
   }
 
   return ratio;
