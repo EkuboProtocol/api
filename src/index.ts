@@ -2,7 +2,7 @@ import { createCors, error, IRequest, json, Router } from "itty-router";
 import { NFTMetadata } from "./nft";
 import { generateSvg } from "./generateSvg";
 import { parseId } from "./parseId";
-import { Env } from "./env";
+import { Env, SupportedChainId } from "./env";
 import { createQueries } from "./createQueries";
 import Decimal from "decimal.js-light";
 import {
@@ -21,6 +21,7 @@ import { findAllRoutes } from "./findAllRoutes";
 import { PlainPool } from "./nodes/plainPool";
 import { MAX_U128 } from "./math/constants";
 import { QuoteNode } from "./nodes/quoteNode";
+import { Queries } from "./queries";
 
 Decimal.set({ precision: 39 });
 
@@ -43,6 +44,70 @@ const router = Router<IRequest, CF>()
   });
 
 const ADDRESS_REGEX = /^0x[a-fA-F0-9]+$/;
+
+const QUOTE_NODE_CACHE: {
+  [chainId in SupportedChainId]: {
+    [key_hash: string]: {
+      lastUpdated: {
+        blockNumber: string;
+        transactionIndex: number;
+        eventIndex: number;
+      };
+      node: QuoteNode<{ initializedTicksCrossed: number }>;
+    };
+  };
+} = {
+  ["0x534e5f474f45524c49"]: {},
+  ["0x534e5f4d41494e"]: {},
+};
+
+async function getAllRelevantPoolsAndUpdateCache(
+  dao: Queries,
+  chainId: SupportedChainId,
+  { tokenA, tokenB }: { tokenA: bigint; tokenB: bigint }
+) {
+  return dao.withinTransaction(async () => {
+    const { rows: relevantPools } = await dao.getAllRoutablePools({
+      tokenA,
+      tokenB,
+    });
+
+    const poolsNeedUpdate = relevantPools.filter(
+      ({ pool_key_hash, block_number, transaction_index, event_index }) => {
+        const cached = QUOTE_NODE_CACHE[chainId][pool_key_hash];
+        return (
+          !cached ||
+          cached.lastUpdated.blockNumber !== block_number ||
+          cached.lastUpdated.transactionIndex !== transaction_index ||
+          cached.lastUpdated.eventIndex !== event_index
+        );
+      }
+    );
+
+    const tickData = await dao.getTickData({
+      poolKeyHashes: poolsNeedUpdate.map((pk) => BigInt(pk.pool_key_hash)),
+    });
+
+    poolsNeedUpdate.forEach((pool) => {
+      QUOTE_NODE_CACHE[chainId][pool.pool_key_hash] = {
+        lastUpdated: {
+          blockNumber: pool.block_number,
+          transactionIndex: pool.transaction_index,
+          eventIndex: pool.event_index,
+        },
+        node: new PlainPool({
+          sqrtRatio: BigInt(pool.sqrt_ratio),
+          fee: BigInt(pool.fee),
+          liquidity: BigInt(pool.liquidity),
+          tick: pool.tick,
+          sortedTicks: tickData[pool.pool_key_hash] ?? [],
+        }),
+      };
+    });
+
+    return relevantPools;
+  });
+}
 
 router
   .get<IRequest, CF>("/tokens", async ({}, env) => {
@@ -103,20 +168,12 @@ router
 
       const dao = await createQueries(env);
 
-      // todo: abstract this pool data fetching to a cache that outlives the request
-      // todo: make use of the last updated columns to reduce fetching
-      const [relevantPools, tickData] = await dao.withinTransaction(
-        async () => {
-          const { rows: relevantPools } = await dao.getAllRoutablePools({
-            tokenA: token,
-            tokenB: otherToken,
-          });
-
-          const tickData = await dao.getTickData({
-            poolKeyHashes: relevantPools.map((pk) => BigInt(pk.pool_key_hash)),
-          });
-
-          return [relevantPools, tickData];
+      const relevantPools = await getAllRelevantPoolsAndUpdateCache(
+        dao,
+        env.STARKNET_CHAIN_ID,
+        {
+          tokenA: token,
+          tokenB: otherToken,
         }
       );
 
@@ -124,13 +181,10 @@ router
         return error(404, "No pools connect the two tokens");
       }
 
-      const cachedPools: {
-        [key_hash: string]: QuoteNode<{ initializedTicksCrossed: number }>;
-      } = {};
-
       // routes are executed in reverse for exact output
       const allRoutes = findAllRoutes(token, otherToken, relevantPools, 2);
 
+      const cache = QUOTE_NODE_CACHE[env.STARKNET_CHAIN_ID];
       const quotedRoutes = allRoutes.map((route, routeIx) => {
         try {
           const quote = route.reduce<null | {
@@ -143,15 +197,7 @@ router
                 return null;
               }
 
-              const node =
-                cachedPools[pool.pool_key_hash] ??
-                (cachedPools[pool.pool_key_hash] = new PlainPool({
-                  sqrtRatio: BigInt(pool.sqrt_ratio),
-                  tick: pool.tick,
-                  liquidity: BigInt(pool.liquidity),
-                  fee: BigInt(pool.fee),
-                  sortedTicks: tickData[pool.pool_key_hash] ?? [],
-                }));
+              const node = cache[pool.pool_key_hash].node;
 
               const isToken1 = BigInt(pool.token1) === state.token;
 
