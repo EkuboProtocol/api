@@ -62,20 +62,6 @@ function translatePool(pool: PoolState) {
   };
 }
 
-function humanReadablePoolDescription(pool: PoolState, env: Env) {
-  return `${
-    getTokenByAddress(env.STARKNET_CHAIN_ID, pool.token0)?.symbol ?? pool.token0
-  }/${
-    getTokenByAddress(env.STARKNET_CHAIN_ID, pool.token1)?.symbol ?? pool.token1
-  }(${feeToPercent(pool.fee)}-${tickSpacingToPercent(pool.tick_spacing)})`;
-}
-
-function humanReadableRouteDescription(route: PoolState[], env: Env) {
-  return route
-    .map((pool) => humanReadablePoolDescription(pool, env))
-    .join(" -> ");
-}
-
 router
   .get<IRequest, CF>("/tokens", async ({}, env) => {
     return json(TOKENS_BY_CHAIN_ID[env.STARKNET_CHAIN_ID] ?? [], {
@@ -208,7 +194,6 @@ router
 
       return json(
         {
-          description: humanReadableRouteDescription(bestRoute.route, env),
           route: bestRoute.route.map(translatePool),
           quote: {
             amount: bestRoute.quote.amount.toString(),
