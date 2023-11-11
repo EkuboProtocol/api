@@ -4,7 +4,7 @@ import {
   computeStep,
   isPriceIncreasing,
 } from "./swap";
-import { MIN_SQRT_RATIO } from "./tick";
+import { MAX_SQRT_RATIO, MIN_SQRT_RATIO } from "./tick";
 
 describe(isPriceIncreasing, () => {
   it("many cases", () => {
@@ -93,22 +93,42 @@ describe(computeStep, () => {
 `);
   });
 
-  it.only("max limit token0 input", () => {
+  it("max limit token0 input", () => {
     expect(
-  computeStep({
-    sqrtRatio: 0x100000000000000000000000000000000n,
-    liquidity: 100000n,
-    sqrtRatioLimit: MIN_SQRT_RATIO,
-    amount: 10000n,
-    isToken1: false,
-    fee: 1n << 127n
-  })
-).toMatchInlineSnapshot(`
+      computeStep({
+        sqrtRatio: 0x100000000000000000000000000000000n,
+        liquidity: 100000n,
+        sqrtRatioLimit: MIN_SQRT_RATIO,
+        amount: 10000n,
+        isToken1: false,
+        fee: 1n << 127n,
+      })
+    ).toMatchInlineSnapshot(`
 {
   "calculatedAmount": 4761n,
   "consumedAmount": 10000n,
   "feeAmount": 5000n,
   "sqrtRatioNext": 324078444686608060441309149935017344244n,
+}
+`);
+  });
+
+  it("max limit token1 input", () => {
+    expect(
+      computeStep({
+        sqrtRatio: 0x100000000000000000000000000000000n,
+        liquidity: 100000n,
+        sqrtRatioLimit: MAX_SQRT_RATIO,
+        amount: 10000n,
+        isToken1: true,
+        fee: 1n << 127n,
+      })
+    ).toMatchInlineSnapshot(`
+{
+  "calculatedAmount": 4761n,
+  "consumedAmount": 10000n,
+  "feeAmount": 5000n,
+  "sqrtRatioNext": 357296485266985386636543337803356622028n,
 }
 `);
   });
