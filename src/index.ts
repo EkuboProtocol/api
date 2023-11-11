@@ -43,25 +43,6 @@ const router = Router<IRequest, CF>()
 
 const ADDRESS_REGEX = /^0x[a-fA-F0-9]+$/;
 
-function translatePool(pool: PoolState) {
-  return {
-    key_hash: numericToHex(pool.pool_key_hash),
-    token0: numericToHex(pool.token0),
-    token1: numericToHex(pool.token1),
-    fee: numericToHex(pool.fee),
-    tick_spacing: Number(pool.tick_spacing),
-    extension: numericToHex(pool.extension),
-    sqrt_ratio: numericToHex(pool.sqrt_ratio),
-    tick: pool.tick,
-    liquidity: pool.liquidity,
-    lastUpdate: {
-      blockNumber: Number(pool.block_number),
-      transactionIndex: pool.transaction_index,
-      eventIndex: pool.event_index,
-    },
-  };
-}
-
 router
   .get<IRequest, CF>("/tokens", async ({}, env) => {
     return json(TOKENS_BY_CHAIN_ID[env.STARKNET_CHAIN_ID] ?? [], {
@@ -194,10 +175,15 @@ router
 
       return json(
         {
-          route: bestRoute.route.map(translatePool),
-          quote: {
-            amount: bestRoute.quote.amount.toString(),
-          },
+          route: bestRoute.route.map((pool) => ({
+            key_hash: numericToHex(pool.pool_key_hash),
+            token0: numericToHex(pool.token0),
+            token1: numericToHex(pool.token1),
+            fee: numericToHex(pool.fee),
+            tick_spacing: Number(pool.tick_spacing),
+            extension: numericToHex(pool.extension),
+          })),
+          amount: bestRoute.quote.amount.toString(),
           resources: bestRoute.quote.totalResources,
         },
         {
@@ -494,11 +480,29 @@ router
       client.getAllPoolsWithStates()
     );
 
-    return json(rows.map(translatePool), {
-      headers: {
-        "cache-control": "public, max-age=15, must-revalidate",
-      },
-    });
+    return json(
+      rows.map((pool) => ({
+        key_hash: numericToHex(pool.pool_key_hash),
+        token0: numericToHex(pool.token0),
+        token1: numericToHex(pool.token1),
+        fee: numericToHex(pool.fee),
+        tick_spacing: Number(pool.tick_spacing),
+        extension: numericToHex(pool.extension),
+        sqrt_ratio: numericToHex(pool.sqrt_ratio),
+        tick: pool.tick,
+        liquidity: pool.liquidity,
+        lastUpdate: {
+          blockNumber: Number(pool.block_number),
+          transactionIndex: pool.transaction_index,
+          eventIndex: pool.event_index,
+        },
+      })),
+      {
+        headers: {
+          "cache-control": "public, max-age=15, must-revalidate",
+        },
+      }
+    );
   })
   .get<IRequest, CF>(
     "/pools/:key_hash/liquidity",
