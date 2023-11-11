@@ -1,5 +1,5 @@
 import { computeStep, isPriceIncreasing } from "../math/swap";
-import { toSqrtRatio } from "../math/tick";
+import { MAX_SQRT_RATIO, MIN_SQRT_RATIO, toSqrtRatio } from "../math/tick";
 import { QuoteNode } from "./quoteNode";
 
 export interface Tick {
@@ -10,12 +10,6 @@ export interface Tick {
 export class PlainPool
   implements QuoteNode<{ initializedTicksCrossed: number }>
 {
-  public static readonly MAX_SQRT_RATIO: bigint =
-    6277100250585753475930931601400621808602321654880405518632n;
-  public static readonly MIN_SQRT_RATIO: bigint = 18446748437148339061n;
-  public static readonly MIN_TICK: number = -88722883;
-  public static readonly MAX_TICK: number = 88722883;
-
   private readonly fee: bigint;
   private readonly sqrtRatio: bigint;
   private readonly liquidity: bigint;
@@ -111,16 +105,14 @@ export class PlainPool
       if (!isIncreasing && sqrtRatioLimit > this.sqrtRatio) {
         throw new Error("sqrtRatioLimit cannot be greater than sqrtRatio");
       }
-      if (sqrtRatioLimit > PlainPool.MAX_SQRT_RATIO) {
-        throw new Error("sqrtRatioLimit gt max");
-      }
-      if (sqrtRatioLimit < PlainPool.MIN_SQRT_RATIO) {
+      if (sqrtRatioLimit < MIN_SQRT_RATIO) {
         throw new Error("sqrtRatioLimit lt min");
       }
+      if (sqrtRatioLimit > MAX_SQRT_RATIO) {
+        throw new Error("sqrtRatioLimit gt max");
+      }
     } else {
-      sqrtRatioLimit = isIncreasing
-        ? PlainPool.MAX_SQRT_RATIO
-        : PlainPool.MIN_SQRT_RATIO;
+      sqrtRatioLimit = isIncreasing ? MAX_SQRT_RATIO : MIN_SQRT_RATIO;
     }
 
     let { sqrtRatio, liquidity } = this;
@@ -152,8 +144,6 @@ export class PlainPool
           ? nextInitializedTickSqrtRatio
           : sqrtRatioLimit;
 
-      console.log(sqrtRatio < stepSqrtRatioLimit, isIncreasing);
-
       const step = computeStep({
         fee: this.fee,
         sqrtRatio,
@@ -176,8 +166,6 @@ export class PlainPool
           ? nextInitializedTick.liquidityDelta
           : -nextInitializedTick.liquidityDelta;
       }
-
-      if (++iterations > 100) throw new Error("iterations");
     }
 
     return {

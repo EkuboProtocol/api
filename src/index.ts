@@ -11,7 +11,12 @@ import {
   numericToHex,
   tickSpacingToPercent,
 } from "./format";
-import { feeToken, findToken, TOKENS_BY_CHAIN_ID } from "./tokens";
+import {
+  feeToken,
+  getTokenByAddress,
+  parseTokenIdentifier,
+  TOKENS_BY_CHAIN_ID,
+} from "./tokens";
 import { findAllRoutes } from "./findAllRoutes";
 import { PoolState } from "./queries";
 import { PlainPool } from "./nodes/plainPool";
@@ -70,9 +75,9 @@ function translatePool(pool: PoolState) {
 
 function humanReadablePoolDescription(pool: PoolState, env: Env) {
   return `${
-    findToken(env.STARKNET_CHAIN_ID, pool.token0)?.symbol ?? pool.token0
+    getTokenByAddress(env.STARKNET_CHAIN_ID, pool.token0)?.symbol ?? pool.token0
   }/${
-    findToken(env.STARKNET_CHAIN_ID, pool.token1)?.symbol ?? pool.token1
+    getTokenByAddress(env.STARKNET_CHAIN_ID, pool.token1)?.symbol ?? pool.token1
   }(${feeToPercent(pool.fee)}-${tickSpacingToPercent(pool.tick_spacing)})`;
 }
 
@@ -118,10 +123,19 @@ router
       let sellAmount: bigint, inputToken: bigint, outputToken: bigint;
       try {
         sellAmount = BigInt(params.amount);
-        inputToken = BigInt(params.inputToken);
-        outputToken = BigInt(params.outputToken);
+        inputToken = parseTokenIdentifier(
+          env.STARKNET_CHAIN_ID,
+          params.inputToken
+        );
+        outputToken = parseTokenIdentifier(
+          env.STARKNET_CHAIN_ID,
+          params.outputToken
+        );
       } catch (e) {
-        return error(400, "Failed to parse path parameters");
+        return error(
+          400,
+          `Failed to parse path parameters: ${(e as Error).message}`
+        );
       }
 
       if (sellAmount <= 0n || inputToken <= 0n || outputToken <= 0n) {
@@ -158,17 +172,16 @@ router
         const quote = route.reduce(
           (memo, pool) => {
             const sortedTicks = tickData[pool.pool_key_hash] ?? [];
-            const liquidity = BigInt(pool.liquidity);
 
             const node = new PlainPool({
               sqrtRatio: BigInt(pool.sqrt_ratio),
               tick: pool.tick,
-              liquidity,
+              liquidity: BigInt(pool.liquidity),
               fee: BigInt(pool.fee),
               sortedTicks,
             });
 
-            const isToken1 = BigInt(pool.token1) === BigInt(memo.token);
+            const isToken1 = BigInt(pool.token1) === memo.token;
 
             const quote = node.quote({
               specifiedAmount: memo.amount,
@@ -371,8 +384,8 @@ router
       const baseToken = BigInt(params.baseToken);
       const quoteToken = BigInt(params.quoteToken);
 
-      const bt = findToken(env.STARKNET_CHAIN_ID, baseToken);
-      const qt = findToken(env.STARKNET_CHAIN_ID, quoteToken);
+      const bt = getTokenByAddress(env.STARKNET_CHAIN_ID, baseToken);
+      const qt = getTokenByAddress(env.STARKNET_CHAIN_ID, quoteToken);
 
       if (!bt || !qt) {
         return error(400, "Base token or quote token not known");
@@ -456,7 +469,7 @@ router
 
     const quoteToken = BigInt(params.quoteToken);
 
-    const qt = findToken(env.STARKNET_CHAIN_ID, quoteToken);
+    const qt = getTokenByAddress(env.STARKNET_CHAIN_ID, quoteToken);
 
     if (!qt) {
       return error(400, "Quote token not known");
@@ -475,7 +488,7 @@ router
 
     const scaledPrices = prices
       .map(({ price, k_volume, token }) => {
-        const base = findToken(env.STARKNET_CHAIN_ID, token);
+        const base = getTokenByAddress(env.STARKNET_CHAIN_ID, token);
         if (!base) return null;
 
         const scaled = price.mul(
@@ -710,8 +723,14 @@ router
     ];
 
     const origin = new URL(url).origin;
-    const token0 = findToken(env.STARKNET_CHAIN_ID, positionMetadata.token0);
-    const token1 = findToken(env.STARKNET_CHAIN_ID, positionMetadata.token1);
+    const token0 = getTokenByAddress(
+      env.STARKNET_CHAIN_ID,
+      positionMetadata.token0
+    );
+    const token1 = getTokenByAddress(
+      env.STARKNET_CHAIN_ID,
+      positionMetadata.token1
+    );
 
     let metadata: NFTMetadata;
     if (token0 && token1) {

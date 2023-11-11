@@ -1,5 +1,6 @@
 import { nextSqrtRatioFromAmount0, nextSqrtRatioFromAmount1 } from "./price";
 import { amount0Delta, amount1Delta } from "./delta";
+import { MAX_U128 } from "./constants";
 
 interface SwapResult {
   consumedAmount: bigint;
@@ -9,7 +10,7 @@ interface SwapResult {
 }
 
 export function isPriceIncreasing(amount: bigint, isToken1: boolean): boolean {
-  return amount < 0n != isToken1;
+  return amount < 0n !== isToken1;
 }
 
 function noOp(sqrtRatioNext: bigint): SwapResult {
@@ -24,8 +25,11 @@ function noOp(sqrtRatioNext: bigint): SwapResult {
 function amountBeforeFee(amount: bigint, fee: bigint): bigint {
   if (fee === 0n) return amount;
   const num = amount << 128n;
-  const val = num / fee;
-  return val + (num % fee !== 0n ? 1n : 0n);
+  const denom = (1n << 128n) - fee;
+  const val = num / denom;
+  const result = val + (num % denom !== 0n ? 1n : 0n);
+  if (result > MAX_U128) throw new Error("AMOUNT_BEFORE_FEE_OVERFLOW");
+  return result;
 }
 
 function computeFee(amount: bigint, fee: bigint) {
@@ -91,7 +95,7 @@ export function computeStep({
 
   if (
     sqrtRatioNextFromAmount === null ||
-    sqrtRatioNextFromAmount > sqrtRatioLimit == increasing
+    sqrtRatioNextFromAmount > sqrtRatioLimit === increasing
   ) {
     const [specifiedAmountDelta, calculatedAmountDelta] = isToken1
       ? [
@@ -127,8 +131,8 @@ export function computeStep({
   if (sqrtRatioNextFromAmount === sqrtRatio) {
     return {
       consumedAmount: amount,
-      feeAmount: amount,
       calculatedAmount: 0n,
+      feeAmount: amount,
       sqrtRatioNext: sqrtRatio,
     };
   }

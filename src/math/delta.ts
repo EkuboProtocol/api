@@ -8,23 +8,23 @@ export function amount0Delta(
 ): bigint {
   if (liquidity === 0n || sqrtRatioA === sqrtRatioB) return 0n;
 
-  [sqrtRatioA, sqrtRatioB] =
+  const [lower, upper] =
     sqrtRatioA < sqrtRatioB
       ? [sqrtRatioA, sqrtRatioB]
       : [sqrtRatioB, sqrtRatioA];
 
-  const num = (liquidity << 128n) * (sqrtRatioB - sqrtRatioA);
+  const numerator = (liquidity << 128n) * (upper - lower);
 
-  let result0 = num / sqrtRatioB;
-  if (roundUp && num % sqrtRatioB !== 0n) {
+  let result0 = numerator / upper;
+  if (roundUp && numerator % upper !== 0n) {
     result0++;
   }
 
   if (result0 > MAX_U256) {
     throw new Error("AMOUNT0_DELTA_OVERFLOW");
   }
-  let result = result0 / sqrtRatioA;
-  if (roundUp && result % sqrtRatioA !== 0n) {
+  let result = result0 / lower;
+  if (roundUp && result % lower !== 0n) {
     result++;
   }
 
@@ -35,6 +35,7 @@ export function amount0Delta(
   return result;
 }
 
+const TWO_POW_128 = 0x100000000000000000000000000000000n;
 export function amount1Delta(
   sqrtRatioA: bigint,
   sqrtRatioB: bigint,
@@ -43,23 +44,23 @@ export function amount1Delta(
 ): bigint {
   if (liquidity === 0n || sqrtRatioA === sqrtRatioB) return 0n;
 
-  [sqrtRatioA, sqrtRatioB] =
+  const [lower, upper] =
     sqrtRatioA < sqrtRatioB
       ? [sqrtRatioA, sqrtRatioB]
       : [sqrtRatioB, sqrtRatioA];
 
-  const result = liquidity * (sqrtRatioB - sqrtRatioA);
+  const result = liquidity * (upper - lower);
 
   if (result > MAX_U256) {
     throw new Error("AMOUNT1_DELTA_OVERFLOW");
   }
 
-  if (roundUp && result % 2n ** 128n !== 0n) {
-    const x = (result >> 128n) + 1n;
-    if (x > MAX_U128) {
+  if (roundUp && result % TWO_POW_128 !== 0n) {
+    const delta = result / TWO_POW_128 + 1n;
+    if (delta > MAX_U128) {
       throw new Error("AMOUNT1_DELTA_OVERFLOW");
     }
-    return x;
+    return delta;
   } else {
     return result >> 128n;
   }

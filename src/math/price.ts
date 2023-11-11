@@ -13,7 +13,7 @@ export function nextSqrtRatioFromAmount0(
 
   // because quotient is rounded down, this price movement is also rounded towards sqrt_ratio
   if (amount0 < 0n) {
-    const product = amount0 * sqrtRatio;
+    const product = amount0 * -1n * sqrtRatio;
 
     if (product >= MAX_U256) {
       return null;
@@ -42,7 +42,7 @@ export function nextSqrtRatioFromAmount0(
     const remainder = numerator1 % denom;
 
     if (remainder === 0n) return quotient;
-    const sum = remainder + 1n;
+    const sum = quotient + 1n;
     if (sum > MAX_U256) return null;
     return sum;
   }
@@ -64,7 +64,7 @@ export function nextSqrtRatioFromAmount1(
   // because quotient is rounded down, this price movement is also rounded towards sqrt_ratio
   if (amount1 < 0n) {
     // adding amount1, taking out amount0
-    const res = sqrtRatio - quotient;
+    const res = sqrtRatio + quotient;
     if (res < 0n) {
       return null;
     }

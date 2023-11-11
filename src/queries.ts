@@ -525,7 +525,7 @@ export class Queries {
         "code" in error &&
         error.code === "40001"
       ) {
-        console.log("Serialization failure!", error);
+        console.error("Serialization failure!", error);
       }
       throw error;
     }
@@ -725,6 +725,7 @@ export class Queries {
           SELECT pool_key_hash, tick, net_liquidity_delta_diff AS liquidity_delta
           FROM per_pool_per_tick_liquidity
           WHERE pool_key_hash = ANY ($1::NUMERIC[])
+          ORDER BY pool_key_hash, tick
       `,
       values: [poolKeyHashes],
     });
