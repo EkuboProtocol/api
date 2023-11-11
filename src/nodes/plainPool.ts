@@ -36,6 +36,15 @@ export class PlainPool
     this.sortedTicks = sortedTicks;
   }
 
+  // Deferred caching of the binary search
+  private _activeTickIndex: number | null = null;
+  public get activeTickIndex(): number {
+    return (
+      this._activeTickIndex ??
+      (this._activeTickIndex = this.findNearestInitializedTickIndex(this.tick))
+    );
+  }
+
   /**
    * Returns the index in the sorted tick array that has the greatest value of tick that is not greater than the given tick
    * @param tick the tick to search for
@@ -118,7 +127,7 @@ export class PlainPool
     let { sqrtRatio, liquidity } = this;
 
     // the index of the sorted ticks array of the tick that is <= current tick
-    let tickIndex = this.findNearestInitializedTickIndex(this.tick);
+    let tickIndex = this.activeTickIndex;
     let calculatedAmount: bigint = 0n;
     let initializedTicksCrossed = 0;
     let amountRemaining = specifiedAmount;

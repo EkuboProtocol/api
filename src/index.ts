@@ -20,6 +20,7 @@ import {
 import { findAllRoutes } from "./findAllRoutes";
 import { PlainPool } from "./nodes/plainPool";
 import { MAX_U128 } from "./math/constants";
+import { QuoteNode } from "./nodes/quoteNode";
 
 Decimal.set({ precision: 39 });
 
@@ -102,6 +103,8 @@ router
 
       const dao = await createQueries(env);
 
+      // todo: abstract this pool data fetching to a cache that outlives the request
+      // todo: make use of the last updated columns to reduce fetching
       const [relevantPools, tickData] = await dao.withinTransaction(
         async () => {
           const { rows: relevantPools } = await dao.getAllRoutablePools({
@@ -121,12 +124,14 @@ router
         return error(404, "No pools connect the two tokens");
       }
 
-      // routes are executed in reverse for exact output
-      const allRoutes = isExactOutput
-        ? findAllRoutes(otherToken, token, relevantPools, 2)
-        : findAllRoutes(token, otherToken, relevantPools, 2);
+      const cachedPools: {
+        [key_hash: string]: QuoteNode<{ initializedTicksCrossed: number }>;
+      } = {};
 
-      const quotedRoutes = allRoutes.map((route) => {
+      // routes are executed in reverse for exact output
+      const allRoutes = findAllRoutes(token, otherToken, relevantPools, 2);
+
+      const quotedRoutes = allRoutes.map((route, routeIx) => {
         try {
           const quote = route.reduce<null | {
             amount: bigint;
@@ -138,15 +143,15 @@ router
                 return null;
               }
 
-              const sortedTicks = tickData[pool.pool_key_hash] ?? [];
-
-              const node = new PlainPool({
-                sqrtRatio: BigInt(pool.sqrt_ratio),
-                tick: pool.tick,
-                liquidity: BigInt(pool.liquidity),
-                fee: BigInt(pool.fee),
-                sortedTicks,
-              });
+              const node =
+                cachedPools[pool.pool_key_hash] ??
+                (cachedPools[pool.pool_key_hash] = new PlainPool({
+                  sqrtRatio: BigInt(pool.sqrt_ratio),
+                  tick: pool.tick,
+                  liquidity: BigInt(pool.liquidity),
+                  fee: BigInt(pool.fee),
+                  sortedTicks: tickData[pool.pool_key_hash] ?? [],
+                }));
 
               const isToken1 = BigInt(pool.token1) === state.token;
 
@@ -160,11 +165,13 @@ router
                 return null;
               }
 
+              const nextToken = BigInt(isToken1 ? pool.token0 : pool.token1);
+
               return {
                 amount: isExactOutput
                   ? -quote.calculatedAmount
                   : quote.calculatedAmount,
-                token: BigInt(isToken1 ? pool.token0 : pool.token1),
+                token: nextToken,
                 resources: {
                   initializedTicksCrossed:
                     state.resources.initializedTicksCrossed +
@@ -193,23 +200,25 @@ router
         }
       });
 
-      const bestRoute = quotedRoutes
+      const workingRoutes = quotedRoutes
+        // remove routes that could not be quoted
         .filter(
           (
             route
           ): route is typeof route & {
             ["quote"]: Exclude<typeof route["quote"], null>;
-          } => {
-            return route.quote !== null;
-          }
-        )
-        .sort((q1, q2) => {
-          // todo: also consider the execution resources in comparing the quotes
-          return Number(q2.quote.amount - q1.quote.amount);
-        })[0];
+          } => route.quote !== null
+        );
+
+      let bestRoute: typeof workingRoutes[number] | null = null;
+      for (const route of workingRoutes) {
+        if (!bestRoute || route.quote.amount > bestRoute.quote.amount) {
+          bestRoute = route;
+        }
+      }
 
       if (!bestRoute) {
-        return error(404, "Could not find route");
+        return error(404, "No route found");
       }
 
       return json(
