@@ -18,8 +18,8 @@ import {
   TOKENS_BY_CHAIN_ID,
 } from "./tokens";
 import { findAllRoutes } from "./findAllRoutes";
-import { PoolState } from "./queries";
 import { PlainPool } from "./nodes/plainPool";
+import { MAX_U128 } from "./math/constants";
 
 Decimal.set({ precision: 39 });
 
@@ -74,18 +74,15 @@ router
     );
   })
   .get<IRequest, CF>(
-    "/quote/sell/:amount/:inputToken/:outputToken",
+    "/quote/:amount/:token/:otherToken",
     async ({ params, query }, env) => {
-      let sellAmount: bigint, inputToken: bigint, outputToken: bigint;
+      let amount: bigint, token: bigint, otherToken: bigint;
       try {
-        sellAmount = BigInt(params.amount);
-        inputToken = parseTokenIdentifier(
+        amount = BigInt(new Decimal(params.amount).toInteger().toFixed());
+        token = parseTokenIdentifier(env.STARKNET_CHAIN_ID, params.token);
+        otherToken = parseTokenIdentifier(
           env.STARKNET_CHAIN_ID,
-          params.inputToken
-        );
-        outputToken = parseTokenIdentifier(
-          env.STARKNET_CHAIN_ID,
-          params.outputToken
+          params.otherToken
         );
       } catch (e) {
         return error(
@@ -94,8 +91,13 @@ router
         );
       }
 
-      if (sellAmount <= 0n || inputToken <= 0n || outputToken <= 0n) {
-        return error(400, "Invalid path parameters");
+      if (token <= 0n || otherToken <= 0n) {
+        return error(400, "Invalid token parameters");
+      }
+      const isExactOutput = amount < 0n;
+
+      if ((isExactOutput ? amount * -1n : amount) > MAX_U128) {
+        return error(400, "Amount is too large");
       }
 
       const dao = await createQueries(env);
@@ -103,8 +105,8 @@ router
       const [relevantPools, tickData] = await dao.withinTransaction(
         async () => {
           const { rows: relevantPools } = await dao.getAllRoutablePools({
-            tokenA: inputToken,
-            tokenB: outputToken,
+            tokenA: token,
+            tokenB: otherToken,
           });
 
           const tickData = await dao.getTickData({
@@ -115,68 +117,104 @@ router
         }
       );
 
-      const allRoutes = findAllRoutes(
-        inputToken,
-        outputToken,
-        relevantPools,
-        2
-      );
+      if (!relevantPools.length) {
+        return error(404, "No pools connect the two tokens");
+      }
+
+      // routes are executed in reverse for exact output
+      const allRoutes = isExactOutput
+        ? findAllRoutes(otherToken, token, relevantPools, 2)
+        : findAllRoutes(token, otherToken, relevantPools, 2);
 
       const quotedRoutes = allRoutes.map((route) => {
-        const quote = route.reduce(
-          (memo, pool) => {
-            const sortedTicks = tickData[pool.pool_key_hash] ?? [];
+        try {
+          const quote = route.reduce<null | {
+            amount: bigint;
+            token: bigint;
+            resources: { initializedTicksCrossed: number };
+          }>(
+            (state, pool) => {
+              if (!state) {
+                return null;
+              }
 
-            const node = new PlainPool({
-              sqrtRatio: BigInt(pool.sqrt_ratio),
-              tick: pool.tick,
-              liquidity: BigInt(pool.liquidity),
-              fee: BigInt(pool.fee),
-              sortedTicks,
-            });
+              const sortedTicks = tickData[pool.pool_key_hash] ?? [];
 
-            const isToken1 = BigInt(pool.token1) === memo.token;
+              const node = new PlainPool({
+                sqrtRatio: BigInt(pool.sqrt_ratio),
+                tick: pool.tick,
+                liquidity: BigInt(pool.liquidity),
+                fee: BigInt(pool.fee),
+                sortedTicks,
+              });
 
-            const quote = node.quote({
-              specifiedAmount: memo.amount,
-              isToken1,
-            });
+              const isToken1 = BigInt(pool.token1) === state.token;
 
-            return {
-              amount: quote.calculatedAmount,
-              token: BigInt(isToken1 ? pool.token0 : pool.token1),
-              totalResources: {
-                poolsSwapped: memo.totalResources.poolsSwapped + 1,
-                initializedTicksCrossed:
-                  memo.totalResources.initializedTicksCrossed +
-                  quote.executionResources.initializedTicksCrossed,
-              },
-            };
-          },
-          {
-            amount: sellAmount,
-            token: inputToken,
-            totalResources: {
-              poolsSwapped: 0,
-              initializedTicksCrossed: 0,
+              const quote = node.quote({
+                specifiedAmount: state.amount,
+                isToken1,
+              });
+
+              // at the moment we do not support partial execution
+              if (quote.consumedAmount !== state.amount) {
+                return null;
+              }
+
+              return {
+                amount: isExactOutput
+                  ? -quote.calculatedAmount
+                  : quote.calculatedAmount,
+                token: BigInt(isToken1 ? pool.token0 : pool.token1),
+                resources: {
+                  initializedTicksCrossed:
+                    state.resources.initializedTicksCrossed +
+                    quote.executionResources.initializedTicksCrossed,
+                },
+              };
             },
-          }
-        );
-
-        return {
-          quote,
-          route,
-        };
+            {
+              amount,
+              token,
+              resources: {
+                initializedTicksCrossed: 0,
+              },
+            }
+          );
+          return {
+            quote,
+            route,
+          };
+        } catch (e) {
+          console.error("Failed to quote", route, e);
+          return {
+            quote: null,
+            route,
+          };
+        }
       });
 
-      const bestRoute = quotedRoutes.sort((q1, q2) => {
-        return Number(q2.quote.amount - q1.quote.amount);
-      })[0];
+      const bestRoute = quotedRoutes
+        .filter(
+          (
+            route
+          ): route is typeof route & {
+            ["quote"]: Exclude<typeof route["quote"], null>;
+          } => {
+            return route.quote !== null;
+          }
+        )
+        .sort((q1, q2) => {
+          // todo: also consider the execution resources in comparing the quotes
+          return Number(q2.quote.amount - q1.quote.amount);
+        })[0];
+
+      if (!bestRoute) {
+        return error(404, "Could not find route");
+      }
 
       return json(
         {
           amount: bestRoute.quote.amount.toString(),
-          resources: bestRoute.quote.totalResources,
           route: bestRoute.route.map((pool) => ({
             key_hash: numericToHex(pool.pool_key_hash),
             token0: numericToHex(pool.token0),
