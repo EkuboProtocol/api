@@ -175,6 +175,8 @@ router
 
       return json(
         {
+          amount: bestRoute.quote.amount.toString(),
+          resources: bestRoute.quote.totalResources,
           route: bestRoute.route.map((pool) => ({
             key_hash: numericToHex(pool.pool_key_hash),
             token0: numericToHex(pool.token0),
@@ -183,8 +185,6 @@ router
             tick_spacing: Number(pool.tick_spacing),
             extension: numericToHex(pool.extension),
           })),
-          amount: bestRoute.quote.amount.toString(),
-          resources: bestRoute.quote.totalResources,
         },
         {
           headers: {
