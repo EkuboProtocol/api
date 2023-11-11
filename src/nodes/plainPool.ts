@@ -125,8 +125,6 @@ export class PlainPool
 
     let totalFee: bigint = 0n;
 
-    let iterations = 0;
-
     while (amountRemaining !== 0n && sqrtRatio !== sqrtRatioLimit) {
       const nextInitializedTick: Tick | null =
         (isIncreasing

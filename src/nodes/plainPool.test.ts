@@ -511,8 +511,8 @@ describe("PoolNode", () => {
         liquidity: 2695287607686846n,
       });
 
-      expect(node.quote({ specifiedAmount: 2000_000_000n, isToken1: true })).
-toMatchInlineSnapshot(`
+      expect(node.quote({ specifiedAmount: 2000_000_000n, isToken1: true }))
+        .toMatchInlineSnapshot(`
 {
   "calculatedAmount": 936197803980535666n,
   "consumedAmount": 2000000000n,
@@ -523,8 +523,8 @@ toMatchInlineSnapshot(`
 }
 `);
 
-      expect(node.quote({ specifiedAmount: 20_000_000_000n, isToken1: true })).
-toMatchInlineSnapshot(`
+      expect(node.quote({ specifiedAmount: 20_000_000_000n, isToken1: true }))
+        .toMatchInlineSnapshot(`
 {
   "calculatedAmount": 3452798867537863676n,
   "consumedAmount": 20000000000n,
@@ -535,8 +535,8 @@ toMatchInlineSnapshot(`
 }
 `);
 
-      expect(node.quote({ specifiedAmount: 10n ** 18n, isToken1: false })).
-toMatchInlineSnapshot(`
+      expect(node.quote({ specifiedAmount: 10n ** 18n, isToken1: false }))
+        .toMatchInlineSnapshot(`
 {
   "calculatedAmount": 2056014996n,
   "consumedAmount": 1000000000000000000n,
@@ -547,14 +547,59 @@ toMatchInlineSnapshot(`
 }
 `);
 
-      expect(node.quote({ specifiedAmount: 10n ** 19n, isToken1: false })).
-toMatchInlineSnapshot(`
+      expect(node.quote({ specifiedAmount: 10n ** 19n, isToken1: false }))
+        .toMatchInlineSnapshot(`
 {
   "calculatedAmount": 19231691709n,
   "consumedAmount": 10000000000000000000n,
   "executionResources": {
     "initializedTicksCrossed": 21,
     "sqrtRatioAfter": 14632357786369744003669228231884916n,
+  },
+}
+`);
+
+      expect(node.quote({ specifiedAmount: -2000_000_000n, isToken1: true }))
+        .toMatchInlineSnapshot(`
+{
+  "calculatedAmount": 972405083420031733n,
+  "consumedAmount": -2000000000n,
+  "executionResources": {
+    "initializedTicksCrossed": 5,
+    "sqrtRatioAfter": 15356851300529036295687296777661975n,
+  },
+}
+`);
+      expect(node.quote({ specifiedAmount: -20_000_000_000n, isToken1: true }))
+        .toMatchInlineSnapshot(`
+{
+  "calculatedAmount": 10417135837307225847n,
+  "consumedAmount": -20000000000n,
+  "executionResources": {
+    "initializedTicksCrossed": 21,
+    "sqrtRatioAfter": 14619328889221429322165582949273604n,
+  },
+}
+`);
+      expect(node.quote({ specifiedAmount: -1n * 10n ** 18n, isToken1: false }))
+        .toMatchInlineSnapshot(`
+{
+  "calculatedAmount": 2139456613n,
+  "consumedAmount": -1000000000000000000n,
+  "executionResources": {
+    "initializedTicksCrossed": 6,
+    "sqrtRatioAfter": 15897927924484882480384197655799943n,
+  },
+}
+`);
+      expect(node.quote({ specifiedAmount: -1n * 10n ** 19n, isToken1: false }))
+        .toMatchInlineSnapshot(`
+{
+  "calculatedAmount": 194883586930788271243317027501365n,
+  "consumedAmount": -3462603080395210725n,
+  "executionResources": {
+    "initializedTicksCrossed": 121,
+    "sqrtRatioAfter": 6277100250585753475930931601400621808602321654880405518632n,
   },
 }
 `);

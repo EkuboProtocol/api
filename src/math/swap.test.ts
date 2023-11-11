@@ -132,4 +132,84 @@ describe(computeStep, () => {
 }
 `);
   });
+
+  it("max limit token0 output", () => {
+    expect(
+      computeStep({
+        sqrtRatio: 0x100000000000000000000000000000000n,
+        liquidity: 100000n,
+        sqrtRatioLimit: MAX_SQRT_RATIO,
+        amount: -10000n,
+        isToken1: false,
+        fee: 1n << 127n,
+      })
+    ).toMatchInlineSnapshot(`
+{
+  "calculatedAmount": 22224n,
+  "consumedAmount": -10000n,
+  "feeAmount": 11112n,
+  "sqrtRatioNext": 378091518801042737181527341590853568285n,
+}
+`);
+  });
+
+  it("max limit token1 output", () => {
+    expect(
+      computeStep({
+        sqrtRatio: 0x100000000000000000000000000000000n,
+        liquidity: 100000n,
+        sqrtRatioLimit: MIN_SQRT_RATIO,
+        amount: -10000n,
+        isToken1: true,
+        fee: 1n << 127n,
+      })
+    ).toMatchInlineSnapshot(`
+{
+  "calculatedAmount": 22224n,
+  "consumedAmount": -10000n,
+  "feeAmount": 11112n,
+  "sqrtRatioNext": 306254130228844617117037146688591390310n,
+}
+`);
+  });
+
+  it("limited token0 output", () => {
+    expect(
+      computeStep({
+        sqrtRatio: 0x100000000000000000000000000000000n,
+        liquidity: 100000n,
+        sqrtRatioLimit: 359186942860990600322450974511310889870n,
+        amount: -10000n,
+        isToken1: false,
+        fee: 1n << 127n,
+      })
+    ).toMatchInlineSnapshot(`
+{
+  "calculatedAmount": 11112n,
+  "consumedAmount": -5263n,
+  "feeAmount": 5556n,
+  "sqrtRatioNext": 359186942860990600322450974511310889870n,
+}
+`);
+  });
+
+  it("limited token1 output", () => {
+    expect(
+      computeStep({
+        sqrtRatio: 0x100000000000000000000000000000000n,
+        liquidity: 100000n,
+        sqrtRatioLimit: 323268248574891540290205877060179800883n,
+        amount: -10000n,
+        isToken1: true,
+        fee: 1n << 127n,
+      })
+    ).toMatchInlineSnapshot(`
+{
+  "calculatedAmount": 10528n,
+  "consumedAmount": -5000n,
+  "feeAmount": 5264n,
+  "sqrtRatioNext": 323268248574891540290205877060179800883n,
+}
+`);
+  });
 });
