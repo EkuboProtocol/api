@@ -511,50 +511,50 @@ describe("PoolNode", () => {
         liquidity: 2695287607686846n,
       });
 
-      expect(node.quote({ specifiedAmount: 2000_000_000n, isToken1: true }))
-        .toMatchInlineSnapshot(`
+      expect(node.quote({ specifiedAmount: 2000_000_000n, isToken1: true })).
+toMatchInlineSnapshot(`
 {
-  "calculatedAmount": 936436900591253065n,
+  "calculatedAmount": 936197803980535666n,
   "consumedAmount": 2000000000n,
   "executionResources": {
     "initializedTicksCrossed": 6,
-    "sqrtRatioAfter": 15872291964112534506739284504875310n,
+    "sqrtRatioAfter": 15872195688912137691253264112597002n,
   },
 }
 `);
 
-      expect(node.quote({ specifiedAmount: 20_000_000_000n, isToken1: true }))
-        .toMatchInlineSnapshot(`
+      expect(node.quote({ specifiedAmount: 20_000_000_000n, isToken1: true })).
+toMatchInlineSnapshot(`
 {
-  "calculatedAmount": 3452816583777024873n,
+  "calculatedAmount": 3452798867537863676n,
   "consumedAmount": 20000000000n,
   "executionResources": {
     "initializedTicksCrossed": 117,
-    "sqrtRatioAfter": 377134351309606061799205432664099065n,
+    "sqrtRatioAfter": 376461622467786581012265718470693082n,
   },
 }
 `);
 
-      expect(node.quote({ specifiedAmount: 10n ** 18n, isToken1: false }))
-        .toMatchInlineSnapshot(`
+      expect(node.quote({ specifiedAmount: 10n ** 18n, isToken1: false })).
+toMatchInlineSnapshot(`
 {
-  "calculatedAmount": 2056726308n,
+  "calculatedAmount": 2056014996n,
   "consumedAmount": 1000000000000000000n,
   "executionResources": {
     "initializedTicksCrossed": 5,
-    "sqrtRatioAfter": 15351645511658427122522343665007033n,
+    "sqrtRatioAfter": 15351710788920282815253545876633442n,
   },
 }
 `);
 
-      expect(node.quote({ specifiedAmount: 10n ** 19n, isToken1: false }))
-        .toMatchInlineSnapshot(`
+      expect(node.quote({ specifiedAmount: 10n ** 19n, isToken1: false })).
+toMatchInlineSnapshot(`
 {
-  "calculatedAmount": 19235712200n,
+  "calculatedAmount": 19231691709n,
   "consumedAmount": 10000000000000000000n,
   "executionResources": {
     "initializedTicksCrossed": 21,
-    "sqrtRatioAfter": 14632289607269626372995305978535074n,
+    "sqrtRatioAfter": 14632357786369744003669228231884916n,
   },
 }
 `);
