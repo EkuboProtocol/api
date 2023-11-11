@@ -43,17 +43,6 @@ const router = Router<IRequest, CF>()
 
 const ADDRESS_REGEX = /^0x[a-fA-F0-9]+$/;
 
-function currentLiquidityScore(route: PoolState[]): number {
-  return route.length === 0
-    ? 0
-    : Math.pow(
-        route.reduce((memo, pool) => {
-          return Number(pool.liquidity) * memo;
-        }, 1),
-        1 / route.length
-      );
-}
-
 function translatePool(pool: PoolState) {
   return {
     key_hash: numericToHex(pool.pool_key_hash),
@@ -144,28 +133,26 @@ router
 
       const dao = await createQueries(env);
 
-      // todo: this should be consistent with the following liquidity query
-      const { rows: relevantPools } = await dao.getAllRoutablePools({
-        tokenA: inputToken,
-        tokenB: outputToken,
-      });
+      const [relevantPools, tickData] = await dao.withinTransaction(
+        async () => {
+          const { rows: relevantPools } = await dao.getAllRoutablePools({
+            tokenA: inputToken,
+            tokenB: outputToken,
+          });
+
+          const tickData = await dao.getTickData({
+            poolKeyHashes: relevantPools.map((pk) => BigInt(pk.pool_key_hash)),
+          });
+
+          return [relevantPools, tickData];
+        }
+      );
 
       const allRoutes = findAllRoutes(
         inputToken,
         outputToken,
         relevantPools,
         2
-      );
-
-      const uniquePoolKeyHashes = allRoutes
-        .flatMap((route) => route.map((p) => p.pool_key_hash))
-        .sort()
-        .filter((hash, ix, list) => ix === 0 || hash !== list[ix - 1]);
-
-      const tickData = await dao.withinTransaction(() =>
-        dao.getTickData({
-          poolKeyHashes: uniquePoolKeyHashes.map((pk) => BigInt(pk)),
-        })
       );
 
       const quotedRoutes = allRoutes.map((route) => {
