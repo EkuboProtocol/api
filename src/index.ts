@@ -312,7 +312,7 @@ router
               tick_spacing: Number(pool.tick_spacing),
               extension: numericToHex(pool.extension),
             },
-            sqrtRatioLimit: numericToHex(limits[ix]),
+            sqrt_ratio_limit: numericToHex(limits[ix]),
           })),
         },
         {
