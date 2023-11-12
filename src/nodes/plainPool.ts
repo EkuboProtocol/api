@@ -10,25 +10,40 @@ export interface Tick {
 export class PlainPool
   implements QuoteNode<{ initializedTicksCrossed: number }>
 {
-  private readonly fee: bigint;
+  // key
+  public readonly token0: bigint;
+  public readonly token1: bigint;
+  public readonly fee: bigint;
+  public readonly tickSpacing: number;
+
+  // state
   private readonly sqrtRatio: bigint;
   private readonly liquidity: bigint;
   private readonly tick: number;
   private readonly sortedTicks: Tick[];
 
   constructor({
+    token0,
+    token1,
+    tickSpacing,
     fee,
     sqrtRatio,
     liquidity,
     tick,
     sortedTicks,
   }: {
+    token0: bigint;
+    token1: bigint;
+    tickSpacing: number;
     fee: bigint;
     sqrtRatio: bigint;
     liquidity: bigint;
     tick: number;
     sortedTicks: Tick[];
   }) {
+    this.token0 = token0;
+    this.token1 = token1;
+    this.tickSpacing = tickSpacing;
     this.fee = fee;
     this.sqrtRatio = sqrtRatio;
     this.liquidity = liquidity;
@@ -36,7 +51,7 @@ export class PlainPool
     this.sortedTicks = sortedTicks;
   }
 
-  // Deferred caching of the binary search
+  // Deferred caching of the binary search result
   private _activeTickIndex: number | null = null;
   public get activeTickIndex(): number {
     return (

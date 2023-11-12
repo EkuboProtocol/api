@@ -21,7 +21,7 @@ import { findAllRoutes } from "./findAllRoutes";
 import { PlainPool } from "./nodes/plainPool";
 import { MAX_U128 } from "./math/constants";
 import { QuoteNode } from "./nodes/quoteNode";
-import { Queries } from "./queries";
+import { PoolState, Queries } from "./queries";
 
 Decimal.set({ precision: 39 });
 
@@ -61,6 +61,63 @@ const QUOTE_NODE_CACHE: {
   ["0x534e5f4d41494e"]: {},
 };
 
+function quoteRoute(
+  tokenAmount: { token: bigint; amount: bigint },
+  route: PoolState[],
+  cache: typeof QUOTE_NODE_CACHE[SupportedChainId]
+) {
+  const isExactOutput = tokenAmount.amount < 0n;
+  return route.reduce<null | {
+    tokenAmount: {
+      token: bigint;
+      amount: bigint;
+    };
+    resources: { initializedTicksCrossed: number };
+  }>(
+    (state, pool) => {
+      if (!state) {
+        return null;
+      }
+
+      const node = cache[pool.pool_key_hash].node;
+
+      const isToken1 = node.token1 === state.tokenAmount.token;
+
+      const quote = node.quote({
+        specifiedAmount: state.tokenAmount.amount,
+        isToken1,
+      });
+
+      // at the moment we do not support partial execution
+      if (quote.consumedAmount !== state.tokenAmount.amount) {
+        return null;
+      }
+
+      const nextToken = BigInt(isToken1 ? pool.token0 : pool.token1);
+
+      return {
+        tokenAmount: {
+          amount: isExactOutput
+            ? -quote.calculatedAmount
+            : quote.calculatedAmount,
+          token: nextToken,
+        },
+        resources: {
+          initializedTicksCrossed:
+            state.resources.initializedTicksCrossed +
+            quote.executionResources.initializedTicksCrossed,
+        },
+      };
+    },
+    {
+      tokenAmount,
+      resources: {
+        initializedTicksCrossed: 0,
+      },
+    }
+  );
+}
+
 async function getAllRelevantPoolsAndUpdateCache(
   dao: Queries,
   chainId: SupportedChainId,
@@ -96,6 +153,9 @@ async function getAllRelevantPoolsAndUpdateCache(
           eventIndex: pool.event_index,
         },
         node: new PlainPool({
+          token0: BigInt(pool.token0),
+          token1: BigInt(pool.token1),
+          tickSpacing: Number(pool.tick_spacing),
           sqrtRatio: BigInt(pool.sqrt_ratio),
           fee: BigInt(pool.fee),
           liquidity: BigInt(pool.liquidity),
@@ -187,54 +247,8 @@ router
       const cache = QUOTE_NODE_CACHE[env.STARKNET_CHAIN_ID];
       const quotedRoutes = allRoutes.map((route, routeIx) => {
         try {
-          const quote = route.reduce<null | {
-            amount: bigint;
-            token: bigint;
-            resources: { initializedTicksCrossed: number };
-          }>(
-            (state, pool) => {
-              if (!state) {
-                return null;
-              }
-
-              const node = cache[pool.pool_key_hash].node;
-
-              const isToken1 = BigInt(pool.token1) === state.token;
-
-              const quote = node.quote({
-                specifiedAmount: state.amount,
-                isToken1,
-              });
-
-              // at the moment we do not support partial execution
-              if (quote.consumedAmount !== state.amount) {
-                return null;
-              }
-
-              const nextToken = BigInt(isToken1 ? pool.token0 : pool.token1);
-
-              return {
-                amount: isExactOutput
-                  ? -quote.calculatedAmount
-                  : quote.calculatedAmount,
-                token: nextToken,
-                resources: {
-                  initializedTicksCrossed:
-                    state.resources.initializedTicksCrossed +
-                    quote.executionResources.initializedTicksCrossed,
-                },
-              };
-            },
-            {
-              amount,
-              token,
-              resources: {
-                initializedTicksCrossed: 0,
-              },
-            }
-          );
           return {
-            quote,
+            quote: quoteRoute({ amount, token }, route, cache),
             route,
           };
         } catch (e) {
@@ -246,31 +260,28 @@ router
         }
       });
 
-      const workingRoutes = quotedRoutes
-        // remove routes that could not be quoted
-        .filter(
-          (
-            route
-          ): route is typeof route & {
-            ["quote"]: Exclude<typeof route["quote"], null>;
-          } => route.quote !== null
-        );
+      let bestWorkingRoute;
+      for (const route of quotedRoutes) {
+        if (!route.quote) continue;
 
-      let bestRoute: typeof workingRoutes[number] | null = null;
-      for (const route of workingRoutes) {
-        if (!bestRoute || route.quote.amount > bestRoute.quote.amount) {
-          bestRoute = route;
+        if (
+          !bestWorkingRoute ||
+          !bestWorkingRoute.quote ||
+          route.quote.tokenAmount.amount >
+            bestWorkingRoute.quote.tokenAmount.amount
+        ) {
+          bestWorkingRoute = route;
         }
       }
 
-      if (!bestRoute) {
+      if (!bestWorkingRoute || !bestWorkingRoute.quote) {
         return error(404, "No route found");
       }
 
       return json(
         {
-          amount: bestRoute.quote.amount.toString(),
-          route: bestRoute.route.map((pool) => ({
+          amount: bestWorkingRoute.quote.tokenAmount.amount.toString(),
+          route: bestWorkingRoute.route.map((pool) => ({
             key_hash: numericToHex(pool.pool_key_hash),
             token0: numericToHex(pool.token0),
             token1: numericToHex(pool.token1),
