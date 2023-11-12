@@ -22,6 +22,8 @@ import { PlainPool } from "./nodes/plainPool";
 import { MAX_U128 } from "./math/constants";
 import { QuoteNode } from "./nodes/quoteNode";
 import { PoolState, Queries } from "./queries";
+import { toSqrtRatio } from "./math/tick";
+import { isPriceIncreasing } from "./math/swap";
 
 Decimal.set({ precision: 39 });
 
@@ -61,19 +63,22 @@ const QUOTE_NODE_CACHE: {
   ["0x534e5f4d41494e"]: {},
 };
 
+interface QuoteResult {
+  tokenAmount: {
+    token: bigint;
+    amount: bigint;
+  };
+  limits: bigint[];
+  resources: { initializedTicksCrossed: number };
+}
+
 function quoteRoute(
   tokenAmount: { token: bigint; amount: bigint },
   route: PoolState[],
   cache: typeof QUOTE_NODE_CACHE[SupportedChainId]
-) {
+): Readonly<QuoteResult> | null {
   const isExactOutput = tokenAmount.amount < 0n;
-  return route.reduce<null | {
-    tokenAmount: {
-      token: bigint;
-      amount: bigint;
-    };
-    resources: { initializedTicksCrossed: number };
-  }>(
+  return route.reduce<QuoteResult | null>(
     (state, pool) => {
       if (!state) {
         return null;
@@ -83,9 +88,19 @@ function quoteRoute(
 
       const isToken1 = node.token1 === state.tokenAmount.token;
 
+      const sqrtRatioLimit = toSqrtRatio(
+        pool.tick +
+          (isPriceIncreasing(state.tokenAmount.amount, isToken1)
+            ? 100 * Number(pool.tick_spacing)
+            : -100 * Number(pool.tick_spacing))
+      );
+
+      state.limits.push(sqrtRatioLimit);
+
       const quote = node.quote({
         specifiedAmount: state.tokenAmount.amount,
         isToken1,
+        sqrtRatioLimit,
       });
 
       // at the moment we do not support partial execution
@@ -96,6 +111,7 @@ function quoteRoute(
       const nextToken = BigInt(isToken1 ? pool.token0 : pool.token1);
 
       return {
+        limits: state.limits,
         tokenAmount: {
           amount: isExactOutput
             ? -quote.calculatedAmount
@@ -111,6 +127,7 @@ function quoteRoute(
     },
     {
       tokenAmount,
+      limits: [],
       resources: {
         initializedTicksCrossed: 0,
       },
@@ -260,34 +277,42 @@ router
         }
       });
 
-      let bestWorkingRoute;
+      let bestWorkingRoute: {
+        route: PoolState[];
+        quote: Readonly<QuoteResult>;
+      } | null = null;
       for (const route of quotedRoutes) {
-        if (!route.quote) continue;
-
         if (
-          !bestWorkingRoute ||
-          !bestWorkingRoute.quote ||
-          route.quote.tokenAmount.amount >
-            bestWorkingRoute.quote.tokenAmount.amount
+          route.quote &&
+          (!bestWorkingRoute ||
+            route.quote.tokenAmount.amount >
+              bestWorkingRoute.quote.tokenAmount.amount)
         ) {
-          bestWorkingRoute = route;
+          bestWorkingRoute = route as {
+            route: PoolState[];
+            quote: Readonly<QuoteResult>;
+          };
         }
       }
 
-      if (!bestWorkingRoute || !bestWorkingRoute.quote) {
+      if (!bestWorkingRoute) {
         return error(404, "No route found");
       }
+
+      const limits = bestWorkingRoute.quote.limits;
 
       return json(
         {
           amount: bestWorkingRoute.quote.tokenAmount.amount.toString(),
-          route: bestWorkingRoute.route.map((pool) => ({
-            key_hash: numericToHex(pool.pool_key_hash),
-            token0: numericToHex(pool.token0),
-            token1: numericToHex(pool.token1),
-            fee: numericToHex(pool.fee),
-            tick_spacing: Number(pool.tick_spacing),
-            extension: numericToHex(pool.extension),
+          route: bestWorkingRoute.route.map((pool, ix) => ({
+            pool_key: {
+              token0: numericToHex(pool.token0),
+              token1: numericToHex(pool.token1),
+              fee: numericToHex(pool.fee),
+              tick_spacing: Number(pool.tick_spacing),
+              extension: numericToHex(pool.extension),
+            },
+            sqrtRatioLimit: numericToHex(limits[ix]),
           })),
         },
         {

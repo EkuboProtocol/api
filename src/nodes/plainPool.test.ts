@@ -5,6 +5,9 @@ describe("PoolNode", () => {
   describe("findNearestInitializedTickIndex", () => {
     it("no ticks", () => {
       const pool = new PlainPool({
+        token0: 0n,
+        token1: 0n,
+        tickSpacing: 0,
         fee: 0n,
         tick: 0,
         sortedTicks: [],
@@ -16,6 +19,9 @@ describe("PoolNode", () => {
     });
     it("one tick less than", () => {
       const pool = new PlainPool({
+        token0: 0n,
+        token1: 0n,
+        tickSpacing: 0,
         fee: 0n,
         tick: 0,
         sortedTicks: [{ tick: -1, liquidityDelta: 1n }],
@@ -27,6 +33,9 @@ describe("PoolNode", () => {
     });
     it("one tick equal to", () => {
       const pool = new PlainPool({
+        token0: 0n,
+        token1: 0n,
+        tickSpacing: 0,
         fee: 0n,
         tick: 0,
         sortedTicks: [{ tick: 0, liquidityDelta: 1n }],
@@ -38,6 +47,9 @@ describe("PoolNode", () => {
     });
     it("one tick greater than", () => {
       const pool = new PlainPool({
+        token0: 0n,
+        token1: 0n,
+        tickSpacing: 0,
         fee: 0n,
         tick: 0,
         sortedTicks: [{ tick: 1, liquidityDelta: 1n }],
@@ -49,6 +61,9 @@ describe("PoolNode", () => {
     });
     it("many ticks", () => {
       const pool = new PlainPool({
+        token0: 0n,
+        token1: 0n,
+        tickSpacing: 0,
         fee: 0n,
         tick: 0,
         sortedTicks: [
@@ -86,6 +101,9 @@ describe("PoolNode", () => {
   describe("quote", () => {
     it("works for 0 liquidity 1 token1 input", () => {
       const pool = new PlainPool({
+        token0: 0n,
+        token1: 0n,
+        tickSpacing: 0,
         fee: 0n,
         tick: 0,
         sortedTicks: [],
@@ -104,6 +122,9 @@ describe("PoolNode", () => {
     });
     it("works for 0 liquidity 1 token0 input", () => {
       const pool = new PlainPool({
+        token0: 0n,
+        token1: 0n,
+        tickSpacing: 0,
         fee: 0n,
         tick: 0,
         sortedTicks: [],
@@ -123,6 +144,9 @@ describe("PoolNode", () => {
 
     it("works for 10000 liquidity 1000 token1 input", () => {
       const pool = new PlainPool({
+        token0: 0n,
+        token1: 0n,
+        tickSpacing: 0,
         fee: 0n,
         tick: 0,
         sortedTicks: [
@@ -144,6 +168,9 @@ describe("PoolNode", () => {
     });
     it("works for 10000 liquidity 1000 token1 input", () => {
       const pool = new PlainPool({
+        token0: 0n,
+        token1: 0n,
+        tickSpacing: 0,
         fee: 0n,
         tick: 1,
         sortedTicks: [
@@ -166,6 +193,9 @@ describe("PoolNode", () => {
 
     it("eth usdc example pool", () => {
       const node = new PlainPool({
+        token0: 0n,
+        token1: 0n,
+        tickSpacing: 0,
         fee: 1020847100762815411640772995208708096n,
         sqrtRatio: 15563001745813054266804011142814305n,
         tick: -19985280,
@@ -607,6 +637,9 @@ describe("PoolNode", () => {
 
     it("eth dai example pool", () => {
       const node = new PlainPool({
+        token0: 0n,
+        token1: 0n,
+        tickSpacing: 0,
         fee: 170141183460469235273462165868118016n,
         sqrtRatio: 7447172931220104502713977734064586728n,
         tick: -7643887,
@@ -1517,6 +1550,9 @@ describe("PoolNode", () => {
 
     it("dai usdc example pool", () => {
       const node = new PlainPool({
+        token0: 0n,
+        token1: 0n,
+        tickSpacing: 0,
         fee: 17014118346046923173168730371588410572n,
         sqrtRatio: 340492544394014493270092018910666n,
         tick: -27629800,
