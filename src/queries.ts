@@ -261,6 +261,7 @@ export class Queries {
                                                block_number,
                                                transaction_index,
                                                event_index,
+                                               locker,
                                                delta0,
                                                delta1
                                         FROM swaps
@@ -276,6 +277,7 @@ export class Queries {
                                                  block_number,
                                                  transaction_index,
                                                  event_index,
+                                                 locker,
                                                  delta0,
                                                  delta1
                                           FROM position_updates
