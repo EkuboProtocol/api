@@ -481,7 +481,7 @@ router
       const queries = await createQueries(env);
 
       const timestamp = Date.now();
-      const sixHoursAgo = new Date(timestamp - 3_600_000 * 6);
+      const thirtyMinutesAgo = new Date(timestamp - 1_800_000);
 
       const ft = feeToken(env.STARKNET_CHAIN_ID);
 
@@ -494,17 +494,17 @@ router
           queries.getVolumeWeightedPrice({
             quoteToken,
             baseToken,
-            since: sixHoursAgo,
+            since: thirtyMinutesAgo,
           }),
           queries.getVolumeWeightedPrice({
             quoteToken,
             baseToken: BigInt(ft.l2_token_address),
-            since: sixHoursAgo,
+            since: thirtyMinutesAgo,
           }),
           queries.getVolumeWeightedPrice({
             quoteToken: BigInt(ft.l2_token_address),
             baseToken,
-            since: sixHoursAgo,
+            since: thirtyMinutesAgo,
           }),
         ])
       );
