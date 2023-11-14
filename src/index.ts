@@ -47,6 +47,12 @@ const router = Router<IRequest, CF>()
 
 const ADDRESS_REGEX = /^0x[a-fA-F0-9]+$/;
 
+interface LastUpdatedKey {
+  blockNumber: string;
+  transactionIndex: number;
+  eventIndex: number;
+}
+
 const QUOTE_NODE_CACHE: {
   [chainId in SupportedChainId]: {
     [key_hash: string]: {
@@ -135,9 +141,51 @@ function quoteRoute(
   );
 }
 
+async function updatePoolCache(
+  pools: PoolState[],
+  dao: Queries,
+  cache: typeof QUOTE_NODE_CACHE[SupportedChainId]
+): Promise<void> {
+  const poolsNeedUpdate = pools.filter(
+    ({ pool_key_hash, block_number, transaction_index, event_index }) => {
+      const cached = cache[pool_key_hash];
+      return (
+        !cached ||
+        cached.lastUpdated.blockNumber !== block_number ||
+        cached.lastUpdated.transactionIndex !== transaction_index ||
+        cached.lastUpdated.eventIndex !== event_index
+      );
+    }
+  );
+
+  const tickData = await dao.getTickData({
+    poolKeyHashes: poolsNeedUpdate.map((pk) => BigInt(pk.pool_key_hash)),
+  });
+
+  poolsNeedUpdate.forEach((pool) => {
+    cache[pool.pool_key_hash] = {
+      lastUpdated: {
+        blockNumber: pool.block_number,
+        transactionIndex: pool.transaction_index,
+        eventIndex: pool.event_index,
+      },
+      node: new PlainPool({
+        token0: BigInt(pool.token0),
+        token1: BigInt(pool.token1),
+        tickSpacing: Number(pool.tick_spacing),
+        sqrtRatio: BigInt(pool.sqrt_ratio),
+        fee: BigInt(pool.fee),
+        liquidity: BigInt(pool.liquidity),
+        tick: pool.tick,
+        sortedTicks: tickData[pool.pool_key_hash] ?? [],
+      }),
+    };
+  });
+}
+
 async function getAllRelevantPoolsAndUpdateCache(
   dao: Queries,
-  chainId: SupportedChainId,
+  cache: typeof QUOTE_NODE_CACHE[SupportedChainId],
   { tokenA, tokenB }: { tokenA: bigint; tokenB: bigint }
 ) {
   return dao.withinTransaction(async () => {
@@ -146,41 +194,7 @@ async function getAllRelevantPoolsAndUpdateCache(
       tokenB,
     });
 
-    const poolsNeedUpdate = relevantPools.filter(
-      ({ pool_key_hash, block_number, transaction_index, event_index }) => {
-        const cached = QUOTE_NODE_CACHE[chainId][pool_key_hash];
-        return (
-          !cached ||
-          cached.lastUpdated.blockNumber !== block_number ||
-          cached.lastUpdated.transactionIndex !== transaction_index ||
-          cached.lastUpdated.eventIndex !== event_index
-        );
-      }
-    );
-
-    const tickData = await dao.getTickData({
-      poolKeyHashes: poolsNeedUpdate.map((pk) => BigInt(pk.pool_key_hash)),
-    });
-
-    poolsNeedUpdate.forEach((pool) => {
-      QUOTE_NODE_CACHE[chainId][pool.pool_key_hash] = {
-        lastUpdated: {
-          blockNumber: pool.block_number,
-          transactionIndex: pool.transaction_index,
-          eventIndex: pool.event_index,
-        },
-        node: new PlainPool({
-          token0: BigInt(pool.token0),
-          token1: BigInt(pool.token1),
-          tickSpacing: Number(pool.tick_spacing),
-          sqrtRatio: BigInt(pool.sqrt_ratio),
-          fee: BigInt(pool.fee),
-          liquidity: BigInt(pool.liquidity),
-          tick: pool.tick,
-          sortedTicks: tickData[pool.pool_key_hash] ?? [],
-        }),
-      };
-    });
+    await updatePoolCache(relevantPools, dao, cache);
 
     return relevantPools;
   });
@@ -245,9 +259,11 @@ router
 
       const dao = await createQueries(env);
 
+      const cache = QUOTE_NODE_CACHE[env.STARKNET_CHAIN_ID];
+
       const relevantPools = await getAllRelevantPoolsAndUpdateCache(
         dao,
-        env.STARKNET_CHAIN_ID,
+        cache,
         {
           tokenA: token,
           tokenB: otherToken,
@@ -261,7 +277,6 @@ router
       // routes are executed in reverse for exact output
       const allRoutes = findAllRoutes(token, otherToken, relevantPools, 2);
 
-      const cache = QUOTE_NODE_CACHE[env.STARKNET_CHAIN_ID];
       const quotedRoutes = allRoutes.map((route, routeIx) => {
         try {
           return {
@@ -656,6 +671,57 @@ router
         {
           headers: {
             "cache-control": "public, max-age=15, must-revalidate",
+          },
+        }
+      );
+    }
+  )
+  .get<IRequest, CF>(
+    "/pools/:key_hash/delta_to_sqrt_ratio/:new_sqrt_ratio",
+    async ({ params }, env) => {
+      let poolKeyHash: bigint, newSqrtRatio: bigint;
+      try {
+        poolKeyHash = BigInt(params.key_hash);
+        newSqrtRatio = BigInt(params.new_sqrt_ratio);
+      } catch (e) {
+        return error(400, "Invalid path parameters");
+      }
+
+      const queries = await createQueries(env);
+
+      const [node, sqrtRatio] = await queries.withinTransaction(async () => {
+        const poolState = await queries.getPoolState({ keyHash: poolKeyHash });
+
+        const cache = QUOTE_NODE_CACHE[env.STARKNET_CHAIN_ID];
+
+        await updatePoolCache([poolState], queries, cache);
+
+        return [
+          cache[poolKeyHash.toString()].node,
+          BigInt(poolState.sqrt_ratio),
+        ];
+      });
+
+      const isToken1 = sqrtRatio >= newSqrtRatio;
+      const { consumedAmount, calculatedAmount } = node.quote({
+        specifiedAmount: -0xffffffffffffffffffffffffffffffffn,
+        sqrtRatioLimit: newSqrtRatio,
+        isToken1: sqrtRatio >= newSqrtRatio,
+      });
+
+      return json(
+        isToken1
+          ? {
+              delta0: calculatedAmount.toString(),
+              delta1: consumedAmount.toString(),
+            }
+          : {
+              delta0: consumedAmount.toString(),
+              delta1: calculatedAmount.toString(),
+            },
+        {
+          headers: {
+            "cache-control": "no-cache",
           },
         }
       );

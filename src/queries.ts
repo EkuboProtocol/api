@@ -104,6 +104,40 @@ export class Queries {
     });
   }
 
+  public async getPoolState({
+    keyHash,
+  }: {
+    keyHash: bigint;
+  }): Promise<PoolState> {
+    const { rows } = await this.client.query<Omit<PoolState, "pool_key_hash">>({
+      text: `
+          SELECT token0,
+                 token1,
+                 fee,
+                 tick_spacing,
+                 extension,
+                 sqrt_ratio,
+                 tick,
+                 liquidity,
+                 block_number,
+                 transaction_index,
+                 event_index
+          FROM pool_states_materialized
+                   JOIN pool_keys ON pool_key_hash = key_hash
+          WHERE pool_key_hash = $1
+      `,
+      values: [keyHash],
+    });
+    if (rows.length !== 1) {
+      throw new Error(`Pool with key hash ${keyHash} not found`);
+    }
+
+    return {
+      pool_key_hash: keyHash.toString(),
+      ...rows[0],
+    };
+  }
+
   public async getPositionMetadata(
     id: number
   ): Promise<PositionMetadata | null> {
