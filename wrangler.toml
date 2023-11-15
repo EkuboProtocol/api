@@ -2,7 +2,9 @@ name = "ekubo-api"
 main = "src/index.ts"
 compatibility_date = "2023-03-14"
 node_compat = true
-usage_model = "bundled"
+
+[limits]
+cpu_ms = 200
 
 [vars]
 STARKNET_CHAIN_ID = "0x534e5f4d41494e"
