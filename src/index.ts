@@ -56,11 +56,7 @@ interface LastUpdatedKey {
 const QUOTE_NODE_CACHE: {
   [chainId in SupportedChainId]: {
     [key_hash: string]: {
-      lastUpdated: {
-        blockNumber: string;
-        transactionIndex: number;
-        eventIndex: number;
-      };
+      lastUpdated: LastUpdatedKey;
       node: QuoteNode<{ initializedTicksCrossed: number }>;
     };
   };
@@ -206,6 +202,26 @@ router
       headers: {
         "cache-control":
           "public, max-age=3600, stale-while-revalidate=3600, stale-if-error=86400",
+      },
+    });
+  })
+  .get<IRequest, CF>("/tokens/:address/logo.svg", async ({ params }, env) => {
+    const token = getTokenByAddress(env.STARKNET_CHAIN_ID, params.address);
+    if (!token) {
+      return error(404, "Token address not found");
+    }
+
+    const logo = await env.TOKEN_LOGOS_KV?.get(token.l2_token_address);
+
+    if (!logo) {
+      return error(404, "Token logo not available");
+    }
+
+    return new Response(logo, {
+      status: 200,
+      headers: {
+        "content-type": "image/svg+xml",
+        "cache-control": "public, max-age=86400, immutable",
       },
     });
   })

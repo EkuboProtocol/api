@@ -9,16 +9,22 @@ cpu_ms = 200
 [vars]
 STARKNET_CHAIN_ID = "0x534e5f4d41494e"
 # only used for running the api locally
-PG_CONNECTION_STRING="postgresql://postgres:postgres@localhost:5432"
+PG_CONNECTION_STRING = "postgresql://postgres:postgres@localhost:5432"
 
 [env.goerli]
 hyperdrive = [
     { binding = "HYPERDRIVE", id = "ea0b41549b16437d8d89fdb769395f43" }
+]
+kv_namespaces = [
+    { binding = "TOKEN_LOGOS_KV", id = "8edf0811f4ac443b8ce778bf509899b3" }
 ]
 vars = { STARKNET_CHAIN_ID = "0x534e5f474f45524c49" }
 
 [env.mainnet]
 hyperdrive = [
     { binding = "HYPERDRIVE", id = "da493ecfaf3f40f4985fa006d3c574a6" }
+]
+kv_namespaces = [
+    { binding = "TOKEN_LOGOS_KV", id = "5612d9a16e6d43fea983af957f2ee69c" }
 ]
 vars = { STARKNET_CHAIN_ID = "0x534e5f4d41494e" }
