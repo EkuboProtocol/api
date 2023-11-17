@@ -13,6 +13,7 @@ import {
 } from "./format";
 import {
   feeToken,
+  feeTokenAddress,
   getTokenByAddress,
   parseTokenIdentifier,
   TOKENS_BY_CHAIN_ID,
@@ -73,6 +74,13 @@ interface QuoteResult {
   limits: bigint[];
   resources: { initializedTicksCrossed: number };
 }
+
+const POSITIONS_CONTRACT_ADDRESS: { [chainId in SupportedChainId]: bigint } = {
+  ["0x534e5f4d41494e"]:
+    0x02e0af29598b407c8716b17f6d2795eca1b471413fa03fb145a5e33722184067n,
+  ["0x534e5f474f45524c49"]:
+    0x073fa8432bf59f8ed535f29acfd89a7020758bda7be509e00dfed8a9fde12ddcn,
+};
 
 function quoteRoute(
   tokenAmount: { token: bigint; amount: bigint },
@@ -242,6 +250,33 @@ router
       {
         headers: {
           "cache-control": "public, max-age=10, must-revalidate",
+        },
+      }
+    );
+  })
+  .get<IRequest, CF>("/leaderboard", async ({}, env) => {
+    const dao = await createQueries(env);
+
+    const positionsContractAddress =
+      POSITIONS_CONTRACT_ADDRESS[env.STARKNET_CHAIN_ID];
+
+    const { rows } = await dao.getLeaderboard({
+      positionsContractAddress,
+      feeTokenAddress: feeTokenAddress(env.STARKNET_CHAIN_ID),
+    });
+
+    return json(
+      {
+        timestamp: Date.now(),
+        data: rows.map((row) => ({
+          collector: numericToHex(row.collector),
+          points: row.points,
+        })),
+      },
+      {
+        headers: {
+          "cache-control":
+            "public,max-age=3600,stale-while-revalidate=3600,stale-if-error=180",
         },
       }
     );

@@ -711,7 +711,7 @@ export class Queries {
                                                  to_address,
                                                  ROW_NUMBER() OVER (
                                                      PARTITION BY token_id
-                                                     ORDER BY block_number DESC, transaction_index DESC
+                                                     ORDER BY block_number DESC, transaction_index DESC, event_index DESC
                                                      ) AS row_no
                                           FROM position_transfers
                                           WHERE (from_address = $1
@@ -774,5 +774,81 @@ export class Queries {
 
       return memo;
     }, {});
+  }
+
+  public async getLeaderboard({
+    positionsContractAddress,
+    feeTokenAddress,
+  }: {
+    positionsContractAddress: bigint;
+    feeTokenAddress: bigint;
+  }) {
+    return this.client.query<{ collector: string; points: string }>({
+      name: "leaderboard",
+      text: `
+          WITH token_owners AS (SELECT pm.token_id,
+                                       (SELECT to_address
+                                        FROM position_transfers AS pt
+                                        WHERE pm.token_id = pt.token_id
+                                          AND pt.to_address != 0
+                                        ORDER BY pt.block_number DESC, pt.transaction_index DESC, pt.event_index DESC
+                                        LIMIT 1) AS last_owner
+                                FROM position_minted AS pm),
+               fees_collected_by_pair AS (SELECT token_owners.last_owner AS collector,
+                                                 token0,
+                                                 token1,
+                                                 SUM(delta0)             AS total_token0,
+                                                 SUM(delta1)             AS total_token1
+                                          FROM position_fees_collected
+                                                   JOIN token_owners ON token_owners.token_id = position_fees_collected.salt
+                                                   JOIN pool_keys ON position_fees_collected.pool_key_hash = pool_keys.key_hash
+                                          WHERE position_fees_collected.owner = $1
+                                            AND pool_keys.fee <= 17014118346046923173168730371588410572 -- 5%
+                                          GROUP BY token_owners.last_owner, token0, token1),
+               fees_collected_by_token AS (SELECT collector,
+                                                  token0       AS token,
+                                                  total_token0 AS amount
+                                           FROM fees_collected_by_pair
+                                           WHERE total_token0 != 0
+                                           UNION ALL
+                                           SELECT collector,
+                                                  token1       AS token,
+                                                  total_token1 AS amount
+                                           FROM fees_collected_by_pair
+                                           WHERE total_token1 != 0),
+               total_fees_by_collector_by_token AS (SELECT collector, token, ABS(SUM(amount)) AS fees_collected
+                                                    FROM fees_collected_by_token
+                                                    GROUP BY collector, token),
+               -- todo: better conversion for fees by token into points (e.g. use ether price)
+               all_tokens AS (SELECT token0 AS token
+                              FROM pool_keys
+                              UNION
+                              DISTINCT
+                              SELECT token1 AS token
+                              FROM pool_keys),
+               points_conversion AS (SELECT token,
+                                            COALESCE((SELECT (CASE
+                                                                  WHEN token = token0 THEN (total / k_volume)
+                                                                  ELSE (k_volume / total) END)
+                                                      FROM pair_vwap_preimages_materialized
+                                                      WHERE (CASE
+                                                                 WHEN token0 = token THEN token1 = $2
+                                                                 WHEN token1 = token THEN token0 = $2
+                                                                 ELSE FALSE END)
+                                                        AND k_volume != 0
+                                                        AND total != 0
+                                                      ORDER BY timestamp_start DESC
+                                                      LIMIT 1), 0) AS points_conversion
+                                     FROM all_tokens)
+          SELECT collector, SUM(total_fees_by_collector_by_token.fees_collected * points_conversion) AS points
+          FROM total_fees_by_collector_by_token
+                   JOIN points_conversion
+                        ON total_fees_by_collector_by_token.token = points_conversion.token
+          GROUP BY collector
+          ORDER BY points DESC
+          LIMIT 1000
+      `,
+      values: [positionsContractAddress, feeTokenAddress],
+    });
   }
 }
