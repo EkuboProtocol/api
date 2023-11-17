@@ -522,20 +522,20 @@ router
 
       const [direct, quoteFt, baseFt] = await queries.withinTransaction(() =>
         Promise.all([
-          queries.getVolumeWeightedPrice({
+          queries.getLastVolumeWeightedPrice({
             quoteToken,
             baseToken,
-            since: threeHoursAgo,
+            newerThan: threeHoursAgo,
           }),
-          queries.getVolumeWeightedPrice({
+          queries.getLastVolumeWeightedPrice({
             quoteToken,
             baseToken: BigInt(ft.l2_token_address),
-            since: threeHoursAgo,
+            newerThan: threeHoursAgo,
           }),
-          queries.getVolumeWeightedPrice({
+          queries.getLastVolumeWeightedPrice({
             quoteToken: BigInt(ft.l2_token_address),
             baseToken,
-            since: threeHoursAgo,
+            newerThan: threeHoursAgo,
           }),
         ])
       );
@@ -600,7 +600,6 @@ router
 
     const prices = await queries.getAllVolumeWeightedPrices({
       quoteToken,
-      end: new Date(timestamp),
       start: sixHoursAgo,
     });
 

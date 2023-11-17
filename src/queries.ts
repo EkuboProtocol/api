@@ -411,14 +411,14 @@ export class Queries {
     });
   }
 
-  public async getVolumeWeightedPrice({
+  public async getLastVolumeWeightedPrice({
     baseToken,
     quoteToken,
-    since,
+    newerThan,
   }: {
     baseToken: bigint;
     quoteToken: bigint;
-    since: Date;
+    newerThan: Date;
   }): Promise<{ price: Decimal; k_volume: bigint } | null> {
     const [token0, token1] =
       baseToken < quoteToken
@@ -431,16 +431,15 @@ export class Queries {
       k_volume: string;
     }>({
       text: `
-                SELECT SUM(ABS(delta1 * delta1)) AS total, SUM(ABS(delta0 * delta1)) AS k_volume
-                FROM swaps
-                         JOIN blocks ON swaps.block_number = blocks.number
-                         JOIN pool_keys ON swaps.pool_key_hash = pool_keys.key_hash
-                WHERE token0 = $1
-                  AND token1 = $2
-                  AND blocks.timestamp > $3
-                GROUP BY token0, token1
-            `,
-      values: [token0, token1, since],
+          SELECT total, k_volume
+          FROM pair_vwap_preimages_materialized
+          WHERE token0 = $1
+            AND token1 = $2
+            AND timestamp_start >= $3
+          ORDER BY timestamp_start DESC
+          LIMIT 1
+      `,
+      values: [token0, token1, newerThan],
     });
 
     if (rows.length !== 1) return null;
@@ -506,11 +505,9 @@ export class Queries {
 
   public async getAllVolumeWeightedPrices({
     start,
-    end,
     quoteToken,
   }: {
     start: Date;
-    end: Date;
     quoteToken: bigint;
   }): Promise<{ token: string; price: Decimal; k_volume: bigint }[]> {
     const { rows } = await this.client.query<{
@@ -520,17 +517,14 @@ export class Queries {
       k_volume: string;
     }>({
       text: `
-                SELECT token0, token1, SUM(ABS(delta1 * delta1)) AS total, SUM(ABS(delta0 * delta1)) AS k_volume
-                FROM swaps
-                         JOIN blocks ON swaps.block_number = blocks.number
-                         JOIN pool_keys ON swaps.pool_key_hash = pool_keys.key_hash
+                SELECT token0, token1, SUM(total) AS total, SUM(k_volume) AS k_volume
+                FROM pair_vwap_preimages_materialized
                 WHERE (token0 = $1
                     OR token1 = $1)
-                  AND blocks.timestamp > $2
-                  AND blocks.timestamp < $3
+                  AND timestamp_start >= $2
                 GROUP BY token0, token1
             `,
-      values: [quoteToken, start, end],
+      values: [quoteToken, start],
     });
 
     return rows.map(({ token0, token1, k_volume, total }) => ({
