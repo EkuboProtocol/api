@@ -786,55 +786,57 @@ export class Queries {
     return this.client.query<{ collector: string; points: string }>({
       name: "leaderboard",
       text: `
-        WITH
-          -- the full list of tokens for which there are pools
-          all_tokens AS
-            (SELECT token0 AS token
-             FROM pool_keys
-             UNION
-             DISTINCT
-             SELECT token1 AS token
-             FROM pool_keys),
-          -- 1 wei of token is converted to points via the last known price, so we get the price here
-          points_conversion AS
-            (SELECT token,
-                    (CASE
-                       WHEN token =
-                            $1
-                         THEN 1
-                       ELSE COALESCE((SELECT (CASE
-                                                WHEN token = token0 THEN (total / k_volume)
-                                                ELSE (k_volume / total) END)
-                                      FROM pair_vwap_preimages_materialized
-                                      WHERE (CASE
-                                               WHEN token0 = token THEN token1 = $2
-                                               WHEN token1 = token THEN token0 = $2
-                                               ELSE FALSE END)
-                                        AND k_volume != 0
-                                        AND total != 0
-                                      ORDER BY timestamp_start DESC
-                                      LIMIT 1), 0) END) AS rate
-             FROM all_tokens)
-        SELECT (SELECT to_address
-                FROM position_transfers AS pt
-                WHERE pt.token_id = pf.salt::BIGINT
-                  AND (pt.block_number, pt.transaction_index, pt.event_index) <
-                      (pf.block_number, pf.transaction_index, pf.event_index)
-                ORDER BY pt.block_number DESC, pt.transaction_index DESC, pt.event_index DESC
-                LIMIT 1)     AS collector,
-               FLOOR(ABS(SUM(
-                   (pf.delta0 * pc0.rate) + (pf.delta1 * pc1.rate)
-                         ))) AS points
-        FROM position_fees_collected AS pf
-               JOIN pool_keys AS pk ON pf.pool_key_hash = pk.key_hash
-               JOIN points_conversion AS pc0 ON pc0.token = pk.token0
-               JOIN points_conversion AS pc1 ON pc1.token = pk.token1
-        WHERE pf.owner = $1
-          -- limit the fee to the ultra high variant to prevent some gamification
-          AND pk.fee <= 17014118346046923173168730371588410572
-        GROUP BY collector
-        ORDER BY points DESC
-        LIMIT 1000;
+          WITH
+              -- the full list of tokens for which there are pools
+              all_tokens AS
+                  (SELECT token0 AS token
+                   FROM pool_keys
+                   UNION
+                   DISTINCT
+                   SELECT token1 AS token
+                   FROM pool_keys),
+              fee_to_discount_factor AS (SELECT DISTINCT (fee)                                                      fee,
+                                                         1 - SQRT(fee / 340282366920938463463374607431768211456) AS fee_discount
+                                         FROM pool_keys),
+              -- 1 wei of token is converted to points via the last known price, so we get the price here
+              points_conversion AS
+                  (SELECT token,
+                          (CASE
+                               WHEN token =
+                                    $1
+                                   THEN 1
+                               ELSE COALESCE((SELECT (CASE
+                                                          WHEN token = token0 THEN (total / k_volume)
+                                                          ELSE (k_volume / total) END)
+                                              FROM pair_vwap_preimages_materialized
+                                              WHERE (CASE
+                                                         WHEN token0 = token THEN token1 = $2
+                                                         WHEN token1 = token THEN token0 = $2
+                                                         ELSE FALSE END)
+                                                AND k_volume != 0
+                                                AND total != 0
+                                              ORDER BY timestamp_start DESC
+                                              LIMIT 1), 0) END) AS rate
+                   FROM all_tokens)
+          SELECT (SELECT to_address
+                  FROM position_transfers AS pt
+                  WHERE pt.token_id = pf.salt::BIGINT
+                    AND (pt.block_number, pt.transaction_index, pt.event_index) <
+                        (pf.block_number, pf.transaction_index, pf.event_index)
+                  ORDER BY pt.block_number DESC, pt.transaction_index DESC, pt.event_index DESC
+                  LIMIT 1)     AS collector,
+                 FLOOR(ABS(SUM(
+                             (pf.delta0 * pc0.rate * fd.fee_discount) + (pf.delta1 * pc1.rate * fd.fee_discount)
+                           ))) AS points
+          FROM position_fees_collected AS pf
+                   JOIN pool_keys AS pk ON pf.pool_key_hash = pk.key_hash
+                   JOIN fee_to_discount_factor AS fd ON pk.fee = fd.fee
+                   JOIN points_conversion AS pc0 ON pc0.token = pk.token0
+                   JOIN points_conversion AS pc1 ON pc1.token = pk.token1
+          WHERE pf.owner = $1
+          GROUP BY collector
+          ORDER BY points DESC
+          LIMIT 1000;
       `,
       values: [positionsContractAddress, feeTokenAddress],
     });
