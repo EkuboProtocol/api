@@ -783,7 +783,7 @@ export class Queries {
     positionsContractAddress: bigint;
     feeTokenAddress: bigint;
   }) {
-    return this.client.query<{ collector: string; points: string }>({
+    return this.client.query<{ collector: string; points: number }>({
       name: "leaderboard",
       text: `
           WITH
@@ -817,26 +817,32 @@ export class Queries {
                                                 AND total != 0
                                               ORDER BY timestamp_start DESC
                                               LIMIT 1), 0) END) AS rate
-                   FROM all_tokens)
-          SELECT (SELECT to_address
-                  FROM position_transfers AS pt
-                  WHERE pt.token_id = pf.salt::BIGINT
-                    AND (pt.block_number, pt.transaction_index, pt.event_index) <
-                        (pf.block_number, pf.transaction_index, pf.event_index)
-                  ORDER BY pt.block_number DESC, pt.transaction_index DESC, pt.event_index DESC
-                  LIMIT 1)     AS collector,
-                 FLOOR(ABS(SUM(
-                             (pf.delta0 * pc0.rate * fd.fee_discount) + (pf.delta1 * pc1.rate * fd.fee_discount)
-                           ))) AS points
-          FROM position_fees_collected AS pf
-                   JOIN pool_keys AS pk ON pf.pool_key_hash = pk.key_hash
-                   JOIN fee_to_discount_factor AS fd ON pk.fee = fd.fee
-                   JOIN points_conversion AS pc0 ON pc0.token = pk.token0
-                   JOIN points_conversion AS pc1 ON pc1.token = pk.token1
-          WHERE pf.owner = $1
-          GROUP BY collector
+                   FROM all_tokens),
+              points_by_collector AS (SELECT (SELECT to_address
+                                              FROM position_transfers AS pt
+                                              WHERE pt.token_id = pf.salt::BIGINT
+                                                AND (pt.block_number, pt.transaction_index, pt.event_index) <
+                                                    (pf.block_number, pf.transaction_index, pf.event_index)
+                                              ORDER BY pt.block_number DESC, pt.transaction_index DESC,
+                                                       pt.event_index DESC
+                                              LIMIT 1)     AS collector,
+                                             FLOOR(ABS(SUM(
+                                                         (pf.delta0 * pc0.rate * fd.fee_discount) +
+                                                         (pf.delta1 * pc1.rate * fd.fee_discount)
+                                                       )) / 1e12::NUMERIC)::INT AS points
+                                      FROM position_fees_collected AS pf
+                                               JOIN pool_keys AS pk ON pf.pool_key_hash = pk.key_hash
+                                               JOIN fee_to_discount_factor AS fd ON pk.fee = fd.fee
+                                               JOIN points_conversion AS pc0 ON pc0.token = pk.token0
+                                               JOIN points_conversion AS pc1 ON pc1.token = pk.token1
+                                      WHERE pf.owner = $1
+                                      GROUP BY collector)
+          SELECT collector,
+                 points
+          FROM points_by_collector
+            WHERE collector NOT IN (1791658794084622206857007003215132198038653612739770816311687551920625505808)
           ORDER BY points DESC
-          LIMIT 1000;
+          LIMIT 1000
       `,
       values: [positionsContractAddress, feeTokenAddress],
     });

@@ -270,7 +270,7 @@ router
         timestamp: Date.now(),
         data: rows.map((row) => ({
           collector: numericToHex(row.collector),
-          points: row.points,
+          points: Number(row.points),
         })),
       },
       {
