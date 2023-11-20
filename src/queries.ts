@@ -779,9 +779,11 @@ export class Queries {
   public async getLeaderboard({
     positionsContractAddress,
     feeTokenAddress,
+    collector,
   }: {
     positionsContractAddress: bigint;
     feeTokenAddress: bigint;
+    collector?: bigint;
   }) {
     return this.client.query<{ collector: string; points: number }>({
       name: "leaderboard",
@@ -841,10 +843,11 @@ export class Queries {
                  points
           FROM points_by_collector
             WHERE collector NOT IN (1791658794084622206857007003215132198038653612739770816311687551920625505808)
+            AND collector = COALESCE($3, collector)
           ORDER BY points DESC
           LIMIT 1000
       `,
-      values: [positionsContractAddress, feeTokenAddress],
+      values: [positionsContractAddress, feeTokenAddress, collector ?? null],
     });
   }
 }

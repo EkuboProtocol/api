@@ -282,6 +282,40 @@ router
     );
   })
   .get<IRequest, CF>(
+    "/leaderboard/:collector/points",
+    async ({ params }, env) => {
+      let collector: bigint;
+      try {
+        collector = BigInt(params.collector);
+      } catch (e) {
+        return error(400, "Invalid collector address");
+      }
+
+      const dao = await createQueries(env);
+
+      const positionsContractAddress =
+        POSITIONS_CONTRACT_ADDRESS[env.STARKNET_CHAIN_ID];
+
+      const { rows } = await dao.getLeaderboard({
+        positionsContractAddress,
+        feeTokenAddress: feeTokenAddress(env.STARKNET_CHAIN_ID),
+        collector,
+      });
+
+      return json(
+        {
+          points: Number(rows?.[0].points ?? 0),
+        },
+        {
+          headers: {
+            "cache-control":
+              "public,max-age=3600,stale-while-revalidate=3600,stale-if-error=180",
+          },
+        }
+      );
+    }
+  )
+  .get<IRequest, CF>(
     "/quote/:amount/:token/:otherToken",
     async ({ params, query }, env) => {
       let amount: bigint, token: bigint, otherToken: bigint;
