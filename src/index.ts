@@ -304,7 +304,7 @@ router
 
       return json(
         {
-          points: Number(rows?.[0].points ?? 0),
+          points: Number(rows?.[0]?.points ?? 0),
         },
         {
           headers: {
