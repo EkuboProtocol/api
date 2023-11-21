@@ -827,23 +827,28 @@ export class Queries {
                                                     (pf.block_number, pf.transaction_index, pf.event_index)
                                               ORDER BY pt.block_number DESC, pt.transaction_index DESC,
                                                        pt.event_index DESC
-                                              LIMIT 1)     AS collector,
+                                              LIMIT 1)                                AS collector,
                                              FLOOR(ABS(SUM(
                                                          (pf.delta0 * pc0.rate * fd.fee_discount) +
                                                          (pf.delta1 * pc1.rate * fd.fee_discount)
-                                                       )) / 1e12::NUMERIC)::INT AS points
+                                                       )) * (2 *
+                                                             EXP(GREATEST((timestamp::DATE - '2023-09-14'::DATE), 0) * -0.08) +
+                                                             1) / 1e12::NUMERIC)::INT AS points
                                       FROM position_fees_collected AS pf
+                                               JOIN position_minted AS pm ON pf.salt::BIGINT = pm.token_id
+                                               JOIN blocks AS pmb ON pm.block_number = pmb.number
                                                JOIN pool_keys AS pk ON pf.pool_key_hash = pk.key_hash
                                                JOIN fee_to_discount_factor AS fd ON pk.fee = fd.fee
                                                JOIN points_conversion AS pc0 ON pc0.token = pk.token0
                                                JOIN points_conversion AS pc1 ON pc1.token = pk.token1
                                       WHERE pf.owner = $1
-                                      GROUP BY collector)
+                                      GROUP BY pmb.timestamp, collector)
           SELECT collector,
-                 points
+                 SUM(points) AS points
           FROM points_by_collector
-            WHERE collector NOT IN (1791658794084622206857007003215132198038653612739770816311687551920625505808)
+          WHERE collector NOT IN (1791658794084622206857007003215132198038653612739770816311687551920625505808)
             AND collector = COALESCE($3, collector)
+          GROUP BY collector
           ORDER BY points DESC
           LIMIT 1000
       `,
