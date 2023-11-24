@@ -835,7 +835,7 @@ export class Queries {
                                                (pf.delta0 * pc0.rate * fd.fee_discount) +
                                                (pf.delta1 * pc1.rate * fd.fee_discount)
                                                    )) * (2 *
-                                                         EXP(GREATEST((timestamp::DATE - '2023-09-14'::DATE), 0) * -0.01) +
+                                                         EXP(GREATEST((pmb.timestamp::DATE - '2023-09-14'::DATE), 0) * -0.01) +
                                                          1) / 1e12::NUMERIC)::INT AS points
                                   FROM position_fees_collected AS pf
                                          JOIN position_minted AS pm ON pf.salt::BIGINT = pm.token_id
