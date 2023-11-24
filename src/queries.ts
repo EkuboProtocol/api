@@ -807,7 +807,7 @@ export class Queries {
                   (SELECT token,
                           (CASE
                                WHEN token =
-                                    $1
+                                    $2
                                    THEN 1
                                ELSE COALESCE((SELECT (CASE
                                                           WHEN token = token0 THEN (total / k_volume)
