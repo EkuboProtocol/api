@@ -780,10 +780,12 @@ export class Queries {
     positionsContractAddress,
     feeTokenAddress,
     collector,
+    collectedAfter,
   }: {
     positionsContractAddress: bigint;
     feeTokenAddress: bigint;
     collector?: bigint;
+    collectedAfter?: Date;
   }) {
     return this.client.query<{ collector: string; points: number }>({
       name: "leaderboard",
@@ -842,6 +844,7 @@ export class Queries {
                                                JOIN points_conversion AS pc0 ON pc0.token = pk.token0
                                                JOIN points_conversion AS pc1 ON pc1.token = pk.token1
                                       WHERE pf.owner = $1
+                                      AND (pmb.timestamp >= $4 OR $4 IS NULL)
                                       GROUP BY pmb.timestamp, collector)
           SELECT collector,
                  SUM(points) AS points
@@ -852,7 +855,12 @@ export class Queries {
           ORDER BY points DESC
           LIMIT 1000
       `,
-      values: [positionsContractAddress, feeTokenAddress, collector ?? null],
+      values: [
+        positionsContractAddress,
+        feeTokenAddress,
+        collector ?? null,
+        collectedAfter ?? null,
+      ],
     });
   }
 }

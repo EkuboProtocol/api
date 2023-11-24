@@ -254,7 +254,9 @@ router
       }
     );
   })
-  .get<IRequest, CF>("/leaderboard", async ({}, env) => {
+  .get<IRequest, CF>("/leaderboard", async ({ query }, env) => {
+    const lastMonth = query?.lastMonth === "true";
+
     const dao = await createQueries(env);
 
     const positionsContractAddress =
@@ -263,6 +265,9 @@ router
     const { rows } = await dao.getLeaderboard({
       positionsContractAddress,
       feeTokenAddress: feeTokenAddress(env.STARKNET_CHAIN_ID),
+      collectedAfter: lastMonth
+        ? new Date(Date.now() - 30 * 24 * 60 * 60 * 1000)
+        : undefined,
     });
 
     return json(
@@ -283,7 +288,8 @@ router
   })
   .get<IRequest, CF>(
     "/leaderboard/:collector/points",
-    async ({ params }, env) => {
+    async ({ params, query }, env) => {
+      const lastMonth = query?.lastMonth === "true";
       let collector: bigint;
       try {
         collector = BigInt(params.collector);
@@ -300,6 +306,9 @@ router
         positionsContractAddress,
         feeTokenAddress: feeTokenAddress(env.STARKNET_CHAIN_ID),
         collector,
+        collectedAfter: lastMonth
+          ? new Date(Date.now() - 30 * 24 * 60 * 60 * 1000)
+          : undefined,
       });
 
       return json(
