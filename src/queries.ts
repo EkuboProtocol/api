@@ -830,11 +830,12 @@ export class Queries {
                                               ORDER BY pt.block_number DESC, pt.transaction_index DESC,
                                                        pt.event_index DESC
                                               LIMIT 1)                                AS collector,
+                                             pm.referrer                              AS referrer,
                                              FLOOR(ABS(SUM(
                                                          (pf.delta0 * pc0.rate * fd.fee_discount) +
                                                          (pf.delta1 * pc1.rate * fd.fee_discount)
                                                        )) * (2 *
-                                                             EXP(GREATEST((timestamp::DATE - '2023-09-14'::DATE), 0) * -0.08) +
+                                                             EXP(GREATEST((timestamp::DATE - '2023-09-14'::DATE), 0) * -0.01) +
                                                              1) / 1e12::NUMERIC)::INT AS points
                                       FROM position_fees_collected AS pf
                                                JOIN position_minted AS pm ON pf.salt::BIGINT = pm.token_id
@@ -844,11 +845,16 @@ export class Queries {
                                                JOIN points_conversion AS pc0 ON pc0.token = pk.token0
                                                JOIN points_conversion AS pc1 ON pc1.token = pk.token1
                                       WHERE pf.owner = $1
-                                      AND (pmb.timestamp >= $4 OR $4 IS NULL)
-                                      GROUP BY pmb.timestamp, collector)
+                                        AND (pmb.timestamp >= $4 OR $4 IS NULL)
+                                      GROUP BY pmb.timestamp, collector, referrer),
+              points_by_collector_with_referrals AS (SELECT collector, points
+                                                     FROM points_by_collector
+                                                     UNION ALL
+                                                     SELECT referrer AS collector, (points / 5) AS points
+                                                     FROM points_by_collector)
           SELECT collector,
                  SUM(points) AS points
-          FROM points_by_collector
+          FROM points_by_collector_with_referrals
           WHERE collector NOT IN (1791658794084622206857007003215132198038653612739770816311687551920625505808)
             AND collector = COALESCE($3, collector)
           GROUP BY collector
