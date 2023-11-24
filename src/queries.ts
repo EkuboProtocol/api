@@ -851,7 +851,8 @@ export class Queries {
                                                      FROM points_by_collector
                                                      UNION ALL
                                                      SELECT referrer AS collector, (points / 5) AS points
-                                                     FROM points_by_collector)
+                                                     FROM points_by_collector
+                                                     WHERE referrer IS NOT NULL)
           SELECT collector,
                  SUM(points) AS points
           FROM points_by_collector_with_referrals
