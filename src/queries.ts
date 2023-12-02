@@ -790,78 +790,135 @@ export class Queries {
     return this.client.query<{ collector: string; points: number }>({
       name: "leaderboard",
       text: `
-        WITH
-          -- the full list of tokens for which there are pools
-          all_tokens AS
-            (SELECT token0 AS token
-             FROM pool_keys
-             UNION
-             DISTINCT
-             SELECT token1 AS token
-             FROM pool_keys),
-          fee_to_discount_factor AS (SELECT DISTINCT (fee)                                                      fee,
-                                                     1 - SQRT(fee / 340282366920938463463374607431768211456) AS fee_discount
-                                     FROM pool_keys),
-          -- 1 wei of token is converted to points via the last known price, so we get the price here
-          points_conversion AS
-            (SELECT token,
-                    (CASE
-                       WHEN token =
-                            $2
-                         THEN 1
-                       ELSE COALESCE((SELECT (CASE
-                                                WHEN token = token0 THEN (total / k_volume)
-                                                ELSE (k_volume / total) END)
-                                      FROM pair_vwap_preimages_materialized
-                                      WHERE (CASE
-                                               WHEN token0 = token THEN token1 = $2
-                                               WHEN token1 = token THEN token0 = $2
-                                               ELSE FALSE END)
-                                        AND k_volume != 0
-                                        AND total != 0
-                                      ORDER BY timestamp_start DESC
-                                      LIMIT 1), 0) END) AS rate
-             FROM all_tokens),
-          points_by_collector AS (SELECT (SELECT to_address
-                                          FROM position_transfers AS pt
-                                          WHERE pt.token_id = pf.salt::BIGINT
-                                            AND (pt.block_number, pt.transaction_index, pt.event_index) <
-                                                (pf.block_number, pf.transaction_index, pf.event_index)
-                                          ORDER BY pt.block_number DESC, pt.transaction_index DESC,
-                                                   pt.event_index DESC
-                                          LIMIT 1)                                AS collector,
-                                         pm.referrer                              AS referrer,
-                                         FLOOR(ABS(SUM(
-                                               (pf.delta0 * pc0.rate * fd.fee_discount) +
-                                               (pf.delta1 * pc1.rate * fd.fee_discount)
-                                                   )) * (2 *
-                                                         EXP(GREATEST((pmb.timestamp::DATE - '2023-09-14'::DATE), 0) * -0.01) +
-                                                         1) / 1e12::NUMERIC)::INT AS points
-                                  FROM position_fees_collected AS pf
-                                         JOIN position_minted AS pm ON pf.salt::BIGINT = pm.token_id
-                                         JOIN blocks AS pmb ON pm.block_number = pmb.number
-                                         JOIN blocks AS pfb ON pf.block_number = pfb.number
-                                         JOIN pool_keys AS pk ON pf.pool_key_hash = pk.key_hash
-                                         JOIN fee_to_discount_factor AS fd ON pk.fee = fd.fee
-                                         JOIN points_conversion AS pc0 ON pc0.token = pk.token0
-                                         JOIN points_conversion AS pc1 ON pc1.token = pk.token1
-                                  WHERE pf.owner = $1
-                                    AND (pfb.timestamp >= $4 OR $4 IS NULL)
-                                  GROUP BY pmb.timestamp, collector, referrer),
-          points_by_collector_with_referrals AS (SELECT collector, points
-                                                 FROM points_by_collector
-                                                 UNION ALL
-                                                 SELECT referrer AS collector, (points / 5) AS points
-                                                 FROM points_by_collector
-                                                 WHERE referrer IS NOT NULL)
-        SELECT collector,
-               SUM(points) AS points
-        FROM points_by_collector_with_referrals
-        WHERE collector NOT IN (1791658794084622206857007003215132198038653612739770816311687551920625505808)
-          AND collector = COALESCE($3, collector)
-        GROUP BY collector
-        ORDER BY points DESC
-        LIMIT 1000
+          WITH
+              -- the full list of tokens for which there are pools
+              all_tokens AS
+                  (SELECT token0 AS token
+                   FROM pool_keys
+                   UNION
+                   DISTINCT
+                   SELECT token1 AS token
+                   FROM pool_keys),
+              fee_to_discount_factor AS (SELECT DISTINCT (fee)                                                      fee,
+                                                         1 - SQRT(fee / 340282366920938463463374607431768211456) AS fee_discount
+                                         FROM pool_keys),
+              -- 1 wei of token is converted to points via the last known price, so we get the price here
+              points_conversion AS
+                  (SELECT token,
+                          (CASE
+                               WHEN token =
+                                    $2
+                                   THEN 1
+                               ELSE COALESCE((SELECT (CASE
+                                                          WHEN token = token0 THEN (total / k_volume)
+                                                          ELSE (k_volume / total) END)
+                                              FROM pair_vwap_preimages_materialized
+                                              WHERE (CASE
+                                                         WHEN token0 = token THEN token1 = $2
+                                                         WHEN token1 = token THEN token0 = $2
+                                                         ELSE FALSE END)
+                                                AND k_volume != 0
+                                                AND total != 0
+                                              ORDER BY timestamp_start DESC
+                                              LIMIT 1), 0) END) AS rate
+                   FROM all_tokens),
+
+              position_multipliers AS (SELECT pm.token_id AS token_id,
+                                              2 *
+                                              EXP(GREATEST((pmb.timestamp::DATE - '2023-09-14'::DATE), 0) * -0.01) +
+                                              1           AS multiplier
+                                       FROM position_minted AS pm
+                                                JOIN blocks AS pmb ON pm.block_number = pmb.number),
+
+              points_from_mints AS (SELECT (SELECT to_address
+                                            FROM position_transfers AS pt
+                                            ORDER BY pt.block_number ASC, pt.transaction_index ASC,
+                                                     pt.event_index ASC
+                                            LIMIT 1)                            AS collector,
+                                           pm.referrer                          AS referrer,
+                                           (2000 * multipliers.multiplier)::INT AS points
+                                    FROM position_minted AS pm
+                                             JOIN position_multipliers AS multipliers
+                                                  ON pm.token_id = multipliers.token_id),
+
+              position_from_withdrawal_fees_paid AS (SELECT (SELECT to_address
+                                                             FROM position_transfers AS pt
+                                                             WHERE pt.token_id = pfp.salt::BIGINT
+                                                               AND (pt.block_number, pt.transaction_index,
+                                                                    pt.event_index) <
+                                                                   (pfp.block_number, pfp.transaction_index,
+                                                                    pfp.event_index)
+                                                             ORDER BY pt.block_number DESC, pt.transaction_index DESC,
+                                                                      pt.event_index DESC
+                                                             LIMIT 1)                 AS collector,
+                                                            pm.referrer               AS referrer,
+                                                            FLOOR(ABS(
+                                                                          (pfp.delta0 * pc0.rate * fd.fee_discount) +
+                                                                          (pfp.delta1 * pc1.rate * fd.fee_discount)
+                                                                  ) * multipliers.multiplier /
+                                                                  1e12::NUMERIC)::INT AS points
+                                                     FROM protocol_fees_paid AS pfp
+                                                              JOIN position_minted AS pm ON pfp.salt::BIGINT = pm.token_id
+                                                              JOIN position_multipliers AS multipliers
+                                                                   ON pm.token_id = multipliers.token_id
+                                                              JOIN pool_keys AS pk ON pfp.pool_key_hash = pk.key_hash
+                                                              JOIN points_conversion AS pc0 ON pc0.token = pk.token0
+                                                              JOIN points_conversion AS pc1 ON pc1.token = pk.token1
+                                                              JOIN fee_to_discount_factor AS fd ON pk.fee = fd.fee),
+
+
+              points_from_fees AS (SELECT (SELECT to_address
+                                           FROM position_transfers AS pt
+                                           WHERE pt.token_id = pf.salt::BIGINT
+                                             AND (pt.block_number, pt.transaction_index, pt.event_index) <
+                                                 (pf.block_number, pf.transaction_index, pf.event_index)
+                                           ORDER BY pt.block_number DESC, pt.transaction_index DESC,
+                                                    pt.event_index DESC
+                                           LIMIT 1)                                                   AS collector,
+                                          pm.referrer                                                 AS referrer,
+                                          FLOOR(ABS(SUM(
+                                                  (pf.delta0 * pc0.rate * fd.fee_discount) +
+                                                  (pf.delta1 * pc1.rate * fd.fee_discount)
+                                                    )) * multipliers.multiplier / 1e12::NUMERIC)::INT AS points
+                                   FROM position_fees_collected AS pf
+                                            JOIN position_minted AS pm ON pf.salt::BIGINT = pm.token_id
+                                            JOIN position_multipliers AS multipliers
+                                                 ON pm.token_id = multipliers.token_id
+                                            JOIN blocks AS pmb ON pm.block_number = pmb.number
+                                            JOIN blocks AS pfb ON pf.block_number = pfb.number
+                                            JOIN pool_keys AS pk ON pf.pool_key_hash = pk.key_hash
+                                            JOIN fee_to_discount_factor AS fd ON pk.fee = fd.fee
+                                            JOIN points_conversion AS pc0 ON pc0.token = pk.token0
+                                            JOIN points_conversion AS pc1 ON pc1.token = pk.token1
+                                   WHERE pf.owner = $1
+                                     AND (pfb.timestamp >= $4 OR $4 IS NULL)
+                                   GROUP BY pmb.timestamp, multipliers.multiplier, collector, referrer),
+              points_by_collector_with_referrals AS (SELECT collector, points
+                                                     FROM points_from_fees
+                                                     UNION ALL
+                                                     SELECT referrer AS collector, (points / 5) AS points
+                                                     FROM points_from_fees
+                                                     WHERE referrer IS NOT NULL
+                                                     UNION ALL
+                                                     SELECT collector, points
+                                                     FROM points_from_mints
+                                                     UNION ALL
+                                                     SELECT referrer AS collector, (points / 5)
+                                                     FROM points_from_mints
+                                                     UNION ALL
+                                                     SELECT collector, points
+                                                     FROM position_from_withdrawal_fees_paid
+                                                     UNION ALL
+                                                     SELECT referrer AS collector, (points / 5)
+                                                     FROM position_from_withdrawal_fees_paid)
+          SELECT collector,
+                 SUM(points) AS points
+          FROM points_by_collector_with_referrals
+          WHERE collector NOT IN (1791658794084622206857007003215132198038653612739770816311687551920625505808)
+            AND collector = COALESCE($3, collector)
+          GROUP BY collector
+          ORDER BY points DESC
+          LIMIT 1000
       `,
       values: [
         positionsContractAddress,
