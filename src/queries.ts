@@ -832,6 +832,7 @@ export class Queries {
 
               points_from_mints AS (SELECT (SELECT to_address
                                             FROM position_transfers AS pt
+                                            WHERE pt.token_id = pm.token_id
                                             ORDER BY pt.block_number ASC, pt.transaction_index ASC,
                                                      pt.event_index ASC
                                             LIMIT 1)                            AS collector,
@@ -839,7 +840,9 @@ export class Queries {
                                            (2000 * multipliers.multiplier)::INT AS points
                                     FROM position_minted AS pm
                                              JOIN position_multipliers AS multipliers
-                                                  ON pm.token_id = multipliers.token_id),
+                                                  ON pm.token_id = multipliers.token_id
+                                             JOIN blocks AS pmb ON pm.block_number = pmb.number
+                                    WHERE (pmb.timestamp >= $4 OR $4 IS NULL)),
 
               position_from_withdrawal_fees_paid AS (SELECT (SELECT to_address
                                                              FROM position_transfers AS pt
