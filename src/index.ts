@@ -2,7 +2,7 @@ import { createCors, error, IRequest, json, Router } from "itty-router";
 import { NFTMetadata } from "./nft";
 import { generateSvg } from "./generateSvg";
 import { parseId } from "./parseId";
-import { Env, SupportedChainId } from "./env";
+import { Env } from "./env";
 import { createQueries } from "./createQueries";
 import Decimal from "decimal.js-light";
 import {
@@ -25,6 +25,8 @@ import { QuoteNode } from "./nodes/quoteNode";
 import { PoolState, Queries } from "./queries";
 import { toSqrtRatio } from "./math/tick";
 import { isPriceIncreasing } from "./math/swap";
+import { constants, Contract, num, RpcProvider } from "starknet";
+import POSITIONS_ABI from "./positions-abi.json";
 
 Decimal.set({ precision: 39 });
 
@@ -55,7 +57,7 @@ interface LastUpdatedKey {
 }
 
 const QUOTE_NODE_CACHE: {
-  [chainId in SupportedChainId]: {
+  [chainId in constants.StarknetChainId]: {
     [key_hash: string]: {
       lastUpdated: LastUpdatedKey;
       node: QuoteNode<{ initializedTicksCrossed: number }>;
@@ -75,7 +77,9 @@ interface QuoteResult {
   resources: { initializedTicksCrossed: number };
 }
 
-const POSITIONS_CONTRACT_ADDRESS: { [chainId in SupportedChainId]: bigint } = {
+const POSITIONS_CONTRACT_ADDRESS: {
+  [chainId in constants.StarknetChainId]: bigint;
+} = {
   ["0x534e5f4d41494e"]:
     0x02e0af29598b407c8716b17f6d2795eca1b471413fa03fb145a5e33722184067n,
   ["0x534e5f474f45524c49"]:
@@ -85,7 +89,7 @@ const POSITIONS_CONTRACT_ADDRESS: { [chainId in SupportedChainId]: bigint } = {
 function quoteRoute(
   tokenAmount: { token: bigint; amount: bigint },
   route: PoolState[],
-  cache: typeof QUOTE_NODE_CACHE[SupportedChainId]
+  cache: typeof QUOTE_NODE_CACHE[constants.StarknetChainId]
 ): Readonly<QuoteResult> | null {
   const isExactOutput = tokenAmount.amount < 0n;
   return route.reduce<QuoteResult | null>(
@@ -148,7 +152,7 @@ function quoteRoute(
 async function updatePoolCache(
   pools: PoolState[],
   dao: Queries,
-  cache: typeof QUOTE_NODE_CACHE[SupportedChainId]
+  cache: typeof QUOTE_NODE_CACHE[constants.StarknetChainId]
 ): Promise<void> {
   const poolsNeedUpdate = pools.filter(
     ({ pool_key_hash, block_number, transaction_index, event_index }) => {
@@ -189,7 +193,7 @@ async function updatePoolCache(
 
 async function getAllRelevantPoolsAndUpdateCache(
   dao: Queries,
-  cache: typeof QUOTE_NODE_CACHE[SupportedChainId],
+  cache: typeof QUOTE_NODE_CACHE[constants.StarknetChainId],
   { tokenA, tokenB }: { tokenA: bigint; tokenB: bigint }
 ) {
   return dao.withinTransaction(async () => {
@@ -202,6 +206,18 @@ async function getAllRelevantPoolsAndUpdateCache(
 
     return relevantPools;
   });
+}
+
+let provider: RpcProvider | null = null;
+
+function getProvider(env: Env): RpcProvider {
+  return (
+    provider ??
+    (provider = new RpcProvider({
+      nodeUrl: env.RPC_URL,
+      chainId: env.STARKNET_CHAIN_ID,
+    }))
+  );
 }
 
 router
@@ -250,6 +266,42 @@ router
       {
         headers: {
           "cache-control": "public, max-age=10, must-revalidate",
+        },
+      }
+    );
+  })
+  // gets a full dump of the leaderboard
+  .get<IRequest, CF>("/leaderboard/dump", async ({ query }, env) => {
+    if (query.key !== "wip") {
+      return error(501, "Not implemented");
+    }
+
+    const provider = getProvider(env);
+
+    const contract = new Contract(
+      POSITIONS_ABI,
+      num.toHex(POSITIONS_CONTRACT_ADDRESS[env.STARKNET_CHAIN_ID]),
+      provider
+    );
+
+    const queries = await createQueries(env);
+
+    await queries.withinTransaction(async () => {
+      const tokens = await queries.getAllActiveTokenIdsWithPoolKeys();
+
+      // todo: write all the current tokens info into temp tables and then query the temp tables and add up all the points
+      // todo: make sure the block at which the query happens is the same as the latest database
+
+      await contract.call("get_tokens_info", [[]]);
+    });
+
+    return json(
+      {},
+      {
+        headers: {
+          "cache-control":
+            "public,max-age=86400,stale-while-revalidate=3600,stale-if-error=180",
+          "content-disposition": 'attachment; filename="dump.json"',
         },
       }
     );
@@ -324,6 +376,7 @@ router
       );
     }
   )
+
   .get<IRequest, CF>(
     "/quote/:amount/:token/:otherToken",
     async ({ params, query }, env) => {
@@ -371,7 +424,7 @@ router
       // routes are executed in reverse for exact output
       const allRoutes = findAllRoutes(token, otherToken, relevantPools, 2);
 
-      const quotedRoutes = allRoutes.map((route, routeIx) => {
+      const quotedRoutes = allRoutes.map((route) => {
         try {
           return {
             quote: quoteRoute({ amount, token }, route, cache),

@@ -1,10 +1,11 @@
 import { KVNamespace, Hyperdrive } from "@cloudflare/workers-types";
-
-export type SupportedChainId = "0x534e5f474f45524c49" | "0x534e5f4d41494e";
+import { constants } from "starknet";
 
 // declare what's available in our env
 export interface Env {
-  STARKNET_CHAIN_ID: SupportedChainId;
+  STARKNET_CHAIN_ID: constants.StarknetChainId;
+
+  RPC_URL: string;
 
   PG_CONNECTION_STRING?: string;
 

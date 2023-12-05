@@ -776,6 +776,34 @@ export class Queries {
     }, {});
   }
 
+  public async getAllActiveTokenIdsWithPoolKeys() {
+    return this.client.query<{
+      token_id: string;
+      owner: string;
+    }>(`
+        WITH tokens_and_owners AS (SELECT token_id,
+                                          (SELECT to_address
+                                           FROM position_transfers AS pt
+                                           WHERE pt.token_id = pm.token_id
+                                           ORDER BY pt.block_number DESC, pt.transaction_index DESC, pt.event_index DESC
+                                           LIMIT 1) AS owner
+                                   FROM position_minted AS pm)
+        SELECT tao.token_id,
+               tao.owner,
+               pk.token0,
+               pk.token1,
+               pk.fee,
+               pk.tick_spacing,
+               pk.extension,
+               pm.lower_bound,
+               pm.upper_bound
+        FROM tokens_and_owners tao
+                 JOIN position_minted AS pm ON tao.token_id = pm.token_id
+                 JOIN pool_keys AS pk ON pm.pool_key_hash = pk.key_hash
+        WHERE tao.owner != 0
+    `);
+  }
+
   public async getLeaderboard({
     positionsContractAddress,
     feeTokenAddress,
