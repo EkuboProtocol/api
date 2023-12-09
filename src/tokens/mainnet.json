@@ -82,21 +82,24 @@
     "symbol": "FRAX",
     "decimals": 18,
     "l2_token_address": "0x009c6b4fb13dfaa025c1383ed6190af8ed8cbb09d9588a3bb020feb152442406",
-    "sort_order": 2
+    "sort_order": 2,
+    "hidden": true
   },
   {
     "name": "Frax Share",
     "symbol": "FXS",
     "decimals": 18,
     "l2_token_address": "0x0058efd0e73c33a848ffaa88738d128ebf0af98ea78cf3c14dc757bb02d39ffb",
-    "sort_order": 2
+    "sort_order": 2,
+    "hidden": true
   },
   {
     "name": "Staked Frax Ether",
     "symbol": "sfrxETH",
     "decimals": 18,
     "l2_token_address": "0x04578fffc279e61b5cb0267a5f8e24b6089d40f93158fbbad2cb23b8622c9233",
-    "sort_order": 2
+    "sort_order": 2,
+    "hidden": true
   },
   {
     "name": "Uniswap",
