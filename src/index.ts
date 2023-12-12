@@ -241,6 +241,16 @@ router
       return error(404, "Token logo not available");
     }
 
+    if (logo.startsWith("https://")) {
+      return new Response(null, {
+        status: 302,
+        headers: {
+          location: logo,
+          "cache-control": "public, max-age=1800, immutable",
+        },
+      });
+    }
+
     return new Response(logo, {
       status: 200,
       headers: {
