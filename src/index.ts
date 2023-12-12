@@ -715,6 +715,106 @@ router
       );
     }
   )
+  .get<IRequest, CF>(
+    "/price/:baseToken/:quoteToken/history",
+    async ({ params, query }, env) => {
+      if (
+        typeof params.baseToken !== "string" ||
+        !ADDRESS_REGEX.test(params.baseToken) ||
+        typeof params.quoteToken !== "string" ||
+        !ADDRESS_REGEX.test(params.quoteToken)
+      ) {
+        return error(
+          400,
+          "`baseToken` and `quoteToken` path parameters must be token addresses in hex format"
+        );
+      }
+
+      const baseToken = BigInt(params.baseToken);
+      const quoteToken = BigInt(params.quoteToken);
+
+      const bt = getTokenByAddress(env.STARKNET_CHAIN_ID, baseToken);
+      const qt = getTokenByAddress(env.STARKNET_CHAIN_ID, quoteToken);
+
+      if (!bt || !qt) {
+        return error(400, "Base token or quote token not known");
+      }
+
+      if (baseToken === quoteToken) {
+        return error(400, "Base token cannot be equal to quote token");
+      }
+
+      let intervalSeconds: number;
+      let start: Date;
+      let end: Date;
+
+      try {
+        intervalSeconds =
+          typeof query.interval === "string" ? parseInt(query.interval) : 1800;
+        end =
+          typeof query.end === "string"
+            ? new Date(parseInt(query.end) * 1_000)
+            : new Date(Date.now());
+        start =
+          typeof query.start === "string"
+            ? new Date(parseInt(query.start) * 1_000)
+            : new Date(end.getTime() - intervalSeconds * 120 * 1_000); // 120 data points, 6 hours for default interval
+      } catch (e) {
+        return error(400, "Invalid `interval`, `end` or `start` parameters");
+      }
+
+      const durationMilliseconds = end.getTime() - start.getTime();
+      if (durationMilliseconds > 7 * 86_400 * 1_000) {
+        return error(
+          400,
+          "Start time cannot be more than 1 day before end time"
+        );
+      }
+
+      const numIntervals = durationMilliseconds / intervalSeconds / 1_000;
+
+      if (numIntervals > 120) {
+        return error(400, "Interval too small for the range");
+      }
+
+      const queries = await createQueries(env);
+
+      const data = await queries.getPriceHistory({
+        token0: baseToken < quoteToken ? baseToken : quoteToken,
+        token1: baseToken < quoteToken ? quoteToken : baseToken,
+        start,
+        end,
+        intervalSeconds,
+        decimalsDifference:
+          baseToken < quoteToken
+            ? bt.decimals - qt.decimals
+            : qt.decimals - bt.decimals,
+      });
+
+      return json(
+        {
+          timestamp: Date.now(),
+          start: start.getTime(),
+          end: end.getTime(),
+          interval: intervalSeconds,
+          data:
+            baseToken < quoteToken
+              ? data
+              : data.map((d) => ({
+                  ...d,
+                  vwap: 1 / d.vwap,
+                  max_price: 1 / d.max_price,
+                  min_price: 1 / d.min_price,
+                })),
+        },
+        {
+          headers: {
+            "cache-control": `public, max-age=${intervalSeconds}, must-revalidate`,
+          },
+        }
+      );
+    }
+  )
   .get<IRequest, CF>("/price/:quoteToken", async ({ params }, env) => {
     if (
       typeof params.quoteToken !== "string" ||

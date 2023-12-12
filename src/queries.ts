@@ -475,6 +475,51 @@ export class Queries {
     });
   }
 
+  public async getPriceHistory({
+    token0,
+    token1,
+    start,
+    end,
+    intervalSeconds,
+    decimalsDifference,
+  }: {
+    token0: bigint;
+    token1: bigint;
+    start: Date;
+    end: Date;
+    intervalSeconds: number;
+    decimalsDifference: number;
+  }) {
+    if (token0 >= token1) throw new Error("invalid token0 and token1");
+
+    const { rows } = await this.client.query<{
+      start: string;
+      vwap: number;
+      min_price: number;
+      max_price: number;
+    }>({
+      text: `
+          SELECT date_bin($5 * INTERVAL '1 sec', blocks.timestamp,
+                          '2000-01-01 00:00:00'::TIMESTAMP WITHOUT TIME ZONE)             AS start,
+                 SUM(swaps.delta1 * swaps.delta1) / SUM(ABS(swaps.delta0 * swaps.delta1)) * pow(10, $6) AS vwap,
+                 MIN(ABS(swaps.delta1 / swaps.delta0)) * pow(10, $6)                                   AS min_price,
+                 MAX(ABS(swaps.delta1 / swaps.delta0)) * pow(10, $6)                                    AS max_price
+          FROM swaps
+                   JOIN pool_keys
+                        ON swaps.pool_key_hash = pool_keys.key_hash
+                   JOIN blocks ON swaps.block_number = blocks.number
+          WHERE pool_keys.token0 = $1
+            AND pool_keys.token1 = $2
+            AND blocks.timestamp BETWEEN $3 AND $4
+          GROUP BY start
+          ORDER BY start
+      `,
+      values: [token0, token1, start, end, intervalSeconds, decimalsDifference],
+    });
+
+    return rows;
+  }
+
   public async getVolumeByTokenByDate(
     after: Date,
     pair?: { token0: bigint; token1: bigint }
