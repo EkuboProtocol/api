@@ -120,6 +120,15 @@
     "symbol": "OWL",
     "decimals": 18,
     "l2_token_address": "0x039877a272619050ab8b0e3e0a19b58d076fc2ce84da1dc73b699590e629f2b8",
-    "sort_order": 2
+    "sort_order": 2,
+    "hidden": true
+  },
+  {
+    "name": "STRAK",
+    "symbol": "STRAK",
+    "decimals": 18,
+    "l2_token_address": "0x055c3868c743e92c470701799388cb3fb1d922dcec271150d10462c6948e3cf4",
+    "sort_order": 2,
+    "hidden": true
   }
 ]
