@@ -130,5 +130,13 @@
     "l2_token_address": "0x055c3868c743e92c470701799388cb3fb1d922dcec271150d10462c6948e3cf4",
     "sort_order": 2,
     "hidden": true
+  },
+  {
+    "name": "StarkPepe",
+    "symbol": "SPEPE",
+    "decimals": 18,
+    "l2_token_address": "0x06f15ec4b6ff0b7f7a216c4b2ccdefc96cbf114d6242292ca82971592f62273b",
+    "sort_order": 2,
+    "hidden": true
   }
 ]
