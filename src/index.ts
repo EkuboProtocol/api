@@ -771,6 +771,10 @@ router
         );
       }
 
+      if (intervalSeconds <= 0) {
+        return error(400, "Interval must be positive");
+      }
+
       const numIntervals = durationMilliseconds / intervalSeconds / 1_000;
 
       if (numIntervals > 120) {
@@ -809,7 +813,9 @@ router
         },
         {
           headers: {
-            "cache-control": `public, max-age=${intervalSeconds}, must-revalidate`,
+            "cache-control": `public, max-age=${Math.ceil(
+              intervalSeconds / 4
+            )}, must-revalidate`,
           },
         }
       );
