@@ -807,8 +807,8 @@ router
               : data.map((d) => ({
                   ...d,
                   vwap: 1 / d.vwap,
-                  max_price: 1 / d.max_price,
-                  min_price: 1 / d.min_price,
+                  max_price: 1 / d.min_price,
+                  min_price: 1 / d.max_price,
                 })),
         },
         {
