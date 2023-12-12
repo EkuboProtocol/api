@@ -114,5 +114,12 @@
     "decimals": 18,
     "l2_token_address": "0x049210ffc442172463f3177147c1aeaa36c51d152c1b0630f2364c300d4f48ee",
     "sort_order": 2
+  },
+  {
+    "name": "OWL",
+    "symbol": "OWL",
+    "decimals": 18,
+    "l2_token_address": "0x039877a272619050ab8b0e3e0a19b58d076fc2ce84da1dc73b699590e629f2b8",
+    "sort_order": 2
   }
 ]
