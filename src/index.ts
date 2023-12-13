@@ -666,17 +666,17 @@ router
           queries.getLastVolumeWeightedPrice({
             quoteToken,
             baseToken,
-            since: threeHoursAgo,
+            newerThan: threeHoursAgo,
           }),
           queries.getLastVolumeWeightedPrice({
             quoteToken,
             baseToken: BigInt(ft.l2_token_address),
-            since: threeHoursAgo,
+            newerThan: threeHoursAgo,
           }),
           queries.getLastVolumeWeightedPrice({
             quoteToken: BigInt(ft.l2_token_address),
             baseToken,
-            since: threeHoursAgo,
+            newerThan: threeHoursAgo,
           }),
         ])
       );
@@ -783,41 +783,9 @@ router
 
       const queries = await createQueries(env);
 
-      const [token0, token1] =
-        baseToken < quoteToken
-          ? [baseToken, quoteToken]
-          : [quoteToken, baseToken];
-
-      // convert 1e15 eth to the threshold for token0 by multiplying 1e15 eth by the price in per eth
-      const fta = feeTokenAddress(env.STARKNET_CHAIN_ID);
-      const price0 =
-        token0 === fta
-          ? new Decimal(1)
-          : (
-              await queries.getLastVolumeWeightedPrice({
-                baseToken: fta,
-                quoteToken: token0,
-                since: null,
-              })
-            )?.price ?? new Decimal(0);
-      const price1 =
-        token1 === fta
-          ? new Decimal(1)
-          : (
-              await queries.getLastVolumeWeightedPrice({
-                baseToken: fta,
-                quoteToken: token1,
-                since: null,
-              })
-            )?.price ?? new Decimal(0);
-
-      const thresholdFeeToken = new Decimal(1e15);
-      const threshold0 = BigInt(thresholdFeeToken.mul(price0).toFixed(0));
-      const threshold1 = BigInt(thresholdFeeToken.mul(price1).toFixed(0));
-
       const data = await queries.getPriceHistory({
-        token0,
-        token1,
+        token0: baseToken < quoteToken ? baseToken : quoteToken,
+        token1: baseToken < quoteToken ? quoteToken : baseToken,
         start,
         end,
         intervalSeconds,
@@ -825,8 +793,6 @@ router
           baseToken < quoteToken
             ? bt.decimals - qt.decimals
             : qt.decimals - bt.decimals,
-        delta0Threshold: threshold0,
-        delta1Threshold: threshold1,
       });
 
       return json(
