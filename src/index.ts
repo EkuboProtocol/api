@@ -794,7 +794,7 @@ router
         start =
           typeof query.start === "string"
             ? new Date(parseInt(query.start) * 1_000)
-            : new Date(end.getTime() - intervalSeconds * 120 * 1_000); // 120 data points, 6 hours for default interval
+            : new Date(end.getTime() - intervalSeconds * 60 * 1_000); // default 60 data points
       } catch (e) {
         return error(400, "Invalid `interval`, `end` or `start` parameters");
       }
