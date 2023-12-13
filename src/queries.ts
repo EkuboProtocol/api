@@ -500,10 +500,12 @@ export class Queries {
     }>({
       text: `
           SELECT date_bin($5 * INTERVAL '1 sec', blocks.timestamp,
-                          '2000-01-01 00:00:00'::TIMESTAMP WITHOUT TIME ZONE)             AS start,
-                 SUM(swaps.delta1 * swaps.delta1) / SUM(ABS(swaps.delta0 * swaps.delta1)) * pow(10, $6) AS vwap,
-                 MIN(ABS(swaps.delta1 / swaps.delta0)) * pow(10, $6)                                   AS min,
-                 MAX(ABS(swaps.delta1 / swaps.delta0)) * pow(10, $6)                                    AS max
+                          '2000-01-01 00:00:00'::TIMESTAMP WITHOUT TIME ZONE)                             AS start,
+                 SUM(swaps.delta1 * swaps.delta1) / SUM(ABS(swaps.delta0 * swaps.delta1)) *
+                 pow(10, $6)                                                                              AS vwap,
+                 MIN(CASE WHEN swaps.delta0 != 0 THEN ABS(swaps.delta1 / swaps.delta0) END) *
+                 pow(10, $6)                                                                              AS min,
+                 MAX(CASE WHEN swaps.delta0 != 0 THEN ABS(swaps.delta1 / swaps.delta0) END) * pow(10, $6) AS max
           FROM swaps
                    JOIN pool_keys
                         ON swaps.pool_key_hash = pool_keys.key_hash
