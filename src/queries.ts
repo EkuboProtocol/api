@@ -414,11 +414,11 @@ export class Queries {
   public async getLastVolumeWeightedPrice({
     baseToken,
     quoteToken,
-    newerThan,
+    since,
   }: {
     baseToken: bigint;
     quoteToken: bigint;
-    newerThan: Date;
+    since: Date | null;
   }): Promise<{ price: Decimal; k_volume: bigint } | null> {
     const [token0, token1] =
       baseToken < quoteToken
@@ -435,11 +435,11 @@ export class Queries {
           FROM pair_vwap_preimages_materialized
           WHERE token0 = $1
             AND token1 = $2
-            AND timestamp_start >= $3
+            AND timestamp_start >= $3 OR $3 IS NULL
           ORDER BY timestamp_start DESC
           LIMIT 1
       `,
-      values: [token0, token1, newerThan],
+      values: [token0, token1, since],
     });
 
     if (rows.length !== 1) return null;
@@ -482,6 +482,8 @@ export class Queries {
     end,
     intervalSeconds,
     decimalsDifference,
+    delta0Threshold = 0n,
+    delta1Threshold = 0n,
   }: {
     token0: bigint;
     token1: bigint;
@@ -489,6 +491,8 @@ export class Queries {
     end: Date;
     intervalSeconds: number;
     decimalsDifference: number;
+    delta0Threshold?: bigint;
+    delta1Threshold?: bigint;
   }) {
     if (token0 >= token1) throw new Error("invalid token0 and token1");
 
@@ -500,12 +504,16 @@ export class Queries {
     }>({
       text: `
           SELECT date_bin($5 * INTERVAL '1 sec', blocks.timestamp,
-                          '2000-01-01 00:00:00'::TIMESTAMP WITHOUT TIME ZONE)                             AS start,
+                          '2000-01-01 00:00:00'::TIMESTAMP WITHOUT TIME ZONE)         AS start,
                  SUM(swaps.delta1 * swaps.delta1) / SUM(ABS(swaps.delta0 * swaps.delta1)) *
-                 pow(10, $6)                                                                              AS vwap,
-                 MIN(CASE WHEN swaps.delta0 != 0 THEN ABS(swaps.delta1 / swaps.delta0) END) *
-                 pow(10, $6)                                                                              AS min,
-                 MAX(CASE WHEN swaps.delta0 != 0 THEN ABS(swaps.delta1 / swaps.delta0) END) * pow(10, $6) AS max
+                 pow(10, $6)                                                          AS vwap,
+                 MIN(CASE
+                         WHEN ABS(swaps.delta0) > $7 AND ABS(swaps.delta1) > $8
+                             THEN ABS(swaps.delta1 / swaps.delta0) END) *
+                 pow(10, $6)                                                          AS min,
+                 MAX(CASE
+                         WHEN ABS(swaps.delta0) > $7 AND ABS(swaps.delta1) > $8
+                             THEN ABS(swaps.delta1 / swaps.delta0) END) * pow(10, $6) AS max
           FROM swaps
                    JOIN pool_keys
                         ON swaps.pool_key_hash = pool_keys.key_hash
@@ -516,7 +524,16 @@ export class Queries {
           GROUP BY start
           ORDER BY start
       `,
-      values: [token0, token1, start, end, intervalSeconds, decimalsDifference],
+      values: [
+        token0,
+        token1,
+        start,
+        end,
+        intervalSeconds,
+        decimalsDifference,
+        delta0Threshold,
+        delta1Threshold,
+      ],
     });
 
     return rows;
