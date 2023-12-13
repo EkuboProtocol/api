@@ -16,7 +16,7 @@ import {
   feeTokenAddress,
   getTokenByAddress,
   parseTokenIdentifier,
-  TOKENS_BY_CHAIN_ID,
+  DEFAULT_TOKENS_BY_CHAIN_ID,
 } from "./tokens";
 import { findAllRoutes } from "./findAllRoutes";
 import { PlainPool } from "./nodes/plainPool";
@@ -25,7 +25,7 @@ import { QuoteNode } from "./nodes/quoteNode";
 import { PoolState, Queries } from "./queries";
 import { toSqrtRatio } from "./math/tick";
 import { isPriceIncreasing } from "./math/swap";
-import { constants, Contract, num, RpcProvider } from "starknet";
+import { constants, Contract, shortString, num, RpcProvider } from "starknet";
 import POSITIONS_ABI from "./positions-abi.json";
 
 Decimal.set({ precision: 39 });
@@ -222,7 +222,43 @@ function getProvider(env: Env): RpcProvider {
 
 router
   .get<IRequest, CF>("/tokens", async ({}, env) => {
-    return json(TOKENS_BY_CHAIN_ID[env.STARKNET_CHAIN_ID] ?? [], {
+    const tokens = DEFAULT_TOKENS_BY_CHAIN_ID[env.STARKNET_CHAIN_ID] ?? [];
+
+    const queries = await createQueries(env);
+
+    const { rows } = await queries.getRegisteredTokens();
+
+    rows.forEach((row) => {
+      try {
+        const name = shortString.decodeShortString(row.name).trim();
+        const symbol = shortString.decodeShortString(row.symbol).trim();
+        const l2_token_address = num.toHex(row.address);
+        if (symbol.length > 6) return;
+        if (!/^[\x00-\x7F]*$/.test(name) || !/^[\x00-\x7F]*$/.test(symbol))
+          return;
+
+        if (
+          // if we find any token matching name symbol etc we skip it
+          !tokens.find(
+            (t) =>
+              BigInt(t.l2_token_address) === BigInt(l2_token_address) ||
+              t.symbol.toLowerCase() === symbol.toLowerCase() ||
+              t.name.toLowerCase() === name.toLowerCase()
+          )
+        ) {
+          tokens.push({
+            l2_token_address,
+            name,
+            symbol,
+            decimals: row.decimals,
+            hidden: true,
+            sort_order: 2,
+          });
+        }
+      } catch (error) {}
+    });
+
+    return json(tokens, {
       headers: {
         "cache-control":
           "public, max-age=3600, stale-while-revalidate=3600, stale-if-error=86400",

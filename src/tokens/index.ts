@@ -2,7 +2,7 @@ import MAINNET_TOKENS from "./mainnet.json";
 import GOERLI_TOKENS from "./goerli.json";
 import { constants } from "starknet";
 
-export const TOKENS_BY_CHAIN_ID = {
+export const DEFAULT_TOKENS_BY_CHAIN_ID = {
   [constants.StarknetChainId.SN_MAIN]: MAINNET_TOKENS,
   [constants.StarknetChainId.SN_GOERLI]: GOERLI_TOKENS,
 } as const;
@@ -21,7 +21,7 @@ export function getTokenByAddress(
   chainId: constants.StarknetChainId,
   address: string | bigint
 ) {
-  return (TOKENS_BY_CHAIN_ID[chainId] ?? [])?.find(
+  return (DEFAULT_TOKENS_BY_CHAIN_ID[chainId] ?? [])?.find(
     (x) => BigInt(x.l2_token_address) === BigInt(address)
   );
 }
@@ -34,7 +34,7 @@ export function parseTokenIdentifier(
     return BigInt(identifier);
   }
 
-  const found = (TOKENS_BY_CHAIN_ID[chainId] ?? [])?.find(
+  const found = (DEFAULT_TOKENS_BY_CHAIN_ID[chainId] ?? [])?.find(
     (x) => x.symbol.toLowerCase() === identifier.toLowerCase()
   )?.l2_token_address;
   if (!found) {

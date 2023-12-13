@@ -104,6 +104,35 @@ export class Queries {
     });
   }
 
+  // Returns all pools containing either tokenA or tokenB and their states
+  public async getRegisteredTokens() {
+    return this.client.query<{
+      address: string;
+      name: string;
+      symbol: string;
+      decimals: number;
+    }>(`
+        WITH last_key_per_address AS (SELECT address,
+                                             (SELECT (block_number, transaction_index, event_index)
+                                              FROM token_registrations AS trr
+                                              WHERE trr.address = tr.address
+                                              ORDER BY trr.block_number DESC, trr.transaction_index DESC,
+                                                       trr.event_index DESC
+                                              LIMIT 1) AS last_key
+                                      FROM token_registrations tr
+                                      GROUP BY address)
+        SELECT lk.address,
+               tr.name,
+               tr.symbol,
+               tr.decimals
+        FROM last_key_per_address AS lk
+                 JOIN token_registrations AS tr
+                      ON lk.address = tr.address
+                          AND (lk.last_key = (tr.block_number, tr.transaction_index, tr.event_index))
+        ORDER BY tr.block_number , tr.transaction_index, tr.event_index
+    `);
+  }
+
   public async getPoolState({
     keyHash,
   }: {
