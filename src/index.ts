@@ -764,10 +764,10 @@ router
       }
 
       const durationMilliseconds = end.getTime() - start.getTime();
-      if (durationMilliseconds > 7 * 86_400 * 1_000) {
+      if (durationMilliseconds > 30 * 86_400 * 1_000) {
         return error(
           400,
-          "Start time cannot be more than 1 day before end time"
+          "Start time cannot be more than 30 days before end time"
         );
       }
 
