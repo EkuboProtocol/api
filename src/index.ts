@@ -228,12 +228,7 @@ const router = Router<IRequest, RequestContext>()
         return error(404, "Token not found");
       }
 
-      let logo = await env.TOKEN_LOGOS_KV?.get(token.l2_token_address);
-
-      // todo: remove the address lookup in favor of the symbol lookup post-migration
-      if (!logo) {
-        logo = await env.TOKEN_LOGOS_KV?.get(token.symbol);
-      }
+      const logo = await env.TOKEN_LOGOS_KV?.get(token.symbol);
 
       if (!logo) {
         return error(404, "Token logo not available");
