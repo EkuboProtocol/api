@@ -265,7 +265,7 @@ router
       },
     });
   })
-  .get<IRequest, CF>("/tokens/:address/logo.svg", async ({ params }, env) => {
+  .get<IRequest, CF>("/tokens/:address/logo", async ({ params }, env) => {
     const token = getTokenByAddress(env.STARKNET_CHAIN_ID, params.address);
     if (!token) {
       return error(404, "Token address not found");
@@ -291,7 +291,7 @@ router
       status: 200,
       headers: {
         "content-type": "image/svg+xml",
-        "cache-control": "public, max-age=86400, immutable",
+        "cache-control": "public, max-age=10800, immutable",
       },
     });
   })
