@@ -56,7 +56,7 @@ export async function getAllTokens(
         !tokens.find(
           (t) =>
             BigInt(t.l2_token_address) === BigInt(l2_token_address) ||
-            distance(t.symbol.toLowerCase(), symbol.toLowerCase()) < 3
+            distance(t.symbol.toLowerCase(), symbol.toLowerCase()) < 2
         )
       ) {
         tokens.push({
