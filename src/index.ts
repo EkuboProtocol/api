@@ -231,7 +231,20 @@ router
     });
   })
   .get<IRequest, CF>("/tokens/:address/logo", async ({ params }, env) => {
-    const logo = await env.TOKEN_LOGOS_KV?.get(params.address);
+    const tokens = await getAllTokens(env, await createQueries(env));
+
+    let address: string | undefined;
+    try {
+      address = getTokenByAddress(tokens, params.address)?.l2_token_address;
+    } catch (e) {
+      return error(400, "Bad token address");
+    }
+
+    if (!address) {
+      return error(404, "Token not found");
+    }
+
+    const logo = await env.TOKEN_LOGOS_KV?.get(address);
 
     if (!logo) {
       return error(404, "Token logo not available");
