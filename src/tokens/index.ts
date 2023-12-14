@@ -86,19 +86,15 @@ export function getTokenByAddress(
   return tokens?.find((x) => BigInt(x.l2_token_address) === BigInt(address));
 }
 
-export function parseTokenIdentifier(
+export function getTokenByIdentifier(
   tokens: TokenInfo[],
   identifier: string
-): bigint {
+): TokenInfo | undefined {
   if (/^0x[a-fA-F0-9]+$/.test(identifier) || /^\d+$/.test(identifier)) {
-    return BigInt(identifier);
+    return getTokenByIdentifier(tokens, identifier);
   }
 
-  const found = tokens?.find(
+  return tokens.find(
     (x) => x.symbol.toLowerCase() === identifier.toLowerCase()
-  )?.l2_token_address;
-  if (!found) {
-    throw new Error(`Unrecognized token identifier: "${identifier}"`);
-  }
-  return BigInt(found);
+  );
 }

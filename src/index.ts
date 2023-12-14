@@ -15,7 +15,8 @@ import {
   FEE_TOKEN_ADDRESS,
   getAllTokens,
   getTokenByAddress,
-  parseTokenIdentifier,
+  getTokenByIdentifier,
+  TokenInfo,
 } from "./tokens";
 import { findAllRoutes } from "./findAllRoutes";
 import { PlainPool } from "./nodes/plainPool";
@@ -218,27 +219,27 @@ const router = Router<IRequest, RequestContext>()
     });
   })
   .get<IRequest, RequestContext>(
-    "/tokens/:address/logo",
+    "/tokens/:identifier/logo",
     async ({ params }, env) => {
       const tokens = await getAllTokens(env, await createQueries(env));
 
-      let address: string | undefined;
-      try {
-        address = getTokenByAddress(tokens, params.address)?.l2_token_address;
-      } catch (e) {
-        return error(400, "Bad token address");
-      }
-
-      if (!address) {
+      const token = getTokenByIdentifier(tokens, params.identifier);
+      if (!token) {
         return error(404, "Token not found");
       }
 
-      const logo = await env.TOKEN_LOGOS_KV?.get(address);
+      let logo = await env.TOKEN_LOGOS_KV?.get(token.l2_token_address);
+
+      // todo: remove the address lookup in favor of the symbol lookup post-migration
+      if (!logo) {
+        logo = await env.TOKEN_LOGOS_KV?.get(token.symbol);
+      }
 
       if (!logo) {
         return error(404, "Token logo not available");
       }
 
+      // the KV store either stores the https link to the image or the svg logo itself
       if (logo.startsWith("https://")) {
         return new Response(null, {
           status: 302,
@@ -396,11 +397,9 @@ const router = Router<IRequest, RequestContext>()
 
       const allTokens = await getAllTokens(env, queries);
 
-      let amount: bigint, token: bigint, otherToken: bigint;
+      let amount: bigint;
       try {
         amount = BigInt(new Decimal(params.amount).toInteger().toFixed());
-        token = parseTokenIdentifier(allTokens, params.token);
-        otherToken = parseTokenIdentifier(allTokens, params.otherToken);
       } catch (e) {
         return error(
           400,
@@ -408,9 +407,13 @@ const router = Router<IRequest, RequestContext>()
         );
       }
 
-      if (token <= 0n || otherToken <= 0n) {
+      const token = getTokenByIdentifier(allTokens, params.token);
+      const otherToken = getTokenByIdentifier(allTokens, params.otherToken);
+
+      if (!token || !otherToken) {
         return error(400, "Invalid token parameters");
       }
+
       const isExactOutput = amount < 0n;
 
       if ((isExactOutput ? amount * -1n : amount) > MAX_U128) {
@@ -423,8 +426,8 @@ const router = Router<IRequest, RequestContext>()
         queries,
         cache,
         {
-          tokenA: token,
-          tokenB: otherToken,
+          tokenA: BigInt(token.l2_token_address),
+          tokenB: BigInt(otherToken.l2_token_address),
         }
       );
 
@@ -433,12 +436,21 @@ const router = Router<IRequest, RequestContext>()
       }
 
       // routes are executed in reverse for exact output
-      const allRoutes = findAllRoutes(token, otherToken, relevantPools, 2);
+      const allRoutes = findAllRoutes(
+        BigInt(token.l2_token_address),
+        BigInt(otherToken.l2_token_address),
+        relevantPools,
+        2
+      );
 
       const quotedRoutes = allRoutes.map((route) => {
         try {
           return {
-            quote: quoteRoute({ amount, token }, route, cache),
+            quote: quoteRoute(
+              { amount, token: BigInt(token.l2_token_address) },
+              route,
+              cache
+            ),
             route,
           };
         } catch (e) {
