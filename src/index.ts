@@ -31,11 +31,6 @@ Decimal.set({ precision: 39 });
 
 const ALL_TIME = new Date(0);
 
-const { preflight, corsify } = createCors({
-  maxAge: 86400,
-  origins: ["*"],
-});
-
 const ADDRESS_REGEX = /^0x[a-fA-F0-9]+$/;
 
 interface LastUpdatedKey {
@@ -209,11 +204,10 @@ function getProvider(env: Env): RpcProvider {
 }
 
 // create a convenient duple
-type CF = [env: Env, context: ExecutionContext];
+type RequestContext = [env: Env, context: ExecutionContext];
 
-const router = Router<IRequest, CF>()
-  .all("*", preflight)
-  .get<IRequest, CF>("/tokens", async ({}, env) => {
+const router = Router<IRequest, RequestContext>()
+  .get<IRequest, RequestContext>("/tokens", async ({}, env) => {
     const tokens = await getAllTokens(env, await createQueries(env));
 
     return json(tokens, {
@@ -223,45 +217,48 @@ const router = Router<IRequest, CF>()
       },
     });
   })
-  .get<IRequest, CF>("/tokens/:address/logo", async ({ params }, env) => {
-    const tokens = await getAllTokens(env, await createQueries(env));
+  .get<IRequest, RequestContext>(
+    "/tokens/:address/logo",
+    async ({ params }, env) => {
+      const tokens = await getAllTokens(env, await createQueries(env));
 
-    let address: string | undefined;
-    try {
-      address = getTokenByAddress(tokens, params.address)?.l2_token_address;
-    } catch (e) {
-      return error(400, "Bad token address");
-    }
+      let address: string | undefined;
+      try {
+        address = getTokenByAddress(tokens, params.address)?.l2_token_address;
+      } catch (e) {
+        return error(400, "Bad token address");
+      }
 
-    if (!address) {
-      return error(404, "Token not found");
-    }
+      if (!address) {
+        return error(404, "Token not found");
+      }
 
-    const logo = await env.TOKEN_LOGOS_KV?.get(address);
+      const logo = await env.TOKEN_LOGOS_KV?.get(address);
 
-    if (!logo) {
-      return error(404, "Token logo not available");
-    }
+      if (!logo) {
+        return error(404, "Token logo not available");
+      }
 
-    if (logo.startsWith("https://")) {
-      return new Response(null, {
-        status: 302,
+      if (logo.startsWith("https://")) {
+        return new Response(null, {
+          status: 302,
+          headers: {
+            location: logo,
+            "cache-control": "public, max-age=1800, immutable",
+          },
+        });
+      }
+
+      return new Response(logo, {
+        status: 200,
         headers: {
-          location: logo,
-          "cache-control": "public, max-age=1800, immutable",
+          "content-type": "image/svg+xml",
+          "cache-control": "public, max-age=10800, immutable",
         },
       });
     }
-
-    return new Response(logo, {
-      status: 200,
-      headers: {
-        "content-type": "image/svg+xml",
-        "cache-control": "public, max-age=10800, immutable",
-      },
-    });
-  })
-  .get<IRequest, CF>("/blocks/:number", async ({ params }, env) => {
+  )
+  .get<IRequest, RequestContext>("/blocks/:number", async ({ params }, env) => {
     const queries = await createQueries(env);
 
     if (params.number !== "latest") {
@@ -283,42 +280,45 @@ const router = Router<IRequest, CF>()
     );
   })
   // gets a full dump of the leaderboard
-  .get<IRequest, CF>("/leaderboard/dump", async ({ query }, env) => {
-    if (query.key !== "wip") {
-      return error(501, "Not implemented");
-    }
-
-    const provider = getProvider(env);
-
-    const contract = new Contract(
-      POSITIONS_ABI,
-      num.toHex(POSITIONS_CONTRACT_ADDRESS[env.STARKNET_CHAIN_ID]),
-      provider
-    );
-
-    const queries = await createQueries(env);
-
-    await queries.withinTransaction(async () => {
-      const tokens = await queries.getAllActiveTokenIdsWithPoolKeys();
-
-      // todo: write all the current tokens info into temp tables and then query the temp tables and add up all the points
-      // todo: make sure the block at which the query happens is the same as the latest database
-
-      await contract.call("get_tokens_info", [[]]);
-    });
-
-    return json(
-      {},
-      {
-        headers: {
-          "cache-control":
-            "public,max-age=86400,stale-while-revalidate=3600,stale-if-error=180",
-          "content-disposition": 'attachment; filename="dump.json"',
-        },
+  .get<IRequest, RequestContext>(
+    "/leaderboard/dump",
+    async ({ query }, env) => {
+      if (query.key !== "wip") {
+        return error(501, "Not implemented");
       }
-    );
-  })
-  .get<IRequest, CF>("/leaderboard", async ({ query }, env) => {
+
+      const provider = getProvider(env);
+
+      const contract = new Contract(
+        POSITIONS_ABI,
+        num.toHex(POSITIONS_CONTRACT_ADDRESS[env.STARKNET_CHAIN_ID]),
+        provider
+      );
+
+      const queries = await createQueries(env);
+
+      await queries.withinTransaction(async () => {
+        const tokens = await queries.getAllActiveTokenIdsWithPoolKeys();
+
+        // todo: write all the current tokens info into temp tables and then query the temp tables and add up all the points
+        // todo: make sure the block at which the query happens is the same as the latest database
+
+        await contract.call("get_tokens_info", [[]]);
+      });
+
+      return json(
+        {},
+        {
+          headers: {
+            "cache-control":
+              "public,max-age=86400,stale-while-revalidate=3600,stale-if-error=180",
+            "content-disposition": 'attachment; filename="dump.json"',
+          },
+        }
+      );
+    }
+  )
+  .get<IRequest, RequestContext>("/leaderboard", async ({ query }, env) => {
     const lastMonth = query?.lastMonth === "true";
 
     const dao = await createQueries(env);
@@ -350,7 +350,7 @@ const router = Router<IRequest, CF>()
       }
     );
   })
-  .get<IRequest, CF>(
+  .get<IRequest, RequestContext>(
     "/leaderboard/:collector/points",
     async ({ params, query }, env) => {
       const lastMonth = query?.lastMonth === "true";
@@ -389,7 +389,7 @@ const router = Router<IRequest, CF>()
     }
   )
 
-  .get<IRequest, CF>(
+  .get<IRequest, RequestContext>(
     "/quote/:amount/:token/:otherToken",
     async ({ params, query }, env) => {
       const queries = await createQueries(env);
@@ -496,7 +496,7 @@ const router = Router<IRequest, CF>()
       );
     }
   )
-  .get<IRequest, CF>("/overview", async ({}, env) => {
+  .get<IRequest, RequestContext>("/overview", async ({}, env) => {
     const timestamp = Date.now();
     const twentyFourHoursAgo = new Date(timestamp - 1000 * 60 * 60 * 24);
     const thirtyDaysAgo = new Date(timestamp - 1000 * 60 * 60 * 24 * 30);
@@ -562,71 +562,74 @@ const router = Router<IRequest, CF>()
       }
     );
   })
-  .get<IRequest, CF>("/pair/:tokenA/:tokenB", async ({ params }, env) => {
-    if (
-      typeof params.tokenA !== "string" ||
-      !ADDRESS_REGEX.test(params.tokenA) ||
-      typeof params.tokenB !== "string" ||
-      !ADDRESS_REGEX.test(params.tokenB)
-    ) {
-      return error(
-        400,
-        "`tokenA` and `tokenB` path parameters must be token addresses in hex format"
+  .get<IRequest, RequestContext>(
+    "/pair/:tokenA/:tokenB",
+    async ({ params }, env) => {
+      if (
+        typeof params.tokenA !== "string" ||
+        !ADDRESS_REGEX.test(params.tokenA) ||
+        typeof params.tokenB !== "string" ||
+        !ADDRESS_REGEX.test(params.tokenB)
+      ) {
+        return error(
+          400,
+          "`tokenA` and `tokenB` path parameters must be token addresses in hex format"
+        );
+      }
+
+      const [token0, token1] =
+        BigInt(params.tokenA) < BigInt(params.tokenB)
+          ? [BigInt(params.tokenA), BigInt(params.tokenB)]
+          : [BigInt(params.tokenB), BigInt(params.tokenA)];
+
+      const pair = { token0, token1 };
+
+      const queries = await createQueries(env);
+
+      const timestamp = Date.now();
+      const thirtyDaysAgo = new Date(timestamp - 1000 * 60 * 60 * 24 * 30);
+
+      const [
+        { rows: tvlByToken },
+        { rows: volumeByToken },
+        { rows: revenueByToken },
+        { rows: tvlDeltaByTokenByDate },
+        { rows: volumeByTokenByDate },
+        { rows: revenueByTokenByDate },
+        { rows: topPools },
+      ] = await queries.withinTransaction(() =>
+        Promise.all([
+          queries.getTvlByToken(pair),
+          queries.getTotalVolumeByToken(ALL_TIME, pair),
+          queries.getRevenueByToken(ALL_TIME, pair),
+          queries.getTvlDeltaByTokenByDate(thirtyDaysAgo, pair),
+          queries.getVolumeByTokenByDate(thirtyDaysAgo, pair),
+          queries.getRevenueByTokenByDate(thirtyDaysAgo, pair),
+          queries.getTopPools(pair),
+        ])
+      );
+
+      return json(
+        {
+          timestamp,
+          tvlByToken,
+          volumeByToken,
+          revenueByToken,
+          tvlDeltaByTokenByDate,
+          volumeByTokenByDate,
+          revenueByTokenByDate,
+          topPools,
+        },
+        {
+          headers: {
+            "cache-control":
+              "public, max-age=600, stale-while-revalidate=180, stale-if-error=180",
+          },
+        }
       );
     }
-
-    const [token0, token1] =
-      BigInt(params.tokenA) < BigInt(params.tokenB)
-        ? [BigInt(params.tokenA), BigInt(params.tokenB)]
-        : [BigInt(params.tokenB), BigInt(params.tokenA)];
-
-    const pair = { token0, token1 };
-
-    const queries = await createQueries(env);
-
-    const timestamp = Date.now();
-    const thirtyDaysAgo = new Date(timestamp - 1000 * 60 * 60 * 24 * 30);
-
-    const [
-      { rows: tvlByToken },
-      { rows: volumeByToken },
-      { rows: revenueByToken },
-      { rows: tvlDeltaByTokenByDate },
-      { rows: volumeByTokenByDate },
-      { rows: revenueByTokenByDate },
-      { rows: topPools },
-    ] = await queries.withinTransaction(() =>
-      Promise.all([
-        queries.getTvlByToken(pair),
-        queries.getTotalVolumeByToken(ALL_TIME, pair),
-        queries.getRevenueByToken(ALL_TIME, pair),
-        queries.getTvlDeltaByTokenByDate(thirtyDaysAgo, pair),
-        queries.getVolumeByTokenByDate(thirtyDaysAgo, pair),
-        queries.getRevenueByTokenByDate(thirtyDaysAgo, pair),
-        queries.getTopPools(pair),
-      ])
-    );
-
-    return json(
-      {
-        timestamp,
-        tvlByToken,
-        volumeByToken,
-        revenueByToken,
-        tvlDeltaByTokenByDate,
-        volumeByTokenByDate,
-        revenueByTokenByDate,
-        topPools,
-      },
-      {
-        headers: {
-          "cache-control":
-            "public, max-age=600, stale-while-revalidate=180, stale-if-error=180",
-        },
-      }
-    );
-  })
-  .get<IRequest, CF>(
+  )
+  .get<IRequest, RequestContext>(
     "/price/:baseToken/:quoteToken",
     async ({ params }, env) => {
       if (
@@ -717,7 +720,7 @@ const router = Router<IRequest, CF>()
       );
     }
   )
-  .get<IRequest, CF>(
+  .get<IRequest, RequestContext>(
     "/price/:baseToken/:quoteToken/history",
     async ({ params, query }, env) => {
       if (
@@ -858,64 +861,67 @@ const router = Router<IRequest, CF>()
       );
     }
   )
-  .get<IRequest, CF>("/price/:quoteToken", async ({ params }, env) => {
-    if (
-      typeof params.quoteToken !== "string" ||
-      !ADDRESS_REGEX.test(params.quoteToken)
-    ) {
-      return error(
-        400,
-        "`quoteToken` path parameters must be a token address in hex format"
+  .get<IRequest, RequestContext>(
+    "/price/:quoteToken",
+    async ({ params }, env) => {
+      if (
+        typeof params.quoteToken !== "string" ||
+        !ADDRESS_REGEX.test(params.quoteToken)
+      ) {
+        return error(
+          400,
+          "`quoteToken` path parameters must be a token address in hex format"
+        );
+      }
+
+      const quoteToken = BigInt(params.quoteToken);
+
+      const queries = await createQueries(env);
+      const allTokens = await getAllTokens(env, queries);
+      const qt = getTokenByAddress(allTokens, quoteToken);
+
+      if (!qt) {
+        return error(400, "Quote token not known");
+      }
+
+      const timestamp = Date.now();
+      const sixHoursAgo = new Date(timestamp - 3_600_000 * 6);
+
+      const prices = await queries.getAllVolumeWeightedPrices({
+        quoteToken,
+        start: sixHoursAgo,
+      });
+
+      const scaledPrices = prices
+        .map(({ price, k_volume, token }) => {
+          const base = getTokenByAddress(allTokens, token);
+          if (!base) return null;
+
+          const scaled = price.mul(
+            new Decimal(10).pow(base.decimals - qt.decimals)
+          );
+
+          return {
+            token,
+            price: scaled.toSignificantDigits(6).toString(),
+            k_volume: k_volume.toString(),
+          };
+        })
+        .filter((p) => !!p);
+
+      return json(
+        {
+          timestamp,
+          prices: scaledPrices,
+        },
+        {
+          headers: {
+            "cache-control": "public, max-age=600, must-revalidate",
+          },
+        }
       );
     }
-
-    const quoteToken = BigInt(params.quoteToken);
-
-    const queries = await createQueries(env);
-    const allTokens = await getAllTokens(env, queries);
-    const qt = getTokenByAddress(allTokens, quoteToken);
-
-    if (!qt) {
-      return error(400, "Quote token not known");
-    }
-
-    const timestamp = Date.now();
-    const sixHoursAgo = new Date(timestamp - 3_600_000 * 6);
-
-    const prices = await queries.getAllVolumeWeightedPrices({
-      quoteToken,
-      start: sixHoursAgo,
-    });
-
-    const scaledPrices = prices
-      .map(({ price, k_volume, token }) => {
-        const base = getTokenByAddress(allTokens, token);
-        if (!base) return null;
-
-        const scaled = price.mul(
-          new Decimal(10).pow(base.decimals - qt.decimals)
-        );
-
-        return {
-          token,
-          price: scaled.toSignificantDigits(6).toString(),
-          k_volume: k_volume.toString(),
-        };
-      })
-      .filter((p) => !!p);
-
-    return json(
-      {
-        timestamp,
-        prices: scaledPrices,
-      },
-      {
-        headers: {
-          "cache-control": "public, max-age=600, must-revalidate",
-        },
-      }
-    );
-  })
+  )
   .get("/pools", async (_, env) => {
     const client = await createQueries(env);
 
@@ -947,7 +953,7 @@ const router = Router<IRequest, CF>()
       }
     );
   })
-  .get<IRequest, CF>(
+  .get<IRequest, RequestContext>(
     "/pools/:key_hash/liquidity",
     async ({ params: { key_hash } }, env) => {
       let pool_key_hash: bigint;
@@ -975,7 +981,7 @@ const router = Router<IRequest, CF>()
       );
     }
   )
-  .get<IRequest, CF>(
+  .get<IRequest, RequestContext>(
     "/pools/:key_hash/delta_to_sqrt_ratio/:new_sqrt_ratio",
     async ({ params }, env) => {
       let poolKeyHash: bigint, newSqrtRatio: bigint;
@@ -1071,7 +1077,7 @@ const router = Router<IRequest, CF>()
       );
     }
   )
-  .get<IRequest, CF>(
+  .get<IRequest, RequestContext>(
     "/tokens/:tokenA/:tokenB/liquidity",
     async ({ params: { tokenA: tokenAStr, tokenB: tokenBStr } }, env) => {
       let tokenA: bigint, tokenB: bigint;
@@ -1110,7 +1116,7 @@ const router = Router<IRequest, CF>()
       );
     }
   )
-  .get<IRequest, CF>(
+  .get<IRequest, RequestContext>(
     "/tokens/:tokenA/:tokenB/events",
     async ({ params: { tokenA: tokenAStr, tokenB: tokenBStr } }, env) => {
       let tokenA: bigint, tokenB: bigint;
@@ -1148,126 +1154,129 @@ const router = Router<IRequest, CF>()
       );
     }
   )
-  .get<IRequest, CF>("/:id", async ({ url, params: { id: idStr } }, env) => {
-    const id = parseId(idStr);
-    if (id === null) {
-      return error(400, "Invalid token ID");
+  .get<IRequest, RequestContext>(
+    "/:id",
+    async ({ url, params: { id: idStr } }, env) => {
+      const id = parseId(idStr);
+      if (id === null) {
+        return error(400, "Invalid token ID");
+      }
+
+      const queries = await createQueries(env);
+
+      const positionMetadata = await queries.getPositionMetadata(id);
+
+      if (positionMetadata === null) {
+        return error(404, `Token ID ${id} not found`);
+      }
+
+      const attributesStored: NFTMetadata["attributes"] = [
+        {
+          trait_type: "minted_tx_hash",
+          value: numericToHex(positionMetadata.minted_tx_hash),
+        },
+        { trait_type: "token0", value: numericToHex(positionMetadata.token0) },
+        { trait_type: "token1", value: numericToHex(positionMetadata.token1) },
+        { trait_type: "fee", value: positionMetadata.fee.toString() },
+        {
+          trait_type: "tick_spacing",
+          value: positionMetadata.tick_spacing.toString(),
+        },
+        {
+          trait_type: "extension",
+          value: numericToHex(positionMetadata.extension).toString(),
+        },
+        {
+          trait_type: "tick_lower",
+          value: positionMetadata.lower_bound.toString(),
+        },
+        {
+          trait_type: "tick_upper",
+          value: positionMetadata.upper_bound.toString(),
+        },
+        {
+          trait_type: "minted_timestamp",
+          value: positionMetadata.minted_timestamp.getTime().toString(),
+        },
+      ];
+
+      const allTokens = await getAllTokens(env, queries);
+
+      const origin = new URL(url).origin;
+
+      const token0 = getTokenByAddress(allTokens, positionMetadata.token0);
+      const token1 = getTokenByAddress(allTokens, positionMetadata.token1);
+
+      let metadata: NFTMetadata;
+      if (token0 && token1) {
+        const reversed = token0.sort_order >= token1.sort_order;
+        const [numerator, denominator, lowerPrice, upperPrice] = reversed
+          ? [
+              token0,
+              token1,
+              formattedPrice(
+                -BigInt(positionMetadata.upper_bound),
+                token0.decimals,
+                token1.decimals
+              ),
+              formattedPrice(
+                -BigInt(positionMetadata.lower_bound),
+                token0.decimals,
+                token1.decimals
+              ),
+            ]
+          : [
+              token1,
+              token0,
+              formattedPrice(
+                BigInt(positionMetadata.lower_bound),
+                token1.decimals,
+                token0.decimals
+              ),
+              formattedPrice(
+                BigInt(positionMetadata.upper_bound),
+                token1.decimals,
+                token0.decimals
+              ),
+            ];
+
+        metadata = {
+          name: `${numerator.symbol} / ${
+            denominator.symbol
+          } : ${lowerPrice} <> ${upperPrice} : ${feeToPercent(
+            positionMetadata.fee
+          )}% / ${tickSpacingToPercent(positionMetadata.tick_spacing)}%`,
+          description: `A liquidity position in Ekubo consisting of the ${
+            numerator.name
+          } and ${
+            denominator.name
+          } tokens, active between the prices of ${lowerPrice} ${
+            numerator.symbol
+          } / ${denominator.symbol} to ${upperPrice} ${numerator.symbol} / ${
+            denominator.symbol
+          }. This position charges a ${feeToPercent(
+            positionMetadata.fee
+          )}% fee on swaps.`,
+          image: `${origin}/${id}/image.svg`,
+          attributes: attributesStored,
+        };
+      } else {
+        metadata = {
+          name: `Ekubo NFT #${id}`,
+          description: "An NFT that represents a liquidity position in Ekubo",
+          image: `${origin}/${id}/image.svg`,
+          attributes: attributesStored,
+        };
+      }
+
+      return json(metadata, {
+        headers: {
+          "cache-control": "public, max-age=3600, immutable",
+        },
+      });
     }
-
-    const queries = await createQueries(env);
-
-    const positionMetadata = await queries.getPositionMetadata(id);
-
-    if (positionMetadata === null) {
-      return error(404, `Token ID ${id} not found`);
-    }
-
-    const attributesStored: NFTMetadata["attributes"] = [
-      {
-        trait_type: "minted_tx_hash",
-        value: numericToHex(positionMetadata.minted_tx_hash),
-      },
-      { trait_type: "token0", value: numericToHex(positionMetadata.token0) },
-      { trait_type: "token1", value: numericToHex(positionMetadata.token1) },
-      { trait_type: "fee", value: positionMetadata.fee.toString() },
-      {
-        trait_type: "tick_spacing",
-        value: positionMetadata.tick_spacing.toString(),
-      },
-      {
-        trait_type: "extension",
-        value: numericToHex(positionMetadata.extension).toString(),
-      },
-      {
-        trait_type: "tick_lower",
-        value: positionMetadata.lower_bound.toString(),
-      },
-      {
-        trait_type: "tick_upper",
-        value: positionMetadata.upper_bound.toString(),
-      },
-      {
-        trait_type: "minted_timestamp",
-        value: positionMetadata.minted_timestamp.getTime().toString(),
-      },
-    ];
-
-    const allTokens = await getAllTokens(env, queries);
-
-    const origin = new URL(url).origin;
-
-    const token0 = getTokenByAddress(allTokens, positionMetadata.token0);
-    const token1 = getTokenByAddress(allTokens, positionMetadata.token1);
-
-    let metadata: NFTMetadata;
-    if (token0 && token1) {
-      const reversed = token0.sort_order >= token1.sort_order;
-      const [numerator, denominator, lowerPrice, upperPrice] = reversed
-        ? [
-            token0,
-            token1,
-            formattedPrice(
-              -BigInt(positionMetadata.upper_bound),
-              token0.decimals,
-              token1.decimals
-            ),
-            formattedPrice(
-              -BigInt(positionMetadata.lower_bound),
-              token0.decimals,
-              token1.decimals
-            ),
-          ]
-        : [
-            token1,
-            token0,
-            formattedPrice(
-              BigInt(positionMetadata.lower_bound),
-              token1.decimals,
-              token0.decimals
-            ),
-            formattedPrice(
-              BigInt(positionMetadata.upper_bound),
-              token1.decimals,
-              token0.decimals
-            ),
-          ];
-
-      metadata = {
-        name: `${numerator.symbol} / ${
-          denominator.symbol
-        } : ${lowerPrice} <> ${upperPrice} : ${feeToPercent(
-          positionMetadata.fee
-        )}% / ${tickSpacingToPercent(positionMetadata.tick_spacing)}%`,
-        description: `A liquidity position in Ekubo consisting of the ${
-          numerator.name
-        } and ${
-          denominator.name
-        } tokens, active between the prices of ${lowerPrice} ${
-          numerator.symbol
-        } / ${denominator.symbol} to ${upperPrice} ${numerator.symbol} / ${
-          denominator.symbol
-        }. This position charges a ${feeToPercent(
-          positionMetadata.fee
-        )}% fee on swaps.`,
-        image: `${origin}/${id}/image.svg`,
-        attributes: attributesStored,
-      };
-    } else {
-      metadata = {
-        name: `Ekubo NFT #${id}`,
-        description: "An NFT that represents a liquidity position in Ekubo",
-        image: `${origin}/${id}/image.svg`,
-        attributes: attributesStored,
-      };
-    }
-
-    return json(metadata, {
-      headers: {
-        "cache-control": "public, max-age=3600, immutable",
-      },
-    });
-  })
-  .get<IRequest, CF>(
+  )
+  .get<IRequest, RequestContext>(
     "/:id/history",
     async ({ url, params: { id: idStr } }, env) => {
       const id = parseId(idStr);
@@ -1313,7 +1322,7 @@ const router = Router<IRequest, CF>()
       );
     }
   )
-  .get<IRequest, CF>(
+  .get<IRequest, RequestContext>(
     "/:id/image.svg",
     async ({ params: { id: idStr } }, env) => {
       const id = parseId(idStr);
@@ -1343,29 +1352,39 @@ const router = Router<IRequest, CF>()
 
 const cache = caches.default;
 
+const { preflight, corsify } = createCors({
+  maxAge: 86400,
+  origins: ["*"],
+  methods: ["GET", "OPTIONS", "POST"],
+});
+
 export default {
-  fetch: async (request: IRequest, env: Env, ctxt: CF) => {
+  fetch: async (request: IRequest, env: Env, context: RequestContext) => {
+    // skip everything for preflights, because they are extremely cheap to compute
+    if (request.method.toLowerCase() === "options") return preflight(request);
+
+    // check cache hits for request
     const cached = await cache.match(request);
     if (cached) return cached;
 
     const response = await router
-      .handle(request, env, ctxt)
-
-      // transform everything to JSON
-      .then(json)
+      .handle(request, env, context)
 
       // catch any errors
       .catch((e) => {
         console.error(e);
-
-        return error(e);
+        return error(500, "Internal server error");
       })
+
+      // transform everything to JSON
+      .then(json)
 
       // add CORS headers to all requests,
       // including errors
       .then(corsify);
 
     if (response.ok) {
+      // put successful responses in the cache
       await cache.put(request, response.clone());
     }
 
