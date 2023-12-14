@@ -21,6 +21,7 @@
   },
   "dependencies": {
     "decimal.js-light": "^2.5.1",
+    "fastest-levenshtein": "^1.0.16",
     "starknet": "^5.24.3"
   }
 }
