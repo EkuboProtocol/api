@@ -1352,7 +1352,7 @@ const router = Router<IRequest, RequestContext>()
 
 const cache = caches.default;
 
-const { preflight, corsify: corsifyNoOrigin } = createCors({
+const { preflight, corsify } = createCors({
   maxAge: 86400,
   origins: ["*"],
   methods: ["GET", "OPTIONS", "POST"],
@@ -1360,18 +1360,8 @@ const { preflight, corsify: corsifyNoOrigin } = createCors({
 
 export default {
   fetch: async (request: IRequest, env: Env, context: RequestContext) => {
-    if (request.method.toLowerCase() === "options") {
-      return preflight(request);
-    }
-
-    // because the preflight sets some internal variable that is used for origin, it doesn't work right
-    // https://github.com/kwhitley/itty-router/issues/204
-    function corsify(r: Response) {
-      const corsified = corsifyNoOrigin(r);
-      const origin = request.headers.get("origin");
-      if (origin) corsified.headers.set("access-control-allow-origin", origin);
-      return corsified;
-    }
+    const preflightResponse = preflight(request);
+    if (preflightResponse) return preflightResponse;
 
     // check cache hits for request
     const cached = await cache.match(request);
@@ -1392,7 +1382,7 @@ export default {
       .then(json);
 
     if (response.ok) {
-      // put successful responses in the cache
+      // put successful responses in the cache before corsifying
       await cache.put(request, response.clone());
     }
 
