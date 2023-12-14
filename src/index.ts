@@ -1360,29 +1360,26 @@ const { preflight, corsify } = createCors({
 
 export default {
   fetch: async (request: IRequest, env: Env, context: RequestContext) => {
+    // first check the preflight before anything. it's so cheap to handle we shouldn't even bother with check the cache
     const preflightResponse = preflight(request);
     if (preflightResponse) return preflightResponse;
 
     // check cache hits for request
+    // we do this outside of the router because we do not want to RE-CACHE a successful response by including the cache logic in the router handler
     const cached = await cache.match(request);
     if (cached) {
       return corsify(cached);
     }
 
-    const response = await router
-      .handle(request, env, context)
-
-      // catch any errors
-      .catch((e) => {
-        console.error(e);
-        return error(500, "Internal server error");
-      })
-
-      // transform everything to JSON
-      .then(json);
+    let response: Response;
+    try {
+      response = json(await router.handle(request, env, context));
+    } catch (e) {
+      console.error(e);
+      response = json(error(500, "Internal server error"));
+    }
 
     if (response.ok) {
-      // put successful responses in the cache before corsifying
       await cache.put(request, response.clone());
     }
 
