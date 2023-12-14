@@ -64,7 +64,7 @@ export async function getAllTokens(
           symbol,
           decimals: row.decimals,
           l2_token_address,
-          sort_order: 2,
+          sort_order: 1,
           hidden: true,
         });
       }

@@ -4,7 +4,7 @@
     "symbol": "WBTC",
     "decimals": 8,
     "l2_token_address": "0x03fe2b97c1fd336e750087d68b9b867997fd64a2661ff3ca5a7c771641e8e7ac",
-    "sort_order": -1
+    "sort_order": 0
   },
   {
     "name": "USD Coin",
@@ -32,7 +32,7 @@
     "symbol": "ETH",
     "decimals": 18,
     "l2_token_address": "0x049d36570d4e46f48e99674bd3fcc84644ddd6b96f7c741b1562b82f9e004dc7",
-    "sort_order": 0
+    "sort_order": 2
   },
   {
     "name": "DAI",
@@ -46,14 +46,14 @@
     "symbol": "wstETH",
     "decimals": 18,
     "l2_token_address": "0x042b8f0484674ca266ac5d08e4ac6a3fe65bd3129795def2dca5c34ecc5f96d2",
-    "sort_order": 0
+    "sort_order": 1
   },
   {
     "name": "Legacy Wrapped liquid staked Ether 2.0",
     "symbol": "legacy-wstETH",
     "decimals": 18,
     "l2_token_address": "0x05ef98e7dc5865f49bcec200df508d27669b3ef7f9d2439decd127350359f291",
-    "sort_order": 0,
+    "sort_order": 1,
     "hidden": true
   },
   {
@@ -61,14 +61,14 @@
     "symbol": "rETH",
     "decimals": 18,
     "l2_token_address": "0x0319111a5037cbec2b3e638cc34a3474e2d2608299f3e62866e9cc683208c610",
-    "sort_order": 0
+    "sort_order": 1
   },
   {
     "name": "LORDS",
     "symbol": "LORDS",
     "decimals": 18,
     "l2_token_address": "0x0124aeb495b947201f5fac96fd1138e326ad86195b98df6dec9009158a533b49",
-    "sort_order": 2
+    "sort_order": 1
   },
   {
     "name": "R Stablecoin",
@@ -82,7 +82,7 @@
     "symbol": "FRAX",
     "decimals": 18,
     "l2_token_address": "0x009c6b4fb13dfaa025c1383ed6190af8ed8cbb09d9588a3bb020feb152442406",
-    "sort_order": 2,
+    "sort_order": 1,
     "hidden": true
   },
   {
@@ -90,7 +90,7 @@
     "symbol": "FXS",
     "decimals": 18,
     "l2_token_address": "0x0058efd0e73c33a848ffaa88738d128ebf0af98ea78cf3c14dc757bb02d39ffb",
-    "sort_order": 2,
+    "sort_order": 1,
     "hidden": true
   },
   {
@@ -98,7 +98,7 @@
     "symbol": "sfrxETH",
     "decimals": 18,
     "l2_token_address": "0x04578fffc279e61b5cb0267a5f8e24b6089d40f93158fbbad2cb23b8622c9233",
-    "sort_order": 2,
+    "sort_order": 1,
     "hidden": true
   },
   {
@@ -106,7 +106,7 @@
     "symbol": "ANB",
     "decimals": 18,
     "l2_token_address": "0x070dd1f88cc973de315c10b2da4e196554c20e925d630474e257a0a4d9d363dc",
-    "sort_order": 2,
+    "sort_order": 1,
     "hidden": true
   },
   {
@@ -114,14 +114,14 @@
     "symbol": "UNI",
     "decimals": 18,
     "l2_token_address": "0x049210ffc442172463f3177147c1aeaa36c51d152c1b0630f2364c300d4f48ee",
-    "sort_order": 2
+    "sort_order": 1
   },
   {
     "name": "OWL",
     "symbol": "OWL",
     "decimals": 18,
     "l2_token_address": "0x039877a272619050ab8b0e3e0a19b58d076fc2ce84da1dc73b699590e629f2b8",
-    "sort_order": 2,
+    "sort_order": 1,
     "hidden": true
   },
   {
@@ -129,7 +129,7 @@
     "symbol": "STRAK-meme",
     "decimals": 18,
     "l2_token_address": "0x055c3868c743e92c470701799388cb3fb1d922dcec271150d10462c6948e3cf4",
-    "sort_order": 2,
+    "sort_order": 1,
     "hidden": true
   },
   {
@@ -137,7 +137,7 @@
     "symbol": "SPEPE",
     "decimals": 18,
     "l2_token_address": "0x06f15ec4b6ff0b7f7a216c4b2ccdefc96cbf114d6242292ca82971592f62273b",
-    "sort_order": 2,
+    "sort_order": 1,
     "hidden": true
   }
 ]
