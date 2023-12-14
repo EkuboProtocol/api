@@ -658,7 +658,7 @@ const router = Router<IRequest, RequestContext>()
       }
 
       const timestamp = Date.now();
-      const threeHoursAgo = new Date(timestamp - 10_800_000);
+      const oneDayAgo = new Date(timestamp - 86_400_000);
 
       const ft = FEE_TOKEN_ADDRESS[env.STARKNET_CHAIN_ID];
 
@@ -671,17 +671,17 @@ const router = Router<IRequest, RequestContext>()
           queries.getLastVolumeWeightedPrice({
             quoteToken,
             baseToken,
-            since: threeHoursAgo,
+            since: oneDayAgo,
           }),
           queries.getLastVolumeWeightedPrice({
             quoteToken,
             baseToken: ft,
-            since: threeHoursAgo,
+            since: oneDayAgo,
           }),
           queries.getLastVolumeWeightedPrice({
             quoteToken: ft,
             baseToken,
-            since: threeHoursAgo,
+            since: oneDayAgo,
           }),
         ])
       );
