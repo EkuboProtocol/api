@@ -36,6 +36,17 @@ const { preflight, corsify } = createCors({
   origins: ["*"],
 });
 
+// create a convenient duple
+type CF = [env: Env, context: ExecutionContext];
+
+const cache = caches.default;
+const router = Router<IRequest, CF>()
+  .all("*", preflight)
+  .all("*", async (request) => {
+    const response = await cache.match(request);
+    if (response) return response;
+  });
+
 const ADDRESS_REGEX = /^0x[a-fA-F0-9]+$/;
 
 interface LastUpdatedKey {
@@ -208,11 +219,7 @@ function getProvider(env: Env): RpcProvider {
   );
 }
 
-// create a convenient duple
-type CF = [env: Env, context: ExecutionContext];
-
-const router = Router<IRequest, CF>()
-  .all("*", preflight)
+router
   .get<IRequest, CF>("/tokens", async ({}, env) => {
     const tokens = await getAllTokens(env, await createQueries(env));
 
@@ -1341,18 +1348,21 @@ const router = Router<IRequest, CF>()
   // catch missed routes
   .all("*", () => error(404));
 
-const cache = caches.default;
+async function cacheResponse(request: IRequest, response: Response) {
+  if (!response.ok) return response;
+  await cache.put(request, response.clone());
+  return response;
+}
 
 export default {
-  fetch: async (request: IRequest, env: Env, ctxt: CF) => {
-    const cached = await cache.match(request);
-    if (cached) return cached;
+  fetch: (request: IRequest, env: Env, ctxt: CF) =>
+    router
 
-    const response = await router
       .handle(request, env, ctxt)
 
-      // transform everything to JSON
+      // transform unformed responses
       .then(json)
+      .then((response) => cacheResponse(request, response))
 
       // catch any errors
       .catch((e) => {
@@ -1363,12 +1373,5 @@ export default {
 
       // add CORS headers to all requests,
       // including errors
-      .then(corsify);
-
-    if (response.ok) {
-      await cache.put(request, response.clone());
-    }
-
-    return response;
-  },
+      .then(corsify),
 };
