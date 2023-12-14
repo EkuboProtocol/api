@@ -91,7 +91,7 @@ export function getTokenByIdentifier(
   identifier: string
 ): TokenInfo | undefined {
   if (/^0x[a-fA-F0-9]+$/.test(identifier) || /^\d+$/.test(identifier)) {
-    return getTokenByIdentifier(tokens, identifier);
+    return getTokenByAddress(tokens, identifier);
   }
 
   return tokens.find(
