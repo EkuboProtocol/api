@@ -49,14 +49,6 @@
     "sort_order": 1
   },
   {
-    "name": "Legacy Wrapped liquid staked Ether 2.0",
-    "symbol": "legacy-wstETH",
-    "decimals": 18,
-    "l2_token_address": "0x05ef98e7dc5865f49bcec200df508d27669b3ef7f9d2439decd127350359f291",
-    "sort_order": 1,
-    "hidden": true
-  },
-  {
     "name": "Rocket Pool ETH",
     "symbol": "rETH",
     "decimals": 18,
