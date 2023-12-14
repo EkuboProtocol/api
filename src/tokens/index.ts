@@ -1,40 +1,100 @@
 import MAINNET_TOKENS from "./mainnet.json";
 import GOERLI_TOKENS from "./goerli.json";
-import { constants } from "starknet";
+import { constants, num, shortString } from "starknet";
+import { Queries } from "../queries";
+import { Env } from "../env";
 
-export const DEFAULT_TOKENS_BY_CHAIN_ID = {
+export type TokenInfo = typeof MAINNET_TOKENS[number];
+
+const DEFAULT_TOKENS_BY_CHAIN_ID: {
+  [key in constants.StarknetChainId]: TokenInfo[];
+} = {
   [constants.StarknetChainId.SN_MAIN]: MAINNET_TOKENS,
   [constants.StarknetChainId.SN_GOERLI]: GOERLI_TOKENS,
 } as const;
 
-export function feeTokenAddress(chainId: constants.StarknetChainId): bigint {
-  return chainId === constants.StarknetChainId.SN_MAIN
-    ? 0x049d36570d4e46f48e99674bd3fcc84644ddd6b96f7c741b1562b82f9e004dc7n
-    : 0x049d36570d4e46f48e99674bd3fcc84644ddd6b96f7c741b1562b82f9e004dc7n;
-}
+export const FEE_TOKEN_ADDRESS = {
+  [constants.StarknetChainId.SN_MAIN]:
+    0x049d36570d4e46f48e99674bd3fcc84644ddd6b96f7c741b1562b82f9e004dc7n,
+  [constants.StarknetChainId.SN_GOERLI]:
+    0x049d36570d4e46f48e99674bd3fcc84644ddd6b96f7c741b1562b82f9e004dc7n,
+};
 
-export function feeToken(chainId: constants.StarknetChainId) {
-  return getTokenByAddress(chainId, feeTokenAddress(chainId));
+let lastGetAllTokens: {
+  [chainId in constants.StarknetChainId]?: {
+    timestamp: number;
+    result: TokenInfo[];
+  };
+} = {};
+const MEMORY_CACHE_TIME = 3_600_000;
+
+export async function getAllTokens(
+  env: Env,
+  queries: Queries
+): Promise<TokenInfo[]> {
+  const last = lastGetAllTokens[env.STARKNET_CHAIN_ID];
+  if (last && last.timestamp >= Date.now() - MEMORY_CACHE_TIME) {
+    return last.result;
+  }
+
+  const tokens = DEFAULT_TOKENS_BY_CHAIN_ID[env.STARKNET_CHAIN_ID] ?? [];
+
+  const { rows } = await queries.getRegisteredTokens();
+
+  rows.forEach((row) => {
+    try {
+      const name = shortString.decodeShortString(row.name).trim();
+      const symbol = shortString.decodeShortString(row.symbol).trim();
+      const l2_token_address = num.toHex(row.address);
+      if (symbol.length > 6) return;
+      if (!/^[\x00-\x7F]*$/.test(name) || !/^[\x00-\x7F]*$/.test(symbol))
+        return;
+
+      if (
+        // if we find any token matching name symbol etc we skip it
+        !tokens.find(
+          (t) =>
+            BigInt(t.l2_token_address) === BigInt(l2_token_address) ||
+            t.symbol.toLowerCase() === symbol.toLowerCase() ||
+            t.name.toLowerCase() === name.toLowerCase()
+        )
+      ) {
+        tokens.push({
+          l2_token_address,
+          name,
+          symbol,
+          decimals: row.decimals,
+          hidden: true,
+          sort_order: 2,
+        });
+      }
+    } catch (error) {}
+  });
+
+  lastGetAllTokens[env.STARKNET_CHAIN_ID] = {
+    timestamp: Date.now(),
+    result: tokens,
+  };
+
+  return tokens;
 }
 
 export function getTokenByAddress(
-  chainId: constants.StarknetChainId,
+  tokens: TokenInfo[],
   address: string | bigint
-) {
-  return (DEFAULT_TOKENS_BY_CHAIN_ID[chainId] ?? [])?.find(
-    (x) => BigInt(x.l2_token_address) === BigInt(address)
-  );
+): TokenInfo | undefined {
+  return tokens?.find((x) => BigInt(x.l2_token_address) === BigInt(address));
 }
 
 export function parseTokenIdentifier(
-  chainId: constants.StarknetChainId,
+  tokens: TokenInfo[],
   identifier: string
 ): bigint {
   if (/^0x[a-fA-F0-9]+$/.test(identifier) || /^\d+$/.test(identifier)) {
     return BigInt(identifier);
   }
 
-  const found = (DEFAULT_TOKENS_BY_CHAIN_ID[chainId] ?? [])?.find(
+  const found = tokens?.find(
     (x) => x.symbol.toLowerCase() === identifier.toLowerCase()
   )?.l2_token_address;
   if (!found) {

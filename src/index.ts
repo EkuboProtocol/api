@@ -12,11 +12,10 @@ import {
   tickSpacingToPercent,
 } from "./format";
 import {
-  feeToken,
-  feeTokenAddress,
+  FEE_TOKEN_ADDRESS,
+  getAllTokens,
   getTokenByAddress,
   parseTokenIdentifier,
-  DEFAULT_TOKENS_BY_CHAIN_ID,
 } from "./tokens";
 import { findAllRoutes } from "./findAllRoutes";
 import { PlainPool } from "./nodes/plainPool";
@@ -25,7 +24,7 @@ import { QuoteNode } from "./nodes/quoteNode";
 import { PoolState, Queries } from "./queries";
 import { toSqrtRatio } from "./math/tick";
 import { isPriceIncreasing } from "./math/swap";
-import { constants, Contract, shortString, num, RpcProvider } from "starknet";
+import { constants, Contract, num, RpcProvider } from "starknet";
 import POSITIONS_ABI from "./positions-abi.json";
 
 Decimal.set({ precision: 39 });
@@ -222,41 +221,7 @@ function getProvider(env: Env): RpcProvider {
 
 router
   .get<IRequest, CF>("/tokens", async ({}, env) => {
-    const tokens = DEFAULT_TOKENS_BY_CHAIN_ID[env.STARKNET_CHAIN_ID] ?? [];
-
-    const queries = await createQueries(env);
-
-    const { rows } = await queries.getRegisteredTokens();
-
-    rows.forEach((row) => {
-      try {
-        const name = shortString.decodeShortString(row.name).trim();
-        const symbol = shortString.decodeShortString(row.symbol).trim();
-        const l2_token_address = num.toHex(row.address);
-        if (symbol.length > 6) return;
-        if (!/^[\x00-\x7F]*$/.test(name) || !/^[\x00-\x7F]*$/.test(symbol))
-          return;
-
-        if (
-          // if we find any token matching name symbol etc we skip it
-          !tokens.find(
-            (t) =>
-              BigInt(t.l2_token_address) === BigInt(l2_token_address) ||
-              t.symbol.toLowerCase() === symbol.toLowerCase() ||
-              t.name.toLowerCase() === name.toLowerCase()
-          )
-        ) {
-          tokens.push({
-            l2_token_address,
-            name,
-            symbol,
-            decimals: row.decimals,
-            hidden: true,
-            sort_order: 2,
-          });
-        }
-      } catch (error) {}
-    });
+    const tokens = await getAllTokens(env, await createQueries(env));
 
     return json(tokens, {
       headers: {
@@ -266,12 +231,7 @@ router
     });
   })
   .get<IRequest, CF>("/tokens/:address/logo", async ({ params }, env) => {
-    const token = getTokenByAddress(env.STARKNET_CHAIN_ID, params.address);
-    if (!token) {
-      return error(404, "Token address not found");
-    }
-
-    const logo = await env.TOKEN_LOGOS_KV?.get(token.l2_token_address);
+    const logo = await env.TOKEN_LOGOS_KV?.get(params.address);
 
     if (!logo) {
       return error(404, "Token logo not available");
@@ -362,7 +322,7 @@ router
 
     const { rows } = await dao.getLeaderboard({
       positionsContractAddress,
-      feeTokenAddress: feeTokenAddress(env.STARKNET_CHAIN_ID),
+      feeTokenAddress: FEE_TOKEN_ADDRESS[env.STARKNET_CHAIN_ID],
       collectedAfter: lastMonth
         ? new Date(Date.now() - 30 * 24 * 60 * 60 * 1000)
         : undefined,
@@ -402,7 +362,7 @@ router
 
       const { rows } = await dao.getLeaderboard({
         positionsContractAddress,
-        feeTokenAddress: feeTokenAddress(env.STARKNET_CHAIN_ID),
+        feeTokenAddress: FEE_TOKEN_ADDRESS[env.STARKNET_CHAIN_ID],
         collector,
         collectedAfter: lastMonth
           ? new Date(Date.now() - 30 * 24 * 60 * 60 * 1000)
@@ -426,14 +386,15 @@ router
   .get<IRequest, CF>(
     "/quote/:amount/:token/:otherToken",
     async ({ params, query }, env) => {
+      const queries = await createQueries(env);
+
+      const allTokens = await getAllTokens(env, queries);
+
       let amount: bigint, token: bigint, otherToken: bigint;
       try {
         amount = BigInt(new Decimal(params.amount).toInteger().toFixed());
-        token = parseTokenIdentifier(env.STARKNET_CHAIN_ID, params.token);
-        otherToken = parseTokenIdentifier(
-          env.STARKNET_CHAIN_ID,
-          params.otherToken
-        );
+        token = parseTokenIdentifier(allTokens, params.token);
+        otherToken = parseTokenIdentifier(allTokens, params.otherToken);
       } catch (e) {
         return error(
           400,
@@ -450,12 +411,10 @@ router
         return error(400, "Amount is too large");
       }
 
-      const dao = await createQueries(env);
-
       const cache = QUOTE_NODE_CACHE[env.STARKNET_CHAIN_ID];
 
       const relevantPools = await getAllRelevantPoolsAndUpdateCache(
-        dao,
+        queries,
         cache,
         {
           tokenA: token,
@@ -679,19 +638,20 @@ router
       const baseToken = BigInt(params.baseToken);
       const quoteToken = BigInt(params.quoteToken);
 
-      const bt = getTokenByAddress(env.STARKNET_CHAIN_ID, baseToken);
-      const qt = getTokenByAddress(env.STARKNET_CHAIN_ID, quoteToken);
+      const queries = await createQueries(env);
+      const allTokens = await getAllTokens(env, queries);
+
+      const bt = getTokenByAddress(allTokens, baseToken);
+      const qt = getTokenByAddress(allTokens, quoteToken);
 
       if (!bt || !qt) {
         return error(400, "Base token or quote token not known");
       }
 
-      const queries = await createQueries(env);
-
       const timestamp = Date.now();
       const threeHoursAgo = new Date(timestamp - 10_800_000);
 
-      const ft = feeToken(env.STARKNET_CHAIN_ID);
+      const ft = FEE_TOKEN_ADDRESS[env.STARKNET_CHAIN_ID];
 
       if (!ft) {
         return error(500, "Fee token not defined for chain");
@@ -706,11 +666,11 @@ router
           }),
           queries.getLastVolumeWeightedPrice({
             quoteToken,
-            baseToken: BigInt(ft.l2_token_address),
+            baseToken: ft,
             since: threeHoursAgo,
           }),
           queries.getLastVolumeWeightedPrice({
-            quoteToken: BigInt(ft.l2_token_address),
+            quoteToken: ft,
             baseToken,
             since: threeHoursAgo,
           }),
@@ -769,8 +729,11 @@ router
       const baseToken = BigInt(params.baseToken);
       const quoteToken = BigInt(params.quoteToken);
 
-      const bt = getTokenByAddress(env.STARKNET_CHAIN_ID, baseToken);
-      const qt = getTokenByAddress(env.STARKNET_CHAIN_ID, quoteToken);
+      const queries = await createQueries(env);
+
+      const tokens = await getAllTokens(env, queries);
+      const bt = getTokenByAddress(tokens, baseToken);
+      const qt = getTokenByAddress(tokens, quoteToken);
 
       if (!bt || !qt) {
         return error(400, "Base token or quote token not known");
@@ -817,15 +780,13 @@ router
         return error(400, "Interval too small for the range");
       }
 
-      const queries = await createQueries(env);
-
       const [token0, token1] =
         baseToken < quoteToken
           ? [baseToken, quoteToken]
           : [quoteToken, baseToken];
 
       // convert 1e15 eth to the threshold for token0 by multiplying 1e15 eth by the price in per eth
-      const fta = feeTokenAddress(env.STARKNET_CHAIN_ID);
+      const fta = FEE_TOKEN_ADDRESS[env.STARKNET_CHAIN_ID];
       const price0 =
         token0 === fta
           ? new Decimal(1)
@@ -904,13 +865,13 @@ router
 
     const quoteToken = BigInt(params.quoteToken);
 
-    const qt = getTokenByAddress(env.STARKNET_CHAIN_ID, quoteToken);
+    const queries = await createQueries(env);
+    const allTokens = await getAllTokens(env, queries);
+    const qt = getTokenByAddress(allTokens, quoteToken);
 
     if (!qt) {
       return error(400, "Quote token not known");
     }
-
-    const queries = await createQueries(env);
 
     const timestamp = Date.now();
     const sixHoursAgo = new Date(timestamp - 3_600_000 * 6);
@@ -922,7 +883,7 @@ router
 
     const scaledPrices = prices
       .map(({ price, k_volume, token }) => {
-        const base = getTokenByAddress(env.STARKNET_CHAIN_ID, token);
+        const base = getTokenByAddress(allTokens, token);
         if (!base) return null;
 
         const scaled = price.mul(
@@ -1225,15 +1186,12 @@ router
       },
     ];
 
+    const allTokens = await getAllTokens(env, queries);
+
     const origin = new URL(url).origin;
-    const token0 = getTokenByAddress(
-      env.STARKNET_CHAIN_ID,
-      positionMetadata.token0
-    );
-    const token1 = getTokenByAddress(
-      env.STARKNET_CHAIN_ID,
-      positionMetadata.token1
-    );
+
+    const token0 = getTokenByAddress(allTokens, positionMetadata.token0);
+    const token1 = getTokenByAddress(allTokens, positionMetadata.token1);
 
     let metadata: NFTMetadata;
     if (token0 && token1) {
