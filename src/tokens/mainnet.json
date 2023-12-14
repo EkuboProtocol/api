@@ -125,8 +125,8 @@
     "hidden": true
   },
   {
-    "name": "STRAK",
-    "symbol": "STRAK",
+    "name": "STRAK#meme",
+    "symbol": "STRAK#meme",
     "decimals": 18,
     "l2_token_address": "0x055c3868c743e92c470701799388cb3fb1d922dcec271150d10462c6948e3cf4",
     "sort_order": 2,
