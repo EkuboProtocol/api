@@ -3,7 +3,6 @@ import GOERLI_TOKENS from "./goerli.json";
 import { constants, num, shortString } from "starknet";
 import { Queries } from "../queries";
 import { Env } from "../env";
-import { distance } from "fastest-levenshtein";
 
 export type TokenInfo = typeof MAINNET_TOKENS[number];
 
@@ -56,7 +55,8 @@ export async function getAllTokens(
         !tokens.find(
           (t) =>
             BigInt(t.l2_token_address) === BigInt(l2_token_address) ||
-            distance(t.symbol.toLowerCase(), symbol.toLowerCase()) < 2
+            t.symbol.toLowerCase() === symbol.toLowerCase() ||
+            t.name === name.toLowerCase()
         )
       ) {
         tokens.push({
