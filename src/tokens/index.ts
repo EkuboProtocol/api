@@ -26,7 +26,7 @@ let lastGetAllTokens: {
     result: TokenInfo[];
   };
 } = {};
-const MEMORY_CACHE_TIME = 3_600_000;
+const MEMORY_CACHE_TIME = 300_000;
 
 export async function getAllTokens(
   env: Env,
