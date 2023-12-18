@@ -46,7 +46,7 @@ export async function getAllTokens(
       const name = shortString.decodeShortString(row.name).trim();
       const symbol = shortString.decodeShortString(row.symbol).trim();
       const l2_token_address = num.toHex(row.address);
-      if (symbol.length > 6) return;
+      if (symbol.length > 8) return;
       if (!/^[\x00-\x7F]*$/.test(name) || !/^[\x00-\x7F]*$/.test(symbol))
         return;
 
