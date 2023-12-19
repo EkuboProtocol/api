@@ -16,7 +16,6 @@ import {
   getAllTokens,
   getTokenByAddress,
   getTokenByIdentifier,
-  TokenInfo,
 } from "./tokens";
 import { findAllRoutes } from "./findAllRoutes";
 import { PlainPool } from "./nodes/plainPool";

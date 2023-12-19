@@ -65,6 +65,9 @@ export async function getAllTokens(
           decimals: row.decimals,
           l2_token_address,
           sort_order: 1,
+          total_supply: Number(
+            BigInt(row.total_supply) / 10n ** BigInt(row.decimals)
+          ),
           hidden: true,
         });
       }

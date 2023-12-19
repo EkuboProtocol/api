@@ -111,6 +111,7 @@ export class Queries {
       name: string;
       symbol: string;
       decimals: number;
+      total_supply: string;
     }>(`
         WITH last_key_per_address AS (SELECT address,
                                              (SELECT (block_number, transaction_index, event_index)
@@ -124,7 +125,8 @@ export class Queries {
         SELECT lk.address,
                tr.name,
                tr.symbol,
-               tr.decimals
+               tr.decimals,
+               tr.total_supply
         FROM last_key_per_address AS lk
                  JOIN token_registrations AS tr
                       ON lk.address = tr.address
