@@ -1,10 +1,11 @@
-import { createCors, error, IRequest, json, Router } from "itty-router";
+import { createCors, error, IRequest, json } from "itty-router";
 import { NFTMetadata } from "./nft";
 import { generateSvg } from "./generateSvg";
 import { parseId } from "./parseId";
 import { Env } from "./env";
 import { createQueries } from "./createQueries";
 import Decimal from "decimal.js-light";
+import { version } from "../package.json";
 import {
   feeToPercent,
   formattedPrice,
@@ -26,6 +27,9 @@ import { toSqrtRatio } from "./math/tick";
 import { isPriceIncreasing } from "./math/swap";
 import { constants, Contract, num, RpcProvider } from "starknet";
 import POSITIONS_ABI from "./positions-abi.json";
+import { OpenAPIRouter } from "@cloudflare/itty-router-openapi";
+import { RequestContext } from "./routes/context";
+import { TokensFetch } from "./routes/tokens";
 
 Decimal.set({ precision: 39 });
 
@@ -203,23 +207,20 @@ function getProvider(env: Env): RpcProvider {
   );
 }
 
-// create a convenient duple
-type RequestContext = [env: Env, context: ExecutionContext];
-
-const router = Router<IRequest, RequestContext>()
-  .get<IRequest, RequestContext>("/tokens", async ({}, env) => {
-    const tokens = await getAllTokens(env, await createQueries(env));
-
-    return json(tokens, {
-      headers: {
-        "cache-control":
-          "public, max-age=3600, stale-while-revalidate=3600, stale-if-error=86400",
-      },
-    });
-  })
+const router = OpenAPIRouter<IRequest, RequestContext>({
+  schema: {
+    info: {
+      title: "Ekubo API",
+      version,
+    },
+  },
+  redoc_url: null as unknown as undefined,
+  docs_url: null as unknown as undefined,
+})
+  .get("/tokens", TokensFetch)
   .get<IRequest, RequestContext>(
     "/tokens/:identifier/logo",
-    async ({ params }, env) => {
+    async ({ params }: IRequest, env: Env) => {
       const tokens = await getAllTokens(env, await createQueries(env));
 
       const token = getTokenByIdentifier(tokens, params.identifier);
@@ -253,31 +254,34 @@ const router = Router<IRequest, RequestContext>()
       });
     }
   )
-  .get<IRequest, RequestContext>("/blocks/:number", async ({ params }, env) => {
-    const queries = await createQueries(env);
+  .get<IRequest, RequestContext>(
+    "/blocks/:number",
+    async ({ params }: IRequest, env: Env) => {
+      const queries = await createQueries(env);
 
-    if (params.number !== "latest") {
-      return error(501, "Not implemented");
-    }
-
-    const block = await queries.getLatestBlock();
-
-    return json(
-      {
-        number: Number(block.number),
-        timestamp: block.timestamp,
-      },
-      {
-        headers: {
-          "cache-control": "public, max-age=10, must-revalidate",
-        },
+      if (params.number !== "latest") {
+        return error(501, "Not implemented");
       }
-    );
-  })
+
+      const block = await queries.getLatestBlock();
+
+      return json(
+        {
+          number: Number(block.number),
+          timestamp: block.timestamp,
+        },
+        {
+          headers: {
+            "cache-control": "public, max-age=10, must-revalidate",
+          },
+        }
+      );
+    }
+  )
   // gets a full dump of the leaderboard
   .get<IRequest, RequestContext>(
     "/leaderboard/dump",
-    async ({ query }, env) => {
+    async ({ query }: IRequest, env: Env) => {
       if (query.key !== "wip") {
         return error(501, "Not implemented");
       }
@@ -313,41 +317,44 @@ const router = Router<IRequest, RequestContext>()
       );
     }
   )
-  .get<IRequest, RequestContext>("/leaderboard", async ({ query }, env) => {
-    const lastMonth = query?.lastMonth === "true";
+  .get<IRequest, RequestContext>(
+    "/leaderboard",
+    async ({ query }: IRequest, env: Env) => {
+      const lastMonth = query?.lastMonth === "true";
 
-    const dao = await createQueries(env);
+      const dao = await createQueries(env);
 
-    const positionsContractAddress =
-      POSITIONS_CONTRACT_ADDRESS[env.STARKNET_CHAIN_ID];
+      const positionsContractAddress =
+        POSITIONS_CONTRACT_ADDRESS[env.STARKNET_CHAIN_ID];
 
-    const { rows } = await dao.getLeaderboard({
-      positionsContractAddress,
-      feeTokenAddress: FEE_TOKEN_ADDRESS[env.STARKNET_CHAIN_ID],
-      collectedAfter: lastMonth
-        ? new Date(Date.now() - 30 * 24 * 60 * 60 * 1000)
-        : undefined,
-    });
+      const { rows } = await dao.getLeaderboard({
+        positionsContractAddress,
+        feeTokenAddress: FEE_TOKEN_ADDRESS[env.STARKNET_CHAIN_ID],
+        collectedAfter: lastMonth
+          ? new Date(Date.now() - 30 * 24 * 60 * 60 * 1000)
+          : undefined,
+      });
 
-    return json(
-      {
-        timestamp: Date.now(),
-        data: rows.map((row) => ({
-          collector: numericToHex(row.collector),
-          points: Number(row.points),
-        })),
-      },
-      {
-        headers: {
-          "cache-control":
-            "public,max-age=3600,stale-while-revalidate=3600,stale-if-error=180",
+      return json(
+        {
+          timestamp: Date.now(),
+          data: rows.map((row) => ({
+            collector: numericToHex(row.collector),
+            points: Number(row.points),
+          })),
         },
-      }
-    );
-  })
+        {
+          headers: {
+            "cache-control":
+              "public,max-age=3600,stale-while-revalidate=3600,stale-if-error=180",
+          },
+        }
+      );
+    }
+  )
   .get<IRequest, RequestContext>(
     "/leaderboard/:collector/points",
-    async ({ params, query }, env) => {
+    async ({ params, query }: IRequest, env: Env) => {
       const lastMonth = query?.lastMonth === "true";
       let collector: bigint;
       try {
@@ -386,7 +393,7 @@ const router = Router<IRequest, RequestContext>()
 
   .get<IRequest, RequestContext>(
     "/quote/:amount/:token/:otherToken",
-    async ({ params, query }, env) => {
+    async ({ params, query }: IRequest, env: Env) => {
       const queries = await createQueries(env);
 
       const allTokens = await getAllTokens(env, queries);
@@ -502,7 +509,7 @@ const router = Router<IRequest, RequestContext>()
       );
     }
   )
-  .get<IRequest, RequestContext>("/overview", async ({}, env) => {
+  .get<IRequest, RequestContext>("/overview", async (_: IRequest, env: Env) => {
     const timestamp = Date.now();
     const twentyFourHoursAgo = new Date(timestamp - 1000 * 60 * 60 * 24);
     const thirtyDaysAgo = new Date(timestamp - 1000 * 60 * 60 * 24 * 30);
@@ -570,7 +577,7 @@ const router = Router<IRequest, RequestContext>()
   })
   .get<IRequest, RequestContext>(
     "/pair/:tokenA/:tokenB",
-    async ({ params }, env) => {
+    async ({ params }: IRequest, env: Env) => {
       if (
         typeof params.tokenA !== "string" ||
         !ADDRESS_REGEX.test(params.tokenA) ||
@@ -637,7 +644,7 @@ const router = Router<IRequest, RequestContext>()
   )
   .get<IRequest, RequestContext>(
     "/price/:baseToken/:quoteToken",
-    async ({ params }, env) => {
+    async ({ params }: IRequest, env: Env) => {
       if (
         typeof params.baseToken !== "string" ||
         !ADDRESS_REGEX.test(params.baseToken) ||
@@ -728,7 +735,7 @@ const router = Router<IRequest, RequestContext>()
   )
   .get<IRequest, RequestContext>(
     "/price/:baseToken/:quoteToken/history",
-    async ({ params, query }, env) => {
+    async ({ params, query }: IRequest, env: Env) => {
       if (
         typeof params.baseToken !== "string" ||
         !ADDRESS_REGEX.test(params.baseToken) ||
@@ -869,7 +876,7 @@ const router = Router<IRequest, RequestContext>()
   )
   .get<IRequest, RequestContext>(
     "/price/:quoteToken",
-    async ({ params }, env) => {
+    async ({ params }: IRequest, env: Env) => {
       if (
         typeof params.quoteToken !== "string" ||
         !ADDRESS_REGEX.test(params.quoteToken)
@@ -928,7 +935,7 @@ const router = Router<IRequest, RequestContext>()
       );
     }
   )
-  .get("/pools", async (_, env) => {
+  .get("/pools", async (_: IRequest, env: Env) => {
     const client = await createQueries(env);
 
     const { rows } = await client.withinTransaction(() =>
@@ -961,7 +968,7 @@ const router = Router<IRequest, RequestContext>()
   })
   .get<IRequest, RequestContext>(
     "/pools/:key_hash/liquidity",
-    async ({ params: { key_hash } }, env) => {
+    async ({ params: { key_hash } }: IRequest, env: Env) => {
       let pool_key_hash: bigint;
       try {
         pool_key_hash = BigInt(key_hash);
@@ -989,7 +996,7 @@ const router = Router<IRequest, RequestContext>()
   )
   .get<IRequest, RequestContext>(
     "/pools/:key_hash/delta_to_sqrt_ratio/:new_sqrt_ratio",
-    async ({ params }, env) => {
+    async ({ params }: IRequest, env: Env) => {
       let poolKeyHash: bigint, newSqrtRatio: bigint;
       try {
         poolKeyHash = BigInt(params.key_hash);
@@ -1040,7 +1047,10 @@ const router = Router<IRequest, RequestContext>()
   )
   .get(
     "/positions/:address",
-    async ({ params: { address: addressStr }, query, url }, env) => {
+    async (
+      { params: { address: addressStr }, query, url }: IRequest,
+      env: Env
+    ) => {
       let address: bigint;
       try {
         address = BigInt(addressStr);
@@ -1085,7 +1095,10 @@ const router = Router<IRequest, RequestContext>()
   )
   .get<IRequest, RequestContext>(
     "/tokens/:tokenA/:tokenB/liquidity",
-    async ({ params: { tokenA: tokenAStr, tokenB: tokenBStr } }, env) => {
+    async (
+      { params: { tokenA: tokenAStr, tokenB: tokenBStr } }: IRequest,
+      env: Env
+    ) => {
       let tokenA: bigint, tokenB: bigint;
       try {
         tokenA = BigInt(tokenAStr);
@@ -1124,7 +1137,10 @@ const router = Router<IRequest, RequestContext>()
   )
   .get<IRequest, RequestContext>(
     "/tokens/:tokenA/:tokenB/events",
-    async ({ params: { tokenA: tokenAStr, tokenB: tokenBStr } }, env) => {
+    async (
+      { params: { tokenA: tokenAStr, tokenB: tokenBStr } }: IRequest,
+      env: Env
+    ) => {
       let tokenA: bigint, tokenB: bigint;
       try {
         tokenA = BigInt(tokenAStr);
@@ -1162,7 +1178,7 @@ const router = Router<IRequest, RequestContext>()
   )
   .get<IRequest, RequestContext>(
     "/:id",
-    async ({ url, params: { id: idStr } }, env) => {
+    async ({ url, params: { id: idStr } }: IRequest, env: Env) => {
       const id = parseId(idStr);
       if (id === null) {
         return error(400, "Invalid token ID");
@@ -1284,7 +1300,7 @@ const router = Router<IRequest, RequestContext>()
   )
   .get<IRequest, RequestContext>(
     "/:id/history",
-    async ({ url, params: { id: idStr } }, env) => {
+    async ({ url, params: { id: idStr } }: IRequest, env: Env) => {
       const id = parseId(idStr);
       if (id === null) {
         return error(400, "Invalid token ID");
@@ -1330,7 +1346,7 @@ const router = Router<IRequest, RequestContext>()
   )
   .get<IRequest, RequestContext>(
     "/:id/image.svg",
-    async ({ params: { id: idStr } }, env) => {
+    async ({ params: { id: idStr } }: IRequest, env: Env) => {
       const id = parseId(idStr);
       if (id === null) {
         return error(400, "Invalid token ID");
