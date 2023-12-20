@@ -14,6 +14,7 @@ PG_CONNECTION_STRING = "postgresql://postgres:postgres@localhost:5432"
 
 [env.goerli]
 hyperdrive = [
+    # goerli_v2 is 3e875b5cbae54e4883db3854d814770b
     { binding = "HYPERDRIVE", id = "ea0b41549b16437d8d89fdb769395f43" }
 ]
 kv_namespaces = [
@@ -23,6 +24,7 @@ vars = { STARKNET_CHAIN_ID = "0x534e5f474f45524c49", RPC_URL = "https://starknet
 
 [env.mainnet]
 hyperdrive = [
+    # mainnet_v2 is 9e5de62791af4b58bf77c200812dc269
     { binding = "HYPERDRIVE", id = "da493ecfaf3f40f4985fa006d3c574a6" }
 ]
 kv_namespaces = [
