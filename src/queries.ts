@@ -965,6 +965,7 @@ export class Queries {
                                              -- this limits to regular deposits of 2 tokens, meaning the position is in range
                                              JOIN position_deposit AS pd
                                                   ON pm.token_id = pd.token_id AND pm.block_number = pd.block_number
+                                                      AND pm.transaction_index = pd.transaction_index
                                                       AND pd.event_index = pm.event_index + 4
                                                       -- this means non-zero deposit of in range
                                                       AND pd.delta0 != 0 AND pd.delta1 != 0
