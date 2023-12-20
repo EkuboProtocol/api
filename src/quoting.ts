@@ -6,9 +6,7 @@ import { QuoteNode } from "./nodes/quoteNode";
 import { PlainPool } from "./nodes/plainPool";
 
 interface LastUpdatedKey {
-  blockNumber: string;
-  transactionIndex: number;
-  eventIndex: number;
+  lastEventId: PoolState["last_event_id"];
 }
 
 export const QUOTE_NODE_CACHE: {
@@ -100,17 +98,10 @@ export async function updatePoolCache(
   dao: Queries,
   cache: typeof QUOTE_NODE_CACHE[constants.StarknetChainId]
 ): Promise<void> {
-  const poolsNeedUpdate = pools.filter(
-    ({ pool_key_hash, block_number, transaction_index, event_index }) => {
-      const cached = cache[pool_key_hash];
-      return (
-        !cached ||
-        cached.lastUpdated.blockNumber !== block_number ||
-        cached.lastUpdated.transactionIndex !== transaction_index ||
-        cached.lastUpdated.eventIndex !== event_index
-      );
-    }
-  );
+  const poolsNeedUpdate = pools.filter(({ pool_key_hash, last_event_id }) => {
+    const cached = cache[pool_key_hash];
+    return !cached || cached.lastUpdated.lastEventId !== last_event_id;
+  });
 
   const tickData = await dao.getTickData({
     poolKeyHashes: poolsNeedUpdate.map((pk) => BigInt(pk.pool_key_hash)),
@@ -119,9 +110,7 @@ export async function updatePoolCache(
   poolsNeedUpdate.forEach((pool) => {
     cache[pool.pool_key_hash] = {
       lastUpdated: {
-        blockNumber: pool.block_number,
-        transactionIndex: pool.transaction_index,
-        eventIndex: pool.event_index,
+        lastEventId: pool.last_event_id,
       },
       node: new PlainPool({
         token0: BigInt(pool.token0),

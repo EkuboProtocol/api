@@ -689,9 +689,7 @@ const router = OpenAPIRouter<IRequest, RequestContext>({
         tick: pool.tick,
         liquidity: pool.liquidity,
         lastUpdate: {
-          blockNumber: Number(pool.block_number),
-          transactionIndex: pool.transaction_index,
-          eventIndex: pool.event_index,
+          event_id: pool.last_event_id,
         },
       })),
       {
