@@ -25,7 +25,7 @@ import { Contract, num, RpcProvider } from "starknet";
 import POSITIONS_ABI from "./positions-abi.json";
 import { OpenAPIRouter } from "@cloudflare/itty-router-openapi";
 import { RequestContext } from "./routes/context";
-import { TokensFetch, TokensLogoFetch } from "./routes/tokens";
+import { GetTokens, GetTokenLogo } from "./routes/tokens";
 import {
   getAllRelevantPoolsAndUpdateCache,
   QUOTE_NODE_CACHE,
@@ -34,6 +34,10 @@ import {
   updatePoolCache,
 } from "./quoting";
 import { ALL_TIME, POSITIONS_CONTRACT_ADDRESS } from "./constants";
+import {
+  GetLeaderboard,
+  GetLeaderboardForCollector,
+} from "./routes/leaderboard";
 
 Decimal.set({ precision: 39 });
 
@@ -67,8 +71,8 @@ const router = OpenAPIRouter<IRequest, RequestContext>({
   redoc_url: null as unknown as undefined,
   docs_url: null as unknown as undefined,
 })
-  .get("/tokens", TokensFetch)
-  .get("/tokens/:identifier/logo", TokensLogoFetch)
+  .get("/tokens", GetTokens)
+  .get("/tokens/:identifier/logo", GetTokenLogo)
   .get("/blocks/:number", async ({ params }: IRequest, env: Env) => {
     const queries = await createQueries(env);
 
@@ -126,77 +130,8 @@ const router = OpenAPIRouter<IRequest, RequestContext>({
       }
     );
   })
-  .get("/leaderboard", async ({ query }: IRequest, env: Env) => {
-    const lastMonth = query?.lastMonth === "true";
-
-    const dao = await createQueries(env);
-
-    const positionsContractAddress =
-      POSITIONS_CONTRACT_ADDRESS[env.STARKNET_CHAIN_ID];
-
-    const { rows } = await dao.getLeaderboard({
-      positionsContractAddress,
-      feeTokenAddress: FEE_TOKEN_ADDRESS[env.STARKNET_CHAIN_ID],
-      collectedAfter: lastMonth
-        ? new Date(Date.now() - 30 * 24 * 60 * 60 * 1000)
-        : undefined,
-    });
-
-    return json(
-      {
-        timestamp: Date.now(),
-        data: rows.map((row) => ({
-          collector: numericToHex(row.collector),
-          points: Number(row.points),
-        })),
-      },
-      {
-        headers: {
-          "cache-control":
-            "public,max-age=3600,stale-while-revalidate=3600,stale-if-error=180",
-        },
-      }
-    );
-  })
-  .get(
-    "/leaderboard/:collector/points",
-    async ({ params, query }: IRequest, env: Env) => {
-      const lastMonth = query?.lastMonth === "true";
-      let collector: bigint;
-      try {
-        collector = BigInt(params.collector);
-      } catch (e) {
-        return error(400, "Invalid collector address");
-      }
-
-      const dao = await createQueries(env);
-
-      const positionsContractAddress =
-        POSITIONS_CONTRACT_ADDRESS[env.STARKNET_CHAIN_ID];
-
-      const { rows } = await dao.getLeaderboard({
-        positionsContractAddress,
-        feeTokenAddress: FEE_TOKEN_ADDRESS[env.STARKNET_CHAIN_ID],
-        collector,
-        collectedAfter: lastMonth
-          ? new Date(Date.now() - 30 * 24 * 60 * 60 * 1000)
-          : undefined,
-      });
-
-      return json(
-        {
-          points: Number(rows?.[0]?.points ?? 0),
-        },
-        {
-          headers: {
-            "cache-control":
-              "public,max-age=3600,stale-while-revalidate=3600,stale-if-error=180",
-          },
-        }
-      );
-    }
-  )
-
+  .get("/leaderboard", GetLeaderboard)
+  .get("/leaderboard/:collector/points", GetLeaderboardForCollector)
   .get(
     "/quote/:amount/:token/:otherToken",
     async ({ params, query }: IRequest, env: Env) => {

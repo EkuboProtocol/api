@@ -61,7 +61,7 @@ const TokenType = z
     total_supply: true,
   });
 
-export class TokensFetch extends OpenAPIRoute<IRequest, RequestContext> {
+export class GetTokens extends OpenAPIRoute<IRequest, RequestContext> {
   static schema: OpenAPIRouteSchema = {
     tags: ["Tokens"],
     summary: "Get the list of supported tokens",
@@ -86,7 +86,7 @@ export class TokensFetch extends OpenAPIRoute<IRequest, RequestContext> {
   }
 }
 
-export class TokensLogoFetch extends OpenAPIRoute<IRequest, RequestContext> {
+export class GetTokenLogo extends OpenAPIRoute<IRequest, RequestContext> {
   static schema: OpenAPIRouteSchema = {
     tags: ["Tokens"],
     summary: "Get the logo for the given token identifier",
