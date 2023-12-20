@@ -19,181 +19,25 @@ import {
   getTokenByIdentifier,
 } from "./tokens";
 import { findAllRoutes } from "./findAllRoutes";
-import { PlainPool } from "./nodes/plainPool";
 import { MAX_U128 } from "./math/constants";
-import { QuoteNode } from "./nodes/quoteNode";
-import { PoolState, Queries } from "./queries";
-import { toSqrtRatio } from "./math/tick";
-import { isPriceIncreasing } from "./math/swap";
-import { constants, Contract, num, RpcProvider } from "starknet";
+import { PoolState } from "./queries";
+import { Contract, num, RpcProvider } from "starknet";
 import POSITIONS_ABI from "./positions-abi.json";
 import { OpenAPIRouter } from "@cloudflare/itty-router-openapi";
 import { RequestContext } from "./routes/context";
-import { TokensFetch } from "./routes/tokens";
+import { TokensFetch, TokensLogoFetch } from "./routes/tokens";
+import {
+  getAllRelevantPoolsAndUpdateCache,
+  QUOTE_NODE_CACHE,
+  QuoteResult,
+  quoteRoute,
+  updatePoolCache,
+} from "./quoting";
+import { ALL_TIME, POSITIONS_CONTRACT_ADDRESS } from "./constants";
 
 Decimal.set({ precision: 39 });
 
-const ALL_TIME = new Date(0);
-
 const ADDRESS_REGEX = /^0x[a-fA-F0-9]+$/;
-
-interface LastUpdatedKey {
-  blockNumber: string;
-  transactionIndex: number;
-  eventIndex: number;
-}
-
-const QUOTE_NODE_CACHE: {
-  [chainId in constants.StarknetChainId]: {
-    [key_hash: string]: {
-      lastUpdated: LastUpdatedKey;
-      node: QuoteNode<{ initializedTicksCrossed: number }>;
-    };
-  };
-} = {
-  ["0x534e5f474f45524c49"]: {},
-  ["0x534e5f4d41494e"]: {},
-};
-
-interface QuoteResult {
-  tokenAmount: {
-    token: bigint;
-    amount: bigint;
-  };
-  limits: bigint[];
-  resources: { initializedTicksCrossed: number };
-}
-
-const POSITIONS_CONTRACT_ADDRESS: {
-  [chainId in constants.StarknetChainId]: bigint;
-} = {
-  ["0x534e5f4d41494e"]:
-    0x02e0af29598b407c8716b17f6d2795eca1b471413fa03fb145a5e33722184067n,
-  ["0x534e5f474f45524c49"]:
-    0x073fa8432bf59f8ed535f29acfd89a7020758bda7be509e00dfed8a9fde12ddcn,
-};
-
-function quoteRoute(
-  tokenAmount: { token: bigint; amount: bigint },
-  route: PoolState[],
-  cache: typeof QUOTE_NODE_CACHE[constants.StarknetChainId]
-): Readonly<QuoteResult> | null {
-  const isExactOutput = tokenAmount.amount < 0n;
-  return route.reduce<QuoteResult | null>(
-    (state, pool) => {
-      if (!state) {
-        return null;
-      }
-
-      const node = cache[pool.pool_key_hash].node;
-
-      const isToken1 = node.token1 === state.tokenAmount.token;
-
-      const sqrtRatioLimit = toSqrtRatio(
-        pool.tick +
-          (isPriceIncreasing(state.tokenAmount.amount, isToken1)
-            ? 100 * Number(pool.tick_spacing)
-            : -100 * Number(pool.tick_spacing))
-      );
-
-      state.limits.push(sqrtRatioLimit);
-
-      const quote = node.quote({
-        specifiedAmount: state.tokenAmount.amount,
-        isToken1,
-        sqrtRatioLimit,
-      });
-
-      // at the moment we do not support partial execution
-      if (quote.consumedAmount !== state.tokenAmount.amount) {
-        return null;
-      }
-
-      const nextToken = BigInt(isToken1 ? pool.token0 : pool.token1);
-
-      return {
-        limits: state.limits,
-        tokenAmount: {
-          amount: isExactOutput
-            ? -quote.calculatedAmount
-            : quote.calculatedAmount,
-          token: nextToken,
-        },
-        resources: {
-          initializedTicksCrossed:
-            state.resources.initializedTicksCrossed +
-            quote.executionResources.initializedTicksCrossed,
-        },
-      };
-    },
-    {
-      tokenAmount,
-      limits: [],
-      resources: {
-        initializedTicksCrossed: 0,
-      },
-    }
-  );
-}
-
-async function updatePoolCache(
-  pools: PoolState[],
-  dao: Queries,
-  cache: typeof QUOTE_NODE_CACHE[constants.StarknetChainId]
-): Promise<void> {
-  const poolsNeedUpdate = pools.filter(
-    ({ pool_key_hash, block_number, transaction_index, event_index }) => {
-      const cached = cache[pool_key_hash];
-      return (
-        !cached ||
-        cached.lastUpdated.blockNumber !== block_number ||
-        cached.lastUpdated.transactionIndex !== transaction_index ||
-        cached.lastUpdated.eventIndex !== event_index
-      );
-    }
-  );
-
-  const tickData = await dao.getTickData({
-    poolKeyHashes: poolsNeedUpdate.map((pk) => BigInt(pk.pool_key_hash)),
-  });
-
-  poolsNeedUpdate.forEach((pool) => {
-    cache[pool.pool_key_hash] = {
-      lastUpdated: {
-        blockNumber: pool.block_number,
-        transactionIndex: pool.transaction_index,
-        eventIndex: pool.event_index,
-      },
-      node: new PlainPool({
-        token0: BigInt(pool.token0),
-        token1: BigInt(pool.token1),
-        tickSpacing: Number(pool.tick_spacing),
-        sqrtRatio: BigInt(pool.sqrt_ratio),
-        fee: BigInt(pool.fee),
-        liquidity: BigInt(pool.liquidity),
-        tick: pool.tick,
-        sortedTicks: tickData[pool.pool_key_hash] ?? [],
-      }),
-    };
-  });
-}
-
-async function getAllRelevantPoolsAndUpdateCache(
-  dao: Queries,
-  cache: typeof QUOTE_NODE_CACHE[constants.StarknetChainId],
-  { tokenA, tokenB }: { tokenA: bigint; tokenB: bigint }
-) {
-  return dao.withinTransaction(async () => {
-    const { rows: relevantPools } = await dao.getAllRoutablePools({
-      tokenA,
-      tokenB,
-    });
-
-    await updatePoolCache(relevantPools, dao, cache);
-
-    return relevantPools;
-  });
-}
 
 let provider: RpcProvider | null = null;
 
@@ -212,147 +56,109 @@ const router = OpenAPIRouter<IRequest, RequestContext>({
     info: {
       title: "Ekubo API",
       version,
+      description: "API for ",
+      contact: {
+        url: "https://ekubo.org",
+        email: "eng@ekubo.org",
+      },
     },
   },
+  // removes the redoc and docs urls because they might increase the bundle size/js load time
   redoc_url: null as unknown as undefined,
   docs_url: null as unknown as undefined,
 })
   .get("/tokens", TokensFetch)
-  .get<IRequest, RequestContext>(
-    "/tokens/:identifier/logo",
-    async ({ params }: IRequest, env: Env) => {
-      const tokens = await getAllTokens(env, await createQueries(env));
+  .get("/tokens/:identifier/logo", TokensLogoFetch)
+  .get("/blocks/:number", async ({ params }: IRequest, env: Env) => {
+    const queries = await createQueries(env);
 
-      const token = getTokenByIdentifier(tokens, params.identifier);
-      if (!token) {
-        return error(404, "Token not found");
-      }
+    if (params.number !== "latest") {
+      return error(501, "Not implemented");
+    }
 
-      const logo = await env.TOKEN_LOGOS_KV?.get(token.symbol);
+    const block = await queries.getLatestBlock();
 
-      if (!logo) {
-        return error(404, "Token logo not available");
-      }
-
-      // the KV store either stores the https link to the image or the svg logo itself
-      if (logo.startsWith("https://")) {
-        return new Response(null, {
-          status: 302,
-          headers: {
-            location: logo,
-            "cache-control": "public, max-age=1800, immutable",
-          },
-        });
-      }
-
-      return new Response(logo, {
-        status: 200,
+    return json(
+      {
+        number: Number(block.number),
+        timestamp: block.timestamp,
+      },
+      {
         headers: {
-          "content-type": "image/svg+xml",
-          "cache-control": "public, max-age=10800, immutable",
+          "cache-control": "public, max-age=10, must-revalidate",
         },
-      });
-    }
-  )
-  .get<IRequest, RequestContext>(
-    "/blocks/:number",
-    async ({ params }: IRequest, env: Env) => {
-      const queries = await createQueries(env);
-
-      if (params.number !== "latest") {
-        return error(501, "Not implemented");
       }
-
-      const block = await queries.getLatestBlock();
-
-      return json(
-        {
-          number: Number(block.number),
-          timestamp: block.timestamp,
-        },
-        {
-          headers: {
-            "cache-control": "public, max-age=10, must-revalidate",
-          },
-        }
-      );
-    }
-  )
+    );
+  })
   // gets a full dump of the leaderboard
-  .get<IRequest, RequestContext>(
-    "/leaderboard/dump",
-    async ({ query }: IRequest, env: Env) => {
-      if (query.key !== "wip") {
-        return error(501, "Not implemented");
-      }
-
-      const provider = getProvider(env);
-
-      const contract = new Contract(
-        POSITIONS_ABI,
-        num.toHex(POSITIONS_CONTRACT_ADDRESS[env.STARKNET_CHAIN_ID]),
-        provider
-      );
-
-      const queries = await createQueries(env);
-
-      await queries.withinTransaction(async () => {
-        const tokens = await queries.getAllActiveTokenIdsWithPoolKeys();
-
-        // todo: write all the current tokens info into temp tables and then query the temp tables and add up all the points
-        // todo: make sure the block at which the query happens is the same as the latest database
-
-        await contract.call("get_tokens_info", [[]]);
-      });
-
-      return json(
-        {},
-        {
-          headers: {
-            "cache-control":
-              "public,max-age=86400,stale-while-revalidate=3600,stale-if-error=180",
-            "content-disposition": 'attachment; filename="dump.json"',
-          },
-        }
-      );
+  .get("/leaderboard/dump", async ({ query }: IRequest, env: Env) => {
+    if (query.key !== "wip") {
+      return error(501, "Not implemented");
     }
-  )
-  .get<IRequest, RequestContext>(
-    "/leaderboard",
-    async ({ query }: IRequest, env: Env) => {
-      const lastMonth = query?.lastMonth === "true";
 
-      const dao = await createQueries(env);
+    const provider = getProvider(env);
 
-      const positionsContractAddress =
-        POSITIONS_CONTRACT_ADDRESS[env.STARKNET_CHAIN_ID];
+    const contract = new Contract(
+      POSITIONS_ABI,
+      num.toHex(POSITIONS_CONTRACT_ADDRESS[env.STARKNET_CHAIN_ID]),
+      provider
+    );
 
-      const { rows } = await dao.getLeaderboard({
-        positionsContractAddress,
-        feeTokenAddress: FEE_TOKEN_ADDRESS[env.STARKNET_CHAIN_ID],
-        collectedAfter: lastMonth
-          ? new Date(Date.now() - 30 * 24 * 60 * 60 * 1000)
-          : undefined,
-      });
+    const queries = await createQueries(env);
 
-      return json(
-        {
-          timestamp: Date.now(),
-          data: rows.map((row) => ({
-            collector: numericToHex(row.collector),
-            points: Number(row.points),
-          })),
+    await queries.withinTransaction(async () => {
+      const tokens = await queries.getAllActiveTokenIdsWithPoolKeys();
+
+      // todo: write all the current tokens info into temp tables and then query the temp tables and add up all the points
+      // todo: make sure the block at which the query happens is the same as the latest database
+
+      await contract.call("get_tokens_info", [[]]);
+    });
+
+    return json(
+      {},
+      {
+        headers: {
+          "cache-control":
+            "public,max-age=86400,stale-while-revalidate=3600,stale-if-error=180",
+          "content-disposition": 'attachment; filename="dump.json"',
         },
-        {
-          headers: {
-            "cache-control":
-              "public,max-age=3600,stale-while-revalidate=3600,stale-if-error=180",
-          },
-        }
-      );
-    }
-  )
-  .get<IRequest, RequestContext>(
+      }
+    );
+  })
+  .get("/leaderboard", async ({ query }: IRequest, env: Env) => {
+    const lastMonth = query?.lastMonth === "true";
+
+    const dao = await createQueries(env);
+
+    const positionsContractAddress =
+      POSITIONS_CONTRACT_ADDRESS[env.STARKNET_CHAIN_ID];
+
+    const { rows } = await dao.getLeaderboard({
+      positionsContractAddress,
+      feeTokenAddress: FEE_TOKEN_ADDRESS[env.STARKNET_CHAIN_ID],
+      collectedAfter: lastMonth
+        ? new Date(Date.now() - 30 * 24 * 60 * 60 * 1000)
+        : undefined,
+    });
+
+    return json(
+      {
+        timestamp: Date.now(),
+        data: rows.map((row) => ({
+          collector: numericToHex(row.collector),
+          points: Number(row.points),
+        })),
+      },
+      {
+        headers: {
+          "cache-control":
+            "public,max-age=3600,stale-while-revalidate=3600,stale-if-error=180",
+        },
+      }
+    );
+  })
+  .get(
     "/leaderboard/:collector/points",
     async ({ params, query }: IRequest, env: Env) => {
       const lastMonth = query?.lastMonth === "true";
@@ -391,7 +197,7 @@ const router = OpenAPIRouter<IRequest, RequestContext>({
     }
   )
 
-  .get<IRequest, RequestContext>(
+  .get(
     "/quote/:amount/:token/:otherToken",
     async ({ params, query }: IRequest, env: Env) => {
       const queries = await createQueries(env);
@@ -509,7 +315,7 @@ const router = OpenAPIRouter<IRequest, RequestContext>({
       );
     }
   )
-  .get<IRequest, RequestContext>("/overview", async (_: IRequest, env: Env) => {
+  .get("/overview", async (_: IRequest, env: Env) => {
     const timestamp = Date.now();
     const twentyFourHoursAgo = new Date(timestamp - 1000 * 60 * 60 * 24);
     const thirtyDaysAgo = new Date(timestamp - 1000 * 60 * 60 * 24 * 30);
@@ -575,74 +381,71 @@ const router = OpenAPIRouter<IRequest, RequestContext>({
       }
     );
   })
-  .get<IRequest, RequestContext>(
-    "/pair/:tokenA/:tokenB",
-    async ({ params }: IRequest, env: Env) => {
-      if (
-        typeof params.tokenA !== "string" ||
-        !ADDRESS_REGEX.test(params.tokenA) ||
-        typeof params.tokenB !== "string" ||
-        !ADDRESS_REGEX.test(params.tokenB)
-      ) {
-        return error(
-          400,
-          "`tokenA` and `tokenB` path parameters must be token addresses in hex format"
-        );
-      }
-
-      const [token0, token1] =
-        BigInt(params.tokenA) < BigInt(params.tokenB)
-          ? [BigInt(params.tokenA), BigInt(params.tokenB)]
-          : [BigInt(params.tokenB), BigInt(params.tokenA)];
-
-      const pair = { token0, token1 };
-
-      const queries = await createQueries(env);
-
-      const timestamp = Date.now();
-      const thirtyDaysAgo = new Date(timestamp - 1000 * 60 * 60 * 24 * 30);
-
-      const [
-        { rows: tvlByToken },
-        { rows: volumeByToken },
-        { rows: revenueByToken },
-        { rows: tvlDeltaByTokenByDate },
-        { rows: volumeByTokenByDate },
-        { rows: revenueByTokenByDate },
-        { rows: topPools },
-      ] = await queries.withinTransaction(() =>
-        Promise.all([
-          queries.getTvlByToken(pair),
-          queries.getTotalVolumeByToken(ALL_TIME, pair),
-          queries.getRevenueByToken(ALL_TIME, pair),
-          queries.getTvlDeltaByTokenByDate(thirtyDaysAgo, pair),
-          queries.getVolumeByTokenByDate(thirtyDaysAgo, pair),
-          queries.getRevenueByTokenByDate(thirtyDaysAgo, pair),
-          queries.getTopPools(pair),
-        ])
-      );
-
-      return json(
-        {
-          timestamp,
-          tvlByToken,
-          volumeByToken,
-          revenueByToken,
-          tvlDeltaByTokenByDate,
-          volumeByTokenByDate,
-          revenueByTokenByDate,
-          topPools,
-        },
-        {
-          headers: {
-            "cache-control":
-              "public, max-age=600, stale-while-revalidate=180, stale-if-error=180",
-          },
-        }
+  .get("/pair/:tokenA/:tokenB", async ({ params }: IRequest, env: Env) => {
+    if (
+      typeof params.tokenA !== "string" ||
+      !ADDRESS_REGEX.test(params.tokenA) ||
+      typeof params.tokenB !== "string" ||
+      !ADDRESS_REGEX.test(params.tokenB)
+    ) {
+      return error(
+        400,
+        "`tokenA` and `tokenB` path parameters must be token addresses in hex format"
       );
     }
-  )
-  .get<IRequest, RequestContext>(
+
+    const [token0, token1] =
+      BigInt(params.tokenA) < BigInt(params.tokenB)
+        ? [BigInt(params.tokenA), BigInt(params.tokenB)]
+        : [BigInt(params.tokenB), BigInt(params.tokenA)];
+
+    const pair = { token0, token1 };
+
+    const queries = await createQueries(env);
+
+    const timestamp = Date.now();
+    const thirtyDaysAgo = new Date(timestamp - 1000 * 60 * 60 * 24 * 30);
+
+    const [
+      { rows: tvlByToken },
+      { rows: volumeByToken },
+      { rows: revenueByToken },
+      { rows: tvlDeltaByTokenByDate },
+      { rows: volumeByTokenByDate },
+      { rows: revenueByTokenByDate },
+      { rows: topPools },
+    ] = await queries.withinTransaction(() =>
+      Promise.all([
+        queries.getTvlByToken(pair),
+        queries.getTotalVolumeByToken(ALL_TIME, pair),
+        queries.getRevenueByToken(ALL_TIME, pair),
+        queries.getTvlDeltaByTokenByDate(thirtyDaysAgo, pair),
+        queries.getVolumeByTokenByDate(thirtyDaysAgo, pair),
+        queries.getRevenueByTokenByDate(thirtyDaysAgo, pair),
+        queries.getTopPools(pair),
+      ])
+    );
+
+    return json(
+      {
+        timestamp,
+        tvlByToken,
+        volumeByToken,
+        revenueByToken,
+        tvlDeltaByTokenByDate,
+        volumeByTokenByDate,
+        revenueByTokenByDate,
+        topPools,
+      },
+      {
+        headers: {
+          "cache-control":
+            "public, max-age=600, stale-while-revalidate=180, stale-if-error=180",
+        },
+      }
+    );
+  })
+  .get(
     "/price/:baseToken/:quoteToken",
     async ({ params }: IRequest, env: Env) => {
       if (
@@ -733,7 +536,7 @@ const router = OpenAPIRouter<IRequest, RequestContext>({
       );
     }
   )
-  .get<IRequest, RequestContext>(
+  .get(
     "/price/:baseToken/:quoteToken/history",
     async ({ params, query }: IRequest, env: Env) => {
       if (
@@ -874,67 +677,64 @@ const router = OpenAPIRouter<IRequest, RequestContext>({
       );
     }
   )
-  .get<IRequest, RequestContext>(
-    "/price/:quoteToken",
-    async ({ params }: IRequest, env: Env) => {
-      if (
-        typeof params.quoteToken !== "string" ||
-        !ADDRESS_REGEX.test(params.quoteToken)
-      ) {
-        return error(
-          400,
-          "`quoteToken` path parameters must be a token address in hex format"
-        );
-      }
-
-      const quoteToken = BigInt(params.quoteToken);
-
-      const queries = await createQueries(env);
-      const allTokens = await getAllTokens(env, queries);
-      const qt = getTokenByAddress(allTokens, quoteToken);
-
-      if (!qt) {
-        return error(400, "Quote token not known");
-      }
-
-      const timestamp = Date.now();
-      const sixHoursAgo = new Date(timestamp - 3_600_000 * 6);
-
-      const prices = await queries.getAllVolumeWeightedPrices({
-        quoteToken,
-        start: sixHoursAgo,
-      });
-
-      const scaledPrices = prices
-        .map(({ price, k_volume, token }) => {
-          const base = getTokenByAddress(allTokens, token);
-          if (!base) return null;
-
-          const scaled = price.mul(
-            new Decimal(10).pow(base.decimals - qt.decimals)
-          );
-
-          return {
-            token,
-            price: scaled.toSignificantDigits(6).toString(),
-            k_volume: k_volume.toString(),
-          };
-        })
-        .filter((p) => !!p);
-
-      return json(
-        {
-          timestamp,
-          prices: scaledPrices,
-        },
-        {
-          headers: {
-            "cache-control": "public, max-age=600, must-revalidate",
-          },
-        }
+  .get("/price/:quoteToken", async ({ params }: IRequest, env: Env) => {
+    if (
+      typeof params.quoteToken !== "string" ||
+      !ADDRESS_REGEX.test(params.quoteToken)
+    ) {
+      return error(
+        400,
+        "`quoteToken` path parameters must be a token address in hex format"
       );
     }
-  )
+
+    const quoteToken = BigInt(params.quoteToken);
+
+    const queries = await createQueries(env);
+    const allTokens = await getAllTokens(env, queries);
+    const qt = getTokenByAddress(allTokens, quoteToken);
+
+    if (!qt) {
+      return error(400, "Quote token not known");
+    }
+
+    const timestamp = Date.now();
+    const sixHoursAgo = new Date(timestamp - 3_600_000 * 6);
+
+    const prices = await queries.getAllVolumeWeightedPrices({
+      quoteToken,
+      start: sixHoursAgo,
+    });
+
+    const scaledPrices = prices
+      .map(({ price, k_volume, token }) => {
+        const base = getTokenByAddress(allTokens, token);
+        if (!base) return null;
+
+        const scaled = price.mul(
+          new Decimal(10).pow(base.decimals - qt.decimals)
+        );
+
+        return {
+          token,
+          price: scaled.toSignificantDigits(6).toString(),
+          k_volume: k_volume.toString(),
+        };
+      })
+      .filter((p) => !!p);
+
+    return json(
+      {
+        timestamp,
+        prices: scaledPrices,
+      },
+      {
+        headers: {
+          "cache-control": "public, max-age=600, must-revalidate",
+        },
+      }
+    );
+  })
   .get("/pools", async (_: IRequest, env: Env) => {
     const client = await createQueries(env);
 
@@ -966,7 +766,7 @@ const router = OpenAPIRouter<IRequest, RequestContext>({
       }
     );
   })
-  .get<IRequest, RequestContext>(
+  .get(
     "/pools/:key_hash/liquidity",
     async ({ params: { key_hash } }: IRequest, env: Env) => {
       let pool_key_hash: bigint;
@@ -994,7 +794,7 @@ const router = OpenAPIRouter<IRequest, RequestContext>({
       );
     }
   )
-  .get<IRequest, RequestContext>(
+  .get(
     "/pools/:key_hash/delta_to_sqrt_ratio/:new_sqrt_ratio",
     async ({ params }: IRequest, env: Env) => {
       let poolKeyHash: bigint, newSqrtRatio: bigint;
@@ -1093,7 +893,7 @@ const router = OpenAPIRouter<IRequest, RequestContext>({
       );
     }
   )
-  .get<IRequest, RequestContext>(
+  .get(
     "/tokens/:tokenA/:tokenB/liquidity",
     async (
       { params: { tokenA: tokenAStr, tokenB: tokenBStr } }: IRequest,
@@ -1135,7 +935,7 @@ const router = OpenAPIRouter<IRequest, RequestContext>({
       );
     }
   )
-  .get<IRequest, RequestContext>(
+  .get(
     "/tokens/:tokenA/:tokenB/events",
     async (
       { params: { tokenA: tokenAStr, tokenB: tokenBStr } }: IRequest,
@@ -1176,129 +976,126 @@ const router = OpenAPIRouter<IRequest, RequestContext>({
       );
     }
   )
-  .get<IRequest, RequestContext>(
-    "/:id",
-    async ({ url, params: { id: idStr } }: IRequest, env: Env) => {
-      const id = parseId(idStr);
-      if (id === null) {
-        return error(400, "Invalid token ID");
-      }
-
-      const queries = await createQueries(env);
-
-      const positionMetadata = await queries.getPositionMetadata(id);
-
-      if (positionMetadata === null) {
-        return error(404, `Token ID ${id} not found`);
-      }
-
-      const attributesStored: NFTMetadata["attributes"] = [
-        {
-          trait_type: "minted_tx_hash",
-          value: numericToHex(positionMetadata.minted_tx_hash),
-        },
-        { trait_type: "token0", value: numericToHex(positionMetadata.token0) },
-        { trait_type: "token1", value: numericToHex(positionMetadata.token1) },
-        { trait_type: "fee", value: positionMetadata.fee.toString() },
-        {
-          trait_type: "tick_spacing",
-          value: positionMetadata.tick_spacing.toString(),
-        },
-        {
-          trait_type: "extension",
-          value: numericToHex(positionMetadata.extension).toString(),
-        },
-        {
-          trait_type: "tick_lower",
-          value: positionMetadata.lower_bound.toString(),
-        },
-        {
-          trait_type: "tick_upper",
-          value: positionMetadata.upper_bound.toString(),
-        },
-        {
-          trait_type: "minted_timestamp",
-          value: positionMetadata.minted_timestamp.getTime().toString(),
-        },
-      ];
-
-      const allTokens = await getAllTokens(env, queries);
-
-      const origin = new URL(url).origin;
-
-      const token0 = getTokenByAddress(allTokens, positionMetadata.token0);
-      const token1 = getTokenByAddress(allTokens, positionMetadata.token1);
-
-      let metadata: NFTMetadata;
-      if (token0 && token1) {
-        const reversed = token0.sort_order >= token1.sort_order;
-        const [numerator, denominator, lowerPrice, upperPrice] = reversed
-          ? [
-              token0,
-              token1,
-              formattedPrice(
-                -BigInt(positionMetadata.upper_bound),
-                token0.decimals,
-                token1.decimals
-              ),
-              formattedPrice(
-                -BigInt(positionMetadata.lower_bound),
-                token0.decimals,
-                token1.decimals
-              ),
-            ]
-          : [
-              token1,
-              token0,
-              formattedPrice(
-                BigInt(positionMetadata.lower_bound),
-                token1.decimals,
-                token0.decimals
-              ),
-              formattedPrice(
-                BigInt(positionMetadata.upper_bound),
-                token1.decimals,
-                token0.decimals
-              ),
-            ];
-
-        metadata = {
-          name: `${numerator.symbol} / ${
-            denominator.symbol
-          } : ${lowerPrice} <> ${upperPrice} : ${feeToPercent(
-            positionMetadata.fee
-          )}% / ${tickSpacingToPercent(positionMetadata.tick_spacing)}%`,
-          description: `A liquidity position in Ekubo consisting of the ${
-            numerator.name
-          } and ${
-            denominator.name
-          } tokens, active between the prices of ${lowerPrice} ${
-            numerator.symbol
-          } / ${denominator.symbol} to ${upperPrice} ${numerator.symbol} / ${
-            denominator.symbol
-          }. This position charges a ${feeToPercent(
-            positionMetadata.fee
-          )}% fee on swaps.`,
-          image: `${origin}/${id}/image.svg`,
-          attributes: attributesStored,
-        };
-      } else {
-        metadata = {
-          name: `Ekubo NFT #${id}`,
-          description: "An NFT that represents a liquidity position in Ekubo",
-          image: `${origin}/${id}/image.svg`,
-          attributes: attributesStored,
-        };
-      }
-
-      return json(metadata, {
-        headers: {
-          "cache-control": "public, max-age=3600, immutable",
-        },
-      });
+  .get("/:id", async ({ url, params: { id: idStr } }: IRequest, env: Env) => {
+    const id = parseId(idStr);
+    if (id === null) {
+      return error(400, "Invalid token ID");
     }
-  )
-  .get<IRequest, RequestContext>(
+
+    const queries = await createQueries(env);
+
+    const positionMetadata = await queries.getPositionMetadata(id);
+
+    if (positionMetadata === null) {
+      return error(404, `Token ID ${id} not found`);
+    }
+
+    const attributesStored: NFTMetadata["attributes"] = [
+      {
+        trait_type: "minted_tx_hash",
+        value: numericToHex(positionMetadata.minted_tx_hash),
+      },
+      { trait_type: "token0", value: numericToHex(positionMetadata.token0) },
+      { trait_type: "token1", value: numericToHex(positionMetadata.token1) },
+      { trait_type: "fee", value: positionMetadata.fee.toString() },
+      {
+        trait_type: "tick_spacing",
+        value: positionMetadata.tick_spacing.toString(),
+      },
+      {
+        trait_type: "extension",
+        value: numericToHex(positionMetadata.extension).toString(),
+      },
+      {
+        trait_type: "tick_lower",
+        value: positionMetadata.lower_bound.toString(),
+      },
+      {
+        trait_type: "tick_upper",
+        value: positionMetadata.upper_bound.toString(),
+      },
+      {
+        trait_type: "minted_timestamp",
+        value: positionMetadata.minted_timestamp.getTime().toString(),
+      },
+    ];
+
+    const allTokens = await getAllTokens(env, queries);
+
+    const origin = new URL(url).origin;
+
+    const token0 = getTokenByAddress(allTokens, positionMetadata.token0);
+    const token1 = getTokenByAddress(allTokens, positionMetadata.token1);
+
+    let metadata: NFTMetadata;
+    if (token0 && token1) {
+      const reversed = token0.sort_order >= token1.sort_order;
+      const [numerator, denominator, lowerPrice, upperPrice] = reversed
+        ? [
+            token0,
+            token1,
+            formattedPrice(
+              -BigInt(positionMetadata.upper_bound),
+              token0.decimals,
+              token1.decimals
+            ),
+            formattedPrice(
+              -BigInt(positionMetadata.lower_bound),
+              token0.decimals,
+              token1.decimals
+            ),
+          ]
+        : [
+            token1,
+            token0,
+            formattedPrice(
+              BigInt(positionMetadata.lower_bound),
+              token1.decimals,
+              token0.decimals
+            ),
+            formattedPrice(
+              BigInt(positionMetadata.upper_bound),
+              token1.decimals,
+              token0.decimals
+            ),
+          ];
+
+      metadata = {
+        name: `${numerator.symbol} / ${
+          denominator.symbol
+        } : ${lowerPrice} <> ${upperPrice} : ${feeToPercent(
+          positionMetadata.fee
+        )}% / ${tickSpacingToPercent(positionMetadata.tick_spacing)}%`,
+        description: `A liquidity position in Ekubo consisting of the ${
+          numerator.name
+        } and ${
+          denominator.name
+        } tokens, active between the prices of ${lowerPrice} ${
+          numerator.symbol
+        } / ${denominator.symbol} to ${upperPrice} ${numerator.symbol} / ${
+          denominator.symbol
+        }. This position charges a ${feeToPercent(
+          positionMetadata.fee
+        )}% fee on swaps.`,
+        image: `${origin}/${id}/image.svg`,
+        attributes: attributesStored,
+      };
+    } else {
+      metadata = {
+        name: `Ekubo NFT #${id}`,
+        description: "An NFT that represents a liquidity position in Ekubo",
+        image: `${origin}/${id}/image.svg`,
+        attributes: attributesStored,
+      };
+    }
+
+    return json(metadata, {
+      headers: {
+        "cache-control": "public, max-age=3600, immutable",
+      },
+    });
+  })
+  .get(
     "/:id/history",
     async ({ url, params: { id: idStr } }: IRequest, env: Env) => {
       const id = parseId(idStr);
@@ -1344,7 +1141,7 @@ const router = OpenAPIRouter<IRequest, RequestContext>({
       );
     }
   )
-  .get<IRequest, RequestContext>(
+  .get(
     "/:id/image.svg",
     async ({ params: { id: idStr } }: IRequest, env: Env) => {
       const id = parseId(idStr);
