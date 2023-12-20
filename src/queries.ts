@@ -956,12 +956,18 @@ export class Queries {
               points_from_mints AS (SELECT (SELECT to_address
                                             FROM position_transfers AS pt
                                             WHERE pt.token_id = pm.token_id
-                                            ORDER BY pt.block_number ASC, pt.transaction_index ASC,
-                                                     pt.event_index ASC
+                                            ORDER BY pt.block_number, pt.transaction_index,
+                                                     pt.event_index
                                             LIMIT 1)                            AS collector,
                                            pm.referrer                          AS referrer,
                                            (2000 * multipliers.multiplier)::INT AS points
                                     FROM position_minted AS pm
+                                             -- this limits to regular deposits of 2 tokens, meaning the position is in range
+                                             JOIN position_deposit AS pd
+                                                  ON pm.token_id = pd.token_id AND pm.block_number = pd.block_number
+                                                      AND pd.event_index = pm.event_index + 4
+                                                      -- this means non-zero deposit of in range
+                                                      AND pd.delta0 != 0 AND pd.delta1 != 0
                                              JOIN position_multipliers AS multipliers
                                                   ON pm.token_id = multipliers.token_id
                                              JOIN blocks AS pmb ON pm.block_number = pmb.number
