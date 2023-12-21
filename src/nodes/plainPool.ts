@@ -1,6 +1,7 @@
 import { computeStep, isPriceIncreasing } from "../math/swap";
 import { MAX_SQRT_RATIO, MIN_SQRT_RATIO, toSqrtRatio } from "../math/tick";
-import { QuoteNode } from "./quoteNode";
+import { PoolKey, QuoteNode } from "./quoteNode";
+import { numericToHex } from "../format";
 
 export interface Tick {
   readonly liquidityDelta: bigint;
@@ -17,10 +18,25 @@ export class PlainPool
   public readonly tickSpacing: number;
 
   // state
-  private readonly sqrtRatio: bigint;
-  private readonly liquidity: bigint;
-  private readonly tick: number;
+  public readonly sqrtRatio: bigint;
+  public readonly liquidity: bigint;
+  public readonly tick: number;
   private readonly sortedTicks: Tick[];
+
+  private _poolKey: PoolKey | null = null;
+
+  public get poolKey(): PoolKey {
+    return (
+      this._poolKey ??
+      (this._poolKey = {
+        token0: numericToHex(this.token0),
+        token1: numericToHex(this.token1),
+        fee: numericToHex(this.fee),
+        tick_spacing: this.tickSpacing,
+        extension: numericToHex(0),
+      })
+    );
+  }
 
   constructor({
     token0,

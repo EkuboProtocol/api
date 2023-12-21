@@ -1,18 +1,14 @@
 import { PoolState, Queries } from "./queries";
 import { constants } from "starknet";
-import { toSqrtRatio } from "./math/tick";
+import { MAX_SQRT_RATIO, MIN_SQRT_RATIO, toSqrtRatio } from "./math/tick";
 import { isPriceIncreasing } from "./math/swap";
 import { QuoteNode } from "./nodes/quoteNode";
 import { PlainPool } from "./nodes/plainPool";
 
-interface LastUpdatedKey {
-  lastEventId: PoolState["last_event_id"];
-}
-
 export const QUOTE_NODE_CACHE: {
   [chainId in constants.StarknetChainId]: {
     [key_hash: string]: {
-      lastUpdated: LastUpdatedKey;
+      lastEventId: bigint;
       node: QuoteNode<{ initializedTicksCrossed: number }>;
     };
   };
@@ -21,37 +17,85 @@ export const QUOTE_NODE_CACHE: {
   ["0x534e5f4d41494e"]: {},
 };
 
-export interface QuoteResult {
+export interface QuoteResult<TTotal> {
   tokenAmount: {
     token: bigint;
     amount: bigint;
   };
   limits: bigint[];
-  resources: { initializedTicksCrossed: number };
+  resources: TTotal;
 }
 
-export function quoteRoute(
-  tokenAmount: { token: bigint; amount: bigint },
-  route: PoolState[],
-  cache: typeof QUOTE_NODE_CACHE[constants.StarknetChainId]
-): Readonly<QuoteResult> | null {
+export interface ResourcesAccumulator<TResources, TTotal> {
+  initial(): TTotal;
+  accumulate(memo: TTotal, value: TResources): TTotal;
+}
+
+export interface TokenAmount {
+  token: bigint;
+  amount: bigint;
+}
+
+export interface SqrtRatioLimitComputer<T = any> {
+  (params: {
+    node: QuoteNode<T>;
+    tokenAmount: TokenAmount;
+    isToken1: boolean;
+  }): bigint;
+}
+
+export const defaultSqrtRatioLimitComputer: SqrtRatioLimitComputer = ({
+  node,
+  isToken1,
+  tokenAmount,
+}) => {
+  const increasing = isPriceIncreasing(tokenAmount.amount, isToken1);
+
+  if (node instanceof PlainPool)
+    return toSqrtRatio(
+      node.tick +
+        (increasing
+          ? 100 * Number(node.tickSpacing)
+          : -100 * Number(node.tickSpacing))
+    );
+
+  return increasing ? MAX_SQRT_RATIO : MIN_SQRT_RATIO;
+};
+
+export const defaultAccumulator: ResourcesAccumulator<any, null> = {
+  initial(): null {
+    return null;
+  },
+  accumulate(): null {
+    return null;
+  },
+};
+
+export function quoteRoute<TResources, TTotal>({
+  route,
+  tokenAmount,
+  accumulator,
+  computeSqrtRatioLimit = defaultSqrtRatioLimitComputer,
+}: {
+  tokenAmount: TokenAmount;
+  route: QuoteNode<TResources>[];
+  accumulator: ResourcesAccumulator<TResources, TTotal>;
+  computeSqrtRatioLimit?: SqrtRatioLimitComputer;
+}): Readonly<QuoteResult<TTotal>> | null {
   const isExactOutput = tokenAmount.amount < 0n;
-  return route.reduce<QuoteResult | null>(
-    (state, pool) => {
+  return route.reduce<QuoteResult<TTotal> | null>(
+    (state, node) => {
       if (!state) {
         return null;
       }
 
-      const node = cache[pool.pool_key_hash].node;
-
       const isToken1 = node.token1 === state.tokenAmount.token;
 
-      const sqrtRatioLimit = toSqrtRatio(
-        pool.tick +
-          (isPriceIncreasing(state.tokenAmount.amount, isToken1)
-            ? 100 * Number(pool.tick_spacing)
-            : -100 * Number(pool.tick_spacing))
-      );
+      const sqrtRatioLimit = computeSqrtRatioLimit({
+        node,
+        tokenAmount: state.tokenAmount,
+        isToken1,
+      });
 
       state.limits.push(sqrtRatioLimit);
 
@@ -66,7 +110,7 @@ export function quoteRoute(
         return null;
       }
 
-      const nextToken = BigInt(isToken1 ? pool.token0 : pool.token1);
+      const nextToken = BigInt(isToken1 ? node.token0 : node.token1);
 
       return {
         limits: state.limits,
@@ -76,19 +120,16 @@ export function quoteRoute(
             : quote.calculatedAmount,
           token: nextToken,
         },
-        resources: {
-          initializedTicksCrossed:
-            state.resources.initializedTicksCrossed +
-            quote.executionResources.initializedTicksCrossed,
-        },
+        resources: accumulator.accumulate(
+          state.resources,
+          quote.executionResources
+        ),
       };
     },
     {
       tokenAmount,
       limits: [],
-      resources: {
-        initializedTicksCrossed: 0,
-      },
+      resources: accumulator.initial(),
     }
   );
 }
@@ -100,7 +141,7 @@ export async function updatePoolCache(
 ): Promise<void> {
   const poolsNeedUpdate = pools.filter(({ pool_key_hash, last_event_id }) => {
     const cached = cache[pool_key_hash];
-    return !cached || cached.lastUpdated.lastEventId !== last_event_id;
+    return !cached || cached.lastEventId !== BigInt(last_event_id);
   });
 
   const tickData = await dao.getTickData({
@@ -109,9 +150,7 @@ export async function updatePoolCache(
 
   poolsNeedUpdate.forEach((pool) => {
     cache[pool.pool_key_hash] = {
-      lastUpdated: {
-        lastEventId: pool.last_event_id,
-      },
+      lastEventId: BigInt(pool.last_event_id),
       node: new PlainPool({
         token0: BigInt(pool.token0),
         token1: BigInt(pool.token1),
@@ -130,7 +169,7 @@ export async function getAllRelevantPoolsAndUpdateCache(
   dao: Queries,
   cache: typeof QUOTE_NODE_CACHE[constants.StarknetChainId],
   { tokenA, tokenB }: { tokenA: bigint; tokenB: bigint }
-) {
+): Promise<QuoteNode<{ initializedTicksCrossed: number }>[]> {
   return dao.withinTransaction(async () => {
     const { rows: relevantPools } = await dao.getAllRoutablePools({
       tokenA,
@@ -139,6 +178,6 @@ export async function getAllRelevantPoolsAndUpdateCache(
 
     await updatePoolCache(relevantPools, dao, cache);
 
-    return relevantPools;
+    return relevantPools.map((p) => cache[p.pool_key_hash].node);
   });
 }

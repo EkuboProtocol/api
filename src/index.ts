@@ -20,17 +20,18 @@ import {
 } from "./tokens";
 import { findAllRoutes } from "./findAllRoutes";
 import { MAX_U128 } from "./math/constants";
-import { PoolState } from "./queries";
 import { Contract, num, RpcProvider } from "starknet";
 import POSITIONS_ABI from "./positions-abi.json";
 import { OpenAPIRouter } from "@cloudflare/itty-router-openapi";
 import { RequestContext } from "./routes/context";
-import { GetTokens, GetTokenLogo } from "./routes/tokens";
+import { GetTokenLogo, GetTokens } from "./routes/tokens";
 import {
+  defaultAccumulator,
   getAllRelevantPoolsAndUpdateCache,
   QUOTE_NODE_CACHE,
   QuoteResult,
   quoteRoute,
+  TokenAmount,
   updatePoolCache,
 } from "./quoting";
 import { ALL_TIME, POSITIONS_CONTRACT_ADDRESS } from "./constants";
@@ -38,6 +39,7 @@ import {
   GetLeaderboard,
   GetLeaderboardForCollector,
 } from "./routes/leaderboard";
+import { QuoteNode } from "./nodes/quoteNode";
 
 Decimal.set({ precision: 39 });
 
@@ -185,14 +187,19 @@ const router = OpenAPIRouter<IRequest, RequestContext>({
         2
       );
 
+      const tokenAmount: TokenAmount = {
+        amount,
+        token: BigInt(token.l2_token_address),
+      };
+
       const quotedRoutes = allRoutes.map((route) => {
         try {
           return {
-            quote: quoteRoute(
-              { amount, token: BigInt(token.l2_token_address) },
+            quote: quoteRoute({
+              tokenAmount,
               route,
-              cache
-            ),
+              accumulator: defaultAccumulator,
+            }),
             route,
           };
         } catch (e) {
@@ -205,19 +212,19 @@ const router = OpenAPIRouter<IRequest, RequestContext>({
       });
 
       let bestWorkingRoute: {
-        route: PoolState[];
-        quote: Readonly<QuoteResult>;
+        route: QuoteNode<any>[];
+        quote: Readonly<QuoteResult<null>>;
       } | null = null;
-      for (const route of quotedRoutes) {
+      for (const { route, quote } of quotedRoutes) {
         if (
-          route.quote &&
+          quote &&
           (!bestWorkingRoute ||
-            route.quote.tokenAmount.amount >
+            quote.tokenAmount.amount >
               bestWorkingRoute.quote.tokenAmount.amount)
         ) {
-          bestWorkingRoute = route as {
-            route: PoolState[];
-            quote: Readonly<QuoteResult>;
+          bestWorkingRoute = {
+            quote,
+            route,
           };
         }
       }
@@ -231,14 +238,8 @@ const router = OpenAPIRouter<IRequest, RequestContext>({
       return json(
         {
           amount: bestWorkingRoute.quote.tokenAmount.amount.toString(),
-          route: bestWorkingRoute.route.map((pool, ix) => ({
-            pool_key: {
-              token0: numericToHex(pool.token0),
-              token1: numericToHex(pool.token1),
-              fee: numericToHex(pool.fee),
-              tick_spacing: Number(pool.tick_spacing),
-              extension: numericToHex(pool.extension),
-            },
+          route: bestWorkingRoute.route.map((node, ix) => ({
+            pool_key: node.poolKey,
             sqrt_ratio_limit: numericToHex(limits[ix]),
           })),
         },
