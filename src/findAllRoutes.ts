@@ -1,41 +1,41 @@
-type Pair = { token0: bigint; token1: bigint };
+import { QuoteNode } from "./nodes/quoteNode";
 
-export function findAllRoutes<T extends Pair>(
+export function findAllRoutes(
   fromToken: bigint,
   toToken: bigint,
-  pools: T[],
+  nodes: QuoteNode<unknown>[],
   maxPools: number = 2,
-  currentRoute: T[] = []
-): T[][] {
+  currentRoute: QuoteNode<unknown>[] = []
+): QuoteNode<unknown>[][] {
   if (maxPools < 1) return [];
-  return pools.flatMap((pool) => {
+  return nodes.flatMap((pool) => {
     if (currentRoute.includes(pool)) return [];
 
-    if (pool.token0 === fromToken) {
+    if (pool.key.token0 === fromToken) {
       const nextRoute = currentRoute.concat([pool]);
 
-      if (pool.token1 === toToken) {
+      if (pool.key.token1 === toToken) {
         return [nextRoute];
       }
 
       return findAllRoutes(
-        pool.token1,
+        pool.key.token1,
         toToken,
-        pools,
+        nodes,
         maxPools - 1,
         nextRoute
       );
-    } else if (pool.token1 === fromToken) {
+    } else if (pool.key.token1 === fromToken) {
       const nextRoute = currentRoute.concat([pool]);
 
-      if (pool.token0 === toToken) {
+      if (pool.key.token0 === toToken) {
         return [nextRoute];
       }
 
       return findAllRoutes(
-        pool.token0,
+        pool.key.token0,
         toToken,
-        pools,
+        nodes,
         maxPools - 1,
         nextRoute
       );

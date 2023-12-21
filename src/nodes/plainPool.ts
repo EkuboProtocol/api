@@ -1,42 +1,20 @@
 import { computeStep, isPriceIncreasing } from "../math/swap";
 import { MAX_SQRT_RATIO, MIN_SQRT_RATIO, toSqrtRatio } from "../math/tick";
-import { PoolKey, QuoteNode } from "./quoteNode";
-import { numericToHex } from "../format";
+import { BaseResources, NodeKey, QuoteNode } from "./quoteNode";
 
 export interface Tick {
   readonly liquidityDelta: bigint;
   readonly tick: number;
 }
 
-export class PlainPool
-  implements QuoteNode<{ initializedTicksCrossed: number }>
-{
-  // key
-  public readonly token0: bigint;
-  public readonly token1: bigint;
-  public readonly fee: bigint;
-  public readonly tickSpacing: number;
+export class PlainPool implements QuoteNode<BaseResources> {
+  public readonly key: NodeKey;
 
   // state
   public readonly sqrtRatio: bigint;
   public readonly liquidity: bigint;
   public readonly tick: number;
   private readonly sortedTicks: Tick[];
-
-  private _poolKey: PoolKey | null = null;
-
-  public get poolKey(): PoolKey {
-    return (
-      this._poolKey ??
-      (this._poolKey = {
-        token0: numericToHex(this.token0),
-        token1: numericToHex(this.token1),
-        fee: numericToHex(this.fee),
-        tick_spacing: this.tickSpacing,
-        extension: numericToHex(0),
-      })
-    );
-  }
 
   constructor({
     token0,
@@ -57,10 +35,13 @@ export class PlainPool
     tick: number;
     sortedTicks: Tick[];
   }) {
-    this.token0 = token0;
-    this.token1 = token1;
-    this.tickSpacing = tickSpacing;
-    this.fee = fee;
+    this.key = {
+      token0,
+      token1,
+      fee,
+      tickSpacing,
+      extension: 0n,
+    };
     this.sqrtRatio = sqrtRatio;
     this.liquidity = liquidity;
     this.tick = tick;
@@ -119,10 +100,7 @@ export class PlainPool
   }): {
     consumedAmount: bigint;
     calculatedAmount: bigint;
-    executionResources: {
-      initializedTicksCrossed: number;
-      sqrtRatioAfter: bigint;
-    };
+    executionResources: BaseResources;
   } {
     if (specifiedAmount === 0n) {
       return {
@@ -130,7 +108,6 @@ export class PlainPool
         calculatedAmount: 0n,
         executionResources: {
           initializedTicksCrossed: 0,
-          sqrtRatioAfter: this.sqrtRatio,
         },
       };
     }
@@ -183,7 +160,7 @@ export class PlainPool
           : sqrtRatioLimit;
 
       const step = computeStep({
-        fee: this.fee,
+        fee: this.key.fee,
         sqrtRatio,
         liquidity,
         isToken1,
@@ -211,7 +188,6 @@ export class PlainPool
       calculatedAmount,
       executionResources: {
         initializedTicksCrossed,
-        sqrtRatioAfter: sqrtRatio,
       },
     };
   }

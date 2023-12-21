@@ -1,28 +1,27 @@
-import { numericToHex } from "../format";
-
-export interface Quote<T> {
+export interface Quote<TResources> {
   consumedAmount: bigint;
   calculatedAmount: bigint;
-  executionResources: T;
+  executionResources: TResources;
 }
 
-export interface PoolKey {
-  token0: string;
-  token1: string;
-  fee: string;
-  tick_spacing: number;
-  extension: string;
+export interface BaseResources {
+  initializedTicksCrossed: number;
 }
 
-export interface QuoteNode<T> {
-  token0: bigint;
-  token1: bigint;
+export interface NodeKey {
+  readonly token0: bigint;
+  readonly token1: bigint;
+  readonly fee: bigint;
+  readonly tickSpacing: number;
+  readonly extension: bigint;
+}
 
-  poolKey: PoolKey;
+export interface QuoteNode<TResources> {
+  readonly key: NodeKey;
 
   quote(params: {
     specifiedAmount: bigint;
     isToken1: boolean;
     sqrtRatioLimit?: bigint;
-  }): Quote<T>;
+  }): Quote<TResources>;
 }

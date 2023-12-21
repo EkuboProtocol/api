@@ -1,15 +1,21 @@
 import { PoolState, Queries } from "./queries";
 import { constants } from "starknet";
-import { MAX_SQRT_RATIO, MIN_SQRT_RATIO, toSqrtRatio } from "./math/tick";
+import {
+  MAX_SQRT_RATIO,
+  MAX_TICK,
+  MIN_SQRT_RATIO,
+  MIN_TICK,
+  toSqrtRatio,
+} from "./math/tick";
 import { isPriceIncreasing } from "./math/swap";
-import { QuoteNode } from "./nodes/quoteNode";
+import { BaseResources, QuoteNode } from "./nodes/quoteNode";
 import { PlainPool } from "./nodes/plainPool";
 
 export const QUOTE_NODE_CACHE: {
   [chainId in constants.StarknetChainId]: {
     [key_hash: string]: {
       lastEventId: bigint;
-      node: QuoteNode<{ initializedTicksCrossed: number }>;
+      node: QuoteNode<BaseResources>;
     };
   };
 } = {
@@ -28,6 +34,7 @@ export interface QuoteResult<TTotal> {
 
 export interface ResourcesAccumulator<TResources, TTotal> {
   initial(): TTotal;
+
   accumulate(memo: TTotal, value: TResources): TTotal;
 }
 
@@ -44,6 +51,7 @@ export interface SqrtRatioLimitComputer<T = any> {
   }): bigint;
 }
 
+// todo: should computing this be a method on the quote node?
 export const defaultSqrtRatioLimitComputer: SqrtRatioLimitComputer = ({
   node,
   isToken1,
@@ -53,10 +61,9 @@ export const defaultSqrtRatioLimitComputer: SqrtRatioLimitComputer = ({
 
   if (node instanceof PlainPool)
     return toSqrtRatio(
-      node.tick +
-        (increasing
-          ? 100 * Number(node.tickSpacing)
-          : -100 * Number(node.tickSpacing))
+      increasing
+        ? Math.min(MAX_TICK, node.tick + 100 * node.key.tickSpacing)
+        : Math.max(MIN_TICK, node.tick - 100 * node.key.tickSpacing)
     );
 
   return increasing ? MAX_SQRT_RATIO : MIN_SQRT_RATIO;
@@ -89,7 +96,7 @@ export function quoteRoute<TResources, TTotal>({
         return null;
       }
 
-      const isToken1 = node.token1 === state.tokenAmount.token;
+      const isToken1 = node.key.token1 === state.tokenAmount.token;
 
       const sqrtRatioLimit = computeSqrtRatioLimit({
         node,
@@ -110,7 +117,7 @@ export function quoteRoute<TResources, TTotal>({
         return null;
       }
 
-      const nextToken = BigInt(isToken1 ? node.token0 : node.token1);
+      const nextToken = BigInt(isToken1 ? node.key.token0 : node.key.token1);
 
       return {
         limits: state.limits,
@@ -169,7 +176,7 @@ export async function getAllRelevantPoolsAndUpdateCache(
   dao: Queries,
   cache: typeof QUOTE_NODE_CACHE[constants.StarknetChainId],
   { tokenA, tokenB }: { tokenA: bigint; tokenB: bigint }
-): Promise<QuoteNode<{ initializedTicksCrossed: number }>[]> {
+): Promise<QuoteNode<BaseResources>[]> {
   return dao.withinTransaction(async () => {
     const { rows: relevantPools } = await dao.getAllRoutablePools({
       tokenA,

@@ -239,7 +239,13 @@ const router = OpenAPIRouter<IRequest, RequestContext>({
         {
           amount: bestWorkingRoute.quote.tokenAmount.amount.toString(),
           route: bestWorkingRoute.route.map((node, ix) => ({
-            pool_key: node.poolKey,
+            pool_key: {
+              token0: numericToHex(node.key.token0),
+              token1: numericToHex(node.key.token1),
+              fee: numericToHex(node.key.fee),
+              tick_spacing: Number(node.key.tickSpacing),
+              extension: numericToHex(node.key.extension),
+            },
             sqrt_ratio_limit: numericToHex(limits[ix]),
           })),
         },
