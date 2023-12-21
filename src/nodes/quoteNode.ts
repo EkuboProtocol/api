@@ -1,16 +1,27 @@
-export interface Quote<T> {
+export interface Quote<TResources> {
   consumedAmount: bigint;
   calculatedAmount: bigint;
-  executionResources: T;
+  executionResources: TResources;
 }
 
-export interface QuoteNode<T> {
-  token0: bigint;
-  token1: bigint;
+export interface BaseResources {
+  initializedTicksCrossed: number;
+}
+
+export interface NodeKey {
+  readonly token0: bigint;
+  readonly token1: bigint;
+  readonly fee: bigint;
+  readonly tickSpacing: number;
+  readonly extension: bigint;
+}
+
+export interface QuoteNode<TResources> {
+  readonly key: NodeKey;
 
   quote(params: {
     specifiedAmount: bigint;
     isToken1: boolean;
     sqrtRatioLimit?: bigint;
-  }): Quote<T>;
+  }): Quote<TResources>;
 }
