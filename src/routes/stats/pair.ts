@@ -1,11 +1,22 @@
-import { EkuboAPIRoute } from "../_shared/context";
+import { EkuboAPIRoute, RequestContext } from "../_shared/context";
 import { error, IRequest, json } from "itty-router";
-import { Env } from "../../env";
 import { ADDRESS_REGEX } from "../_shared/validation/address";
-import { createQueries } from "../../queries";
+import { Queries } from "../../queries";
+import { OpenAPIRouteSchema } from "@cloudflare/itty-router-openapi";
 
 export class GetPairInfo extends EkuboAPIRoute {
-  async handle({ params }: IRequest, env: Env) {
+  static schema: OpenAPIRouteSchema = {
+    tags: ["Stats"],
+    summary: "Return overview stats for a token pair",
+    responses: {
+      "200": {
+        description: "Information about the token pair",
+        contentType: "application/json",
+      },
+    },
+  };
+
+  async handle({ params }: IRequest, { client }: RequestContext) {
     if (
       typeof params.tokenA !== "string" ||
       !ADDRESS_REGEX.test(params.tokenA) ||
@@ -25,7 +36,7 @@ export class GetPairInfo extends EkuboAPIRoute {
 
     const pair = { token0, token1 };
 
-    const queries = await createQueries(env);
+    const queries = new Queries(client);
 
     const timestamp = Date.now();
     const thirtyDaysAgo = new Date(timestamp - 1000 * 60 * 60 * 24 * 30);
@@ -72,9 +83,20 @@ export class GetPairInfo extends EkuboAPIRoute {
 }
 
 export class GetPairLiquidity extends EkuboAPIRoute {
+  static schema: OpenAPIRouteSchema = {
+    tags: ["Stats"],
+    summary: "Returns liquidity chart for the given pair",
+    responses: {
+      "200": {
+        description: "For each tick for pools of the pair, the liquidity delta",
+        contentType: "application/json",
+      },
+    },
+  };
+
   async handle(
     { params: { tokenA: tokenAStr, tokenB: tokenBStr } }: IRequest,
-    env: Env
+    { client }: RequestContext
   ) {
     let tokenA: bigint, tokenB: bigint;
     try {
@@ -84,7 +106,7 @@ export class GetPairLiquidity extends EkuboAPIRoute {
       return error(400, "Invalid tokens");
     }
 
-    const client = await createQueries(env);
+    const queries = new Queries(client);
 
     const [token0, token1] =
       tokenA < tokenB ? [tokenA, tokenB] : [tokenB, tokenA];
@@ -93,8 +115,8 @@ export class GetPairLiquidity extends EkuboAPIRoute {
       return error(400, "Invalid tokens");
     }
 
-    const { rows } = await client.withinTransaction(() =>
-      client.getPairLiquidityGraph({
+    const { rows } = await queries.withinTransaction(() =>
+      queries.getPairLiquidityGraph({
         token0,
         token1,
       })
@@ -114,9 +136,20 @@ export class GetPairLiquidity extends EkuboAPIRoute {
 }
 
 export class ListPairEvents extends EkuboAPIRoute {
+  static schema: OpenAPIRouteSchema = {
+    tags: ["Stats"],
+    summary: "Returns a list of recent events for the pair",
+    responses: {
+      "200": {
+        description: "A list of events for the given pair",
+        contentType: "application/json",
+      },
+    },
+  };
+
   async handle(
     { params: { tokenA: tokenAStr, tokenB: tokenBStr } }: IRequest,
-    env: Env
+    { client }: RequestContext
   ) {
     let tokenA: bigint, tokenB: bigint;
     try {
@@ -133,9 +166,9 @@ export class ListPairEvents extends EkuboAPIRoute {
       return error(400, "Invalid tokens");
     }
 
-    const client = await createQueries(env);
+    const queries = new Queries(client);
 
-    const { rows } = await client.getPairEvents({
+    const { rows } = await queries.getPairEvents({
       token0,
       token1,
       limit: 300,

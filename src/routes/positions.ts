@@ -1,13 +1,12 @@
-import { EkuboAPIRoute } from "./_shared/context";
+import { EkuboAPIRoute, RequestContext } from "./_shared/context";
 import { error, IRequest, json } from "itty-router";
-import { Env } from "../env";
-import { createQueries } from "../queries";
+import { Queries } from "../queries";
 import { num } from "starknet";
 
 export class ListPositions extends EkuboAPIRoute {
   async handle(
     { params: { address: addressStr }, query, url }: IRequest,
-    env: Env
+    { client }: RequestContext
   ) {
     let address: bigint;
     try {
@@ -18,8 +17,8 @@ export class ListPositions extends EkuboAPIRoute {
 
     const showClosed = "showClosed" in query && query.showClosed === "true";
 
-    const client = await createQueries(env);
-    const { rows } = await client.getPositionsByAddress(address, showClosed);
+    const queries = new Queries(client);
+    const { rows } = await queries.getPositionsByAddress(address, showClosed);
 
     const origin = new URL(url).origin;
 

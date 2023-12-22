@@ -1,12 +1,13 @@
-import { EkuboAPIRoute } from "../_shared/context";
+import { EkuboAPIRoute, RequestContext } from "../_shared/context";
 import { error, IRequest, json } from "itty-router";
-import { Env } from "../../env";
 import { getAllTokens, getTokenByAddress } from "../meta/tokens";
 import { generateSvg } from "./generateSvg";
 import { parseId } from "./parseId";
 import Decimal from "decimal.js-light";
-import { createQueries } from "../../queries";
+
 import { num } from "starknet";
+import { Queries } from "../../queries";
+import { OpenAPIRouteSchema } from "@cloudflare/itty-router-openapi";
 
 export interface NFTMetadata {
   name: string;
@@ -49,13 +50,27 @@ export function tickSpacingToPercent(tick_spacing: string) {
 }
 
 export class GetNftMetadata extends EkuboAPIRoute {
-  async handle({ url, params: { id: idStr } }: IRequest, env: Env) {
+  static schema: OpenAPIRouteSchema = {
+    tags: ["Positions"],
+    summary: "Returns the metadata for the given position ID",
+    responses: {
+      "200": {
+        description: "The NFT metadata for the given position ID",
+        contentType: "application/json",
+      },
+    },
+  };
+
+  async handle(
+    { url, params: { id: idStr } }: IRequest,
+    { env, client }: RequestContext
+  ) {
     const id = parseId(idStr);
     if (id === null) {
       return error(400, "Invalid token ID");
     }
 
-    const queries = await createQueries(env);
+    const queries = new Queries(client);
 
     const positionMetadata = await queries.getPositionMetadata(id);
 
@@ -171,13 +186,27 @@ export class GetNftMetadata extends EkuboAPIRoute {
 }
 
 export class ListNftEvents extends EkuboAPIRoute {
-  async handle({ params: { id: idStr } }: IRequest, env: Env) {
+  static schema: OpenAPIRouteSchema = {
+    tags: ["Positions"],
+    summary: "Returns the entire history of events for the given position",
+    responses: {
+      "200": {
+        description: "The position history",
+        contentType: "application/json",
+      },
+    },
+  };
+
+  async handle(
+    { params: { id: idStr } }: IRequest,
+    { client }: RequestContext
+  ) {
     const id = parseId(idStr);
     if (id === null) {
       return error(400, "Invalid token ID");
     }
 
-    const queries = await createQueries(env);
+    const queries = new Queries(client);
 
     if (!(await queries.getPositionMetadata(id))) {
       return error(404, "Token ID not found");
@@ -217,13 +246,27 @@ export class ListNftEvents extends EkuboAPIRoute {
 }
 
 export class GetNftImage extends EkuboAPIRoute {
-  async handle({ params: { id: idStr } }: IRequest, env: Env) {
+  static schema: OpenAPIRouteSchema = {
+    tags: ["Positions"],
+    summary: "Returns the logo for the given position NFT",
+    responses: {
+      "200": {
+        description: "The position NFT image",
+        contentType: "image/svg+xml",
+      },
+    },
+  };
+
+  async handle(
+    { params: { id: idStr } }: IRequest,
+    { env, client }: RequestContext
+  ) {
     const id = parseId(idStr);
     if (id === null) {
       return error(400, "Invalid token ID");
     }
 
-    const queries = await createQueries(env);
+    const queries = new Queries(client);
 
     const positionMetadata = await queries.getPositionMetadata(id);
 

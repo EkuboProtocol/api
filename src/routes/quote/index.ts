@@ -1,5 +1,5 @@
 import { error, IRequest, json } from "itty-router";
-import { EkuboAPIRoute } from "../_shared/context";
+import { EkuboAPIRoute, RequestContext } from "../_shared/context";
 import { Env } from "../../env";
 import { getAllTokens, getTokenByIdentifier } from "../meta/tokens";
 import Decimal from "decimal.js-light";
@@ -15,12 +15,12 @@ import {
 } from "./quoting";
 import { findAllRoutes } from "./findAllRoutes";
 import { QuoteNode } from "./nodes/quoteNode";
-import { createQueries } from "../../queries";
 import { num } from "starknet";
+import { Queries } from "../../queries";
 
 export class GetQuote extends EkuboAPIRoute {
-  async handle({ params, query }: IRequest, env: Env) {
-    const queries = await createQueries(env);
+  async handle({ params }: IRequest, { env, client }: RequestContext) {
+    const queries = new Queries(client);
 
     const allTokens = await getAllTokens(env, queries);
 
@@ -141,7 +141,7 @@ export class GetQuote extends EkuboAPIRoute {
 }
 
 export class GetQuoteToPrice extends EkuboAPIRoute {
-  async handle({ params }: IRequest, env: Env) {
+  async handle({ params }: IRequest, { env, client }: RequestContext) {
     let poolKeyHash: bigint, newSqrtRatio: bigint;
     try {
       poolKeyHash = BigInt(params.key_hash);
@@ -150,7 +150,7 @@ export class GetQuoteToPrice extends EkuboAPIRoute {
       return error(400, "Invalid path parameters");
     }
 
-    const queries = await createQueries(env);
+    const queries = new Queries(client);
 
     const [node, sqrtRatio] = await queries.withinTransaction(async () => {
       const poolState = await queries.getPoolState({ keyHash: poolKeyHash });

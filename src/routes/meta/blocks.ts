@@ -1,9 +1,9 @@
 import { error, IRequest, json } from "itty-router";
 import { Env } from "../../env";
-import { EkuboAPIRoute } from "../_shared/context";
+import { EkuboAPIRoute, RequestContext } from "../_shared/context";
 import { OpenAPIRouteSchema } from "@cloudflare/itty-router-openapi";
 import { z } from "zod";
-import { createQueries } from "../../queries";
+import { Queries } from "../../queries";
 
 export class GetBlock extends EkuboAPIRoute {
   static schema: OpenAPIRouteSchema = {
@@ -30,8 +30,8 @@ export class GetBlock extends EkuboAPIRoute {
     },
   };
 
-  public async handle({ params }: IRequest, env: Env) {
-    const queries = await createQueries(env);
+  public async handle({ params }: IRequest, { client }: RequestContext) {
+    const queries = new Queries(client);
 
     if (params.number !== "latest") {
       return error(501, "Not implemented");

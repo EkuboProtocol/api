@@ -1,16 +1,15 @@
 import { OpenAPIRoute } from "@cloudflare/itty-router-openapi";
 import { error, IRequest, json } from "itty-router";
-import { Env } from "../../env";
-import { EkuboAPIRoute } from "../_shared/context";
-import { createQueries } from "../../queries";
+import { EkuboAPIRoute, RequestContext } from "../_shared/context";
 import { num } from "starknet";
+import { Queries } from "../../queries";
 
 export class GetPoolStates extends OpenAPIRoute {
-  async handle(_: IRequest, env: Env) {
-    const client = await createQueries(env);
+  async handle(_: IRequest, { env, client }: RequestContext) {
+    const queries = new Queries(client);
 
-    const { rows } = await client.withinTransaction(() =>
-      client.getAllPoolsWithStates()
+    const { rows } = await queries.withinTransaction(() =>
+      queries.getAllPoolsWithStates()
     );
 
     return json(
@@ -38,7 +37,7 @@ export class GetPoolStates extends OpenAPIRoute {
 }
 
 export class GetPoolLiquidity extends EkuboAPIRoute {
-  async handle({ params: { key_hash } }: IRequest, env: Env) {
+  async handle({ params: { key_hash } }: IRequest, { client }: RequestContext) {
     let pool_key_hash: bigint;
     try {
       pool_key_hash = BigInt(key_hash);
@@ -46,10 +45,10 @@ export class GetPoolLiquidity extends EkuboAPIRoute {
       return error(400, "Invalid pool key hash");
     }
 
-    const client = await createQueries(env);
+    const queries = new Queries(client);
 
-    const { rows } = await client.withinTransaction(() =>
-      client.getPoolLiquidityGraph(pool_key_hash)
+    const { rows } = await queries.withinTransaction(() =>
+      queries.getPoolLiquidityGraph(pool_key_hash)
     );
 
     return json(

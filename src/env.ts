@@ -2,13 +2,13 @@ import { KVNamespace, Hyperdrive } from "@cloudflare/workers-types";
 import { constants } from "starknet";
 
 export interface Env {
-  STARKNET_CHAIN_ID: constants.StarknetChainId;
+  readonly STARKNET_CHAIN_ID: constants.StarknetChainId;
 
-  RPC_URL: string;
+  readonly RPC_URL: string;
 
-  PG_CONNECTION_STRING?: string;
+  readonly PG_CONNECTION_STRING?: string;
 
-  HYPERDRIVE?: Hyperdrive;
+  readonly HYPERDRIVE?: Hyperdrive;
 
-  TOKEN_LOGOS_KV?: KVNamespace;
+  readonly TOKEN_LOGOS_KV?: KVNamespace;
 }

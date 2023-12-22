@@ -1,12 +1,12 @@
 import { OpenAPIRouteSchema } from "@cloudflare/itty-router-openapi";
 import { error, IRequest, json } from "itty-router";
-import { EkuboAPIRoute } from "../_shared/context";
+import { EkuboAPIRoute, RequestContext } from "../_shared/context";
 import { Env } from "../../env";
 import { FEE_TOKEN_ADDRESS } from "../meta/tokens";
 import { z } from "zod";
 import { constants, Contract, num, RpcProvider } from "starknet";
 import POSITIONS_ABI from "./positions-abi.json";
-import { createQueries } from "../../queries";
+import { Queries } from "../../queries";
 
 export const POSITIONS_CONTRACT_ADDRESS: {
   [chainId in constants.StarknetChainId]: bigint;
@@ -47,10 +47,10 @@ export class GetLeaderboard extends EkuboAPIRoute {
     },
   };
 
-  async handle({ query }: IRequest, env: Env) {
+  async handle({ query }: IRequest, { env, client }: RequestContext) {
     const lastMonth = query?.lastMonth === "true";
 
-    const dao = await createQueries(env);
+    const dao = new Queries(client);
 
     const positionsContractAddress =
       POSITIONS_CONTRACT_ADDRESS[env.STARKNET_CHAIN_ID];
@@ -94,7 +94,17 @@ function getProvider(env: Env): RpcProvider {
 }
 
 export class GetLeaderboardDump extends EkuboAPIRoute {
-  async handle({ query }: IRequest, env: Env) {
+  static schema: OpenAPIRouteSchema = {
+    tags: ["Leaderboard"],
+    summary: "Dump the entire state of the leaderboard",
+    responses: {
+      "200": {
+        description: "The entire contents of the leaderboard",
+        contentType: "application/json",
+      },
+    },
+  };
+  async handle({ query }: IRequest, { env, client }: RequestContext) {
     if (query.key !== "wip") {
       return error(501, "Not implemented");
     }
@@ -107,7 +117,7 @@ export class GetLeaderboardDump extends EkuboAPIRoute {
       provider
     );
 
-    const queries = await createQueries(env);
+    const queries = new Queries(client);
 
     await queries.withinTransaction(async () => {
       const tokens = await queries.getAllActiveTokenIdsWithPoolKeys();
@@ -159,7 +169,7 @@ export class GetLeaderboardForCollector extends EkuboAPIRoute {
     },
   };
 
-  async handle({ params, query }: IRequest, env: Env) {
+  async handle({ params, query }: IRequest, { env, client }: RequestContext) {
     const lastMonth = query?.lastMonth === "true";
     let collector: bigint;
     try {
@@ -168,7 +178,7 @@ export class GetLeaderboardForCollector extends EkuboAPIRoute {
       return error(400, "Invalid collector address");
     }
 
-    const dao = await createQueries(env);
+    const dao = new Queries(client);
 
     const positionsContractAddress =
       POSITIONS_CONTRACT_ADDRESS[env.STARKNET_CHAIN_ID];
