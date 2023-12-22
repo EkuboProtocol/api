@@ -1,13 +1,13 @@
-import { EkuboAPIRoute, RequestContext } from "./_shared/context";
+import { EkuboAPIRoute, RequestContext } from "../../shared/context";
 import { error, IRequest, json } from "itty-router";
 import {
   FEE_TOKEN_ADDRESS,
   getAllTokens,
   getTokenByAddress,
-} from "./meta/tokens";
+} from "../meta/tokens";
 import Decimal from "decimal.js-light";
-import { ADDRESS_REGEX, AddressType } from "./_shared/validation/address";
-import { Queries } from "../queries";
+import { ADDRESS_REGEX, AddressType } from "../../shared/validation/address";
+import { createQueries } from "../../queries";
 import { OpenAPIRouteSchema } from "@cloudflare/itty-router-openapi";
 import { z } from "zod";
 
@@ -24,7 +24,8 @@ export class GetPairPrice extends EkuboAPIRoute {
       },
     },
   };
-  async handle({ params }: IRequest, { env, client }: RequestContext) {
+
+  async handle({ params }: IRequest, { env }: RequestContext) {
     if (
       typeof params.baseToken !== "string" ||
       !ADDRESS_REGEX.test(params.baseToken) ||
@@ -40,7 +41,7 @@ export class GetPairPrice extends EkuboAPIRoute {
     const baseToken = BigInt(params.baseToken);
     const quoteToken = BigInt(params.quoteToken);
 
-    const queries = new Queries(client);
+    const queries = await createQueries(env);
     const allTokens = await getAllTokens(env, queries);
 
     const bt = getTokenByAddress(allTokens, baseToken);
@@ -142,7 +143,7 @@ export class GetPairPriceHistory extends EkuboAPIRoute {
     },
   };
 
-  async handle({ params, query }: IRequest, { env, client }: RequestContext) {
+  async handle({ params, query }: IRequest, { env }: RequestContext) {
     if (
       typeof params.baseToken !== "string" ||
       !ADDRESS_REGEX.test(params.baseToken) ||
@@ -158,7 +159,7 @@ export class GetPairPriceHistory extends EkuboAPIRoute {
     const baseToken = BigInt(params.baseToken);
     const quoteToken = BigInt(params.quoteToken);
 
-    const queries = new Queries(client);
+    const queries = await createQueries(env);
 
     const tokens = await getAllTokens(env, queries);
     const bt = getTokenByAddress(tokens, baseToken);
@@ -302,7 +303,7 @@ export class GetTokenPrices extends EkuboAPIRoute {
     },
   };
 
-  async handle({ params }: IRequest, { env, client }: RequestContext) {
+  async handle({ params }: IRequest, { env }: RequestContext) {
     if (
       typeof params.quoteToken !== "string" ||
       !ADDRESS_REGEX.test(params.quoteToken)
@@ -315,7 +316,7 @@ export class GetTokenPrices extends EkuboAPIRoute {
 
     const quoteToken = BigInt(params.quoteToken);
 
-    const queries = new Queries(client);
+    const queries = await createQueries(env);
     const allTokens = await getAllTokens(env, queries);
     const qt = getTokenByAddress(allTokens, quoteToken);
 

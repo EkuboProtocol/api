@@ -2,12 +2,12 @@ import { OpenAPIRouteSchema, Path } from "@cloudflare/itty-router-openapi";
 import { error, IRequest, json } from "itty-router";
 import { Env } from "../../env";
 import { z } from "zod";
-import { EkuboAPIRoute, RequestContext } from "../_shared/context";
+import { EkuboAPIRoute, RequestContext } from "../../shared/context";
 
 import MAINNET_TOKENS from "./defaults/mainnet.json";
 import GOERLI_TOKENS from "./defaults/goerli.json";
 import { constants, num, shortString } from "starknet";
-import { Queries } from "../../queries";
+import { createQueries, Queries } from "../../queries";
 
 export type TokenInfo = typeof MAINNET_TOKENS[number];
 
@@ -173,8 +173,8 @@ export class GetTokens extends EkuboAPIRoute {
     },
   };
 
-  async handle(request: IRequest, { env, client }: RequestContext) {
-    const tokens = await getAllTokens(env, new Queries(client));
+  async handle(request: IRequest, { env }: RequestContext) {
+    const tokens = await getAllTokens(env, await createQueries(env));
 
     return json(tokens, {
       headers: {
@@ -207,8 +207,8 @@ export class GetTokenLogo extends EkuboAPIRoute {
     },
   };
 
-  async handle({ params }: IRequest, { env, client }: RequestContext) {
-    const tokens = await getAllTokens(env, new Queries(client));
+  async handle({ params }: IRequest, { env }: RequestContext) {
+    const tokens = await getAllTokens(env, await createQueries(env));
 
     const token = getTokenByIdentifier(tokens, params.identifier);
     if (!token) {

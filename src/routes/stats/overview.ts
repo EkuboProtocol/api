@@ -1,6 +1,6 @@
 import { IRequest, json } from "itty-router";
-import { EkuboAPIRoute, RequestContext } from "../_shared/context";
-import { Queries } from "../../queries";
+import { EkuboAPIRoute, RequestContext } from "../../shared/context";
+import { createQueries, Queries } from "../../queries";
 import { OpenAPIRouteSchema } from "@cloudflare/itty-router-openapi";
 
 export class GetOverview extends EkuboAPIRoute {
@@ -16,12 +16,12 @@ export class GetOverview extends EkuboAPIRoute {
     },
   };
 
-  async handle(_: IRequest, { client }: RequestContext) {
+  async handle(_: IRequest, { env }: RequestContext) {
     const timestamp = Date.now();
     const twentyFourHoursAgo = new Date(timestamp - 1000 * 60 * 60 * 24);
     const thirtyDaysAgo = new Date(timestamp - 1000 * 60 * 60 * 24 * 30);
 
-    const queries = new Queries(client);
+    const queries = await createQueries(env);
 
     const [
       { rows: tvlByToken },

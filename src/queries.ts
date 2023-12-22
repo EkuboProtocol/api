@@ -1,6 +1,7 @@
 import { Client } from "pg";
 import Decimal from "decimal.js-light";
 import { Tick } from "./routes/quote/nodes/plainPool";
+import { Env } from "./env";
 
 interface PositionMetadata {
   lower_bound: string;
@@ -1070,4 +1071,14 @@ export class Queries {
       ],
     });
   }
+}
+
+export async function createQueries(env: Env) {
+  const client = new Client({
+    connectionString:
+      env.HYPERDRIVE?.connectionString ?? env.PG_CONNECTION_STRING,
+    ssl: !!env.HYPERDRIVE,
+  });
+  await client.connect();
+  return new Queries(client);
 }

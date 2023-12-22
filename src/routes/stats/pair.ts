@@ -1,7 +1,7 @@
-import { EkuboAPIRoute, RequestContext } from "../_shared/context";
+import { EkuboAPIRoute, RequestContext } from "../../shared/context";
 import { error, IRequest, json } from "itty-router";
-import { ADDRESS_REGEX } from "../_shared/validation/address";
-import { Queries } from "../../queries";
+import { ADDRESS_REGEX } from "../../shared/validation/address";
+import { createQueries, Queries } from "../../queries";
 import { OpenAPIRouteSchema } from "@cloudflare/itty-router-openapi";
 
 export class GetPairInfo extends EkuboAPIRoute {
@@ -17,7 +17,7 @@ export class GetPairInfo extends EkuboAPIRoute {
     },
   };
 
-  async handle({ params }: IRequest, { client }: RequestContext) {
+  async handle({ params }: IRequest, { env }: RequestContext) {
     if (
       typeof params.tokenA !== "string" ||
       !ADDRESS_REGEX.test(params.tokenA) ||
@@ -37,7 +37,7 @@ export class GetPairInfo extends EkuboAPIRoute {
 
     const pair = { token0, token1 };
 
-    const queries = new Queries(client);
+    const queries = await createQueries(env);
 
     const timestamp = Date.now();
     const thirtyDaysAgo = new Date(timestamp - 1000 * 60 * 60 * 24 * 30);
@@ -98,7 +98,7 @@ export class GetPairLiquidity extends EkuboAPIRoute {
 
   async handle(
     { params: { tokenA: tokenAStr, tokenB: tokenBStr } }: IRequest,
-    { client }: RequestContext
+    { env }: RequestContext
   ) {
     let tokenA: bigint, tokenB: bigint;
     try {
@@ -108,7 +108,7 @@ export class GetPairLiquidity extends EkuboAPIRoute {
       return error(400, "Invalid tokens");
     }
 
-    const queries = new Queries(client);
+    const queries = await createQueries(env);
 
     const [token0, token1] =
       tokenA < tokenB ? [tokenA, tokenB] : [tokenB, tokenA];
@@ -152,7 +152,7 @@ export class ListPairEvents extends EkuboAPIRoute {
 
   async handle(
     { params: { tokenA: tokenAStr, tokenB: tokenBStr } }: IRequest,
-    { client }: RequestContext
+    { env }: RequestContext
   ) {
     let tokenA: bigint, tokenB: bigint;
     try {
@@ -169,7 +169,7 @@ export class ListPairEvents extends EkuboAPIRoute {
       return error(400, "Invalid tokens");
     }
 
-    const queries = new Queries(client);
+    const queries = await createQueries(env);
 
     const { rows } = await queries.getPairEvents({
       token0,

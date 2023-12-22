@@ -1,4 +1,4 @@
-import { EkuboAPIRoute, RequestContext } from "../_shared/context";
+import { EkuboAPIRoute, RequestContext } from "../../shared/context";
 import { error, IRequest, json } from "itty-router";
 import { getAllTokens, getTokenByAddress } from "../meta/tokens";
 import { generateSvg } from "./generateSvg";
@@ -6,7 +6,7 @@ import { parseId } from "./parseId";
 import Decimal from "decimal.js-light";
 
 import { num } from "starknet";
-import { Queries } from "../../queries";
+import { createQueries, Queries } from "../../queries";
 import { OpenAPIRouteSchema } from "@cloudflare/itty-router-openapi";
 import { z } from "zod";
 
@@ -65,14 +65,14 @@ export class GetNftMetadata extends EkuboAPIRoute {
 
   async handle(
     { url, params: { id: idStr } }: IRequest,
-    { env, client }: RequestContext
+    { env }: RequestContext
   ) {
     const id = parseId(idStr);
     if (id === null) {
       return error(400, "Invalid token ID");
     }
 
-    const queries = new Queries(client);
+    const queries = await createQueries(env);
 
     const positionMetadata = await queries.getPositionMetadata(id);
 
@@ -200,16 +200,13 @@ export class ListNftEvents extends EkuboAPIRoute {
     },
   };
 
-  async handle(
-    { params: { id: idStr } }: IRequest,
-    { client }: RequestContext
-  ) {
+  async handle({ params: { id: idStr } }: IRequest, { env }: RequestContext) {
     const id = parseId(idStr);
     if (id === null) {
       return error(400, "Invalid token ID");
     }
 
-    const queries = new Queries(client);
+    const queries = await createQueries(env);
 
     if (!(await queries.getPositionMetadata(id))) {
       return error(404, "Token ID not found");
@@ -262,16 +259,13 @@ export class GetNftImage extends EkuboAPIRoute {
     },
   };
 
-  async handle(
-    { params: { id: idStr } }: IRequest,
-    { env, client }: RequestContext
-  ) {
+  async handle({ params: { id: idStr } }: IRequest, { env }: RequestContext) {
     const id = parseId(idStr);
     if (id === null) {
       return error(400, "Invalid token ID");
     }
 
-    const queries = new Queries(client);
+    const queries = await createQueries(env);
 
     const positionMetadata = await queries.getPositionMetadata(id);
 
@@ -311,7 +305,7 @@ export class ListPositions extends EkuboAPIRoute {
 
   async handle(
     { params: { address: addressStr }, query, url }: IRequest,
-    { client }: RequestContext
+    { env }: RequestContext
   ) {
     let address: bigint;
     try {
@@ -322,7 +316,7 @@ export class ListPositions extends EkuboAPIRoute {
 
     const showClosed = "showClosed" in query && query.showClosed === "true";
 
-    const queries = new Queries(client);
+    const queries = await createQueries(env);
     const { rows } = await queries.getPositionsByAddress(address, showClosed);
 
     const origin = new URL(url).origin;

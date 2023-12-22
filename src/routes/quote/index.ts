@@ -1,5 +1,5 @@
 import { error, IRequest, json } from "itty-router";
-import { EkuboAPIRoute, RequestContext } from "../_shared/context";
+import { EkuboAPIRoute, RequestContext } from "../../shared/context";
 import { Env } from "../../env";
 import { getAllTokens, getTokenByIdentifier } from "../meta/tokens";
 import Decimal from "decimal.js-light";
@@ -16,7 +16,7 @@ import {
 import { findAllRoutes } from "./findAllRoutes";
 import { QuoteNode } from "./nodes/quoteNode";
 import { num } from "starknet";
-import { Queries } from "../../queries";
+import { createQueries, Queries } from "../../queries";
 import { OpenAPIRouteSchema } from "@cloudflare/itty-router-openapi";
 
 export class GetQuote extends EkuboAPIRoute {
@@ -33,8 +33,8 @@ export class GetQuote extends EkuboAPIRoute {
     },
   };
 
-  async handle({ params }: IRequest, { env, client }: RequestContext) {
-    const queries = new Queries(client);
+  async handle({ params }: IRequest, { env }: RequestContext) {
+    const queries = await createQueries(env);
 
     const allTokens = await getAllTokens(env, queries);
 
@@ -169,7 +169,7 @@ export class GetQuoteToPrice extends EkuboAPIRoute {
     },
   };
 
-  async handle({ params }: IRequest, { env, client }: RequestContext) {
+  async handle({ params }: IRequest, { env }: RequestContext) {
     let poolKeyHash: bigint, newSqrtRatio: bigint;
     try {
       poolKeyHash = BigInt(params.key_hash);
@@ -178,7 +178,7 @@ export class GetQuoteToPrice extends EkuboAPIRoute {
       return error(400, "Invalid path parameters");
     }
 
-    const queries = new Queries(client);
+    const queries = await createQueries(env);
 
     const [node, sqrtRatio] = await queries.withinTransaction(async () => {
       const poolState = await queries.getPoolState({ keyHash: poolKeyHash });
