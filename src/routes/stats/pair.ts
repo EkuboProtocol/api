@@ -5,6 +5,7 @@ import { Queries } from "../../queries";
 import { OpenAPIRouteSchema } from "@cloudflare/itty-router-openapi";
 
 export class GetPairInfo extends EkuboAPIRoute {
+  static route = "/pair/:tokenA/:tokenB";
   static schema: OpenAPIRouteSchema = {
     tags: ["Stats"],
     summary: "Return overview stats for a token pair",
@@ -83,6 +84,7 @@ export class GetPairInfo extends EkuboAPIRoute {
 }
 
 export class GetPairLiquidity extends EkuboAPIRoute {
+  static route = "/tokens/:tokenA/:tokenB/liquidity";
   static schema: OpenAPIRouteSchema = {
     tags: ["Stats"],
     summary: "Returns liquidity chart for the given pair",
@@ -136,6 +138,7 @@ export class GetPairLiquidity extends EkuboAPIRoute {
 }
 
 export class ListPairEvents extends EkuboAPIRoute {
+  static route = "/tokens/:tokenA/:tokenB/events";
   static schema: OpenAPIRouteSchema = {
     tags: ["Stats"],
     summary: "Returns a list of recent events for the pair",

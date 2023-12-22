@@ -50,6 +50,7 @@ export function tickSpacingToPercent(tick_spacing: string) {
 }
 
 export class GetNftMetadata extends EkuboAPIRoute {
+  static route = "/:id";
   static schema: OpenAPIRouteSchema = {
     tags: ["Positions"],
     summary: "Returns the metadata for the given position ID",
@@ -186,6 +187,7 @@ export class GetNftMetadata extends EkuboAPIRoute {
 }
 
 export class ListNftEvents extends EkuboAPIRoute {
+  static route = "/:id/history";
   static schema: OpenAPIRouteSchema = {
     tags: ["Positions"],
     summary: "Returns the entire history of events for the given position",
@@ -246,13 +248,15 @@ export class ListNftEvents extends EkuboAPIRoute {
 }
 
 export class GetNftImage extends EkuboAPIRoute {
+  static route = "/:id/image.svg";
+
   static schema: OpenAPIRouteSchema = {
     tags: ["Positions"],
     summary: "Returns the logo for the given position NFT",
     responses: {
       "200": {
         description: "The position NFT image",
-        contentType: "image/svg+xml",
+        contentType: "application/json",
       },
     },
   };
@@ -281,5 +285,66 @@ export class GetNftImage extends EkuboAPIRoute {
         "cache-control": "public, max-age=86400, immutable",
       },
     });
+  }
+}
+
+export class ListPositions extends EkuboAPIRoute {
+  static route = "/positions/:address";
+
+  static schema: OpenAPIRouteSchema = {
+    tags: ["Positions"],
+    summary: "Returns the list of position NFTs and their keys",
+    responses: {
+      "200": {
+        description: "The position NFTs owned by the address and keys",
+        contentType: "application/json",
+      },
+    },
+  };
+
+  async handle(
+    { params: { address: addressStr }, query, url }: IRequest,
+    { client }: RequestContext
+  ) {
+    let address: bigint;
+    try {
+      address = BigInt(addressStr);
+    } catch (e) {
+      return error(400, "Invalid address");
+    }
+
+    const showClosed = "showClosed" in query && query.showClosed === "true";
+
+    const queries = new Queries(client);
+    const { rows } = await queries.getPositionsByAddress(address, showClosed);
+
+    const origin = new URL(url).origin;
+
+    return json(
+      {
+        data: rows.map((row) => ({
+          id: Number(row.token_id),
+          pool_key: {
+            token0: num.toHex(row.token0),
+            token1: num.toHex(row.token1),
+            fee: num.toHex(row.fee),
+            tick_spacing: num.toHex(row.tick_spacing),
+            extension: num.toHex(row.extension),
+          },
+          bounds: {
+            lower: Number(row.lower_bound),
+            upper: Number(row.upper_bound),
+          },
+          metadata_url: `${origin}/${row.token_id}`,
+          image: `${origin}/${row.token_id}/image.svg`,
+          minted_timestamp: row.minted_timestamp.getTime(),
+        })),
+      },
+      {
+        headers: {
+          "cache-control": "no-cache",
+        },
+      }
+    );
   }
 }

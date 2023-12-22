@@ -23,8 +23,7 @@ import {
   GetTokenPrices,
 } from "./routes/price";
 import { GetPoolLiquidity, GetPoolStates } from "./routes/state";
-import { ListPositions } from "./routes/positions";
-import { GetNftImage, GetNftMetadata, ListNftEvents } from "./routes/nft";
+import {GetNftImage, GetNftMetadata, ListNftEvents, ListPositions} from "./routes/nft";
 import { Client } from "pg";
 import { RequestContext } from "./routes/_shared/context";
 
@@ -50,27 +49,27 @@ const router = OpenAPIRouter({
   redoc_url: null as unknown as undefined,
   docs_url: null as unknown as undefined,
 })
-  .get("/tokens", GetTokens)
-  .get("/tokens/:identifier/logo", GetTokenLogo)
-  .get("/blocks/:number", GetBlock)
-  .get("/leaderboard/dump", GetLeaderboardDump)
-  .get("/leaderboard", GetLeaderboard)
-  .get("/leaderboard/:collector/points", GetLeaderboardForCollector)
-  .get("/quote/:amount/:token/:otherToken", GetQuote)
-  .get("/overview", GetOverview)
-  .get("/pair/:tokenA/:tokenB", GetPairInfo)
-  .get("/price/:baseToken/:quoteToken", GetPairPrice)
+  .get(GetTokens.route, GetTokens)
+  .get(GetTokenLogo.route, GetTokenLogo)
+  .get(GetBlock.route, GetBlock)
+  .get(GetLeaderboardDump.route, GetLeaderboardDump)
+  .get(GetLeaderboard.route, GetLeaderboard)
+  .get(GetLeaderboardForCollector.route, GetLeaderboardForCollector)
+  .get(GetQuote.route, GetQuote)
+  .get(GetOverview.route, GetOverview)
+  .get(GetPairInfo.route, GetPairInfo)
+  .get(GetPairPrice.route, GetPairPrice)
   .get(GetPairPriceHistory.route, GetPairPriceHistory)
-  .get("/price/:quoteToken", GetTokenPrices)
-  .get("/pools", GetPoolStates)
-  .get("/pools/:key_hash/liquidity", GetPoolLiquidity)
-  .get("/pools/:key_hash/delta_to_sqrt_ratio/:new_sqrt_ratio", GetQuoteToPrice)
-  .get("/positions/:address", ListPositions)
-  .get("/tokens/:tokenA/:tokenB/liquidity", GetPairLiquidity)
-  .get("/tokens/:tokenA/:tokenB/events", ListPairEvents)
-  .get("/:id", GetNftMetadata)
-  .get("/:id/history", ListNftEvents)
-  .get("/:id/image.svg", GetNftImage)
+  .get(GetTokenPrices.route, GetTokenPrices)
+  .get(GetPoolStates.route, GetPoolStates)
+  .get(GetPoolLiquidity.route, GetPoolLiquidity)
+  .get(GetQuoteToPrice.route, GetQuoteToPrice)
+  .get(ListPositions.route, ListPositions)
+  .get( GetPairLiquidity.route, GetPairLiquidity)
+  .get(ListPairEvents.route, ListPairEvents)
+  .get(GetNftMetadata.route, GetNftMetadata)
+  .get(ListNftEvents.route, ListNftEvents)
+  .get(GetNftImage.route, GetNftImage)
   // catch missed routes
   .all("*", () => error(404));
 

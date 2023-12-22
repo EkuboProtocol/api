@@ -4,6 +4,7 @@ import { Queries } from "../../queries";
 import { OpenAPIRouteSchema } from "@cloudflare/itty-router-openapi";
 
 export class GetOverview extends EkuboAPIRoute {
+  static route = "/overview";
   static schema: OpenAPIRouteSchema = {
     tags: ["Stats"],
     summary: "Returns overall stats for the protocol",

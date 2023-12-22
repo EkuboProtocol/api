@@ -17,8 +17,22 @@ import { findAllRoutes } from "./findAllRoutes";
 import { QuoteNode } from "./nodes/quoteNode";
 import { num } from "starknet";
 import { Queries } from "../../queries";
+import { OpenAPIRouteSchema } from "@cloudflare/itty-router-openapi";
 
 export class GetQuote extends EkuboAPIRoute {
+  static route = "/quote/:amount/:token/:otherToken";
+
+  static schema: OpenAPIRouteSchema = {
+    tags: ["Swap"],
+    summary: "Returns a route and quote for the given swap",
+    responses: {
+      "200": {
+        description: "The quote for the given parameters",
+        contentType: "application/json",
+      },
+    },
+  };
+
   async handle({ params }: IRequest, { env, client }: RequestContext) {
     const queries = new Queries(client);
 
@@ -141,6 +155,20 @@ export class GetQuote extends EkuboAPIRoute {
 }
 
 export class GetQuoteToPrice extends EkuboAPIRoute {
+  static route = "/pools/:key_hash/delta_to_sqrt_ratio/:new_sqrt_ratio";
+
+  static schema: OpenAPIRouteSchema = {
+    tags: ["Swap"],
+    summary:
+      "Returns the amount that must be swapped to a given price for the pool",
+    responses: {
+      "200": {
+        description: "The amount to swap to a price for a pool",
+        contentType: "application/json",
+      },
+    },
+  };
+
   async handle({ params }: IRequest, { env, client }: RequestContext) {
     let poolKeyHash: bigint, newSqrtRatio: bigint;
     try {

@@ -12,6 +12,18 @@ import { OpenAPIRouteSchema } from "@cloudflare/itty-router-openapi";
 import { z } from "zod";
 
 export class GetPairPrice extends EkuboAPIRoute {
+  static route = "/price/:baseToken/:quoteToken";
+
+  static schema: OpenAPIRouteSchema = {
+    tags: ["Prices"],
+    summary: "Returns the price of base token in terms of quote token",
+    responses: {
+      "200": {
+        description: "The price of base token in terms of quote token",
+        contentType: "application/json",
+      },
+    },
+  };
   async handle({ params }: IRequest, { env, client }: RequestContext) {
     if (
       typeof params.baseToken !== "string" ||
@@ -271,6 +283,25 @@ export class GetPairPriceHistory extends EkuboAPIRoute {
 }
 
 export class GetTokenPrices extends EkuboAPIRoute {
+  static route = "/price/:quoteToken";
+
+  static schema: OpenAPIRouteSchema = {
+    tags: ["Prices"],
+    summary: "Get the prices of other tokens in terms of quote token",
+    parameters: {
+      quoteToken: {
+        type: AddressType,
+        location: "path",
+      },
+    },
+    responses: {
+      "200": {
+        description: "The prices of other tokens in terms of quote token",
+        contentType: "application/json",
+      },
+    },
+  };
+
   async handle({ params }: IRequest, { env, client }: RequestContext) {
     if (
       typeof params.quoteToken !== "string" ||

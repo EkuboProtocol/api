@@ -12,7 +12,7 @@ export abstract class EkuboAPIRoute extends OpenAPIRoute<
   IRequest,
   [context: RequestContext]
 > {
-  static route: string;
+  public static readonly route: string;
 
   abstract handle(request: IRequest, context: RequestContext): any;
 }

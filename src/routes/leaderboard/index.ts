@@ -18,6 +18,8 @@ export const POSITIONS_CONTRACT_ADDRESS: {
 };
 
 export class GetLeaderboard extends EkuboAPIRoute {
+  public static route = "/leaderboard";
+
   static schema: OpenAPIRouteSchema = {
     tags: ["Leaderboard"],
     summary: "Get the current ranking leaderboard",
@@ -94,6 +96,7 @@ function getProvider(env: Env): RpcProvider {
 }
 
 export class GetLeaderboardDump extends EkuboAPIRoute {
+  public static route = "/leaderboard/dump";
   static schema: OpenAPIRouteSchema = {
     tags: ["Leaderboard"],
     summary: "Dump the entire state of the leaderboard",
@@ -142,6 +145,7 @@ export class GetLeaderboardDump extends EkuboAPIRoute {
 }
 
 export class GetLeaderboardForCollector extends EkuboAPIRoute {
+  static route = "/leaderboard/:collector/points";
   static schema: OpenAPIRouteSchema = {
     tags: ["Leaderboard"],
     summary: "Get the number of points for a specific collector address",

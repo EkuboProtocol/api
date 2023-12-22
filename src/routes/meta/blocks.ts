@@ -6,6 +6,7 @@ import { z } from "zod";
 import { Queries } from "../../queries";
 
 export class GetBlock extends EkuboAPIRoute {
+  public static route = "/blocks/:number";
   static schema: OpenAPIRouteSchema = {
     tags: ["Meta"],
     summary: "Get information about a particular block ingested by the API",

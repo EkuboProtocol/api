@@ -1,10 +1,26 @@
-import { OpenAPIRoute } from "@cloudflare/itty-router-openapi";
+import {
+  OpenAPIRoute,
+  OpenAPIRouteSchema,
+} from "@cloudflare/itty-router-openapi";
 import { error, IRequest, json } from "itty-router";
 import { EkuboAPIRoute, RequestContext } from "../_shared/context";
 import { num } from "starknet";
 import { Queries } from "../../queries";
 
 export class GetPoolStates extends OpenAPIRoute {
+  static route = "/pools";
+
+  static schema: OpenAPIRouteSchema = {
+    tags: ["Swap"],
+    summary: "Get the current state of all pools",
+    responses: {
+      "200": {
+        description: "The current state of all the pools",
+        contentType: "application/json",
+      },
+    },
+  };
+
   async handle(_: IRequest, { env, client }: RequestContext) {
     const queries = new Queries(client);
 
@@ -37,6 +53,19 @@ export class GetPoolStates extends OpenAPIRoute {
 }
 
 export class GetPoolLiquidity extends EkuboAPIRoute {
+  static route = "/pools/:key_hash/liquidity";
+
+  static schema: OpenAPIRouteSchema = {
+    tags: ["Swap"],
+    summary: "Get the current liquidity for the given pool key hash",
+    responses: {
+      "200": {
+        description: "The current liquidity chart for the given pool key hash",
+        contentType: "application/json",
+      },
+    },
+  };
+
   async handle({ params: { key_hash } }: IRequest, { client }: RequestContext) {
     let pool_key_hash: bigint;
     try {
