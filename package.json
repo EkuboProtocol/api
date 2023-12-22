@@ -1,6 +1,6 @@
 {
-  "name": "@ekubo/renderer",
-  "version": "0.0.0",
+  "name": "@ekubo/api",
+  "version": "0.0.1",
   "devDependencies": {
     "@cloudflare/itty-router-openapi": "^1.0.6",
     "@cloudflare/workers-types": "^4.20230914.0",
