@@ -1,7 +1,11 @@
 import { EkuboAPIRoute } from "./_shared/context";
 import { error, IRequest, json } from "itty-router";
 import { Env } from "../env";
-import { FEE_TOKEN_ADDRESS, getAllTokens, getTokenByAddress } from "../tokens";
+import {
+  FEE_TOKEN_ADDRESS,
+  getAllTokens,
+  getTokenByAddress,
+} from "./meta/tokens";
 import Decimal from "decimal.js-light";
 import { ADDRESS_REGEX, AddressType } from "./_shared/validation/address";
 import { createQueries } from "../queries";

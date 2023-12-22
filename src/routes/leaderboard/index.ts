@@ -2,7 +2,7 @@ import { OpenAPIRouteSchema } from "@cloudflare/itty-router-openapi";
 import { error, IRequest, json } from "itty-router";
 import { EkuboAPIRoute } from "../_shared/context";
 import { Env } from "../../env";
-import { FEE_TOKEN_ADDRESS } from "../../tokens";
+import { FEE_TOKEN_ADDRESS } from "../meta/tokens";
 import { z } from "zod";
 import { constants, Contract, num, RpcProvider } from "starknet";
 import POSITIONS_ABI from "./positions-abi.json";

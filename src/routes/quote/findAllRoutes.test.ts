@@ -1,5 +1,5 @@
 import { findAllRoutes } from "./findAllRoutes";
-import { NodeKey, Quote, QuoteNode } from "../../nodes/quoteNode";
+import { NodeKey, Quote, QuoteNode } from "./nodes/quoteNode";
 
 class FakeQuoteNode implements QuoteNode<null> {
   constructor({ token0, token1 }: { token0: string; token1: string }) {

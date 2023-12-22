@@ -1,6 +1,6 @@
 import { Client } from "pg";
 import Decimal from "decimal.js-light";
-import { Tick } from "./nodes/plainPool";
+import { Tick } from "./routes/quote/nodes/plainPool";
 import { Env } from "./env";
 
 interface PositionMetadata {

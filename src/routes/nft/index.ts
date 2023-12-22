@@ -1,7 +1,7 @@
 import { EkuboAPIRoute } from "../_shared/context";
 import { error, IRequest, json } from "itty-router";
 import { Env } from "../../env";
-import { getAllTokens, getTokenByAddress } from "../../tokens";
+import { getAllTokens, getTokenByAddress } from "../meta/tokens";
 import { generateSvg } from "./generateSvg";
 import { parseId } from "./parseId";
 import Decimal from "decimal.js-light";

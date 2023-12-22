@@ -1,4 +1,4 @@
-import { QuoteNode } from "../../nodes/quoteNode";
+import { QuoteNode } from "./nodes/quoteNode";
 
 export function findAllRoutes(
   fromToken: bigint,
