@@ -1,17 +1,23 @@
-import {
-  OpenAPIRoute,
-  OpenAPIRouteSchema,
-} from "@cloudflare/itty-router-openapi";
+import { OpenAPIRouteSchema } from "@cloudflare/itty-router-openapi";
 import { error, IRequest, json } from "itty-router";
-import { RequestContext } from "./context";
-import { Env } from "../env";
-import { FEE_TOKEN_ADDRESS } from "../tokens";
-import { createQueries } from "../createQueries";
+import { EkuboAPIRoute } from "../_shared/context";
+import { Env } from "../../env";
+import { FEE_TOKEN_ADDRESS } from "../../tokens";
 import { z } from "zod";
-import { POSITIONS_CONTRACT_ADDRESS } from "../constants";
-import { numericToHex } from "../format";
+import { constants, Contract, num, RpcProvider } from "starknet";
+import POSITIONS_ABI from "./positions-abi.json";
+import { createQueries } from "../../queries";
 
-export class GetLeaderboard extends OpenAPIRoute<IRequest, RequestContext> {
+export const POSITIONS_CONTRACT_ADDRESS: {
+  [chainId in constants.StarknetChainId]: bigint;
+} = {
+  ["0x534e5f4d41494e"]:
+    0x02e0af29598b407c8716b17f6d2795eca1b471413fa03fb145a5e33722184067n,
+  ["0x534e5f474f45524c49"]:
+    0x073fa8432bf59f8ed535f29acfd89a7020758bda7be509e00dfed8a9fde12ddcn,
+};
+
+export class GetLeaderboard extends EkuboAPIRoute {
   static schema: OpenAPIRouteSchema = {
     tags: ["Leaderboard"],
     summary: "Get the current ranking leaderboard",
@@ -41,7 +47,7 @@ export class GetLeaderboard extends OpenAPIRoute<IRequest, RequestContext> {
     },
   };
 
-  async handle({ query }: IRequest, env: Env, context: ExecutionContext) {
+  async handle({ query }: IRequest, env: Env) {
     const lastMonth = query?.lastMonth === "true";
 
     const dao = await createQueries(env);
@@ -61,7 +67,7 @@ export class GetLeaderboard extends OpenAPIRoute<IRequest, RequestContext> {
       {
         timestamp: Date.now(),
         data: rows.map((row) => ({
-          collector: numericToHex(row.collector),
+          collector: num.toHex(row.collector),
           points: Number(row.points),
         })),
       },
@@ -75,10 +81,57 @@ export class GetLeaderboard extends OpenAPIRoute<IRequest, RequestContext> {
   }
 }
 
-export class GetLeaderboardForCollector extends OpenAPIRoute<
-  IRequest,
-  RequestContext
-> {
+let provider: RpcProvider | null = null;
+
+function getProvider(env: Env): RpcProvider {
+  return (
+    provider ??
+    (provider = new RpcProvider({
+      nodeUrl: env.RPC_URL,
+      chainId: env.STARKNET_CHAIN_ID,
+    }))
+  );
+}
+
+export class GetLeaderboardDump extends EkuboAPIRoute {
+  async handle({ query }: IRequest, env: Env) {
+    if (query.key !== "wip") {
+      return error(501, "Not implemented");
+    }
+
+    const provider = getProvider(env);
+
+    const contract = new Contract(
+      POSITIONS_ABI,
+      num.toHex(POSITIONS_CONTRACT_ADDRESS[env.STARKNET_CHAIN_ID]),
+      provider
+    );
+
+    const queries = await createQueries(env);
+
+    await queries.withinTransaction(async () => {
+      const tokens = await queries.getAllActiveTokenIdsWithPoolKeys();
+
+      // todo: write all the current tokens info into temp tables and then query the temp tables and add up all the points
+      // todo: make sure the block at which the query happens is the same as the latest database
+
+      await contract.call("get_tokens_info", [[]]);
+    });
+
+    return json(
+      {},
+      {
+        headers: {
+          "cache-control":
+            "public,max-age=86400,stale-while-revalidate=3600,stale-if-error=180",
+          "content-disposition": 'attachment; filename="dump.json"',
+        },
+      }
+    );
+  }
+}
+
+export class GetLeaderboardForCollector extends EkuboAPIRoute {
   static schema: OpenAPIRouteSchema = {
     tags: ["Leaderboard"],
     summary: "Get the number of points for a specific collector address",
@@ -106,11 +159,7 @@ export class GetLeaderboardForCollector extends OpenAPIRoute<
     },
   };
 
-  async handle(
-    { params, query }: IRequest,
-    env: Env,
-    context: ExecutionContext
-  ) {
+  async handle({ params, query }: IRequest, env: Env) {
     const lastMonth = query?.lastMonth === "true";
     let collector: bigint;
     try {

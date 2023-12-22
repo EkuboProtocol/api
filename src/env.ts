@@ -1,7 +1,6 @@
 import { KVNamespace, Hyperdrive } from "@cloudflare/workers-types";
 import { constants } from "starknet";
 
-// declare what's available in our env
 export interface Env {
   STARKNET_CHAIN_ID: constants.StarknetChainId;
 

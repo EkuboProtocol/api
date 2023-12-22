@@ -1,4 +1,4 @@
-import { PoolState, Queries } from "./queries";
+import { PoolState, Queries } from "../../queries";
 import { constants } from "starknet";
 import {
   MAX_SQRT_RATIO,
@@ -6,10 +6,10 @@ import {
   MIN_SQRT_RATIO,
   MIN_TICK,
   toSqrtRatio,
-} from "./math/tick";
-import { isPriceIncreasing } from "./math/swap";
-import { BaseResources, QuoteNode } from "./nodes/quoteNode";
-import { PlainPool } from "./nodes/plainPool";
+} from "../../math/tick";
+import { isPriceIncreasing } from "../../math/swap";
+import { BaseResources, QuoteNode } from "../../nodes/quoteNode";
+import { PlainPool } from "../../nodes/plainPool";
 
 export const QUOTE_NODE_CACHE: {
   [chainId in constants.StarknetChainId]: {

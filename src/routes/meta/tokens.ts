@@ -1,14 +1,10 @@
-import {
-  OpenAPIRoute,
-  OpenAPIRouteSchema,
-  Path,
-} from "@cloudflare/itty-router-openapi";
+import { OpenAPIRouteSchema, Path } from "@cloudflare/itty-router-openapi";
 import { error, IRequest, json } from "itty-router";
-import { RequestContext } from "./context";
-import { Env } from "../env";
-import { getAllTokens, getTokenByIdentifier } from "../tokens";
-import { createQueries } from "../createQueries";
+import { Env } from "../../env";
+import { getAllTokens, getTokenByIdentifier } from "../../tokens";
 import { z } from "zod";
+import { EkuboAPIRoute } from "../_shared/context";
+import { createQueries } from "../../queries";
 
 const TokenType = z
   .object({
@@ -61,7 +57,7 @@ const TokenType = z
     total_supply: true,
   });
 
-export class GetTokens extends OpenAPIRoute<IRequest, RequestContext> {
+export class GetTokens extends EkuboAPIRoute {
   static schema: OpenAPIRouteSchema = {
     tags: ["Tokens"],
     summary: "Get the list of supported tokens",
@@ -74,7 +70,7 @@ export class GetTokens extends OpenAPIRoute<IRequest, RequestContext> {
     },
   };
 
-  async handle(request: IRequest, env: Env, context: ExecutionContext) {
+  async handle(request: IRequest, env: Env) {
     const tokens = await getAllTokens(env, await createQueries(env));
 
     return json(tokens, {
@@ -86,7 +82,7 @@ export class GetTokens extends OpenAPIRoute<IRequest, RequestContext> {
   }
 }
 
-export class GetTokenLogo extends OpenAPIRoute<IRequest, RequestContext> {
+export class GetTokenLogo extends EkuboAPIRoute {
   static schema: OpenAPIRouteSchema = {
     tags: ["Tokens"],
     summary: "Get the logo for the given token identifier",

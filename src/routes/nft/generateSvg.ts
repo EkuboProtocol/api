@@ -1,6 +1,6 @@
 import prand, { unsafeUniformIntDistribution } from "pure-rand";
 
-import { Env } from "./env";
+import { Env } from "../../env";
 
 export function generateSvg(
   id: number,
