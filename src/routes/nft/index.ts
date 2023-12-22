@@ -8,6 +8,7 @@ import Decimal from "decimal.js-light";
 import { num } from "starknet";
 import { Queries } from "../../queries";
 import { OpenAPIRouteSchema } from "@cloudflare/itty-router-openapi";
+import { z } from "zod";
 
 export interface NFTMetadata {
   name: string;
@@ -294,6 +295,12 @@ export class ListPositions extends EkuboAPIRoute {
   static schema: OpenAPIRouteSchema = {
     tags: ["Positions"],
     summary: "Returns the list of position NFTs and their keys",
+    parameters: {
+      showClosed: {
+        type: z.coerce.boolean(),
+        location: "query",
+      },
+    },
     responses: {
       "200": {
         description: "The position NFTs owned by the address and keys",
