@@ -127,7 +127,7 @@ export class GetPairPriceHistory extends EkuboAPIRoute {
     parameters: {
       baseToken: Path(TokenIdentifierType, { example: "ETH" }),
       quoteToken: Path(TokenIdentifierType, { example: "USDC" }),
-      interval: Query(z.number().int().min(60), { required: false }),
+      interval: Query(z.coerce.number().int().min(60), { required: false }),
     },
     responses: {
       "200": {
