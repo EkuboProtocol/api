@@ -1,13 +1,12 @@
 import { error, IRequest, json } from "itty-router";
 import { EkuboAPIRoute, RequestContext } from "../../shared/context";
-import { Env } from "../../env";
 import { getAllTokens, getTokenByIdentifier } from "../meta/tokens";
 import Decimal from "decimal.js-light";
 import { MAX_U128 } from "./math/constants";
 import {
   defaultAccumulator,
   getAllRelevantPoolsAndUpdateCache,
-  QUOTE_NODE_CACHE,
+  getCachedNode,
   QuoteResult,
   quoteRoute,
   TokenAmount,
@@ -16,11 +15,10 @@ import {
 import { findAllRoutes } from "./findAllRoutes";
 import { QuoteNode } from "./nodes/quoteNode";
 import { num } from "starknet";
-import { createQueries, Queries } from "../../queries";
+import { createQueries } from "../../queries";
 import { OpenAPIRouteSchema, Path } from "@cloudflare/itty-router-openapi";
 import { z } from "zod";
 import {
-  AddressType,
   HexNumericType,
   TokenIdentifierType,
 } from "../../shared/validation/address";
@@ -96,15 +94,13 @@ export class GetQuote extends EkuboAPIRoute {
       return error(400, "Amount is too large");
     }
 
-    const cache = QUOTE_NODE_CACHE[env.STARKNET_CHAIN_ID];
-
     const relevantPools = await getAllRelevantPoolsAndUpdateCache(
       queries,
-      cache,
       {
         tokenA: BigInt(token.l2_token_address),
         tokenB: BigInt(otherToken.l2_token_address),
-      }
+      },
+      env.QUOTE_CACHE_KV
     );
 
     if (!relevantPools.length) {
@@ -227,11 +223,9 @@ export class GetQuoteToPrice extends EkuboAPIRoute {
     const [node, sqrtRatio] = await queries.withinTransaction(async () => {
       const poolState = await queries.getPoolState({ keyHash: poolKeyHash });
 
-      const cache = QUOTE_NODE_CACHE[env.STARKNET_CHAIN_ID];
+      await updatePoolCache([poolState], queries, env.QUOTE_CACHE_KV);
 
-      await updatePoolCache([poolState], queries, cache);
-
-      return [cache[poolKeyHash.toString()].node, BigInt(poolState.sqrt_ratio)];
+      return [getCachedNode(poolKeyHash), BigInt(poolState.sqrt_ratio)];
     });
 
     const isToken1 = sqrtRatio >= newSqrtRatio;
