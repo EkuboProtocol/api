@@ -1,6 +1,6 @@
 import { EkuboAPIRoute, RequestContext } from "../../shared/context";
 import { error, IRequest, json } from "itty-router";
-import { AddressType, NumericType } from "../../shared/validation/address";
+import { AddressType } from "../../shared/validation/address";
 import { createQueries } from "../../queries";
 import { OpenAPIRouteSchema, Path } from "@cloudflare/itty-router-openapi";
 
@@ -82,8 +82,8 @@ export class GetPairLiquidity extends EkuboAPIRoute {
     tags: ["Stats"],
     summary: "Get pair liquidity",
     parameters: {
-      tokenA: Path(NumericType),
-      tokenB: Path(NumericType),
+      tokenA: Path(AddressType),
+      tokenB: Path(AddressType),
     },
     description:
       "Returns the liquidity chart for the given token pair, aggregated across all pools",

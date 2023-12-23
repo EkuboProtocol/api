@@ -1,4 +1,8 @@
-import { OpenAPIRouteSchema } from "@cloudflare/itty-router-openapi";
+import {
+  OpenAPIRouteSchema,
+  Path,
+  Query,
+} from "@cloudflare/itty-router-openapi";
 import { error, IRequest, json } from "itty-router";
 import { EkuboAPIRoute, RequestContext } from "../../shared/context";
 import { FEE_TOKEN_ADDRESS } from "../meta/tokens";
@@ -8,6 +12,7 @@ import POSITIONS_ABI from "../../constants/abis/positions.json";
 import { createQueries } from "../../queries";
 import { getProvider } from "../../shared/getProvider";
 import { POSITIONS_CONTRACT_ADDRESS } from "../../constants/addresses";
+import { AddressType } from "../../shared/validation/address";
 
 export class GetLeaderboard extends EkuboAPIRoute {
   public static route = "/leaderboard";
@@ -135,18 +140,10 @@ export class GetLeaderboardForCollector extends EkuboAPIRoute {
     tags: ["Leaderboard"],
     summary: "Get points",
     description: "Get the points for a specific collector on the leaderboard",
-    parameters: [
-      {
-        name: "lastMonth",
-        location: "query",
-        type: z.coerce.boolean(),
-      },
-      {
-        name: "collector",
-        location: "path",
-        type: z.string(),
-      },
-    ],
+    parameters: {
+      collector: Path(AddressType),
+      lastMonth: Query(z.coerce.boolean()),
+    },
     responses: {
       "200": {
         description:
@@ -161,12 +158,7 @@ export class GetLeaderboardForCollector extends EkuboAPIRoute {
 
   async handle({ params, query }: IRequest, { env }: RequestContext) {
     const lastMonth = query?.lastMonth === "true";
-    let collector: bigint;
-    try {
-      collector = BigInt(params.collector);
-    } catch (e) {
-      return error(400, "Invalid collector address");
-    }
+    const collector = BigInt(params.collector);
 
     const dao = await createQueries(env);
 

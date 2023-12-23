@@ -34,7 +34,8 @@ export class GetQuote extends EkuboAPIRoute {
     parameters: {
       amount: Path(
         z.string().openapi({
-          example: "1e9",
+          examples: ["1e9", "1000000", "-1e18", "-100000000000000"],
+          example: "-1e9",
           description: "The amount of the specified token",
         })
       ),

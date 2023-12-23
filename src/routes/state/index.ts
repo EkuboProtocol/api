@@ -77,17 +77,12 @@ export class GetPoolLiquidity extends EkuboAPIRoute {
   };
 
   async handle({ params: { keyHash } }: IRequest, { env }: RequestContext) {
-    let pool_key_hash: bigint;
-    try {
-      pool_key_hash = BigInt(keyHash);
-    } catch (e) {
-      return error(400, "Invalid pool key hash");
-    }
+    const poolKeyHash = BigInt(keyHash);
 
     const queries = await createQueries(env);
 
     const { rows } = await queries.withinTransaction(() =>
-      queries.getPoolLiquidityGraph(pool_key_hash)
+      queries.getPoolLiquidityGraph(poolKeyHash)
     );
 
     return json(

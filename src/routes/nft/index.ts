@@ -6,7 +6,7 @@ import { parseId } from "./parseId";
 import Decimal from "decimal.js-light";
 
 import { num } from "starknet";
-import { createQueries, Queries } from "../../queries";
+import { createQueries } from "../../queries";
 import {
   OpenAPIRouteSchema,
   Path,
@@ -336,12 +336,7 @@ export class ListPositions extends EkuboAPIRoute {
     { params: { address: addressStr }, query, url }: IRequest,
     { env }: RequestContext
   ) {
-    let address: bigint;
-    try {
-      address = BigInt(addressStr);
-    } catch (e) {
-      return error(400, "Invalid address");
-    }
+    const address = BigInt(addressStr);
 
     const showClosed = "showClosed" in query && query.showClosed === "true";
 

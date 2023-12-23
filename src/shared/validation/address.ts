@@ -1,7 +1,7 @@
 import { z } from "zod";
 
 const HEX_STRING_REGEX = /^0x[a-fA-F0-9]+$/;
-const DECIMAL_STRING_REGEX = /^\d+$/;
+const DECIMAL_STRING_REGEX = /^\d+e?\d*$/;
 
 export const DecimalStringType = z
   .string({ description: "A decimal number" })
@@ -29,7 +29,7 @@ export const TokenSymbolType = z
   .max(31)
   .regex(/^\w+$/)
   .openapi({
-    title: "TokenSymbol",
+    title: "Symbol",
     description: "The symbol for a token",
   });
 
