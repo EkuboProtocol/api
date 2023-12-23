@@ -7,8 +7,13 @@ import Decimal from "decimal.js-light";
 
 import { num } from "starknet";
 import { createQueries, Queries } from "../../queries";
-import { OpenAPIRouteSchema } from "@cloudflare/itty-router-openapi";
+import {
+  OpenAPIRouteSchema,
+  Path,
+  Query,
+} from "@cloudflare/itty-router-openapi";
 import { z } from "zod";
+import { AddressType } from "../../shared/validation/address";
 
 export interface NFTMetadata {
   name: string;
@@ -54,7 +59,8 @@ export class GetNftMetadata extends EkuboAPIRoute {
   static route = "/:id";
   static schema: OpenAPIRouteSchema = {
     tags: ["Positions"],
-    summary: "Returns the metadata for the given position ID",
+    summary: "Get NFT Metadata",
+    description: "Returns the ERC721 metadata for the given position token ID",
     responses: {
       "200": {
         description: "The NFT metadata for the given position ID",
@@ -191,7 +197,8 @@ export class ListNftEvents extends EkuboAPIRoute {
   static route = "/:id/history";
   static schema: OpenAPIRouteSchema = {
     tags: ["Positions"],
-    summary: "Returns the entire history of events for the given position",
+    summary: "List position history",
+    description: "Returns the entire history of the given position ID",
     responses: {
       "200": {
         description: "The position history",
@@ -250,7 +257,8 @@ export class GetNftImage extends EkuboAPIRoute {
 
   static schema: OpenAPIRouteSchema = {
     tags: ["Positions"],
-    summary: "Returns the logo for the given position NFT",
+    summary: "Get NFT Image",
+    description: "Returns the generated art for the given position NFT ID",
     responses: {
       "200": {
         description: "The position NFT image",
@@ -288,12 +296,13 @@ export class ListPositions extends EkuboAPIRoute {
 
   static schema: OpenAPIRouteSchema = {
     tags: ["Positions"],
-    summary: "Returns the list of position NFTs and their keys",
+    summary: "List positions",
+    description: "Returns the list of position NFTs and their keys",
     parameters: {
-      showClosed: {
-        type: z.coerce.boolean(),
-        location: "query",
-      },
+      address: Path(AddressType, {
+        description: "The address for which to list positions",
+      }),
+      showClosed: Query(z.coerce.boolean()),
     },
     responses: {
       "200": {

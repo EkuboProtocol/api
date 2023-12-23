@@ -35,17 +35,21 @@ export class Queries {
     this.client = client;
   }
 
-  public async getLatestBlock() {
+  public async getBlock(blockTag: "latest" | number) {
     const { rows } = await this.client.query<{
       number: string;
       hash: string;
       timestamp: string;
-    }>(`
-            SELECT number, hash, timestamp
-            FROM blocks
-            ORDER BY number DESC
-            LIMIT 1
-        `);
+    }>({
+      text: `
+          SELECT number, hash, timestamp
+          FROM blocks
+          WHERE  number = $1 OR $1 IS NULL
+          ORDER BY number DESC
+          LIMIT 1
+      `,
+      values: [blockTag === "latest" ? null : blockTag],
+    });
     if (rows.length !== 1) throw new Error("No blocks");
     return rows[0];
   }

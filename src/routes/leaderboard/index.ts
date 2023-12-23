@@ -14,7 +14,8 @@ export class GetLeaderboard extends EkuboAPIRoute {
 
   static schema: OpenAPIRouteSchema = {
     tags: ["Leaderboard"],
-    summary: "Get the current ranking leaderboard",
+    summary: "List leaderboard",
+    description: "Get the first thousand users on the leaderboard",
     parameters: [
       {
         name: "lastMonth",
@@ -77,9 +78,12 @@ export class GetLeaderboard extends EkuboAPIRoute {
 
 export class GetLeaderboardDump extends EkuboAPIRoute {
   public static route = "/leaderboard/dump";
+
   static schema: OpenAPIRouteSchema = {
     tags: ["Leaderboard"],
-    summary: "Dump the entire state of the leaderboard",
+    summary: "Dump leaderboard",
+    description:
+      "Dump the entire leaderboard to a JSON file, including uncollected fees",
     responses: {
       "200": {
         description: "The entire contents of the leaderboard",
@@ -129,7 +133,8 @@ export class GetLeaderboardForCollector extends EkuboAPIRoute {
   static route = "/leaderboard/:collector/points";
   static schema: OpenAPIRouteSchema = {
     tags: ["Leaderboard"],
-    summary: "Get the number of points for a specific collector address",
+    summary: "Get points",
+    description: "Get the points for a specific collector on the leaderboard",
     parameters: [
       {
         name: "lastMonth",

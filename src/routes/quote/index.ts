@@ -17,18 +17,52 @@ import { findAllRoutes } from "./findAllRoutes";
 import { QuoteNode } from "./nodes/quoteNode";
 import { num } from "starknet";
 import { createQueries, Queries } from "../../queries";
-import { OpenAPIRouteSchema } from "@cloudflare/itty-router-openapi";
+import { OpenAPIRouteSchema, Path } from "@cloudflare/itty-router-openapi";
+import { z } from "zod";
+import {
+  AddressType,
+  TokenIdentifierType,
+} from "../../shared/validation/address";
 
 export class GetQuote extends EkuboAPIRoute {
   static route = "/quote/:amount/:token/:otherToken";
 
   static schema: OpenAPIRouteSchema = {
     tags: ["Swap"],
-    summary: "Returns a route and quote for the given swap",
+    summary: "Get quote",
+    description:
+      "Returns a quote for a swap or series of swaps to/from one token amount from/to another token",
+    parameters: {
+      amount: Path(
+        z.coerce.number().min(1).openapi({
+          example: 1e9,
+          description: "The amount of the specified token",
+        })
+      ),
+      token: Path(TokenIdentifierType, { example: "USDC" }),
+      otherToken: Path(TokenIdentifierType, { example: "ETH" }),
+    },
     responses: {
       "200": {
-        description: "The quote for the given parameters",
+        description: "The amount to swap to a price for a pool",
         contentType: "application/json",
+        schema: {
+          amount: "44170270514359743548",
+          route: [
+            {
+              pool_key: {
+                token0:
+                  "0x49d36570d4e46f48e99674bd3fcc84644ddd6b96f7c741b1562b82f9e004dc7",
+                token1:
+                  "0x53c91253bc9682c04929ca02ed00b3e423f6710d2ee7e0d5ebb06f3ecf368a8",
+                fee: "0x20c49ba5e353f80000000000000000",
+                tick_spacing: 1000,
+                extension: "0x0",
+              },
+              sqrt_ratio_limit: "0x345c00340702d766615a4e0f7ec59",
+            },
+          ],
+        },
       },
     },
   };
@@ -155,12 +189,25 @@ export class GetQuote extends EkuboAPIRoute {
 }
 
 export class GetQuoteToPrice extends EkuboAPIRoute {
-  static route = "/pools/:key_hash/delta_to_sqrt_ratio/:new_sqrt_ratio";
+  static route = "/pools/:keyHash/delta_to_sqrt_ratio/:newSqrtRatio";
 
   static schema: OpenAPIRouteSchema = {
     tags: ["Swap"],
-    summary:
-      "Returns the amount that must be swapped to a given price for the pool",
+    summary: "Quote to price",
+    description:
+      "Returns the token deltas for swapping a specific pool to the given square root ratio.",
+    parameters: {
+      keyHash: Path(
+        z
+          .string()
+          .openapi({ description: "The key hash for the pool to swap against" })
+      ),
+      nextSqrtRatio: Path(
+        z.coerce.string().openapi({
+          description: "The price to quote the pool being swapped to",
+        })
+      ),
+    },
     responses: {
       "200": {
         description: "The amount to swap to a price for a pool",

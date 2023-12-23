@@ -6,11 +6,11 @@ export interface RequestContext {
   readonly env: Env;
 }
 
-export abstract class EkuboAPIRoute extends OpenAPIRoute<
+export abstract class EkuboAPIRoute<T = any> extends OpenAPIRoute<
   IRequest,
-  [context: RequestContext]
+  [context: RequestContext, data: T]
 > {
   public static readonly route: string;
 
-  abstract handle(request: IRequest, context: RequestContext): any;
+  abstract handle(request: IRequest, context: RequestContext, data: T): any;
 }

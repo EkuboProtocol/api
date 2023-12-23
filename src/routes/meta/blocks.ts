@@ -1,19 +1,25 @@
 import { error, IRequest, json } from "itty-router";
 import { EkuboAPIRoute, RequestContext } from "../../shared/context";
-import { OpenAPIRouteSchema } from "@cloudflare/itty-router-openapi";
+import { OpenAPIRouteSchema, Path } from "@cloudflare/itty-router-openapi";
 import { z } from "zod";
 import { createQueries } from "../../queries";
 
-export class GetBlock extends EkuboAPIRoute {
-  public static route = "/blocks/:number";
+export class GetBlock extends EkuboAPIRoute<{
+  params: { blockTag: "latest" | number };
+}> {
+  public static route = "/blocks/:blockTag";
   static schema: OpenAPIRouteSchema = {
     tags: ["Meta"],
-    summary: "Get information about a particular block ingested by the API",
+    summary: "Get block",
+    description: "Get information about a particular block ingested by the API",
     parameters: {
-      number: {
-        type: z.string(),
-        location: "path",
-      },
+      blockTag: Path(
+        z.coerce.number().int().min(160_000).or(z.literal("latest")),
+        {
+          description:
+            "The tag of the block to get or the number of a block containing events",
+        }
+      ),
     },
     responses: {
       "200": {
@@ -30,14 +36,14 @@ export class GetBlock extends EkuboAPIRoute {
     },
   };
 
-  public async handle({ params }: IRequest, { env }: RequestContext) {
+  public async handle(
+    request: IRequest,
+    { env }: RequestContext,
+    { params: { blockTag } }: { params: { blockTag: "latest" | number } }
+  ) {
     const queries = await createQueries(env);
 
-    if (params.number !== "latest") {
-      return error(501, "Not implemented");
-    }
-
-    const block = await queries.getLatestBlock();
+    const block = await queries.getBlock(blockTag);
 
     return json(
       {

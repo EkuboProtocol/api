@@ -4,11 +4,20 @@ import {
   FEE_TOKEN_ADDRESS,
   getAllTokens,
   getTokenByAddress,
+  getTokenByIdentifier,
 } from "../meta/tokens";
 import Decimal from "decimal.js-light";
-import { ADDRESS_REGEX, AddressType } from "../../shared/validation/address";
+import {
+  ADDRESS_REGEX,
+  AddressType,
+  TokenIdentifierType,
+} from "../../shared/validation/address";
 import { createQueries } from "../../queries";
-import { OpenAPIRouteSchema } from "@cloudflare/itty-router-openapi";
+import {
+  OpenAPIRouteSchema,
+  Path,
+  Query,
+} from "@cloudflare/itty-router-openapi";
 import { z } from "zod";
 
 export class GetPairPrice extends EkuboAPIRoute {
@@ -16,7 +25,12 @@ export class GetPairPrice extends EkuboAPIRoute {
 
   static schema: OpenAPIRouteSchema = {
     tags: ["Prices"],
-    summary: "Returns the price of base token in terms of quote token",
+    summary: "Get pair price",
+    description: "Get the price of the base token in terms of the quote token",
+    parameters: {
+      baseToken: Path(TokenIdentifierType, { example: "ETH" }),
+      quoteToken: Path(TokenIdentifierType, { example: "USDC" }),
+    },
     responses: {
       "200": {
         description: "The price of base token in terms of quote token",
@@ -26,30 +40,18 @@ export class GetPairPrice extends EkuboAPIRoute {
   };
 
   async handle({ params }: IRequest, { env }: RequestContext) {
-    if (
-      typeof params.baseToken !== "string" ||
-      !ADDRESS_REGEX.test(params.baseToken) ||
-      typeof params.quoteToken !== "string" ||
-      !ADDRESS_REGEX.test(params.quoteToken)
-    ) {
-      return error(
-        400,
-        "`baseToken` and `quoteToken` path parameters must be token addresses in hex format"
-      );
-    }
-
-    const baseToken = BigInt(params.baseToken);
-    const quoteToken = BigInt(params.quoteToken);
-
     const queries = await createQueries(env);
     const allTokens = await getAllTokens(env, queries);
 
-    const bt = getTokenByAddress(allTokens, baseToken);
-    const qt = getTokenByAddress(allTokens, quoteToken);
+    const bt = getTokenByIdentifier(allTokens, params.baseToken);
+    const qt = getTokenByIdentifier(allTokens, params.quoteToken);
 
     if (!bt || !qt) {
       return error(400, "Base token or quote token not known");
     }
+
+    const baseToken = BigInt(bt.l2_token_address);
+    const quoteToken = BigInt(qt.l2_token_address);
 
     const timestamp = Date.now();
     const oneDayAgo = new Date(timestamp - 86_400_000);
@@ -120,20 +122,12 @@ export class GetPairPriceHistory extends EkuboAPIRoute {
 
   static schema: OpenAPIRouteSchema = {
     tags: ["Prices"],
-    summary: "Get the price history for the given pair",
+    summary: "Get price history",
+    description: "Get the VWAP-based price history for the given pair",
     parameters: {
-      baseToken: {
-        type: AddressType,
-        location: "path",
-      },
-      quoteToken: {
-        type: AddressType,
-        location: "path",
-      },
-      interval: {
-        type: z.coerce.number().int(),
-        location: "query",
-      },
+      baseToken: Path(TokenIdentifierType, { example: "ETH" }),
+      quoteToken: Path(TokenIdentifierType, { example: "USDC" }),
+      interval: Query(z.number().int().min(60), { required: false }),
     },
     responses: {
       "200": {
@@ -144,26 +138,18 @@ export class GetPairPriceHistory extends EkuboAPIRoute {
   };
 
   async handle({ params, query }: IRequest, { env }: RequestContext) {
-    if (
-      typeof params.baseToken !== "string" ||
-      !ADDRESS_REGEX.test(params.baseToken) ||
-      typeof params.quoteToken !== "string" ||
-      !ADDRESS_REGEX.test(params.quoteToken)
-    ) {
-      return error(
-        400,
-        "`baseToken` and `quoteToken` path parameters must be token addresses in hex format"
-      );
+    const queries = await createQueries(env);
+    const allTokens = await getAllTokens(env, queries);
+
+    const bt = getTokenByIdentifier(allTokens, params.baseToken);
+    const qt = getTokenByIdentifier(allTokens, params.quoteToken);
+
+    if (!bt || !qt) {
+      return error(400, "Base token or quote token not known");
     }
 
-    const baseToken = BigInt(params.baseToken);
-    const quoteToken = BigInt(params.quoteToken);
-
-    const queries = await createQueries(env);
-
-    const tokens = await getAllTokens(env, queries);
-    const bt = getTokenByAddress(tokens, baseToken);
-    const qt = getTokenByAddress(tokens, quoteToken);
+    const baseToken = BigInt(bt.l2_token_address);
+    const quoteToken = BigInt(qt.l2_token_address);
 
     if (!bt || !qt) {
       return error(400, "Base token or quote token not known");
@@ -288,12 +274,11 @@ export class GetTokenPrices extends EkuboAPIRoute {
 
   static schema: OpenAPIRouteSchema = {
     tags: ["Prices"],
-    summary: "Get the prices of other tokens in terms of quote token",
+    summary: "Get token prices",
+    description:
+      "Given a quote token, returns the price of all other tokens in terms of the qutoe token",
     parameters: {
-      quoteToken: {
-        type: AddressType,
-        location: "path",
-      },
+      quoteToken: Path(AddressType, { description: "The quote token address" }),
     },
     responses: {
       "200": {

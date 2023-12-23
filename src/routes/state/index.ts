@@ -12,7 +12,9 @@ export class GetPoolStates extends OpenAPIRoute {
 
   static schema: OpenAPIRouteSchema = {
     tags: ["Swap"],
-    summary: "Get the current state of all pools",
+    summary: "Get pool states",
+    description:
+      "Returns the current state of all the Ekubo pools, including current liquidity and price",
     responses: {
       "200": {
         description: "The current state of all the pools",
@@ -57,7 +59,9 @@ export class GetPoolLiquidity extends EkuboAPIRoute {
 
   static schema: OpenAPIRouteSchema = {
     tags: ["Swap"],
-    summary: "Get the current liquidity for the given pool key hash",
+    summary: "Get pool liquidity",
+    description:
+      "Returns the liquidity delta for each tick for the given pool key hash",
     responses: {
       "200": {
         description: "The current liquidity chart for the given pool key hash",

@@ -7,7 +7,8 @@ export class GetOverview extends EkuboAPIRoute {
   static route = "/overview";
   static schema: OpenAPIRouteSchema = {
     tags: ["Stats"],
-    summary: "Returns overall stats for the protocol",
+    summary: "Get protocol overview",
+    description: "Returns an overview of the high level protocol stats",
     responses: {
       "200": {
         description: "The stats for the protocol overall",
