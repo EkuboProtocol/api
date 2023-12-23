@@ -162,7 +162,7 @@ const TokenType = z
 export class ListTokens extends EkuboAPIRoute {
   static route = "/tokens";
   static schema: OpenAPIRouteSchema = {
-    tags: ["Tokens"],
+    tags: ["Meta"],
     summary: "List tokens",
     description: "Get the list of supported tokens",
     responses: {
@@ -190,7 +190,7 @@ export class GetTokenLogo extends EkuboAPIRoute {
   public static route = "/tokens/:identifier/logo";
 
   static schema: OpenAPIRouteSchema = {
-    tags: ["Tokens"],
+    tags: ["Meta"],
     summary: "Get token logo",
     description: "Get the logo for the given token identifier",
     parameters: {
