@@ -72,7 +72,7 @@ export class Queries {
   }
 
   // Returns all pools containing either tokenA or tokenB and their states
-  public async getAllRoutablePools({
+  public async getAllRoutablePoolStates({
     tokenA,
     tokenB,
     extension = 0n,

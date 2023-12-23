@@ -1,5 +1,4 @@
 import { PoolState, Queries } from "../../queries";
-import { constants } from "starknet";
 import {
   MAX_SQRT_RATIO,
   MAX_TICK,
@@ -9,19 +8,19 @@ import {
 } from "./math/tick";
 import { isPriceIncreasing } from "./math/swap";
 import { BaseResources, QuoteNode } from "./nodes/quoteNode";
-import { PlainPool } from "./nodes/plainPool";
+import { PlainPool, Tick } from "./nodes/plainPool";
+import { KVNamespace } from "@cloudflare/workers-types";
 
-export const QUOTE_NODE_CACHE: {
-  [chainId in constants.StarknetChainId]: {
-    [key_hash: string]: {
-      lastEventId: bigint;
-      node: QuoteNode<BaseResources>;
-    };
+const QUOTE_NODE_CACHE: {
+  [key_hash: string]: {
+    lastEventId: bigint;
+    node: QuoteNode<BaseResources>;
   };
-} = {
-  ["0x534e5f474f45524c49"]: {},
-  ["0x534e5f4d41494e"]: {},
-};
+} = {};
+
+export function getCachedNode(key_hash: bigint) {
+  return QUOTE_NODE_CACHE[key_hash.toString()]?.node;
+}
 
 export interface QuoteResult<TTotal> {
   tokenAmount: {
@@ -141,50 +140,104 @@ export function quoteRoute<TResources, TTotal>({
   );
 }
 
+interface CachedTick {
+  readonly liquidityDelta: string;
+  readonly tick: number;
+}
+
+function cachedToTick(cachedTick: CachedTick): Tick {
+  return {
+    tick: cachedTick.tick,
+    liquidityDelta: BigInt(cachedTick.liquidityDelta),
+  };
+}
+function tickToCached(tick: Tick): CachedTick {
+  return {
+    tick: tick.tick,
+    liquidityDelta: tick.liquidityDelta.toString(),
+  };
+}
+
+const QUOTE_KV_CACHE_GET_OPTIONS = {
+  cacheTtl: 3600,
+};
+const QUOTE_KV_CACHE_PUT_OPTIONS = { expirationTtl: 3600 };
+
 export async function updatePoolCache(
   pools: PoolState[],
-  dao: Queries,
-  cache: typeof QUOTE_NODE_CACHE[constants.StarknetChainId]
+  queries: Queries,
+  kv: KVNamespace | undefined
 ): Promise<void> {
   const poolsNeedUpdate = pools.filter(({ pool_key_hash, last_event_id }) => {
-    const cached = cache[pool_key_hash];
+    const cached = QUOTE_NODE_CACHE[pool_key_hash];
     return !cached || cached.lastEventId !== BigInt(last_event_id);
   });
 
-  const tickData = await dao.getTickData({
-    poolKeyHashes: poolsNeedUpdate.map((pk) => BigInt(pk.pool_key_hash)),
+  const kvResults = kv
+    ? await Promise.all(
+        poolsNeedUpdate.map((p) =>
+          kv
+            .get(
+              [p.pool_key_hash, p.last_event_id].join("-"),
+              QUOTE_KV_CACHE_GET_OPTIONS
+            )
+            .then((result) => {
+              if (!result) return null;
+              return JSON.parse(result) as CachedTick[];
+            })
+        )
+      )
+    : Array(poolsNeedUpdate.length).fill(null);
+
+  // only get tick data for pools not found in the kv
+  const tickData = await queries.getTickData({
+    poolKeyHashes: poolsNeedUpdate
+      .filter((p, ix) => kvResults[ix].ticks === null)
+      .map((p) => BigInt(p.pool_key_hash)),
   });
 
-  poolsNeedUpdate.forEach((pool) => {
-    cache[pool.pool_key_hash] = {
-      lastEventId: BigInt(pool.last_event_id),
-      node: new PlainPool({
-        token0: BigInt(pool.token0),
-        token1: BigInt(pool.token1),
-        tickSpacing: Number(pool.tick_spacing),
-        sqrtRatio: BigInt(pool.sqrt_ratio),
-        fee: BigInt(pool.fee),
-        liquidity: BigInt(pool.liquidity),
-        tick: pool.tick,
-        sortedTicks: tickData[pool.pool_key_hash] ?? [],
-      }),
-    };
-  });
+  await Promise.all(
+    poolsNeedUpdate.map(async (pool, ix) => {
+      const kvTicks = kvResults[ix]?.map(cachedToTick);
+      const queriedTicks = tickData[pool.pool_key_hash];
+      if (kv && !kvTicks && queriedTicks?.length) {
+        await kv.put(
+          [pool.pool_key_hash, pool.last_event_id].join("-"),
+          JSON.stringify(queriedTicks.map(tickToCached)),
+          QUOTE_KV_CACHE_PUT_OPTIONS
+        );
+      }
+
+      QUOTE_NODE_CACHE[pool.pool_key_hash] = {
+        lastEventId: BigInt(pool.last_event_id),
+        node: new PlainPool({
+          token0: BigInt(pool.token0),
+          token1: BigInt(pool.token1),
+          tickSpacing: Number(pool.tick_spacing),
+          sqrtRatio: BigInt(pool.sqrt_ratio),
+          fee: BigInt(pool.fee),
+          liquidity: BigInt(pool.liquidity),
+          tick: pool.tick,
+          sortedTicks: kvTicks ?? queriedTicks ?? [],
+        }),
+      };
+    })
+  );
 }
 
 export async function getAllRelevantPoolsAndUpdateCache(
-  dao: Queries,
-  cache: typeof QUOTE_NODE_CACHE[constants.StarknetChainId],
-  { tokenA, tokenB }: { tokenA: bigint; tokenB: bigint }
+  queries: Queries,
+  { tokenA, tokenB }: { tokenA: bigint; tokenB: bigint },
+  kv: KVNamespace | undefined
 ): Promise<QuoteNode<BaseResources>[]> {
-  return dao.withinTransaction(async () => {
-    const { rows: relevantPools } = await dao.getAllRoutablePools({
+  return queries.withinTransaction(async () => {
+    const { rows: relevantPools } = await queries.getAllRoutablePoolStates({
       tokenA,
       tokenB,
     });
 
-    await updatePoolCache(relevantPools, dao, cache);
+    await updatePoolCache(relevantPools, queries, kv);
 
-    return relevantPools.map((p) => cache[p.pool_key_hash].node);
+    return relevantPools.map((p) => QUOTE_NODE_CACHE[p.pool_key_hash].node);
   });
 }
