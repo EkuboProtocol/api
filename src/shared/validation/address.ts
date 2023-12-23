@@ -23,12 +23,12 @@ export const TokenSymbolType = z
 
 export const TokenIdentifierType = AddressType.or(TokenSymbolType);
 
-export const HexNumericType = z
+export const NumericType = z
   .string({
     description: "A hex number",
-    coerce: true,
   })
   .regex(/^0x(a-fA-F0-9)+$/)
+  .or(z.string({ description: "A decimal number" }).regex(/^\d+$/))
   .openapi({
     title: "HexNumber",
     description: "A number represented in hexadecimal",

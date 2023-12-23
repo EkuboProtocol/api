@@ -8,7 +8,7 @@ import { EkuboAPIRoute, RequestContext } from "../../shared/context";
 import { num } from "starknet";
 import { createQueries, Queries } from "../../queries";
 import { z } from "zod";
-import { HexNumericType } from "../../shared/validation/address";
+import { NumericType } from "../../shared/validation/address";
 
 export class GetPoolStates extends OpenAPIRoute {
   static route = "/pools";
@@ -66,7 +66,7 @@ export class GetPoolLiquidity extends EkuboAPIRoute {
     description:
       "Returns the liquidity delta for each tick for the given pool key hash",
     parameters: {
-      keyHash: Path(HexNumericType, { example: "0xabcd" }),
+      keyHash: Path(NumericType, { example: "0xabcd" }),
     },
     responses: {
       "200": {

@@ -19,7 +19,7 @@ import { createQueries } from "../../queries";
 import { OpenAPIRouteSchema, Path } from "@cloudflare/itty-router-openapi";
 import { z } from "zod";
 import {
-  HexNumericType,
+  NumericType,
   TokenIdentifierType,
 } from "../../shared/validation/address";
 
@@ -194,7 +194,7 @@ export class GetQuoteToPrice extends EkuboAPIRoute {
     description:
       "Returns the token deltas for swapping a specific pool to the given square root ratio.",
     parameters: {
-      keyHash: Path(HexNumericType, { example: "0xabcd" }),
+      keyHash: Path(NumericType, { example: "0xabcd" }),
       nextSqrtRatio: Path(
         z.coerce.string().openapi({
           description: "The price to quote the pool being swapped to",
@@ -212,8 +212,8 @@ export class GetQuoteToPrice extends EkuboAPIRoute {
   async handle({ params }: IRequest, { env }: RequestContext) {
     let poolKeyHash: bigint, newSqrtRatio: bigint;
     try {
-      poolKeyHash = BigInt(params.key_hash);
-      newSqrtRatio = BigInt(params.new_sqrt_ratio);
+      poolKeyHash = BigInt(params.keyHash);
+      newSqrtRatio = BigInt(params.newSqrtRatio);
     } catch (e) {
       return error(400, "Invalid path parameters");
     }
