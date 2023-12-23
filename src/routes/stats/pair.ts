@@ -1,10 +1,6 @@
 import { EkuboAPIRoute, RequestContext } from "../../shared/context";
 import { error, IRequest, json } from "itty-router";
-import {
-  ADDRESS_REGEX,
-  AddressType,
-  NumericType,
-} from "../../shared/validation/address";
+import { AddressType, NumericType } from "../../shared/validation/address";
 import { createQueries } from "../../queries";
 import { OpenAPIRouteSchema, Path } from "@cloudflare/itty-router-openapi";
 
