@@ -1,6 +1,10 @@
 import { EkuboAPIRoute, RequestContext } from "../../shared/context";
 import { error, IRequest, json } from "itty-router";
-import { ADDRESS_REGEX, AddressType } from "../../shared/validation/address";
+import {
+  ADDRESS_REGEX,
+  AddressType,
+  NumericType,
+} from "../../shared/validation/address";
 import { createQueries } from "../../queries";
 import { OpenAPIRouteSchema, Path } from "@cloudflare/itty-router-openapi";
 
@@ -24,18 +28,6 @@ export class GetPairInfo extends EkuboAPIRoute {
   };
 
   async handle({ params }: IRequest, { env }: RequestContext) {
-    if (
-      typeof params.tokenA !== "string" ||
-      !ADDRESS_REGEX.test(params.tokenA) ||
-      typeof params.tokenB !== "string" ||
-      !ADDRESS_REGEX.test(params.tokenB)
-    ) {
-      return error(
-        400,
-        "`tokenA` and `tokenB` path parameters must be token addresses in hex format"
-      );
-    }
-
     const [token0, token1] =
       BigInt(params.tokenA) < BigInt(params.tokenB)
         ? [BigInt(params.tokenA), BigInt(params.tokenB)]
@@ -94,8 +86,8 @@ export class GetPairLiquidity extends EkuboAPIRoute {
     tags: ["Stats"],
     summary: "Get pair liquidity",
     parameters: {
-      tokenA: Path(AddressType),
-      tokenB: Path(AddressType),
+      tokenA: Path(NumericType),
+      tokenB: Path(NumericType),
     },
     description:
       "Returns the liquidity chart for the given token pair, aggregated across all pools",

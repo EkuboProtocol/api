@@ -1,15 +1,27 @@
 import { z } from "zod";
 
-export const ADDRESS_REGEX = /^0x[a-fA-F0-9]+$/;
+const HEX_STRING_REGEX = /^0x[a-fA-F0-9]+$/;
+const DECIMAL_STRING_REGEX = /^\d+$/;
 
-export const AddressType = z
-  .string({ description: "A contract address on Starknet" })
-  .regex(ADDRESS_REGEX, { message: "Must be a hex formatted string" })
-  .min(32)
-  .openapi({
-    title: "StarknetAddress",
-    description: "The hex address of a contract on Starknet",
-  });
+export const DecimalStringType = z
+  .string({ description: "A decimal number" })
+  .regex(DECIMAL_STRING_REGEX);
+
+export const HexStringType = z
+  .string({
+    description: "A hexadecimal number",
+  })
+  .regex(HEX_STRING_REGEX);
+
+export const NumericType = HexStringType.or(DecimalStringType).openapi({
+  title: "Numeric",
+  description: "A number represented in hexadecimal or decimal",
+});
+
+export const AddressType = NumericType.openapi({
+  title: "Address",
+  description: "The address of a contract on Starknet",
+});
 
 export const TokenSymbolType = z
   .string()
@@ -22,14 +34,3 @@ export const TokenSymbolType = z
   });
 
 export const TokenIdentifierType = AddressType.or(TokenSymbolType);
-
-export const NumericType = z
-  .string({
-    description: "A hex number",
-  })
-  .regex(/^0x(a-fA-F0-9)+$/)
-  .or(z.string({ description: "A decimal number" }).regex(/^\d+$/))
-  .openapi({
-    title: "HexNumber",
-    description: "A number represented in hexadecimal",
-  });

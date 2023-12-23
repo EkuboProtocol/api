@@ -8,7 +8,6 @@ import {
 } from "../meta/tokens";
 import Decimal from "decimal.js-light";
 import {
-  ADDRESS_REGEX,
   AddressType,
   TokenIdentifierType,
 } from "../../shared/validation/address";
@@ -289,16 +288,6 @@ export class GetTokenPrices extends EkuboAPIRoute {
   };
 
   async handle({ params }: IRequest, { env }: RequestContext) {
-    if (
-      typeof params.quoteToken !== "string" ||
-      !ADDRESS_REGEX.test(params.quoteToken)
-    ) {
-      return error(
-        400,
-        "`quoteToken` path parameters must be a token address in hex format"
-      );
-    }
-
     const quoteToken = BigInt(params.quoteToken);
 
     const queries = await createQueries(env);
