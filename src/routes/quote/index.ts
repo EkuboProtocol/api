@@ -21,6 +21,7 @@ import { OpenAPIRouteSchema, Path } from "@cloudflare/itty-router-openapi";
 import { z } from "zod";
 import {
   AddressType,
+  HexNumericType,
   TokenIdentifierType,
 } from "../../shared/validation/address";
 
@@ -197,11 +198,7 @@ export class GetQuoteToPrice extends EkuboAPIRoute {
     description:
       "Returns the token deltas for swapping a specific pool to the given square root ratio.",
     parameters: {
-      keyHash: Path(
-        z
-          .string()
-          .openapi({ description: "The key hash for the pool to swap against" })
-      ),
+      keyHash: Path(HexNumericType, { example: "0xabcd" }),
       nextSqrtRatio: Path(
         z.coerce.string().openapi({
           description: "The price to quote the pool being swapped to",

@@ -3,7 +3,7 @@ import { z } from "zod";
 export const ADDRESS_REGEX = /^0x[a-fA-F0-9]+$/;
 
 export const AddressType = z
-  .string({ description: "A contract address on Starknet", coerce: true })
+  .string({ description: "A contract address on Starknet" })
   .regex(ADDRESS_REGEX, { message: "Must be a hex formatted string" })
   .min(32)
   .openapi({
@@ -22,3 +22,14 @@ export const TokenSymbolType = z
   });
 
 export const TokenIdentifierType = AddressType.or(TokenSymbolType);
+
+export const HexNumericType = z
+  .string({
+    description: "A hex number",
+    coerce: true,
+  })
+  .regex(/^0x(a-fA-F0-9)+$/)
+  .openapi({
+    title: "HexNumber",
+    description: "A number represented in hexadecimal",
+  });

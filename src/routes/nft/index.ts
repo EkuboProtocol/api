@@ -55,12 +55,26 @@ export function tickSpacingToPercent(tick_spacing: string) {
     .toString();
 }
 
+const TokenIdType = z.coerce
+  .number({})
+  .int()
+  .min(1)
+  .max(10 ** 10 - 1)
+  .openapi({
+    example: 1,
+    title: "TokenID",
+    description: "The ID of a position NFT token",
+  });
+
 export class GetNftMetadata extends EkuboAPIRoute {
   static route = "/:id";
   static schema: OpenAPIRouteSchema = {
     tags: ["Positions"],
     summary: "Get NFT Metadata",
     description: "Returns the ERC721 metadata for the given position token ID",
+    parameters: {
+      id: Path(TokenIdType),
+    },
     responses: {
       "200": {
         description: "The NFT metadata for the given position ID",
@@ -199,6 +213,9 @@ export class ListNftEvents extends EkuboAPIRoute {
     tags: ["Positions"],
     summary: "List position history",
     description: "Returns the entire history of the given position ID",
+    parameters: {
+      id: Path(TokenIdType),
+    },
     responses: {
       "200": {
         description: "The position history",
@@ -259,6 +276,9 @@ export class GetNftImage extends EkuboAPIRoute {
     tags: ["Positions"],
     summary: "Get NFT Image",
     description: "Returns the generated art for the given position NFT ID",
+    parameters: {
+      id: Path(TokenIdType),
+    },
     responses: {
       "200": {
         description: "The position NFT image",

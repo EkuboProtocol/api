@@ -1,11 +1,14 @@
 import {
   OpenAPIRoute,
   OpenAPIRouteSchema,
+  Path,
 } from "@cloudflare/itty-router-openapi";
 import { error, IRequest, json } from "itty-router";
 import { EkuboAPIRoute, RequestContext } from "../../shared/context";
 import { num } from "starknet";
 import { createQueries, Queries } from "../../queries";
+import { z } from "zod";
+import { HexNumericType } from "../../shared/validation/address";
 
 export class GetPoolStates extends OpenAPIRoute {
   static route = "/pools";
@@ -55,13 +58,16 @@ export class GetPoolStates extends OpenAPIRoute {
 }
 
 export class GetPoolLiquidity extends EkuboAPIRoute {
-  static route = "/pools/:key_hash/liquidity";
+  static route = "/pools/:keyHash/liquidity";
 
   static schema: OpenAPIRouteSchema = {
     tags: ["Swap"],
     summary: "Get pool liquidity",
     description:
       "Returns the liquidity delta for each tick for the given pool key hash",
+    parameters: {
+      keyHash: Path(HexNumericType, { example: "0xabcd" }),
+    },
     responses: {
       "200": {
         description: "The current liquidity chart for the given pool key hash",
@@ -70,10 +76,10 @@ export class GetPoolLiquidity extends EkuboAPIRoute {
     },
   };
 
-  async handle({ params: { key_hash } }: IRequest, { env }: RequestContext) {
+  async handle({ params: { keyHash } }: IRequest, { env }: RequestContext) {
     let pool_key_hash: bigint;
     try {
-      pool_key_hash = BigInt(key_hash);
+      pool_key_hash = BigInt(keyHash);
     } catch (e) {
       return error(400, "Invalid pool key hash");
     }

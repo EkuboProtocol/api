@@ -1,8 +1,8 @@
 import { EkuboAPIRoute, RequestContext } from "../../shared/context";
 import { error, IRequest, json } from "itty-router";
-import { ADDRESS_REGEX } from "../../shared/validation/address";
-import { createQueries, Queries } from "../../queries";
-import { OpenAPIRouteSchema } from "@cloudflare/itty-router-openapi";
+import { ADDRESS_REGEX, AddressType } from "../../shared/validation/address";
+import { createQueries } from "../../queries";
+import { OpenAPIRouteSchema, Path } from "@cloudflare/itty-router-openapi";
 
 export class GetPairInfo extends EkuboAPIRoute {
   static route = "/pair/:tokenA/:tokenB";
@@ -11,6 +11,10 @@ export class GetPairInfo extends EkuboAPIRoute {
     tags: ["Stats"],
     summary: "Get pair stats",
     description: "Returns high level stats for a given trading pair",
+    parameters: {
+      tokenA: Path(AddressType),
+      tokenB: Path(AddressType),
+    },
     responses: {
       "200": {
         description: "Information about the token pair",
@@ -37,9 +41,8 @@ export class GetPairInfo extends EkuboAPIRoute {
         ? [BigInt(params.tokenA), BigInt(params.tokenB)]
         : [BigInt(params.tokenB), BigInt(params.tokenA)];
 
-    const pair = { token0, token1 };
-
     const queries = await createQueries(env);
+    const pair = { token0, token1 };
 
     const timestamp = Date.now();
     const thirtyDaysAgo = new Date(timestamp - 1000 * 60 * 60 * 24 * 30);
@@ -90,6 +93,10 @@ export class GetPairLiquidity extends EkuboAPIRoute {
   static schema: OpenAPIRouteSchema = {
     tags: ["Stats"],
     summary: "Get pair liquidity",
+    parameters: {
+      tokenA: Path(AddressType),
+      tokenB: Path(AddressType),
+    },
     description:
       "Returns the liquidity chart for the given token pair, aggregated across all pools",
     responses: {
@@ -147,6 +154,10 @@ export class ListPairEvents extends EkuboAPIRoute {
     tags: ["Stats"],
     summary: "Get pair events",
     description: "Returns a list of recent events for the given trading pair",
+    parameters: {
+      tokenA: Path(AddressType),
+      tokenB: Path(AddressType),
+    },
     responses: {
       "200": {
         description: "A list of events for the given pair",
