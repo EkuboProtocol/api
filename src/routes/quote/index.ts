@@ -35,8 +35,8 @@ export class GetQuote extends EkuboAPIRoute {
       "Returns a quote for a swap or series of swaps to/from one token amount from/to another token",
     parameters: {
       amount: Path(
-        z.coerce.number().min(1).openapi({
-          example: 1e9,
+        z.string().openapi({
+          example: "1e9",
           description: "The amount of the specified token",
         })
       ),
