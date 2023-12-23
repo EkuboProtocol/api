@@ -192,7 +192,7 @@ export async function updatePoolCache(
   // only get tick data for pools not found in the kv
   const tickData = await queries.getTickData({
     poolKeyHashes: poolsNeedUpdate
-      .filter((p, ix) => kvResults[ix].ticks === null)
+      .filter((p, ix) => kvResults[ix] === null)
       .map((p) => BigInt(p.pool_key_hash)),
   });
 
@@ -200,10 +200,10 @@ export async function updatePoolCache(
     poolsNeedUpdate.map(async (pool, ix) => {
       const kvTicks = kvResults[ix]?.map(cachedToTick);
       const queriedTicks = tickData[pool.pool_key_hash];
-      if (kv && !kvTicks && queriedTicks?.length) {
+      if (kv && !kvTicks) {
         await kv.put(
           [pool.pool_key_hash, pool.last_event_id].join("-"),
-          JSON.stringify(queriedTicks.map(tickToCached)),
+          JSON.stringify(queriedTicks?.map(tickToCached) ?? []),
           QUOTE_KV_CACHE_PUT_OPTIONS
         );
       }
