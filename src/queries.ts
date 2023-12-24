@@ -1061,6 +1061,7 @@ export class Queries {
             AND (collector = $2 OR $2 IS NULL)
           GROUP BY collector
           ORDER BY points DESC
+          LIMIT 1000
       `,
       values: [feeTokenAddress, collector ?? null, collectedAfter ?? null],
     });
