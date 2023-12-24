@@ -96,5 +96,3 @@ export default {
         return corsify(response);
     },
 };
-export {getProvider} from "./shared/getProvider";
-export {POSITIONS_CONTRACT_ADDRESS} from "./constants/addresses";

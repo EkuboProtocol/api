@@ -28,7 +28,6 @@ export class GetLeaderboard extends EkuboAPIRoute {
         type: z.coerce.boolean(),
       },
     ],
-    request: {},
     responses: {
       "200": {
         description:
@@ -52,11 +51,7 @@ export class GetLeaderboard extends EkuboAPIRoute {
 
     const queries = await createQueries(env);
 
-    const positionsContractAddress =
-      POSITIONS_CONTRACT_ADDRESS[env.STARKNET_CHAIN_ID];
-
     const { rows } = await queries.getLeaderboard({
-      positionsContractAddress,
       feeTokenAddress: FEE_TOKEN_ADDRESS[env.STARKNET_CHAIN_ID],
       collectedAfter: lastMonth
         ? new Date(Date.now() - 30 * 24 * 60 * 60 * 1000)
@@ -162,11 +157,7 @@ export class GetLeaderboardForCollector extends EkuboAPIRoute {
 
     const dao = await createQueries(env);
 
-    const positionsContractAddress =
-      POSITIONS_CONTRACT_ADDRESS[env.STARKNET_CHAIN_ID];
-
     const { rows } = await dao.getLeaderboard({
-      positionsContractAddress,
       feeTokenAddress: FEE_TOKEN_ADDRESS[env.STARKNET_CHAIN_ID],
       collector,
       collectedAfter: lastMonth
