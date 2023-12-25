@@ -26,6 +26,7 @@ export interface PoolState {
   tick: number;
   liquidity: string;
   last_event_id: string;
+  last_liquidity_update_event_id: string;
 }
 
 export class Queries {
@@ -65,7 +66,8 @@ export class Queries {
                    sqrt_ratio,
                    tick,
                    liquidity,
-                   last_event_id
+                   last_event_id,
+                   last_liquidity_update_event_id
             FROM pool_states_materialized
                      JOIN pool_keys ON pool_key_hash = key_hash
         `);

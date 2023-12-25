@@ -163,6 +163,10 @@ const QUOTE_KV_CACHE_GET_OPTIONS = {
 };
 const QUOTE_KV_CACHE_PUT_OPTIONS = { expirationTtl: 3600 };
 
+function poolStateToCachedTicksKey(p: PoolState) {
+  return [p.pool_key_hash, p.last_liquidity_update_event_id].join("-");
+}
+
 export async function updatePoolCache(
   pools: PoolState[],
   queries: Queries,
@@ -177,10 +181,7 @@ export async function updatePoolCache(
     ? await Promise.all(
         poolsNeedUpdate.map((p) =>
           kv
-            .get(
-              [p.pool_key_hash, p.last_event_id].join("-"),
-              QUOTE_KV_CACHE_GET_OPTIONS
-            )
+            .get(poolStateToCachedTicksKey(p), QUOTE_KV_CACHE_GET_OPTIONS)
             .then((result) => {
               if (!result) return null;
               return JSON.parse(result) as CachedTick[];
@@ -202,7 +203,7 @@ export async function updatePoolCache(
       const queriedTicks = tickData[pool.pool_key_hash];
       if (kv && !kvTicks) {
         await kv.put(
-          [pool.pool_key_hash, pool.last_event_id].join("-"),
+          poolStateToCachedTicksKey(pool),
           JSON.stringify(queriedTicks?.map(tickToCached) ?? []),
           QUOTE_KV_CACHE_PUT_OPTIONS
         );
