@@ -152,7 +152,8 @@ export class Queries {
                        sqrt_ratio,
                        tick,
                        liquidity,
-                       last_event_id
+                       last_event_id,
+                       last_liquidity_update_event_id
                 FROM pool_states_materialized
                          JOIN pool_keys ON pool_key_hash = key_hash
                 WHERE pool_key_hash = $1
