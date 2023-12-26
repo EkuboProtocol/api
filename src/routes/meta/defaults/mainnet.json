@@ -77,7 +77,8 @@
     "decimals": 18,
     "l2_token_address": "0x01fa2fb85f624600112040e1f3a848f53a37ed5a7385810063d5fe6887280333",
     "sort_order": 3,
-    "total_supply": null
+    "total_supply": null,
+    "hidden": true
   },
   {
     "name": "Frax",
