@@ -3,12 +3,10 @@ main = "src/index.ts"
 compatibility_date = "2023-03-14"
 node_compat = true
 
-
 kv_namespaces = [
     { binding = "TOKEN_LOGOS_KV", id = "<ignored>", preview_id = "<ignored>" },
-    { binding = "QUOTE_CACHE_KV", id = "<ignored>", preview_id = "<ignored>" }
-    ]
-
+    #    { binding = "QUOTE_CACHE_KV", id = "<ignored>", preview_id = "<ignored>" }
+]
 
 [limits]
 cpu_ms = 200
@@ -25,7 +23,7 @@ hyperdrive = [
 ]
 kv_namespaces = [
     { binding = "TOKEN_LOGOS_KV", id = "8edf0811f4ac443b8ce778bf509899b3" },
-    { binding = "QUOTE_CACHE_KV", id = "1be9680928324c43b69fb71b10f8586f" },
+    #    { binding = "QUOTE_CACHE_KV", id = "1be9680928324c43b69fb71b10f8586f" },
 ]
 vars = { STARKNET_CHAIN_ID = "0x534e5f474f45524c49", RPC_URL = "https://starknet-goerli.infura.io/v3/20b154288df84d3db74dc5cd439f9f04" }
 
@@ -35,6 +33,6 @@ hyperdrive = [
 ]
 kv_namespaces = [
     { binding = "TOKEN_LOGOS_KV", id = "5612d9a16e6d43fea983af957f2ee69c" },
-    { binding = "QUOTE_CACHE_KV", id = "2853688c99154681be5bffc6b96c6dca" },
+    #    { binding = "QUOTE_CACHE_KV", id = "2853688c99154681be5bffc6b96c6dca" },
 ]
 vars = { STARKNET_CHAIN_ID = "0x534e5f4d41494e", RPC_URL = "https://starknet-mainnet.infura.io/v3/684f6e596f134e2d8f86e181e88dcb94" }
