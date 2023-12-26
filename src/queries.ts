@@ -83,25 +83,27 @@ export class Queries {
     tokenB: bigint;
     extension?: bigint;
   }) {
+    const [token0, token1] =
+      tokenA < tokenB ? [tokenA, tokenB] : [tokenB, tokenA];
     return this.client.query<PoolState>({
       text: `
-                SELECT pool_key_hash,
-                       token0,
-                       token1,
-                       fee,
-                       tick_spacing,
-                       extension,
-                       sqrt_ratio,
-                       tick,
-                       liquidity,
-                       last_event_id
-                FROM pool_states_materialized
-                         JOIN pool_keys ON pool_key_hash = key_hash
-                WHERE (token0 IN ($1, $2)
-                    OR token1 IN ($1, $2))
-                  AND extension = $3
-            `,
-      values: [tokenA, tokenB, extension],
+        SELECT pool_key_hash,
+               token0,
+               token1,
+               fee,
+               tick_spacing,
+               extension,
+               sqrt_ratio,
+               tick,
+               liquidity,
+               last_event_id,
+               last_liquidity_update_event_id
+        FROM pool_states_materialized
+               JOIN pool_keys ON pool_key_hash = key_hash
+        WHERE (token0 IN ($1, $2) OR token1 IN ($1, $2))
+          AND extension = $3
+      `,
+      values: [token0, token1, extension],
     });
   }
 

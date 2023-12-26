@@ -239,6 +239,8 @@ export async function getAllRelevantPoolsAndUpdateCache(
 
     await updatePoolCache(relevantPools, queries, kv);
 
-    return relevantPools.map((p) => QUOTE_NODE_CACHE[p.pool_key_hash].node);
+    return relevantPools
+      .map((p) => QUOTE_NODE_CACHE[p.pool_key_hash].node)
+      .filter((n) => n.hasLiquidity());
   });
 }

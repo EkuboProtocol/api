@@ -24,4 +24,6 @@ export interface QuoteNode<TResources> {
     isToken1: boolean;
     sqrtRatioLimit?: bigint;
   }): Quote<TResources>;
+
+  hasLiquidity(): boolean;
 }

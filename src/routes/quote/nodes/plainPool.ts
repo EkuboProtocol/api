@@ -191,4 +191,8 @@ export class PlainPool implements QuoteNode<BaseResources> {
       },
     };
   }
+
+  public hasLiquidity(): boolean {
+    return this.liquidity > 0n || this.sortedTicks.length > 0;
+  }
 }
