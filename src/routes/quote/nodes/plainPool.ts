@@ -6,7 +6,14 @@ import {
   MIN_TICK,
   toSqrtRatio,
 } from "../math/tick";
-import { BaseResources, NodeKey, QuoteNode, TokenAmount } from "./quoteNode";
+import {
+  BaseResources,
+  NodeKey,
+  Quote,
+  QuoteNode,
+  QuoteParams,
+  TokenAmount,
+} from "./quoteNode";
 
 export interface Tick {
   readonly liquidityDelta: bigint;
@@ -98,14 +105,8 @@ export class PlainPool implements QuoteNode<BaseResources> {
   public quote({
     amount: { amount, token },
     sqrtRatioLimit,
-  }: {
-    amount: TokenAmount;
-    sqrtRatioLimit?: bigint;
-  }): {
-    consumedAmount: bigint;
-    calculatedAmount: bigint;
-    executionResources: BaseResources;
-  } {
+    overrideSwapState,
+  }: QuoteParams): Quote<BaseResources> {
     const isToken1 = token === this.key.token1;
     if (!isToken1 && this.key.token0 !== token) {
       throw new Error("Invalid token");
@@ -116,6 +117,11 @@ export class PlainPool implements QuoteNode<BaseResources> {
         calculatedAmount: 0n,
         executionResources: {
           initializedTicksCrossed: 0,
+        },
+        stateAfter: {
+          sqrtRatio: this.sqrtRatio,
+          liquidity: this.liquidity,
+          activeTickIndex: this.activeTickIndex,
         },
       };
     }
@@ -140,11 +146,12 @@ export class PlainPool implements QuoteNode<BaseResources> {
       sqrtRatioLimit = isIncreasing ? MAX_SQRT_RATIO : MIN_SQRT_RATIO;
     }
 
-    let { sqrtRatio, liquidity } = this;
+    let sqrtRatio = overrideSwapState?.sqrtRatio ?? this.sqrtRatio;
+    let liquidity = overrideSwapState?.liquidity ?? this.liquidity;
+    let tickIndex = overrideSwapState?.activeTickIndex ?? this.activeTickIndex;
 
     // the index of the sorted ticks array of the tick that is <= current tick
-    let tickIndex = this.activeTickIndex;
-    let calculatedAmount: bigint = 0n;
+    let calculatedAmount = 0n;
     let initializedTicksCrossed = 0;
     let amountRemaining = amount;
 
@@ -196,6 +203,11 @@ export class PlainPool implements QuoteNode<BaseResources> {
       calculatedAmount,
       executionResources: {
         initializedTicksCrossed,
+      },
+      stateAfter: {
+        sqrtRatio,
+        liquidity,
+        activeTickIndex: tickIndex,
       },
     };
   }

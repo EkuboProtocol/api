@@ -23,5 +23,6 @@ describe(getSetBits, () => {
     expect(getSetBits(2n ** 64n + 2n ** 31n + 2n ** 14n, 10)).toEqual([
       64, 31, 14,
     ]);
+    expect(getSetBits(20_000_000_000n, 3)).toEqual([34, 31, 29]);
   });
 });

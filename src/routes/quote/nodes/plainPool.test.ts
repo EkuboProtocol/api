@@ -1,5 +1,7 @@
 import { PlainPool } from "./plainPool";
 import { toSqrtRatio } from "../math/tick";
+import { CachingSplittingQuoteNode } from "./cachingSplittingQuoteNode";
+import { BaseResources } from "./quoteNode";
 
 describe("PoolNode", () => {
   describe("findNearestInitializedTickIndex", () => {
@@ -559,6 +561,44 @@ describe("PoolNode", () => {
   "executionResources": {
     "initializedTicksCrossed": 6,
   },
+  "stateAfter": {
+    "activeTickIndex": 216,
+    "liquidity": 1838637850921516n,
+    "sqrtRatio": 15872195688912137691253264112597002n,
+  },
+}
+`);
+
+      const cachingNode = new CachingSplittingQuoteNode(node, {
+        resourcesReducer(
+          memo: BaseResources,
+          value: BaseResources
+        ): BaseResources {
+          return {
+            initializedTicksCrossed:
+              memo.initializedTicksCrossed + value.initializedTicksCrossed,
+          };
+        },
+      });
+      expect(
+  cachingNode.quote({
+    amount: {
+      amount: 20_000_000_000n,
+      token: 1n
+    }
+  })
+).toMatchInlineSnapshot(`
+{
+  "calculatedAmount": 3452798867532961496n,
+  "consumedAmount": 20000000000n,
+  "executionResources": {
+    "initializedTicksCrossed": 117,
+  },
+  "stateAfter": {
+    "activeTickIndex": 327,
+    "liquidity": 10987751870970n,
+    "sqrtRatio": 376461622281971117985670289751346680n,
+  },
 }
 `);
 
@@ -575,6 +615,11 @@ describe("PoolNode", () => {
   "consumedAmount": 20000000000n,
   "executionResources": {
     "initializedTicksCrossed": 117,
+  },
+  "stateAfter": {
+    "activeTickIndex": 327,
+    "liquidity": 10987751870970n,
+    "sqrtRatio": 376461622467786581012265718470693082n,
   },
 }
 `);
@@ -593,6 +638,11 @@ describe("PoolNode", () => {
   "executionResources": {
     "initializedTicksCrossed": 5,
   },
+  "stateAfter": {
+    "activeTickIndex": 205,
+    "liquidity": 3707980262711434n,
+    "sqrtRatio": 15351710788920282815253545876633442n,
+  },
 }
 `);
 
@@ -609,6 +659,11 @@ describe("PoolNode", () => {
   "consumedAmount": 10000000000000000000n,
   "executionResources": {
     "initializedTicksCrossed": 21,
+  },
+  "stateAfter": {
+    "activeTickIndex": 189,
+    "liquidity": 20066300368579088n,
+    "sqrtRatio": 14632357786369744003669228231884916n,
   },
 }
 `);
@@ -627,6 +682,11 @@ describe("PoolNode", () => {
   "executionResources": {
     "initializedTicksCrossed": 5,
   },
+  "stateAfter": {
+    "activeTickIndex": 205,
+    "liquidity": 3707980262711434n,
+    "sqrtRatio": 15356851300529036295687296777661975n,
+  },
 }
 `);
       expect(
@@ -642,6 +702,11 @@ describe("PoolNode", () => {
   "consumedAmount": -20000000000n,
   "executionResources": {
     "initializedTicksCrossed": 21,
+  },
+  "stateAfter": {
+    "activeTickIndex": 189,
+    "liquidity": 20066300368579088n,
+    "sqrtRatio": 14619328889221429322165582949273604n,
   },
 }
 `);
@@ -659,6 +724,11 @@ describe("PoolNode", () => {
   "executionResources": {
     "initializedTicksCrossed": 6,
   },
+  "stateAfter": {
+    "activeTickIndex": 216,
+    "liquidity": 1838637850921516n,
+    "sqrtRatio": 15897927924484882480384197655799943n,
+  },
 }
 `);
       expect(
@@ -674,6 +744,11 @@ describe("PoolNode", () => {
   "consumedAmount": -3462603080395210725n,
   "executionResources": {
     "initializedTicksCrossed": 121,
+  },
+  "stateAfter": {
+    "activeTickIndex": 331,
+    "liquidity": 0n,
+    "sqrtRatio": 6277100250585753475930931601400621808602321654880405518632n,
   },
 }
 `);
@@ -1592,6 +1667,11 @@ describe("PoolNode", () => {
   "executionResources": {
     "initializedTicksCrossed": 0,
   },
+  "stateAfter": {
+    "activeTickIndex": 257,
+    "liquidity": 3214722905666182801858n,
+    "sqrtRatio": 7447200854403535845014925589223357062n,
+  },
 }
 `);
     });
@@ -1629,6 +1709,11 @@ describe("PoolNode", () => {
   "consumedAmount": -1751932n,
   "executionResources": {
     "initializedTicksCrossed": 3,
+  },
+  "stateAfter": {
+    "activeTickIndex": -1,
+    "liquidity": 0n,
+    "sqrtRatio": 18446748437148339061n,
   },
 }
 `);

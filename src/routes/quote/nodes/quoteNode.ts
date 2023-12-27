@@ -1,7 +1,14 @@
+export interface SwapState {
+  sqrtRatio: bigint;
+  liquidity: bigint;
+  activeTickIndex: number;
+}
+
 export interface Quote<TResources> {
   consumedAmount: bigint;
   calculatedAmount: bigint;
   executionResources: TResources;
+  stateAfter: SwapState;
 }
 
 export interface BaseResources {
@@ -21,13 +28,16 @@ export interface TokenAmount {
   amount: bigint;
 }
 
+export interface QuoteParams {
+  amount: TokenAmount;
+  sqrtRatioLimit?: bigint;
+  overrideSwapState?: SwapState;
+}
+
 export interface QuoteNode<TResources> {
   readonly key: NodeKey;
 
-  quote(params: {
-    amount: TokenAmount;
-    sqrtRatioLimit?: bigint;
-  }): Quote<TResources>;
+  quote(params: QuoteParams): Quote<TResources>;
 
   hasLiquidity(): boolean;
 
