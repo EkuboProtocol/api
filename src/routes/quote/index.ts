@@ -9,11 +9,10 @@ import {
   getCachedNode,
   QuoteResult,
   quoteRoute,
-  TokenAmount,
   updatePoolCache,
 } from "./quoting";
 import { findAllRoutes } from "./findAllRoutes";
-import { QuoteNode } from "./nodes/quoteNode";
+import { QuoteNode, TokenAmount } from "./nodes/quoteNode";
 import { num } from "starknet";
 import { createQueries } from "../../queries";
 import { OpenAPIRouteSchema, Path } from "@cloudflare/itty-router-openapi";
@@ -95,14 +94,10 @@ export class GetQuote extends EkuboAPIRoute {
       return error(400, "Amount is too large");
     }
 
-    const relevantPools = await getAllRelevantPoolsAndUpdateCache(
-      queries,
-      {
-        tokenA: BigInt(token.l2_token_address),
-        tokenB: BigInt(otherToken.l2_token_address),
-      },
-      env.QUOTE_CACHE_KV
-    );
+    const relevantPools = await getAllRelevantPoolsAndUpdateCache(queries, {
+      tokenA: BigInt(token.l2_token_address),
+      tokenB: BigInt(otherToken.l2_token_address),
+    });
 
     if (!relevantPools.length) {
       return error(404, "No pools connect the two tokens");
@@ -224,16 +219,18 @@ export class GetQuoteToPrice extends EkuboAPIRoute {
     const [node, sqrtRatio] = await queries.withinTransaction(async () => {
       const poolState = await queries.getPoolState({ keyHash: poolKeyHash });
 
-      await updatePoolCache([poolState], queries, env.QUOTE_CACHE_KV);
+      await updatePoolCache([poolState], queries);
 
       return [getCachedNode(poolKeyHash), BigInt(poolState.sqrt_ratio)];
     });
 
     const isToken1 = sqrtRatio >= newSqrtRatio;
     const { consumedAmount, calculatedAmount } = node.quote({
-      specifiedAmount: -0xffffffffffffffffffffffffffffffffn,
+      amount: {
+        amount: -0xffffffffffffffffffffffffffffffffn,
+        token: sqrtRatio >= newSqrtRatio ? node.key.token1 : node.key.token0,
+      },
       sqrtRatioLimit: newSqrtRatio,
-      isToken1: sqrtRatio >= newSqrtRatio,
     });
 
     return json(

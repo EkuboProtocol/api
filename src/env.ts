@@ -11,6 +11,4 @@ export interface Env {
   readonly HYPERDRIVE?: Hyperdrive;
 
   readonly TOKEN_LOGOS_KV?: KVNamespace;
-
-  readonly QUOTE_CACHE_KV?: KVNamespace;
 }

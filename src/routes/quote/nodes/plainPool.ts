@@ -1,6 +1,12 @@
 import { computeStep, isPriceIncreasing } from "../math/swap";
-import { MAX_SQRT_RATIO, MIN_SQRT_RATIO, toSqrtRatio } from "../math/tick";
-import { BaseResources, NodeKey, QuoteNode } from "./quoteNode";
+import {
+  MAX_SQRT_RATIO,
+  MAX_TICK,
+  MIN_SQRT_RATIO,
+  MIN_TICK,
+  toSqrtRatio,
+} from "../math/tick";
+import { BaseResources, NodeKey, QuoteNode, TokenAmount } from "./quoteNode";
 
 export interface Tick {
   readonly liquidityDelta: bigint;
@@ -90,19 +96,21 @@ export class PlainPool implements QuoteNode<BaseResources> {
   }
 
   public quote({
-    specifiedAmount,
-    isToken1,
+    amount: { amount, token },
     sqrtRatioLimit,
   }: {
-    specifiedAmount: bigint;
-    isToken1: boolean;
+    amount: TokenAmount;
     sqrtRatioLimit?: bigint;
   }): {
     consumedAmount: bigint;
     calculatedAmount: bigint;
     executionResources: BaseResources;
   } {
-    if (specifiedAmount === 0n) {
+    const isToken1 = token === this.key.token1;
+    if (!isToken1 && this.key.token0 !== token) {
+      throw new Error("Invalid token");
+    }
+    if (amount === 0n) {
       return {
         consumedAmount: 0n,
         calculatedAmount: 0n,
@@ -112,7 +120,7 @@ export class PlainPool implements QuoteNode<BaseResources> {
       };
     }
 
-    const isIncreasing = isPriceIncreasing(specifiedAmount, isToken1);
+    const isIncreasing = isPriceIncreasing(amount, isToken1);
 
     if (sqrtRatioLimit) {
       // validate sqrtRatioLimit
@@ -138,7 +146,7 @@ export class PlainPool implements QuoteNode<BaseResources> {
     let tickIndex = this.activeTickIndex;
     let calculatedAmount: bigint = 0n;
     let initializedTicksCrossed = 0;
-    let amountRemaining = specifiedAmount;
+    let amountRemaining = amount;
 
     let totalFee: bigint = 0n;
 
@@ -184,7 +192,7 @@ export class PlainPool implements QuoteNode<BaseResources> {
     }
 
     return {
-      consumedAmount: specifiedAmount - amountRemaining,
+      consumedAmount: amount - amountRemaining,
       calculatedAmount,
       executionResources: {
         initializedTicksCrossed,
@@ -194,5 +202,19 @@ export class PlainPool implements QuoteNode<BaseResources> {
 
   public hasLiquidity(): boolean {
     return this.liquidity > 0n || this.sortedTicks.length > 0;
+  }
+
+  public suggestedSqrtRatioLimit({
+    amount,
+    isToken1,
+  }: {
+    amount: TokenAmount;
+    isToken1: boolean;
+  }): bigint {
+    return toSqrtRatio(
+      isPriceIncreasing(amount.amount, isToken1)
+        ? Math.min(MAX_TICK, this.tick + 100 * this.key.tickSpacing)
+        : Math.max(MIN_TICK, this.tick - 100 * this.key.tickSpacing)
+    );
   }
 }

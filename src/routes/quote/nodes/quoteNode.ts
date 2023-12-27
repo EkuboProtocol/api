@@ -16,14 +16,23 @@ export interface NodeKey {
   readonly extension: bigint;
 }
 
+export interface TokenAmount {
+  token: bigint;
+  amount: bigint;
+}
+
 export interface QuoteNode<TResources> {
   readonly key: NodeKey;
 
   quote(params: {
-    specifiedAmount: bigint;
-    isToken1: boolean;
+    amount: TokenAmount;
     sqrtRatioLimit?: bigint;
   }): Quote<TResources>;
 
   hasLiquidity(): boolean;
+
+  suggestedSqrtRatioLimit(params: {
+    amount: TokenAmount;
+    isToken1: boolean;
+  }): bigint;
 }

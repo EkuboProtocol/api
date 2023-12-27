@@ -7,8 +7,8 @@ import {
   toSqrtRatio,
 } from "./math/tick";
 import { isPriceIncreasing } from "./math/swap";
-import { BaseResources, QuoteNode } from "./nodes/quoteNode";
-import { PlainPool, Tick } from "./nodes/plainPool";
+import { BaseResources, QuoteNode, TokenAmount } from "./nodes/quoteNode";
+import { PlainPool } from "./nodes/plainPool";
 import { KVNamespace } from "@cloudflare/workers-types";
 
 const QUOTE_NODE_CACHE: {
@@ -23,10 +23,7 @@ export function getCachedNode(key_hash: bigint) {
 }
 
 export interface QuoteResult<TTotal> {
-  tokenAmount: {
-    token: bigint;
-    amount: bigint;
-  };
+  tokenAmount: TokenAmount;
   limits: bigint[];
   resources: TTotal;
 }
@@ -36,37 +33,6 @@ export interface ResourcesAccumulator<TResources, TTotal> {
 
   accumulate(memo: TTotal, value: TResources): TTotal;
 }
-
-export interface TokenAmount {
-  token: bigint;
-  amount: bigint;
-}
-
-export interface SqrtRatioLimitComputer<T = any> {
-  (params: {
-    node: QuoteNode<T>;
-    tokenAmount: TokenAmount;
-    isToken1: boolean;
-  }): bigint;
-}
-
-// todo: should computing this be a method on the quote node?
-export const defaultSqrtRatioLimitComputer: SqrtRatioLimitComputer = ({
-  node,
-  isToken1,
-  tokenAmount,
-}) => {
-  const increasing = isPriceIncreasing(tokenAmount.amount, isToken1);
-
-  if (node instanceof PlainPool)
-    return toSqrtRatio(
-      increasing
-        ? Math.min(MAX_TICK, node.tick + 100 * node.key.tickSpacing)
-        : Math.max(MIN_TICK, node.tick - 100 * node.key.tickSpacing)
-    );
-
-  return increasing ? MAX_SQRT_RATIO : MIN_SQRT_RATIO;
-};
 
 export const defaultAccumulator: ResourcesAccumulator<any, null> = {
   initial(): null {
@@ -81,12 +47,10 @@ export function quoteRoute<TResources, TTotal>({
   route,
   tokenAmount,
   accumulator,
-  computeSqrtRatioLimit = defaultSqrtRatioLimitComputer,
 }: {
   tokenAmount: TokenAmount;
   route: QuoteNode<TResources>[];
   accumulator: ResourcesAccumulator<TResources, TTotal>;
-  computeSqrtRatioLimit?: SqrtRatioLimitComputer;
 }): Readonly<QuoteResult<TTotal>> | null {
   const isExactOutput = tokenAmount.amount < 0n;
   return route.reduce<QuoteResult<TTotal> | null>(
@@ -97,17 +61,15 @@ export function quoteRoute<TResources, TTotal>({
 
       const isToken1 = node.key.token1 === state.tokenAmount.token;
 
-      const sqrtRatioLimit = computeSqrtRatioLimit({
-        node,
-        tokenAmount: state.tokenAmount,
+      const sqrtRatioLimit = node.suggestedSqrtRatioLimit({
+        amount: state.tokenAmount,
         isToken1,
       });
 
       state.limits.push(sqrtRatioLimit);
 
       const quote = node.quote({
-        specifiedAmount: state.tokenAmount.amount,
-        isToken1,
+        amount: state.tokenAmount,
         sqrtRatioLimit,
       });
 
@@ -140,75 +102,22 @@ export function quoteRoute<TResources, TTotal>({
   );
 }
 
-interface CachedTick {
-  readonly liquidityDelta: string;
-  readonly tick: number;
-}
-
-function cachedToTick(cachedTick: CachedTick): Tick {
-  return {
-    tick: cachedTick.tick,
-    liquidityDelta: BigInt(cachedTick.liquidityDelta),
-  };
-}
-function tickToCached(tick: Tick): CachedTick {
-  return {
-    tick: tick.tick,
-    liquidityDelta: tick.liquidityDelta.toString(),
-  };
-}
-
-const QUOTE_KV_CACHE_GET_OPTIONS = {
-  cacheTtl: 3600,
-};
-const QUOTE_KV_CACHE_PUT_OPTIONS = { expirationTtl: 3600 };
-
-function poolStateToCachedTicksKey(p: PoolState) {
-  return [p.pool_key_hash, p.last_liquidity_update_event_id].join("-");
-}
-
 export async function updatePoolCache(
   pools: PoolState[],
-  queries: Queries,
-  kv: KVNamespace | undefined
+  queries: Queries
 ): Promise<void> {
   const poolsNeedUpdate = pools.filter(({ pool_key_hash, last_event_id }) => {
     const cached = QUOTE_NODE_CACHE[pool_key_hash];
     return !cached || cached.lastEventId !== BigInt(last_event_id);
   });
 
-  const kvResults = kv
-    ? await Promise.all(
-        poolsNeedUpdate.map((p) =>
-          kv
-            .get(poolStateToCachedTicksKey(p), QUOTE_KV_CACHE_GET_OPTIONS)
-            .then((result) => {
-              if (!result) return null;
-              return JSON.parse(result) as CachedTick[];
-            })
-        )
-      )
-    : Array(poolsNeedUpdate.length).fill(null);
-
   // only get tick data for pools not found in the kv
   const tickData = await queries.getTickData({
-    poolKeyHashes: poolsNeedUpdate
-      .filter((p, ix) => kvResults[ix] === null)
-      .map((p) => BigInt(p.pool_key_hash)),
+    poolKeyHashes: poolsNeedUpdate.map((p) => BigInt(p.pool_key_hash)),
   });
 
   await Promise.all(
     poolsNeedUpdate.map(async (pool, ix) => {
-      const kvTicks = kvResults[ix]?.map(cachedToTick);
-      const queriedTicks = tickData[pool.pool_key_hash];
-      if (kv && !kvTicks) {
-        await kv.put(
-          poolStateToCachedTicksKey(pool),
-          JSON.stringify(queriedTicks?.map(tickToCached) ?? []),
-          QUOTE_KV_CACHE_PUT_OPTIONS
-        );
-      }
-
       QUOTE_NODE_CACHE[pool.pool_key_hash] = {
         lastEventId: BigInt(pool.last_event_id),
         node: new PlainPool({
@@ -219,7 +128,7 @@ export async function updatePoolCache(
           fee: BigInt(pool.fee),
           liquidity: BigInt(pool.liquidity),
           tick: pool.tick,
-          sortedTicks: kvTicks ?? queriedTicks ?? [],
+          sortedTicks: tickData[pool.pool_key_hash] ?? [],
         }),
       };
     })
@@ -228,8 +137,7 @@ export async function updatePoolCache(
 
 export async function getAllRelevantPoolsAndUpdateCache(
   queries: Queries,
-  { tokenA, tokenB }: { tokenA: bigint; tokenB: bigint },
-  kv: KVNamespace | undefined
+  { tokenA, tokenB }: { tokenA: bigint; tokenB: bigint }
 ): Promise<QuoteNode<BaseResources>[]> {
   return queries.withinTransaction(async () => {
     const { rows: relevantPools } = await queries.getAllRoutablePoolStates({
@@ -237,7 +145,7 @@ export async function getAllRelevantPoolsAndUpdateCache(
       tokenB,
     });
 
-    await updatePoolCache(relevantPools, queries, kv);
+    await updatePoolCache(relevantPools, queries);
 
     return relevantPools
       .map((p) => QUOTE_NODE_CACHE[p.pool_key_hash].node)

@@ -56,7 +56,9 @@ export class Queries {
   }
 
   public async getAllPoolsWithStates() {
-    return this.client.query<PoolState>(`
+    return this.client.query<
+      Omit<PoolState, "last_liquidity_update_event_id">
+    >(`
             SELECT pool_key_hash,
                    token0,
                    token1,
@@ -66,8 +68,7 @@ export class Queries {
                    sqrt_ratio,
                    tick,
                    liquidity,
-                   last_event_id,
-                   last_liquidity_update_event_id
+                   last_event_id
             FROM pool_states_materialized
                      JOIN pool_keys ON pool_key_hash = key_hash
         `);
@@ -83,27 +84,41 @@ export class Queries {
     tokenB: bigint;
     extension?: bigint;
   }) {
-    const [token0, token1] =
-      tokenA < tokenB ? [tokenA, tokenB] : [tokenB, tokenA];
     return this.client.query<PoolState>({
       text: `
-        SELECT pool_key_hash,
-               token0,
-               token1,
-               fee,
-               tick_spacing,
-               extension,
-               sqrt_ratio,
-               tick,
-               liquidity,
-               last_event_id,
-               last_liquidity_update_event_id
-        FROM pool_states_materialized
-               JOIN pool_keys ON pool_key_hash = key_hash
-        WHERE (token0 IN ($1, $2) OR token1 IN ($1, $2))
-          AND extension = $3
+          WITH paired_with_a AS (SELECT (CASE WHEN token0 = $1 THEN token1 ELSE token0 END) AS token
+                                 FROM pool_keys
+                                 WHERE token0 = $1
+                                    OR token1 = $1),
+               paired_with_b AS (SELECT (CASE WHEN token0 = $2 THEN token1 ELSE token0 END) AS token
+                                 FROM pool_keys
+                                 WHERE token0 = $2
+                                    OR token1 = $2),
+               paired_with_both AS (SELECT token
+                                    FROM paired_with_a
+                                    INTERSECT
+                                    SELECT token
+                                    FROM paired_with_b)
+          SELECT pool_key_hash,
+                 token0,
+                 token1,
+                 fee,
+                 tick_spacing,
+                 extension,
+                 sqrt_ratio,
+                 tick,
+                 liquidity,
+                 last_event_id,
+                 last_liquidity_update_event_id
+          FROM pool_states_materialized
+                   JOIN pool_keys ON pool_key_hash = key_hash
+          WHERE (
+              (token0 IN ($1, $2) OR token0 IN (SELECT token FROM paired_with_both)) AND
+              (token1 IN ($1, $2) OR token1 IN (SELECT token FROM paired_with_both))
+              )
+            AND extension = $3
       `,
-      values: [token0, token1, extension],
+      values: [tokenA, tokenB, extension],
     });
   }
 
