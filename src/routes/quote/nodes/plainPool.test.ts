@@ -1,12 +1,12 @@
 import { PlainPool } from "./plainPool";
-import { MAX_SQRT_RATIO, MIN_SQRT_RATIO, toSqrtRatio } from "../math/tick";
+import { toSqrtRatio } from "../math/tick";
 
 describe("PoolNode", () => {
   describe("findNearestInitializedTickIndex", () => {
     it("no ticks", () => {
       const pool = new PlainPool({
         token0: 0n,
-        token1: 0n,
+        token1: 1n,
         tickSpacing: 0,
         fee: 0n,
         tick: 0,
@@ -20,7 +20,7 @@ describe("PoolNode", () => {
     it("one tick less than", () => {
       const pool = new PlainPool({
         token0: 0n,
-        token1: 0n,
+        token1: 1n,
         tickSpacing: 0,
         fee: 0n,
         tick: 0,
@@ -34,7 +34,7 @@ describe("PoolNode", () => {
     it("one tick equal to", () => {
       const pool = new PlainPool({
         token0: 0n,
-        token1: 0n,
+        token1: 1n,
         tickSpacing: 0,
         fee: 0n,
         tick: 0,
@@ -48,7 +48,7 @@ describe("PoolNode", () => {
     it("one tick greater than", () => {
       const pool = new PlainPool({
         token0: 0n,
-        token1: 0n,
+        token1: 1n,
         tickSpacing: 0,
         fee: 0n,
         tick: 0,
@@ -62,7 +62,7 @@ describe("PoolNode", () => {
     it("many ticks", () => {
       const pool = new PlainPool({
         token0: 0n,
-        token1: 0n,
+        token1: 1n,
         tickSpacing: 0,
         fee: 0n,
         tick: 0,
@@ -102,7 +102,7 @@ describe("PoolNode", () => {
     it("works for 0 liquidity 1 token1 input", () => {
       const pool = new PlainPool({
         token0: 0n,
-        token1: 0n,
+        token1: 1n,
         tickSpacing: 0,
         fee: 0n,
         tick: 0,
@@ -112,8 +112,10 @@ describe("PoolNode", () => {
       });
 
       const { executionResources, calculatedAmount } = pool.quote({
-        specifiedAmount: 1n,
-        isToken1: true,
+        amount: {
+          amount: 1n,
+          token: 1n,
+        },
       });
 
       expect(calculatedAmount).toEqual(0n);
@@ -122,7 +124,7 @@ describe("PoolNode", () => {
     it("works for 0 liquidity 1 token0 input", () => {
       const pool = new PlainPool({
         token0: 0n,
-        token1: 0n,
+        token1: 1n,
         tickSpacing: 0,
         fee: 0n,
         tick: 0,
@@ -132,8 +134,10 @@ describe("PoolNode", () => {
       });
 
       const { executionResources, calculatedAmount } = pool.quote({
-        specifiedAmount: 1n,
-        isToken1: false,
+        amount: {
+          amount: 1n,
+          token: 0n,
+        },
       });
 
       expect(calculatedAmount).toEqual(0n);
@@ -143,7 +147,7 @@ describe("PoolNode", () => {
     it("works for 10000 liquidity 1000 token1 input", () => {
       const pool = new PlainPool({
         token0: 0n,
-        token1: 0n,
+        token1: 1n,
         tickSpacing: 0,
         fee: 0n,
         tick: 0,
@@ -156,8 +160,10 @@ describe("PoolNode", () => {
       });
 
       const { executionResources, calculatedAmount } = pool.quote({
-        specifiedAmount: 1000n,
-        isToken1: true,
+        amount: {
+          amount: 1000n,
+          token: 1n,
+        },
       });
 
       expect(calculatedAmount).toEqual(499n);
@@ -166,7 +172,7 @@ describe("PoolNode", () => {
     it("works for 10000 liquidity 1000 token1 input", () => {
       const pool = new PlainPool({
         token0: 0n,
-        token1: 0n,
+        token1: 1n,
         tickSpacing: 0,
         fee: 0n,
         tick: 1,
@@ -179,8 +185,10 @@ describe("PoolNode", () => {
       });
 
       const { executionResources, calculatedAmount } = pool.quote({
-        specifiedAmount: 1000n,
-        isToken1: false,
+        amount: {
+          amount: 1000n,
+          token: 0n,
+        },
       });
 
       expect(calculatedAmount).toEqual(499n);
@@ -190,7 +198,7 @@ describe("PoolNode", () => {
     it("eth usdc example pool", () => {
       const node = new PlainPool({
         token0: 0n,
-        token1: 0n,
+        token1: 1n,
         tickSpacing: 0,
         fee: 1020847100762815411640772995208708096n,
         sqrtRatio: 15563001745813054266804011142814305n,
@@ -537,8 +545,14 @@ describe("PoolNode", () => {
         liquidity: 2695287607686846n,
       });
 
-      expect(node.quote({ specifiedAmount: 2000_000_000n, isToken1: true })).
-toMatchInlineSnapshot(`
+      expect(
+        node.quote({
+          amount: {
+            amount: 2000_000_000n,
+            token: 1n,
+          },
+        })
+      ).toMatchInlineSnapshot(`
 {
   "calculatedAmount": 936197803980535666n,
   "consumedAmount": 2000000000n,
@@ -548,8 +562,14 @@ toMatchInlineSnapshot(`
 }
 `);
 
-      expect(node.quote({ specifiedAmount: 20_000_000_000n, isToken1: true })).
-toMatchInlineSnapshot(`
+      expect(
+        node.quote({
+          amount: {
+            amount: 20_000_000_000n,
+            token: 1n,
+          },
+        })
+      ).toMatchInlineSnapshot(`
 {
   "calculatedAmount": 3452798867537863676n,
   "consumedAmount": 20000000000n,
@@ -559,8 +579,14 @@ toMatchInlineSnapshot(`
 }
 `);
 
-      expect(node.quote({ specifiedAmount: 10n ** 18n, isToken1: false })).
-toMatchInlineSnapshot(`
+      expect(
+        node.quote({
+          amount: {
+            amount: 10n ** 18n,
+            token: 0n,
+          },
+        })
+      ).toMatchInlineSnapshot(`
 {
   "calculatedAmount": 2056014996n,
   "consumedAmount": 1000000000000000000n,
@@ -570,8 +596,14 @@ toMatchInlineSnapshot(`
 }
 `);
 
-      expect(node.quote({ specifiedAmount: 10n ** 19n, isToken1: false })).
-toMatchInlineSnapshot(`
+      expect(
+        node.quote({
+          amount: {
+            amount: 10n ** 19n,
+            token: 0n,
+          },
+        })
+      ).toMatchInlineSnapshot(`
 {
   "calculatedAmount": 19231691709n,
   "consumedAmount": 10000000000000000000n,
@@ -581,8 +613,14 @@ toMatchInlineSnapshot(`
 }
 `);
 
-      expect(node.quote({ specifiedAmount: -2000_000_000n, isToken1: true })).
-toMatchInlineSnapshot(`
+      expect(
+        node.quote({
+          amount: {
+            amount: -2_000_000_000n,
+            token: 1n,
+          },
+        })
+      ).toMatchInlineSnapshot(`
 {
   "calculatedAmount": 972405083420031733n,
   "consumedAmount": -2000000000n,
@@ -591,8 +629,14 @@ toMatchInlineSnapshot(`
   },
 }
 `);
-      expect(node.quote({ specifiedAmount: -20_000_000_000n, isToken1: true })).
-toMatchInlineSnapshot(`
+      expect(
+        node.quote({
+          amount: {
+            amount: -20_000_000_000n,
+            token: 1n,
+          },
+        })
+      ).toMatchInlineSnapshot(`
 {
   "calculatedAmount": 10417135837307225847n,
   "consumedAmount": -20000000000n,
@@ -601,8 +645,14 @@ toMatchInlineSnapshot(`
   },
 }
 `);
-      expect(node.quote({ specifiedAmount: -1n * 10n ** 18n, isToken1: false })).
-toMatchInlineSnapshot(`
+      expect(
+        node.quote({
+          amount: {
+            amount: -1n * 10n ** 18n,
+            token: 0n,
+          },
+        })
+      ).toMatchInlineSnapshot(`
 {
   "calculatedAmount": 2139456613n,
   "consumedAmount": -1000000000000000000n,
@@ -611,8 +661,14 @@ toMatchInlineSnapshot(`
   },
 }
 `);
-      expect(node.quote({ specifiedAmount: -1n * 10n ** 19n, isToken1: false })).
-toMatchInlineSnapshot(`
+      expect(
+        node.quote({
+          amount: {
+            amount: -1n * 10n ** 19n,
+            token: 0n,
+          },
+        })
+      ).toMatchInlineSnapshot(`
 {
   "calculatedAmount": 194883586930788271243317027501365n,
   "consumedAmount": -3462603080395210725n,
@@ -626,7 +682,7 @@ toMatchInlineSnapshot(`
     it("eth dai example pool", () => {
       const node = new PlainPool({
         token0: 0n,
-        token1: 0n,
+        token1: 1n,
         tickSpacing: 0,
         fee: 170141183460469235273462165868118016n,
         sqrtRatio: 7447172931220104502713977734064586728n,
@@ -1523,8 +1579,13 @@ toMatchInlineSnapshot(`
       });
 
       expect(
-  node.quote({ specifiedAmount: -550761295858476146n, isToken1: false })
-).toMatchInlineSnapshot(`
+        node.quote({
+          amount: {
+            amount: -550761295858476146n,
+            token: 0n,
+          },
+        })
+      ).toMatchInlineSnapshot(`
 {
   "calculatedAmount": 263928464145073n,
   "consumedAmount": -550761295858476146n,
@@ -1538,7 +1599,7 @@ toMatchInlineSnapshot(`
     it("dai usdc example pool", () => {
       const node = new PlainPool({
         token0: 0n,
-        token1: 0n,
+        token1: 1n,
         tickSpacing: 0,
         fee: 17014118346046923173168730371588410572n,
         sqrtRatio: 340492544394014493270092018910666n,
@@ -1555,8 +1616,14 @@ toMatchInlineSnapshot(`
         })),
       });
 
-      expect(node.quote({ specifiedAmount: -1000_000_000n, isToken1: true })).
-toMatchInlineSnapshot(`
+      expect(
+        node.quote({
+          amount: {
+            amount: -1_000_000_000n,
+            token: 1n,
+          },
+        })
+      ).toMatchInlineSnapshot(`
 {
   "calculatedAmount": 2361232818001044269n,
   "consumedAmount": -1751932n,

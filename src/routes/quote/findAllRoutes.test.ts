@@ -1,5 +1,7 @@
 import { findAllRoutes } from "./findAllRoutes";
-import { NodeKey, Quote, QuoteNode } from "./nodes/quoteNode";
+import { NodeKey, Quote, QuoteNode, TokenAmount } from "./nodes/quoteNode";
+import { MAX_SQRT_RATIO, MIN_SQRT_RATIO } from "./math/tick";
+import { isPriceIncreasing } from "./math/swap";
 
 class FakeQuoteNode implements QuoteNode<null> {
   constructor({ token0, token1 }: { token0: string; token1: string }) {
@@ -14,12 +16,18 @@ class FakeQuoteNode implements QuoteNode<null> {
 
   key: NodeKey;
 
-  quote(params: {
-    specifiedAmount: bigint;
+  quote(params: { amount: TokenAmount; sqrtRatioLimit?: bigint }): Quote<null> {
+    throw new Error("not implemented");
+  }
+
+  hasLiquidity(): boolean {
+    return false;
+  }
+  suggestedSqrtRatioLimit(params: {
+    amount: TokenAmount;
     isToken1: boolean;
-    sqrtRatioLimit?: bigint | undefined;
-  }): Quote<null> {
-    throw new Error("Method not implemented.");
+  }): bigint {
+    throw new Error("not implemented");
   }
 }
 
