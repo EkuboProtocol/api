@@ -191,21 +191,21 @@ export class Queries {
   ): Promise<PositionMetadata | null> {
     const { rows, rowCount } = await this.client.query<PositionMetadata>({
       text: `
-                SELECT event_keys.transaction_hash AS minted_tx_hash,
-                       position_minted.lower_bound,
-                       position_minted.upper_bound,
-                       pool_keys.token0,
-                       pool_keys.token1,
-                       pool_keys.fee,
-                       pool_keys.tick_spacing,
-                       pool_keys.extension,
-                       blocks.time            AS minted_timestamp
-                FROM position_minted
-                         JOIN pool_keys ON position_minted.pool_key_hash = pool_keys.key_hash
-                         JOIN event_keys ON position_minted.event_id = event_keys.id
-                         JOIN blocks ON event_keys.block_number = blocks.number
-                WHERE token_id = $1
-            `,
+        SELECT event_keys.transaction_hash AS minted_tx_hash,
+               position_minted.lower_bound,
+               position_minted.upper_bound,
+               pool_keys.token0,
+               pool_keys.token1,
+               pool_keys.fee,
+               pool_keys.tick_spacing,
+               pool_keys.extension,
+               blocks.time                 AS minted_timestamp
+        FROM position_minted
+               JOIN pool_keys ON position_minted.pool_key_hash = pool_keys.key_hash
+               JOIN event_keys ON position_minted.event_id = event_keys.id
+               JOIN blocks ON event_keys.block_number = blocks.number
+        WHERE token_id = $1
+      `,
       values: [id],
     });
 
@@ -341,7 +341,7 @@ export class Queries {
                                          relevant_pool_keys.fee,
                                          relevant_pool_keys.tick_spacing,
                                          relevant_pool_keys.extension,
-                                         blocks.time,
+                                         blocks.time as timestamp,
                                          transaction_hash,
                                          block_number,
                                          transaction_index,
@@ -358,7 +358,7 @@ export class Queries {
                                            relevant_pool_keys.fee,
                                            relevant_pool_keys.tick_spacing,
                                            relevant_pool_keys.extension,
-                                           blocks.time,
+                                           blocks.time as timestamp,
                                            transaction_hash,
                                            block_number,
                                            transaction_index,
