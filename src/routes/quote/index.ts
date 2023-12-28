@@ -12,15 +12,34 @@ import {
   updatePoolCache,
 } from "./quoting";
 import { findAllRoutes } from "./findAllRoutes";
-import { QuoteNode, TokenAmount } from "./nodes/quoteNode";
+import { BaseResources, QuoteNode, TokenAmount } from "./nodes/quoteNode";
 import { num } from "starknet";
 import { createQueries } from "../../queries";
 import { OpenAPIRouteSchema, Path } from "@cloudflare/itty-router-openapi";
 import { z } from "zod";
 import {
+  AddressType,
+  HexStringType,
   NumericType,
   TokenIdentifierType,
 } from "../../shared/validation/address";
+import { MAX_SQRT_RATIO, MIN_SQRT_RATIO } from "./math/tick";
+
+const PoolKeyType = z
+  .object({
+    token0: AddressType.openapi({
+      example:
+        "0x049d36570d4e46f48e99674bd3fcc84644ddd6b96f7c741b1562b82f9e004dc7",
+    }),
+    token1: AddressType.openapi({
+      example:
+        "0x053c91253bc9682c04929ca02ed00b3e423f6710d2ee7e0d5ebb06f3ecf368a8",
+    }),
+    fee: HexStringType.openapi({ example: "0x20c49ba5e353f80000000000000000" }),
+    tick_spacing: z.number().int().gt(0).openapi({ example: 1000 }),
+    extension: HexStringType.openapi({ example: "0x0" }),
+  })
+  .openapi({ description: "The composite key identifier for a pool in Ekubo" });
 
 export class GetQuote extends EkuboAPIRoute {
   static route = "/quote/:amount/:token/:otherToken";
@@ -45,23 +64,27 @@ export class GetQuote extends EkuboAPIRoute {
       "200": {
         description: "The amount to swap to a price for a pool",
         contentType: "application/json",
-        schema: {
-          amount: "44170270514359743548",
-          route: [
-            {
-              pool_key: {
-                token0:
-                  "0x49d36570d4e46f48e99674bd3fcc84644ddd6b96f7c741b1562b82f9e004dc7",
-                token1:
-                  "0x53c91253bc9682c04929ca02ed00b3e423f6710d2ee7e0d5ebb06f3ecf368a8",
-                fee: "0x20c49ba5e353f80000000000000000",
-                tick_spacing: 1000,
-                extension: "0x0",
-              },
-              sqrt_ratio_limit: "0x345c00340702d766615a4e0f7ec59",
-            },
-          ],
-        },
+        schema: z.object({
+          amount: z
+            .string()
+            .regex(/^-?\d+$/)
+            .openapi({
+              description: "The calculated amount for the quote",
+              example: "-123456",
+            }),
+          route: z
+            .array(
+              z.object({
+                pool_key: PoolKeyType,
+                sqrt_ratio_limit: HexStringType.openapi({
+                  example: num.toHex(MAX_SQRT_RATIO),
+                }),
+              })
+            )
+            .openapi({
+              description: "The list of pool keys through which to swap",
+            }),
+        }),
       },
     },
   };
@@ -117,7 +140,7 @@ export class GetQuote extends EkuboAPIRoute {
     };
 
     const bestWorkingRoute = allRoutes.reduce<{
-      route: QuoteNode<any>[];
+      route: QuoteNode<BaseResources>[];
       quote: Readonly<QuoteResult<null>>;
     } | null>((memo, route) => {
       try {

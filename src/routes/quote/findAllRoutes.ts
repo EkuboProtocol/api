@@ -1,12 +1,12 @@
 import { QuoteNode } from "./nodes/quoteNode";
 
-export function findAllRoutes(
+export function findAllRoutes<T>(
   fromToken: bigint,
   toToken: bigint,
-  nodes: QuoteNode<unknown>[],
+  nodes: QuoteNode<T>[],
   maxPools: number = 2,
-  currentRoute: QuoteNode<unknown>[] = []
-): QuoteNode<unknown>[][] {
+  currentRoute: QuoteNode<T>[] = []
+): QuoteNode<T>[][] {
   if (maxPools < 1) return [];
   return nodes.flatMap((pool) => {
     if (currentRoute.includes(pool)) return [];
