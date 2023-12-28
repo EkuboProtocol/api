@@ -1,7 +1,5 @@
 import { PlainPool } from "./plainPool";
 import { toSqrtRatio } from "../math/tick";
-import { CachingSplittingQuoteNode } from "./cachingSplittingQuoteNode";
-import { BaseResources } from "./quoteNode";
 
 describe("PoolNode", () => {
   describe("findNearestInitializedTickIndex", () => {
@@ -565,39 +563,6 @@ describe("PoolNode", () => {
     "activeTickIndex": 216,
     "liquidity": 1838637850921516n,
     "sqrtRatio": 15872195688912137691253264112597002n,
-  },
-}
-`);
-
-      const cachingNode = new CachingSplittingQuoteNode(node, {
-        resourcesReducer(
-          memo: BaseResources,
-          value: BaseResources
-        ): BaseResources {
-          return {
-            initializedTicksCrossed:
-              memo.initializedTicksCrossed + value.initializedTicksCrossed,
-          };
-        },
-      });
-      expect(
-  cachingNode.quote({
-    amount: {
-      amount: 20_000_000_000n,
-      token: 1n
-    }
-  })
-).toMatchInlineSnapshot(`
-{
-  "calculatedAmount": 3452798867532961496n,
-  "consumedAmount": 20000000000n,
-  "executionResources": {
-    "initializedTicksCrossed": 117,
-  },
-  "stateAfter": {
-    "activeTickIndex": 327,
-    "liquidity": 10987751870970n,
-    "sqrtRatio": 376461622281971117985670289751346680n,
   },
 }
 `);

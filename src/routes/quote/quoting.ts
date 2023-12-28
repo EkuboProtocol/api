@@ -103,7 +103,7 @@ export function quoteRoute<TResources, TTotal>({
   );
 }
 
-function plainPoolResourcesReducer(
+export function plainPoolResourcesReducer(
   memo: BaseResources,
   value: BaseResources
 ): BaseResources {

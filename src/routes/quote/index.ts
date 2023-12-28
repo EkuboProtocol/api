@@ -161,13 +161,13 @@ export class GetQuote extends EkuboAPIRoute {
     return json(
       {
         amount: bestWorkingRoute.quote.tokenAmount.amount.toString(),
-        route: bestWorkingRoute.route.map((node, ix) => ({
+        route: bestWorkingRoute.route.map(({ key }, ix) => ({
           pool_key: {
-            token0: num.toHex(node.key.token0),
-            token1: num.toHex(node.key.token1),
-            fee: num.toHex(node.key.fee),
-            tick_spacing: Number(node.key.tickSpacing),
-            extension: num.toHex(node.key.extension),
+            token0: num.toHex(key.token0),
+            token1: num.toHex(key.token1),
+            fee: num.toHex(key.fee),
+            tick_spacing: key.tickSpacing,
+            extension: num.toHex(key.extension),
           },
           sqrt_ratio_limit: num.toHex(limits[ix]),
         })),
