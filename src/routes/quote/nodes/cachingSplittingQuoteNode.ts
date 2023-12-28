@@ -5,7 +5,7 @@ import {
   QuoteParams,
   TokenAmount,
 } from "./quoteNode";
-import getSetBits from "../math/getSetBits";
+import getSetBits, { increaseLowestSetBit } from "../math/getSetBits";
 import { isPriceIncreasing } from "../math/swap";
 
 export interface CachingSplittingQuoteNodeOptions<T> {
@@ -53,16 +53,7 @@ export class CachingSplittingQuoteNode<T> implements QuoteNode<T> {
     );
 
     if (isOutput) {
-      // double the significance of the least significant bit so we always quote a larger amount
-      bits[bits.length - 1] += 1;
-      // combine duplicates of bits
-      while (
-        bits.length > 1 &&
-        bits[bits.length - 1] === bits[bits.length - 2]
-      ) {
-        bits.pop();
-        bits[bits.length - 1] += 1;
-      }
+      increaseLowestSetBit(bits);
     }
 
     const isIncreasing = isPriceIncreasing(

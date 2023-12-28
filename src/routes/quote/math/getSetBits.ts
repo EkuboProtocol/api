@@ -18,3 +18,15 @@ export default function getSetBits(
   }
   return res;
 }
+
+export function increaseLowestSetBit(bits: number[]): void {
+  if (bits.length) {
+    // double the significance of the least significant bit so we always quote a larger amount
+    bits[bits.length - 1] += 1;
+    // combine duplicates of bits
+    while (bits.length > 1 && bits[bits.length - 1] === bits[bits.length - 2]) {
+      bits.pop();
+      bits[bits.length - 1] += 1;
+    }
+  }
+}
