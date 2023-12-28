@@ -219,7 +219,7 @@ export class Queries {
   public async getPositionHistory(id: number) {
     const { rows } = await this.client.query<{
       transaction_hash: string;
-      timestamp: number;
+      timestamp: string;
       liquidity_delta: string;
       delta0: string;
       delta1: string;
