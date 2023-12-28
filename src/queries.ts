@@ -43,11 +43,12 @@ export class Queries {
       timestamp: string;
     }>({
       text: `
-          SELECT number, hash, timestamp
-          FROM blocks
-          WHERE  number = $1 OR $1 IS NULL
-          ORDER BY number DESC
-          LIMIT 1
+        SELECT number, hash, time as timestamp
+        FROM blocks
+        WHERE number = $1
+           OR $1 IS NULL
+        ORDER BY number DESC
+        LIMIT 1
       `,
       values: [blockTag === "latest" ? null : blockTag],
     });
@@ -227,7 +228,7 @@ export class Queries {
     }>({
       text: `
                 WITH all_events AS (SELECT transaction_hash,
-                                           timestamp,
+                                           time as timestamp,
                                            liquidity AS liquidity_delta,
                                            delta0,
                                            delta1,
@@ -239,7 +240,7 @@ export class Queries {
                                     WHERE token_id = $1
                                     UNION ALL
                                     SELECT transaction_hash,
-                                           timestamp,
+                                           time as timestamp,
                                            -liquidity AS liquidity_delta,
                                            delta0,
                                            delta1,
@@ -394,37 +395,37 @@ export class Queries {
   }) {
     return this.client.query<{ token: string; volume: string }>({
       text: `
-                WITH relevant_blocks AS (SELECT number
-                                         FROM blocks
-                                         WHERE timestamp >= $1),
-                     relevant_pool_keys AS (SELECT key_hash, token0, token1, fee
-                                            FROM pool_keys
-                                            WHERE COALESCE($2, token0) = token0
-                                              AND COALESCE($3, token1) = token1),
-                     token_fees_paid AS (SELECT relevant_pool_keys.token0  AS token,
-                                                -protocol_fees_paid.delta0 AS delta
-                                         FROM protocol_fees_paid
-                                                  JOIN event_keys ON protocol_fees_paid.event_id = event_keys.id
-                                                  JOIN relevant_blocks
-                                                       ON event_keys.block_number = relevant_blocks.number
-                                                  JOIN
-                                              relevant_pool_keys
-                                              ON relevant_pool_keys.key_hash = protocol_fees_paid.pool_key_hash
-                                         UNION ALL
-                                         SELECT relevant_pool_keys.token1  AS token,
-                                                -protocol_fees_paid.delta1 AS delta
-                                         FROM protocol_fees_paid
-                                                  JOIN event_keys ON protocol_fees_paid.event_id = event_keys.id
-                                                  JOIN relevant_blocks
-                                                       ON event_keys.block_number = relevant_blocks.number
-                                                  JOIN
-                                              relevant_pool_keys
-                                              ON relevant_pool_keys.key_hash = protocol_fees_paid.pool_key_hash)
-                SELECT token,
-                       SUM(delta) AS revenue
-                FROM token_fees_paid
-                GROUP BY token_fees_paid.token
-            `,
+        WITH relevant_blocks AS (SELECT number
+                                 FROM blocks
+                                 WHERE time >= $1),
+             relevant_pool_keys AS (SELECT key_hash, token0, token1, fee
+                                    FROM pool_keys
+                                    WHERE COALESCE($2, token0) = token0
+                                      AND COALESCE($3, token1) = token1),
+             token_fees_paid AS (SELECT relevant_pool_keys.token0  AS token,
+                                        -protocol_fees_paid.delta0 AS delta
+                                 FROM protocol_fees_paid
+                                        JOIN event_keys ON protocol_fees_paid.event_id = event_keys.id
+                                        JOIN relevant_blocks
+                                             ON event_keys.block_number = relevant_blocks.number
+                                        JOIN
+                                      relevant_pool_keys
+                                      ON relevant_pool_keys.key_hash = protocol_fees_paid.pool_key_hash
+                                 UNION ALL
+                                 SELECT relevant_pool_keys.token1  AS token,
+                                        -protocol_fees_paid.delta1 AS delta
+                                 FROM protocol_fees_paid
+                                        JOIN event_keys ON protocol_fees_paid.event_id = event_keys.id
+                                        JOIN relevant_blocks
+                                             ON event_keys.block_number = relevant_blocks.number
+                                        JOIN
+                                      relevant_pool_keys
+                                      ON relevant_pool_keys.key_hash = protocol_fees_paid.pool_key_hash)
+        SELECT token,
+               SUM(delta) AS revenue
+        FROM token_fees_paid
+        GROUP BY token_fees_paid.token
+      `,
       values: [since, pair?.token0 ?? null, pair?.token1 ?? null],
     });
   }
