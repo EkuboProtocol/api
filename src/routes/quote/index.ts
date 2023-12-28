@@ -116,41 +116,33 @@ export class GetQuote extends EkuboAPIRoute {
       token: BigInt(token.l2_token_address),
     };
 
-    const quotedRoutes = allRoutes.map((route) => {
-      try {
-        return {
-          quote: quoteRoute({
-            tokenAmount,
-            route,
-            accumulator: defaultAccumulator,
-          }),
-          route,
-        };
-      } catch (e) {
-        console.error("Failed to quote", route, e);
-        return {
-          quote: null,
-          route,
-        };
-      }
-    });
-
-    let bestWorkingRoute: {
+    const bestWorkingRoute = allRoutes.reduce<{
       route: QuoteNode<any>[];
       quote: Readonly<QuoteResult<null>>;
-    } | null = null;
-    for (const { route, quote } of quotedRoutes) {
-      if (
-        quote &&
-        (!bestWorkingRoute ||
-          quote.tokenAmount.amount > bestWorkingRoute.quote.tokenAmount.amount)
-      ) {
-        bestWorkingRoute = {
-          quote,
+    } | null>((memo, route) => {
+      try {
+        const quote = quoteRoute({
+          tokenAmount,
           route,
-        };
+          accumulator: defaultAccumulator,
+        });
+
+        if (
+          quote &&
+          (!memo || quote.tokenAmount.amount > memo.quote.tokenAmount.amount)
+        ) {
+          return {
+            quote,
+            route,
+          };
+        }
+
+        return memo;
+      } catch (e) {
+        console.error("Failed to quote", route, e);
+        return memo;
       }
-    }
+    }, null);
 
     if (!bestWorkingRoute) {
       return error(404, "No route found");

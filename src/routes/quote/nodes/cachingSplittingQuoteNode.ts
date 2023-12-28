@@ -6,6 +6,7 @@ import {
   TokenAmount,
 } from "./quoteNode";
 import getSetBits from "../math/getSetBits";
+import { isPriceIncreasing } from "../math/swap";
 
 export interface CachingSplittingQuoteNodeOptions<T> {
   readonly maxSplits?: number;
@@ -23,7 +24,7 @@ interface Cache<T> {
 export class CachingSplittingQuoteNode<T> implements QuoteNode<T> {
   private readonly node: QuoteNode<T>;
   private readonly options: CachingSplittingQuoteNodeOptions<T>;
-  private cache: Cache<T>;
+  private readonly cache: Cache<T>;
 
   constructor(
     node: QuoteNode<T>,
@@ -64,50 +65,79 @@ export class CachingSplittingQuoteNode<T> implements QuoteNode<T> {
       }
     }
 
-    return bits.reduce(
-      ({ quote, cache }, b) => {
-        const cacheKey = isOutput ? -b : b;
+    const isIncreasing = isPriceIncreasing(
+      params.amount.amount,
+      params.amount.token === this.key.token1
+    );
 
-        let partQuote: Quote<T>;
-        let nextCache: Cache<T>;
-        if (cache[cacheKey]) {
-          partQuote = cache[cacheKey].result;
-          nextCache = cache[cacheKey].cache;
-        } else {
-          partQuote = this.node.quote({
-            amount: {
-              token,
-              amount: isOutput ? -1n * (1n << BigInt(b)) : 1n << BigInt(b),
-            },
-            overrideSwapState: quote.stateAfter,
-            sqrtRatioLimit: params.sqrtRatioLimit,
-          });
-          nextCache = {};
-          cache[cacheKey] = {
-            result: partQuote,
-            cache: nextCache,
-          };
-        }
+    // start by quoting 0
+    let quote = this.node.quote({ ...params, amount: { amount: 0n, token } });
+    let cache = this.cache;
 
-        return {
-          quote: <Quote<T>>{
-            executionResources: this.options.resourcesReducer(
-              quote.executionResources,
-              partQuote.executionResources
-            ),
-            consumedAmount: quote.consumedAmount + partQuote.consumedAmount,
-            calculatedAmount:
-              quote.calculatedAmount + partQuote.calculatedAmount,
-            stateAfter: partQuote.stateAfter,
+    for (let i = 0; i < bits.length; i++) {
+      const b = bits[i];
+
+      // return early if we hit the limit
+      if (quote.stateAfter.sqrtRatio === params.sqrtRatioLimit) {
+        return quote;
+      }
+
+      const cacheKey = isOutput ? -b : b;
+
+      let partQuote: Quote<T>;
+      let nextCache: Cache<T>;
+      if (cache[cacheKey]) {
+        partQuote = cache[cacheKey].result;
+        nextCache = cache[cacheKey].cache;
+      } else {
+        const magnitude = 1n << BigInt(b);
+        partQuote = this.node.quote({
+          amount: {
+            token,
+            amount: isOutput ? -magnitude : magnitude,
           },
+          overrideSwapState: quote.stateAfter,
+        });
+
+        nextCache = {};
+        cache[cacheKey] = {
+          result: partQuote,
           cache: nextCache,
         };
-      },
-      {
-        quote: this.node.quote({ ...params, amount: { amount: 0n, token } }),
-        cache: this.cache,
       }
-    ).quote;
+
+      if (
+        params.sqrtRatioLimit &&
+        partQuote.stateAfter.sqrtRatio !== params.sqrtRatioLimit &&
+        partQuote.stateAfter.sqrtRatio > params.sqrtRatioLimit === isIncreasing
+      ) {
+        const magnitude = 1n << BigInt(b);
+        partQuote = this.node.quote({
+          amount: {
+            token,
+            amount: isOutput ? -magnitude : magnitude,
+          },
+          overrideSwapState: quote.stateAfter,
+          sqrtRatioLimit: params.sqrtRatioLimit,
+        });
+        // we need to make this assertion because the following iterations need to return early so they don't touch the cache
+        if (partQuote.stateAfter.sqrtRatio !== params.sqrtRatioLimit)
+          throw new Error("Failed to hit limit on requote");
+      }
+
+      quote = <Quote<T>>{
+        executionResources: this.options.resourcesReducer(
+          quote.executionResources,
+          partQuote.executionResources
+        ),
+        consumedAmount: quote.consumedAmount + partQuote.consumedAmount,
+        calculatedAmount: quote.calculatedAmount + partQuote.calculatedAmount,
+        stateAfter: partQuote.stateAfter,
+      };
+      cache = nextCache;
+    }
+
+    return quote;
   }
 
   hasLiquidity(): boolean {

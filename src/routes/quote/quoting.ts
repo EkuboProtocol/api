@@ -1,15 +1,6 @@
 import { PoolState, Queries } from "../../queries";
-import {
-  MAX_SQRT_RATIO,
-  MAX_TICK,
-  MIN_SQRT_RATIO,
-  MIN_TICK,
-  toSqrtRatio,
-} from "./math/tick";
-import { isPriceIncreasing } from "./math/swap";
 import { BaseResources, QuoteNode, TokenAmount } from "./nodes/quoteNode";
 import { PlainPool } from "./nodes/plainPool";
-import { KVNamespace } from "@cloudflare/workers-types";
 import { CachingSplittingQuoteNode } from "./nodes/cachingSplittingQuoteNode";
 
 const QUOTE_NODE_CACHE: {

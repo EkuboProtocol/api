@@ -503,13 +503,13 @@ describe(CachingSplittingQuoteNode, () => {
 `);
 
       expect(
-  impreciseCachingNode.quote({
-    amount: {
-      amount: 2000_000_000n,
-      token: 1n
-    }
-  })
-).toMatchInlineSnapshot(`
+        impreciseCachingNode.quote({
+          amount: {
+            amount: 2000_000_000n,
+            token: 1n,
+          },
+        })
+      ).toMatchInlineSnapshot(`
 {
   "calculatedAmount": 936030281432449623n,
   "consumedAmount": 1999634432n,
@@ -547,13 +547,13 @@ describe(CachingSplittingQuoteNode, () => {
 `);
 
       expect(
-  impreciseCachingNode.quote({
-    amount: {
-      amount: 20_000_000_000n,
-      token: 1n
-    }
-  })
-).toMatchInlineSnapshot(`
+        impreciseCachingNode.quote({
+          amount: {
+            amount: 20_000_000_000n,
+            token: 1n,
+          },
+        })
+      ).toMatchInlineSnapshot(`
 {
   "calculatedAmount": 3452798825828358166n,
   "consumedAmount": 19999948800n,
@@ -590,13 +590,13 @@ describe(CachingSplittingQuoteNode, () => {
 }
 `);
       expect(
-  impreciseCachingNode.quote({
-    amount: {
-      amount: 10n ** 18n,
-      token: 0n
-    }
-  })
-).toMatchInlineSnapshot(`
+        impreciseCachingNode.quote({
+          amount: {
+            amount: 10n ** 18n,
+            token: 0n,
+          },
+        })
+      ).toMatchInlineSnapshot(`
 {
   "calculatedAmount": 2055964342n,
   "consumedAmount": 999975039136694272n,
@@ -634,13 +634,13 @@ describe(CachingSplittingQuoteNode, () => {
 `);
 
       expect(
-  impreciseCachingNode.quote({
-    amount: {
-      amount: 10n ** 19n,
-      token: 0n
-    }
-  })
-).toMatchInlineSnapshot(`
+        impreciseCachingNode.quote({
+          amount: {
+            amount: 10n ** 19n,
+            token: 0n,
+          },
+        })
+      ).toMatchInlineSnapshot(`
 {
   "calculatedAmount": 19231620726n,
   "consumedAmount": 9999961497599475712n,
@@ -656,13 +656,13 @@ describe(CachingSplittingQuoteNode, () => {
 `);
 
       expect(
-  cachingNode.quote({
-    amount: {
-      amount: -2_000_000_000n,
-      token: 1n
-    }
-  })
-).toMatchInlineSnapshot(`
+        cachingNode.quote({
+          amount: {
+            amount: -2_000_000_000n,
+            token: 1n,
+          },
+        })
+      ).toMatchInlineSnapshot(`
 {
   "calculatedAmount": 972405587708843441n,
   "consumedAmount": -2000001024n,
@@ -677,13 +677,13 @@ describe(CachingSplittingQuoteNode, () => {
 }
 `);
       expect(
-  cachingNode.quote({
-    amount: {
-      amount: -20_000_000_000n,
-      token: 1n
-    }
-  })
-).toMatchInlineSnapshot(`
+        cachingNode.quote({
+          amount: {
+            amount: -20_000_000_000n,
+            token: 1n,
+          },
+        })
+      ).toMatchInlineSnapshot(`
 {
   "calculatedAmount": 10417136950214066934n,
   "consumedAmount": -20000002048n,
@@ -698,13 +698,13 @@ describe(CachingSplittingQuoteNode, () => {
 }
 `);
       expect(
-  cachingNode.quote({
-    amount: {
-      amount: -1n * 10n ** 18n,
-      token: 0n
-    }
-  })
-).toMatchInlineSnapshot(`
+        cachingNode.quote({
+          amount: {
+            amount: -1n * 10n ** 18n,
+            token: 0n,
+          },
+        })
+      ).toMatchInlineSnapshot(`
 {
   "calculatedAmount": 2139456642n,
   "consumedAmount": -1000000000000262144n,
@@ -741,13 +741,13 @@ describe(CachingSplittingQuoteNode, () => {
 `);
 
       expect(
-  impreciseCachingNode.quote({
-    amount: {
-      amount: -2_000_000_000n,
-      token: 1n
-    }
-  })
-).toMatchInlineSnapshot(`
+        impreciseCachingNode.quote({
+          amount: {
+            amount: -2_000_000_000n,
+            token: 1n,
+          },
+        })
+      ).toMatchInlineSnapshot(`
 {
   "calculatedAmount": 972741445428256155n,
   "consumedAmount": -2000683008n,
@@ -762,13 +762,13 @@ describe(CachingSplittingQuoteNode, () => {
 }
 `);
       expect(
-  impreciseCachingNode.quote({
-    amount: {
-      amount: -20_000_000_000n,
-      token: 1n
-    }
-  })
-).toMatchInlineSnapshot(`
+        impreciseCachingNode.quote({
+          amount: {
+            amount: -20_000_000_000n,
+            token: 1n,
+          },
+        })
+      ).toMatchInlineSnapshot(`
 {
   "calculatedAmount": 10417143627655224423n,
   "consumedAmount": -20000014336n,
@@ -783,13 +783,13 @@ describe(CachingSplittingQuoteNode, () => {
 }
 `);
       expect(
-  impreciseCachingNode.quote({
-    amount: {
-      amount: -1n * 10n ** 18n,
-      token: 0n
-    }
-  })
-).toMatchInlineSnapshot(`
+        impreciseCachingNode.quote({
+          amount: {
+            amount: -1n * 10n ** 18n,
+            token: 0n,
+          },
+        })
+      ).toMatchInlineSnapshot(`
 {
   "calculatedAmount": 2139479003n,
   "consumedAmount": -1000010223508783104n,
@@ -1731,13 +1731,13 @@ describe(CachingSplittingQuoteNode, () => {
       );
 
       expect(
-  node.quote({
-    amount: {
-      amount: -550761295858476146n,
-      token: 0n
-    }
-  })
-).toMatchInlineSnapshot(`
+        node.quote({
+          amount: {
+            amount: -550761295858476146n,
+            token: 0n,
+          },
+        })
+      ).toMatchInlineSnapshot(`
 {
   "calculatedAmount": 263928464145111n,
   "consumedAmount": -550761295858476148n,
