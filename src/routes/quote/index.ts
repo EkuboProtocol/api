@@ -23,7 +23,7 @@ import {
   NumericType,
   TokenIdentifierType,
 } from "../../shared/validation/address";
-import { MAX_SQRT_RATIO, MIN_SQRT_RATIO } from "./math/tick";
+import { MAX_SQRT_RATIO } from "./math/tick";
 
 const PoolKeyType = z
   .object({

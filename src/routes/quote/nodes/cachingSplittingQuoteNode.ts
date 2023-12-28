@@ -16,7 +16,7 @@ export interface CachingSplittingQuoteNodeOptions<T> {
 
 interface Cache<T> {
   [bit: number]: {
-    result: Quote<T>;
+    quote: Quote<T>;
     cache: Cache<T>;
   };
 }
@@ -24,15 +24,20 @@ interface Cache<T> {
 export class CachingSplittingQuoteNode<T> implements QuoteNode<T> {
   private readonly node: QuoteNode<T>;
   private readonly options: CachingSplittingQuoteNodeOptions<T>;
-  private readonly cache: Cache<T>;
+  private readonly cache0: Cache<T>;
+  private readonly cache1: Cache<T>;
 
+  /**
+   * Note for this to work correctly, the node _must_ have a deterministic and cacheable quoting algorithm
+   */
   constructor(
     node: QuoteNode<T>,
     options: CachingSplittingQuoteNodeOptions<T>
   ) {
     this.node = node;
     this.options = options;
-    this.cache = {};
+    this.cache0 = {};
+    this.cache1 = {};
   }
 
   get key(): NodeKey {
@@ -56,45 +61,46 @@ export class CachingSplittingQuoteNode<T> implements QuoteNode<T> {
       increaseLowestSetBit(bits);
     }
 
+    // start by quoting 0
+    let quote = this.node.quote({ ...params, amount: { amount: 0n, token } });
+    let cache: Cache<T> =
+      params.amount.token === this.node.key.token1 ? this.cache1 : this.cache0;
+
     const isIncreasing = isPriceIncreasing(
       params.amount.amount,
       params.amount.token === this.key.token1
     );
 
-    // start by quoting 0
-    let quote = this.node.quote({ ...params, amount: { amount: 0n, token } });
-    let cache = this.cache;
-
+    // for each of the set bits in the input amount,
+    // compute the quote result and then move the cache pointer to the cache for the resulting state
     for (let i = 0; i < bits.length; i++) {
       const b = bits[i];
+      const tokenAmount = {
+        token,
+        amount: isOutput ? -(1n << BigInt(b)) : 1n << BigInt(b),
+      };
 
-      // return early if we hit the limit
-      if (quote.stateAfter.sqrtRatio === params.sqrtRatioLimit) {
-        return quote;
-      }
-
-      const cacheKey = isOutput ? -b : b;
-
+      // the quote for this set-bit of the amount
       let partQuote: Quote<T>;
-      let nextCache: Cache<T>;
-      if (cache[cacheKey]) {
-        partQuote = cache[cacheKey].result;
-        nextCache = cache[cacheKey].cache;
-      } else {
-        const magnitude = 1n << BigInt(b);
-        partQuote = this.node.quote({
-          amount: {
-            token,
-            amount: isOutput ? -magnitude : magnitude,
-          },
-          overrideSwapState: quote.stateAfter,
-        });
 
-        nextCache = {};
-        cache[cacheKey] = {
-          result: partQuote,
-          cache: nextCache,
-        };
+      {
+        const cacheKey = isOutput ? -b : b;
+        const cacheForBit = cache[cacheKey];
+        if (cacheForBit) {
+          partQuote = cacheForBit.quote;
+          cache = cacheForBit.cache;
+        } else {
+          partQuote = this.node.quote({
+            amount: tokenAmount,
+            overrideSwapState: quote.stateAfter,
+          });
+
+          cache[cacheKey] = {
+            quote: partQuote,
+            cache: {},
+          };
+          cache = cache[cacheKey].cache;
+        }
       }
 
       if (
@@ -102,16 +108,13 @@ export class CachingSplittingQuoteNode<T> implements QuoteNode<T> {
         partQuote.stateAfter.sqrtRatio !== params.sqrtRatioLimit &&
         partQuote.stateAfter.sqrtRatio > params.sqrtRatioLimit === isIncreasing
       ) {
-        const magnitude = 1n << BigInt(b);
         partQuote = this.node.quote({
-          amount: {
-            token,
-            amount: isOutput ? -magnitude : magnitude,
-          },
+          amount: tokenAmount,
           overrideSwapState: quote.stateAfter,
           sqrtRatioLimit: params.sqrtRatioLimit,
         });
-        // we need to make this assertion because the following iterations need to return early so they don't touch the cache
+        // we need to make this assertion because the following iterations need to return early,
+        // so that they don't touch the cache
         if (partQuote.stateAfter.sqrtRatio !== params.sqrtRatioLimit)
           throw new Error("Failed to hit limit on requote");
       }
@@ -125,7 +128,10 @@ export class CachingSplittingQuoteNode<T> implements QuoteNode<T> {
         calculatedAmount: quote.calculatedAmount + partQuote.calculatedAmount,
         stateAfter: partQuote.stateAfter,
       };
-      cache = nextCache;
+
+      if (quote.stateAfter.sqrtRatio === params.sqrtRatioLimit) {
+        break;
+      }
     }
 
     return quote;
