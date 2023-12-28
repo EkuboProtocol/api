@@ -1,7 +1,5 @@
 import { findAllRoutes } from "./findAllRoutes";
 import { NodeKey, Quote, QuoteNode, TokenAmount } from "./nodes/quoteNode";
-import { MAX_SQRT_RATIO, MIN_SQRT_RATIO } from "./math/tick";
-import { isPriceIncreasing } from "./math/swap";
 
 class FakeQuoteNode implements QuoteNode<null> {
   constructor({ token0, token1 }: { token0: string; token1: string }) {
@@ -23,6 +21,7 @@ class FakeQuoteNode implements QuoteNode<null> {
   hasLiquidity(): boolean {
     return false;
   }
+
   suggestedSqrtRatioLimit(params: {
     amount: TokenAmount;
     isToken1: boolean;

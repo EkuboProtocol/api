@@ -144,7 +144,7 @@ export async function updatePoolCache(
           }),
           {
             resourcesReducer: plainPoolResourcesReducer,
-            maxSplits: 16,
+            maxSplits: 8,
           }
         ),
       };
