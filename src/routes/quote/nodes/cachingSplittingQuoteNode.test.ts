@@ -656,65 +656,65 @@ describe(CachingSplittingQuoteNode, () => {
 `);
 
       expect(
-        cachingNode.quote({
-          amount: {
-            amount: -2_000_000_000n,
-            token: 1n,
-          },
-        })
-      ).toMatchInlineSnapshot(`
+  cachingNode.quote({
+    amount: {
+      amount: -2_000_000_000n,
+      token: 1n
+    }
+  })
+).toMatchInlineSnapshot(`
 {
-  "calculatedAmount": 972405083420031743n,
-  "consumedAmount": -2000000000n,
+  "calculatedAmount": 972405587708843441n,
+  "consumedAmount": -2000001024n,
   "executionResources": {
     "initializedTicksCrossed": 5,
   },
   "stateAfter": {
     "activeTickIndex": 205,
     "liquidity": 3707980262711434n,
-    "sqrtRatio": 15356851300529036295687296777661969n,
+    "sqrtRatio": 15356851206556275105140924553833656n,
   },
 }
 `);
       expect(
-        cachingNode.quote({
-          amount: {
-            amount: -20_000_000_000n,
-            token: 1n,
-          },
-        })
-      ).toMatchInlineSnapshot(`
+  cachingNode.quote({
+    amount: {
+      amount: -20_000_000_000n,
+      token: 1n
+    }
+  })
+).toMatchInlineSnapshot(`
 {
-  "calculatedAmount": 10417135837307225858n,
-  "consumedAmount": -20000000000n,
+  "calculatedAmount": 10417136950214066934n,
+  "consumedAmount": -20000002048n,
   "executionResources": {
     "initializedTicksCrossed": 21,
   },
   "stateAfter": {
     "activeTickIndex": 189,
     "liquidity": 20066300368579088n,
-    "sqrtRatio": 14619328889221429322165582949273602n,
+    "sqrtRatio": 14619328854491644825102862028671655n,
   },
 }
 `);
       expect(
-        cachingNode.quote({
-          amount: {
-            amount: -1n * 10n ** 18n,
-            token: 0n,
-          },
-        })
-      ).toMatchInlineSnapshot(`
+  cachingNode.quote({
+    amount: {
+      amount: -1n * 10n ** 18n,
+      token: 0n
+    }
+  })
+).toMatchInlineSnapshot(`
 {
   "calculatedAmount": 2139456642n,
-  "consumedAmount": -1000000000000000000n,
+  "consumedAmount": -1000000000000262144n,
   "executionResources": {
     "initializedTicksCrossed": 6,
   },
   "stateAfter": {
     "activeTickIndex": 216,
     "liquidity": 1838637850921516n,
-    "sqrtRatio": 15897927924484882480384197655799954n,
+    "sqrtRatio": 15897927924484988377791647849323804n,
   },
 }
 `);
@@ -749,15 +749,15 @@ describe(CachingSplittingQuoteNode, () => {
   })
 ).toMatchInlineSnapshot(`
 {
-  "calculatedAmount": 972225052708648699n,
-  "consumedAmount": -1999634432n,
+  "calculatedAmount": 972741445428256155n,
+  "consumedAmount": -2000683008n,
   "executionResources": {
     "initializedTicksCrossed": 5,
   },
   "stateAfter": {
     "activeTickIndex": 205,
     "liquidity": 3707980262711434n,
-    "sqrtRatio": 15356884848804781320742180684369670n,
+    "sqrtRatio": 15356788620697322201257023484177282n,
   },
 }
 `);
@@ -770,15 +770,15 @@ describe(CachingSplittingQuoteNode, () => {
   })
 ).toMatchInlineSnapshot(`
 {
-  "calculatedAmount": 10417108014637917450n,
-  "consumedAmount": -19999948800n,
+  "calculatedAmount": 10417143627655224423n,
+  "consumedAmount": -20000014336n,
   "executionResources": {
     "initializedTicksCrossed": 21,
   },
   "stateAfter": {
     "activeTickIndex": 189,
     "liquidity": 20066300368579088n,
-    "sqrtRatio": 14619329757466041748733605964322267n,
+    "sqrtRatio": 14619328646112937842726536505059977n,
   },
 }
 `);
@@ -791,15 +791,15 @@ describe(CachingSplittingQuoteNode, () => {
   })
 ).toMatchInlineSnapshot(`
 {
-  "calculatedAmount": 2139401974n,
-  "consumedAmount": -999975039136694272n,
+  "calculatedAmount": 2139479003n,
+  "consumedAmount": -1000010223508783104n,
   "executionResources": {
     "initializedTicksCrossed": 6,
   },
   "stateAfter": {
     "activeTickIndex": 216,
     "liquidity": 1838637850921516n,
-    "sqrtRatio": 15897917841137427365253763872458615n,
+    "sqrtRatio": 15897932054441533876281878951051109n,
   },
 }
 `);
@@ -1731,23 +1731,23 @@ describe(CachingSplittingQuoteNode, () => {
       );
 
       expect(
-        node.quote({
-          amount: {
-            amount: -550761295858476146n,
-            token: 0n,
-          },
-        })
-      ).toMatchInlineSnapshot(`
+  node.quote({
+    amount: {
+      amount: -550761295858476146n,
+      token: 0n
+    }
+  })
+).toMatchInlineSnapshot(`
 {
   "calculatedAmount": 263928464145111n,
-  "consumedAmount": -550761295858476146n,
+  "consumedAmount": -550761295858476148n,
   "executionResources": {
     "initializedTicksCrossed": 0,
   },
   "stateAfter": {
     "activeTickIndex": 257,
     "liquidity": 3214722905666182801858n,
-    "sqrtRatio": 7447200854403535845014925589223357079n,
+    "sqrtRatio": 7447200854403535845015026988099201564n,
   },
 }
 `);
