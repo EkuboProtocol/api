@@ -74,8 +74,8 @@ export function quoteRoute<TResources, TTotal>({
         sqrtRatioLimit,
       });
 
-      // at the moment we do not support partial execution
-      if (quote.consumedAmount !== state.tokenAmount.amount) {
+      // if we hit the price limit, there is insufficient liquidity in the pool and we do not support partial execution
+      if (quote.stateAfter.sqrtRatio === sqrtRatioLimit) {
         return null;
       }
 
@@ -144,6 +144,7 @@ export async function updatePoolCache(
           }),
           {
             resourcesReducer: plainPoolResourcesReducer,
+            maxSplits: 8,
           }
         ),
       };
