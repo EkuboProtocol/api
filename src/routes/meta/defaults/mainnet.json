@@ -149,6 +149,7 @@
     "l2_token_address": "0x06f15ec4b6ff0b7f7a216c4b2ccdefc96cbf114d6242292ca82971592f62273b",
     "sort_order": 1,
     "total_supply": 42000000000,
-    "hidden": true
+    "hidden": true,
+    "isDisabled": true
   }
 ]

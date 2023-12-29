@@ -227,39 +227,39 @@ export class Queries {
       recipient: string | null;
     }>({
       text: `
-                WITH all_events AS (SELECT transaction_hash,
-                                           time as timestamp,
-                                           liquidity AS liquidity_delta,
-                                           delta0,
-                                           delta1,
-                                           NULL      AS collect_fees,
-                                           NULL      AS recipient
-                                    FROM position_deposit
-                                             JOIN event_keys ON position_deposit.event_id = event_keys.id
-                                             JOIN blocks ON event_keys.block_number = blocks.number
-                                    WHERE token_id = $1
-                                    UNION ALL
-                                    SELECT transaction_hash,
-                                           time as timestamp,
-                                           -liquidity AS liquidity_delta,
-                                           delta0,
-                                           delta1,
-                                           collect_fees,
-                                           recipient
-                                    FROM position_withdraw
-                                             JOIN event_keys ON position_withdraw.event_id = event_keys.id
-                                             JOIN blocks ON event_keys.block_number = blocks.number
-                                    WHERE token_id = $1)
-                SELECT transaction_hash,
-                       timestamp,
-                       liquidity_delta,
-                       delta0,
-                       delta1,
-                       collect_fees,
-                       recipient
-                FROM all_events
-                ORDER BY timestamp DESC
-            `,
+        WITH all_events AS (SELECT transaction_hash,
+                                   time      AS timestamp,
+                                   liquidity AS liquidity_delta,
+                                   delta0,
+                                   delta1,
+                                   NULL      AS collect_fees,
+                                   NULL      AS recipient
+                            FROM position_deposit
+                                   JOIN event_keys ON position_deposit.event_id = event_keys.id
+                                   JOIN blocks ON event_keys.block_number = blocks.number
+                            WHERE token_id = $1
+                            UNION ALL
+                            SELECT transaction_hash,
+                                   time       AS timestamp,
+                                   -liquidity AS liquidity_delta,
+                                   delta0,
+                                   delta1,
+                                   collect_fees,
+                                   recipient
+                            FROM position_withdraw
+                                   JOIN event_keys ON position_withdraw.event_id = event_keys.id
+                                   JOIN blocks ON event_keys.block_number = blocks.number
+                            WHERE token_id = $1)
+        SELECT transaction_hash,
+               timestamp,
+               liquidity_delta,
+               delta0,
+               delta1,
+               collect_fees,
+               recipient
+        FROM all_events
+        ORDER BY timestamp DESC
+      `,
       values: [id],
     });
     return rows;
@@ -277,15 +277,15 @@ export class Queries {
       net_liquidity_delta_diff: string;
     }>({
       text: `
-                SELECT tick, SUM(net_liquidity_delta_diff) AS net_liquidity_delta_diff
-                FROM per_pool_per_tick_liquidity_materialized
-                         JOIN pool_keys ON pool_key_hash = key_hash
-                WHERE net_liquidity_delta_diff != 0
-                  AND token0 = $1
-                  AND token1 = $2
-                GROUP BY tick
-                ORDER BY tick
-            `,
+        SELECT tick, SUM(net_liquidity_delta_diff) AS net_liquidity_delta_diff
+        FROM per_pool_per_tick_liquidity_materialized
+               JOIN pool_keys ON pool_key_hash = key_hash
+        WHERE net_liquidity_delta_diff != 0
+          AND token0 = $1
+          AND token1 = $2
+        GROUP BY tick
+        ORDER BY tick
+      `,
       values: [token0, token1],
     });
   }
@@ -296,11 +296,11 @@ export class Queries {
       net_liquidity_delta_diff: string;
     }>({
       text: `
-                SELECT tick, net_liquidity_delta_diff
-                FROM per_pool_per_tick_liquidity_materialized
-                WHERE pool_key_hash = $1
-                ORDER BY tick
-            `,
+        SELECT tick, net_liquidity_delta_diff
+        FROM per_pool_per_tick_liquidity_materialized
+        WHERE pool_key_hash = $1
+        ORDER BY tick
+      `,
       values: [pool_key_hash],
     });
   }

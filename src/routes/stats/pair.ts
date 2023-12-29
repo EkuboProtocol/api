@@ -68,8 +68,7 @@ export class GetPairInfo extends EkuboAPIRoute {
       },
       {
         headers: {
-          "cache-control":
-            "public, max-age=600, stale-while-revalidate=180, stale-if-error=180",
+          "cache-control": "public, max-age=600",
         },
       }
     );

@@ -9,10 +9,70 @@ import GOERLI_TOKENS from "./defaults/goerli.json";
 import { constants, num, shortString } from "starknet";
 import { createQueries, Queries } from "../../queries";
 
-export type TokenInfo = typeof MAINNET_TOKENS[number];
+const TokenType = z
+  .object({
+    name: z
+      .string({
+        description: "Name of the token",
+      })
+      .min(1)
+      .max(32),
+    symbol: z
+      .string({
+        description: "Symbol for the token",
+      })
+      .min(1)
+      .max(32),
+    decimals: z
+      .number({
+        description:
+          "The number of decimals used for display of token balances",
+      })
+      .min(0)
+      .max(78)
+      .int(),
+    l2_token_address: z.string({
+      description: "The address of the token on Starknet",
+    }),
+    sort_order: z
+      .number({
+        description: "How much the token should prefer to be the numerator",
+      })
+      .int(),
+    total_supply: z.nullable(
+      z
+        .number()
+        .openapi({
+          description: "The total supply of the token",
+        })
+        .int()
+        .gte(0)
+    ),
+    hidden: z.optional(
+      z.boolean({
+        description:
+          "Whether the token should display by default in the interface.",
+      })
+    ),
+    isDisabled: z.optional(
+      z.boolean({
+        description:
+          "Buying the token on the Ekubo Interface has been disabled",
+      })
+    ),
+  })
+  .required({
+    name: true,
+    symbol: true,
+    decimals: true,
+    l2_token_address: true,
+    total_supply: true,
+  });
+
+export type TokenInfo = z.infer<typeof TokenType>;
 
 const DEFAULT_TOKENS_BY_CHAIN_ID: {
-  [key in constants.StarknetChainId]: TokenInfo[];
+  [chainId in constants.StarknetChainId]: TokenInfo[];
 } = {
   [constants.StarknetChainId.SN_MAIN]: MAINNET_TOKENS,
   [constants.StarknetChainId.SN_GOERLI]: GOERLI_TOKENS,
@@ -25,27 +85,40 @@ export const FEE_TOKEN_ADDRESS = {
     0x049d36570d4e46f48e99674bd3fcc84644ddd6b96f7c741b1562b82f9e004dc7n,
 };
 
-let lastGetAllTokens: {
+const DISABLED_FOR_TRADING: {
+  [chainId in constants.StarknetChainId]: { [symbol: string]: true };
+} = {
+  [constants.StarknetChainId.SN_MAIN]: {
+    ["GARY"]: true,
+  },
+  [constants.StarknetChainId.SN_GOERLI]: {},
+};
+
+const lastGetAllTokens: {
   [chainId in constants.StarknetChainId]?: {
     timestamp: number;
     result: TokenInfo[];
   };
 } = {};
 
-const MEMORY_CACHE_TIME = 300_000;
+const MEMORY_CACHE_TIME_SECONDS = 300;
 
 export async function getAllTokens(
   env: Env,
   queries: Queries
 ): Promise<TokenInfo[]> {
   const last = lastGetAllTokens[env.STARKNET_CHAIN_ID];
-  if (last && last.timestamp >= Date.now() - MEMORY_CACHE_TIME) {
+  if (last && last.timestamp >= Date.now() - MEMORY_CACHE_TIME_SECONDS * 1000) {
     return last.result;
   }
 
   const tokens = DEFAULT_TOKENS_BY_CHAIN_ID[env.STARKNET_CHAIN_ID] ?? [];
 
   const { rows } = await queries.getRegisteredTokens();
+
+  const disabledMap = DISABLED_FOR_TRADING[env.STARKNET_CHAIN_ID];
+
+  console.log("hello world");
 
   rows.forEach((row) => {
     try {
@@ -75,6 +148,7 @@ export async function getAllTokens(
             BigInt(row.total_supply) / 10n ** BigInt(row.decimals)
           ),
           hidden: true,
+          isDisabled: disabledMap[symbol],
         });
       }
     } catch (error) {}
@@ -108,57 +182,6 @@ export function getTokenByIdentifier(
   );
 }
 
-const TokenType = z
-  .object({
-    name: z
-      .string({
-        description: "Name of the token",
-      })
-      .min(1)
-      .max(32),
-    symbol: z
-      .string({
-        description: "Symbol for the token",
-      })
-      .min(1)
-      .max(32),
-    decimals: z
-      .number({
-        description:
-          "The number of decimals used for display of token balances",
-      })
-      .min(0)
-      .max(78)
-      .int(),
-    l2_token_address: z.string({
-      description: "The address of the token on Starknet",
-    }),
-    sort_order: z
-      .number({
-        description: "How much the token should prefer to be the numerator",
-      })
-      .int(),
-    total_supply: z.nullable(
-      z
-        .number({
-          description: "The total supply of the token",
-        })
-        .int()
-        .gte(0)
-    ),
-    hidden: z.boolean({
-      description:
-        "Whether the token should display by default in the interface.",
-    }),
-  })
-  .required({
-    name: true,
-    symbol: true,
-    decimals: true,
-    l2_token_address: true,
-    total_supply: true,
-  });
-
 export class ListTokens extends EkuboAPIRoute {
   static route = "/tokens";
   static schema: OpenAPIRouteSchema = {
@@ -168,7 +191,7 @@ export class ListTokens extends EkuboAPIRoute {
     responses: {
       "200": {
         description: "List of tokens",
-        schema: z.array(TokenType, { description: "Array of tokens" }),
+        schema: z.array(TokenType).openapi({ description: "Array of tokens" }),
         contentType: "application/json",
       },
     },
@@ -179,8 +202,7 @@ export class ListTokens extends EkuboAPIRoute {
 
     return json(tokens, {
       headers: {
-        "cache-control":
-          "public, max-age=3600, stale-while-revalidate=3600, stale-if-error=86400",
+        "cache-control": `public,max-age=${MEMORY_CACHE_TIME_SECONDS * 2}`,
       },
     });
   }

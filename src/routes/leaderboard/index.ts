@@ -68,8 +68,7 @@ export class GetLeaderboard extends EkuboAPIRoute {
       },
       {
         headers: {
-          "cache-control":
-            "public,max-age=3600,stale-while-revalidate=3600,stale-if-error=180",
+          "cache-control": "public,max-age=3600",
         },
       }
     );
@@ -120,8 +119,7 @@ export class GetLeaderboardDump extends EkuboAPIRoute {
       {},
       {
         headers: {
-          "cache-control":
-            "public,max-age=86400,stale-while-revalidate=3600,stale-if-error=180",
+          "cache-control": "public,max-age=86400",
           "content-disposition": 'attachment; filename="dump.json"',
         },
       }
@@ -171,8 +169,7 @@ export class GetLeaderboardForCollector extends EkuboAPIRoute {
       },
       {
         headers: {
-          "cache-control":
-            "public,max-age=3600,stale-while-revalidate=3600,stale-if-error=180",
+          "cache-control": "public,max-age=3600",
         },
       }
     );

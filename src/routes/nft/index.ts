@@ -201,7 +201,7 @@ export class GetNftMetadata extends EkuboAPIRoute {
 
     return json(metadata, {
       headers: {
-        "cache-control": "public, max-age=3600, immutable",
+        "cache-control": "public,max-age=3600,immutable",
       },
     });
   }
