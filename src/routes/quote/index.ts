@@ -191,8 +191,7 @@ export class GetQuote extends EkuboAPIRoute {
                 )
               )
               .mul(otherTokenPrice)
-              .toInteger()
-              .toFixed()
+              .toFixed(0, Decimal.ROUND_DOWN)
           );
 
           const gasAdjustedAmount = quote.tokenAmount.amount - gasInOtherToken;
