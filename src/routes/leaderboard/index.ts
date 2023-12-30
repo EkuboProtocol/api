@@ -3,14 +3,11 @@ import {
   Path,
   Query,
 } from "@cloudflare/itty-router-openapi";
-import { error, IRequest, json } from "itty-router";
+import { IRequest, json } from "itty-router";
 import { EkuboAPIRoute, RequestContext } from "../../shared/context";
 import { z } from "zod";
-import { Contract, num } from "starknet";
-import POSITIONS_ABI from "../../constants/abis/positions.json";
+import { num } from "starknet";
 import { createQueries } from "../../queries";
-import { getProvider } from "../../shared/getProvider";
-import { POSITIONS_CONTRACT_ADDRESS } from "../../constants/addresses";
 import { AddressType } from "../../shared/validation/address";
 
 export class GetLeaderboard extends EkuboAPIRoute {
@@ -67,58 +64,6 @@ export class GetLeaderboard extends EkuboAPIRoute {
       {
         headers: {
           "cache-control": "public,max-age=3600",
-        },
-      }
-    );
-  }
-}
-
-export class GetLeaderboardDump extends EkuboAPIRoute {
-  public static route = "/leaderboard/dump";
-
-  static schema: OpenAPIRouteSchema = {
-    tags: ["Leaderboard"],
-    summary: "Dump leaderboard",
-    description:
-      "Dump the entire leaderboard to a JSON file, including uncollected fees",
-    responses: {
-      "200": {
-        description: "The entire contents of the leaderboard",
-        contentType: "application/json",
-      },
-    },
-  };
-
-  async handle({ query }: IRequest, { env }: RequestContext) {
-    if (query.key !== "wip") {
-      return error(501, "Not implemented");
-    }
-
-    const provider = getProvider(env);
-
-    const contract = new Contract(
-      POSITIONS_ABI,
-      num.toHex(POSITIONS_CONTRACT_ADDRESS[env.STARKNET_CHAIN_ID]),
-      provider
-    );
-
-    const queries = await createQueries(env);
-
-    await queries.withinTransaction(async () => {
-      const tokens = await queries.getAllActiveTokenIdsWithPoolKeys();
-
-      // todo: write all the current tokens info into temp tables and then query the temp tables and add up all the points
-      // todo: make sure the block at which the query happens is the same as the latest database
-
-      await contract.call("get_tokens_info", [[]]);
-    });
-
-    return json(
-      {},
-      {
-        headers: {
-          "cache-control": "public,max-age=86400",
-          "content-disposition": 'attachment; filename="dump.json"',
         },
       }
     );

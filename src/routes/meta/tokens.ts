@@ -78,13 +78,6 @@ const DEFAULT_TOKENS_BY_CHAIN_ID: {
   [constants.StarknetChainId.SN_GOERLI]: GOERLI_TOKENS,
 } as const;
 
-export const FEE_TOKEN_ADDRESS = {
-  [constants.StarknetChainId.SN_MAIN]:
-    0x049d36570d4e46f48e99674bd3fcc84644ddd6b96f7c741b1562b82f9e004dc7n,
-  [constants.StarknetChainId.SN_GOERLI]:
-    0x049d36570d4e46f48e99674bd3fcc84644ddd6b96f7c741b1562b82f9e004dc7n,
-};
-
 const DISABLED_FOR_TRADING: {
   [chainId in constants.StarknetChainId]: { [symbol: string]: true };
 } = {

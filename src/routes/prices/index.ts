@@ -1,7 +1,6 @@
 import { EkuboAPIRoute, RequestContext } from "../../shared/context";
 import { error, IRequest, json } from "itty-router";
 import {
-  FEE_TOKEN_ADDRESS,
   getAllTokens,
   getTokenByAddress,
   getTokenByIdentifier,
@@ -55,9 +54,9 @@ export class GetPairPrice extends EkuboAPIRoute {
     const timestamp = Date.now();
     const oneDayAgo = new Date(timestamp - 86_400_000);
 
-    const ft = FEE_TOKEN_ADDRESS[env.STARKNET_CHAIN_ID];
+    const ethTokenAddress = BigInt(env.ETH_TOKEN_ADDRESS);
 
-    if (!ft) {
+    if (!ethTokenAddress) {
       return error(500, "Fee token not defined for chain");
     }
 
@@ -70,11 +69,11 @@ export class GetPairPrice extends EkuboAPIRoute {
         }),
         queries.getLastVolumeWeightedPrice({
           quoteToken,
-          baseToken: ft,
+          baseToken: ethTokenAddress,
           since: oneDayAgo,
         }),
         queries.getLastVolumeWeightedPrice({
-          quoteToken: ft,
+          quoteToken: ethTokenAddress,
           baseToken,
           since: oneDayAgo,
         }),
@@ -201,23 +200,23 @@ export class GetPairPriceHistory extends EkuboAPIRoute {
         : [quoteToken, baseToken];
 
     // convert 1e15 eth to the threshold for token0 by multiplying 1e15 eth by the price in per eth
-    const fta = FEE_TOKEN_ADDRESS[env.STARKNET_CHAIN_ID];
+    const ethTokenAddress = BigInt(env.ETH_TOKEN_ADDRESS);
     const price0 =
-      token0 === fta
+      token0 === ethTokenAddress
         ? new Decimal(1)
         : (
             await queries.getLastVolumeWeightedPrice({
-              baseToken: fta,
+              baseToken: ethTokenAddress,
               quoteToken: token0,
               since: null,
             })
           )?.price ?? new Decimal(0);
     const price1 =
-      token1 === fta
+      token1 === ethTokenAddress
         ? new Decimal(1)
         : (
             await queries.getLastVolumeWeightedPrice({
-              baseToken: fta,
+              baseToken: ethTokenAddress,
               quoteToken: token1,
               since: null,
             })

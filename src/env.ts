@@ -4,7 +4,7 @@ import { constants } from "starknet";
 export interface Env {
   readonly STARKNET_CHAIN_ID: constants.StarknetChainId;
 
-  readonly RPC_URL: string;
+  readonly ETH_TOKEN_ADDRESS: string;
 
   readonly PG_CONNECTION_STRING?: string;
 
