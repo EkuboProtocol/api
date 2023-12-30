@@ -4,7 +4,7 @@ import Decimal from "decimal.js-light";
 import {version} from "../package.json";
 import {OpenAPIRouter} from "@cloudflare/itty-router-openapi";
 import {GetTokenLogo, ListTokens} from "./routes/meta/tokens";
-import {GetLeaderboard, GetLeaderboardDump, GetLeaderboardForCollector,} from "./routes/leaderboard";
+import {GetLeaderboard, GetLeaderboardForCollector} from "./routes/leaderboard";
 import {GetBlock} from "./routes/meta/blocks";
 import {GetQuote, GetQuoteToPrice} from "./routes/quote";
 import {GetOverview} from "./routes/stats/overview";
@@ -39,7 +39,6 @@ const router = OpenAPIRouter({
     .get(ListTokens.route, ListTokens)
     .get(GetTokenLogo.route, GetTokenLogo)
     .get(GetBlock.route, GetBlock)
-    .get(GetLeaderboardDump.route, GetLeaderboardDump)
     .get(GetLeaderboard.route, GetLeaderboard)
     .get(GetLeaderboardForCollector.route, GetLeaderboardForCollector)
     .get(GetQuote.route, GetQuote)

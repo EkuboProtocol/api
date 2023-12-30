@@ -63,7 +63,7 @@ export class GetLeaderboard extends EkuboAPIRoute {
       },
       {
         headers: {
-          "cache-control": "public,max-age=3600",
+          "cache-control": "public,max-age=150",
         },
       }
     );
@@ -111,7 +111,7 @@ export class GetLeaderboardForCollector extends EkuboAPIRoute {
       },
       {
         headers: {
-          "cache-control": "public,max-age=3600",
+          "cache-control": "public,max-age=150",
         },
       }
     );
