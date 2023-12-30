@@ -5,7 +5,6 @@ import {
 } from "@cloudflare/itty-router-openapi";
 import { error, IRequest, json } from "itty-router";
 import { EkuboAPIRoute, RequestContext } from "../../shared/context";
-import { FEE_TOKEN_ADDRESS } from "../meta/tokens";
 import { z } from "zod";
 import { Contract, num } from "starknet";
 import POSITIONS_ABI from "../../constants/abis/positions.json";
@@ -47,13 +46,11 @@ export class GetLeaderboard extends EkuboAPIRoute {
   };
 
   async handle({ query }: IRequest, { env }: RequestContext) {
-    return error(404, "Leaderboard temporarily unavailable");
     const lastMonth = query?.lastMonth === "true";
 
     const queries = await createQueries(env);
 
     const { rows } = await queries.getLeaderboard({
-      feeTokenAddress: FEE_TOKEN_ADDRESS[env.STARKNET_CHAIN_ID],
       collectedAfter: lastMonth
         ? new Date(Date.now() - 30 * 24 * 60 * 60 * 1000)
         : undefined,
@@ -93,8 +90,6 @@ export class GetLeaderboardDump extends EkuboAPIRoute {
   };
 
   async handle({ query }: IRequest, { env }: RequestContext) {
-    return error(404, "Leaderboard temporarily unavailable");
-
     if (query.key !== "wip") {
       return error(501, "Not implemented");
     }
@@ -153,15 +148,12 @@ export class GetLeaderboardForCollector extends EkuboAPIRoute {
   };
 
   async handle({ params, query }: IRequest, { env }: RequestContext) {
-    return error(404, "Leaderboard temporarily unavailable");
-
     const lastMonth = query?.lastMonth === "true";
     const collector = BigInt(params.collector);
 
     const dao = await createQueries(env);
 
     const { rows } = await dao.getLeaderboard({
-      feeTokenAddress: FEE_TOKEN_ADDRESS[env.STARKNET_CHAIN_ID],
       collector,
       collectedAfter: lastMonth
         ? new Date(Date.now() - 30 * 24 * 60 * 60 * 1000)
