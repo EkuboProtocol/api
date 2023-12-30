@@ -47,6 +47,7 @@ export class GetLeaderboard extends EkuboAPIRoute {
   };
 
   async handle({ query }: IRequest, { env }: RequestContext) {
+    return error(404, "Leaderboard temporarily unavailable");
     const lastMonth = query?.lastMonth === "true";
 
     const queries = await createQueries(env);
@@ -92,6 +93,8 @@ export class GetLeaderboardDump extends EkuboAPIRoute {
   };
 
   async handle({ query }: IRequest, { env }: RequestContext) {
+    return error(404, "Leaderboard temporarily unavailable");
+
     if (query.key !== "wip") {
       return error(501, "Not implemented");
     }
@@ -150,6 +153,8 @@ export class GetLeaderboardForCollector extends EkuboAPIRoute {
   };
 
   async handle({ params, query }: IRequest, { env }: RequestContext) {
+    return error(404, "Leaderboard temporarily unavailable");
+
     const lastMonth = query?.lastMonth === "true";
     const collector = BigInt(params.collector);
 
