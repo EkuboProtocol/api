@@ -231,7 +231,6 @@ export class GetQuote extends EkuboAPIRoute {
     return json(
       {
         amount: bestWorkingRoute.quote.tokenAmount.amount.toString(),
-        gasAdjustedAmount: bestWorkingRoute.gasAdjustedAmount.toString(),
         route: bestWorkingRoute.route.map(({ key }, ix) => ({
           pool_key: {
             token0: num.toHex(key.token0),
