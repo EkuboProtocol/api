@@ -111,8 +111,6 @@ export async function getAllTokens(
 
   const disabledMap = DISABLED_FOR_TRADING[env.STARKNET_CHAIN_ID];
 
-  console.log("hello world");
-
   rows.forEach((row) => {
     try {
       const name = shortString.decodeShortString(row.name).trim();

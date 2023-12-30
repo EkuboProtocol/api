@@ -482,21 +482,22 @@ export class Queries {
       baseToken < quoteToken
         ? [baseToken, quoteToken]
         : [quoteToken, baseToken];
-    if (baseToken === quoteToken) return null;
+    if (baseToken === quoteToken)
+      return { price: new Decimal(1), k_volume: 1n << 128n };
 
     const { rows } = await this.client.query<{
       total: string;
       k_volume: string;
     }>({
       text: `
-                SELECT total, k_volume
-                FROM pair_vwap_preimages_materialized
-                WHERE token0 = $1
-                  AND token1 = $2
-                  AND (timestamp_start >= $3 OR $3 IS NULL)
-                ORDER BY timestamp_start DESC
-                LIMIT 1
-            `,
+          SELECT total, k_volume
+          FROM pair_vwap_preimages_materialized
+          WHERE token0 = $1
+            AND token1 = $2
+            AND (timestamp_start >= $3 OR $3 IS NULL)
+          ORDER BY timestamp_start DESC
+          LIMIT 1
+      `,
       values: [token0, token1, since],
     });
 

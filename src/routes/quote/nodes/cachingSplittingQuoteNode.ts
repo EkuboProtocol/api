@@ -3,7 +3,7 @@ import {
   Quote,
   QuoteNode,
   QuoteParams,
-  TokenAmount,
+  SuggestSqrtRatioLimitParams,
 } from "./quoteNode";
 import getSetBits, { increaseLowestSetBit } from "../math/getSetBits";
 import { isPriceIncreasing } from "../math/swap";
@@ -45,7 +45,7 @@ export class CachingSplittingQuoteNode<T> implements QuoteNode<T> {
   }
 
   quote(params: QuoteParams): Quote<T> {
-    const { amount, token } = params.amount;
+    const { amount, token } = params.tokenAmount;
     if (amount === 0n) {
       return this.node.quote(params);
     }
@@ -62,13 +62,18 @@ export class CachingSplittingQuoteNode<T> implements QuoteNode<T> {
     }
 
     // start by quoting 0
-    let quote = this.node.quote({ ...params, amount: { amount: 0n, token } });
+    let quote = this.node.quote({
+      ...params,
+      tokenAmount: { amount: 0n, token },
+    });
     let cache: Cache<T> =
-      params.amount.token === this.node.key.token1 ? this.cache1 : this.cache0;
+      params.tokenAmount.token === this.node.key.token1
+        ? this.cache1
+        : this.cache0;
 
     const isIncreasing = isPriceIncreasing(
-      params.amount.amount,
-      params.amount.token === this.key.token1
+      params.tokenAmount.amount,
+      params.tokenAmount.token === this.key.token1
     );
 
     // for each of the set bits in the input amount,
@@ -91,7 +96,7 @@ export class CachingSplittingQuoteNode<T> implements QuoteNode<T> {
           cache = cacheForBit.cache;
         } else {
           partQuote = this.node.quote({
-            amount: tokenAmount,
+            tokenAmount: tokenAmount,
             overrideSwapState: quote.stateAfter,
           });
 
@@ -109,7 +114,7 @@ export class CachingSplittingQuoteNode<T> implements QuoteNode<T> {
         partQuote.stateAfter.sqrtRatio > params.sqrtRatioLimit === isIncreasing
       ) {
         partQuote = this.node.quote({
-          amount: tokenAmount,
+          tokenAmount: tokenAmount,
           overrideSwapState: quote.stateAfter,
           sqrtRatioLimit: params.sqrtRatioLimit,
         });
@@ -141,10 +146,7 @@ export class CachingSplittingQuoteNode<T> implements QuoteNode<T> {
     return this.node.hasLiquidity();
   }
 
-  suggestedSqrtRatioLimit(params: {
-    amount: TokenAmount;
-    isToken1: boolean;
-  }): bigint {
+  suggestedSqrtRatioLimit(params: SuggestSqrtRatioLimitParams): bigint {
     return this.node.suggestedSqrtRatioLimit(params);
   }
 }

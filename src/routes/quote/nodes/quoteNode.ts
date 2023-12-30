@@ -28,8 +28,13 @@ export interface TokenAmount {
   amount: bigint;
 }
 
+export interface SuggestSqrtRatioLimitParams {
+  tokenAmount: TokenAmount;
+  isToken1: boolean;
+}
+
 export interface QuoteParams {
-  amount: TokenAmount;
+  tokenAmount: TokenAmount;
   sqrtRatioLimit?: bigint;
   overrideSwapState?: SwapState;
 }
@@ -41,8 +46,5 @@ export interface QuoteNode<TResources> {
 
   hasLiquidity(): boolean;
 
-  suggestedSqrtRatioLimit(params: {
-    amount: TokenAmount;
-    isToken1: boolean;
-  }): bigint;
+  suggestedSqrtRatioLimit(params: SuggestSqrtRatioLimitParams): bigint;
 }

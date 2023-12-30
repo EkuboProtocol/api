@@ -112,7 +112,7 @@ describe("PoolNode", () => {
       });
 
       const { executionResources, calculatedAmount } = pool.quote({
-        amount: {
+        tokenAmount: {
           amount: 1n,
           token: 1n,
         },
@@ -134,7 +134,7 @@ describe("PoolNode", () => {
       });
 
       const { executionResources, calculatedAmount } = pool.quote({
-        amount: {
+        tokenAmount: {
           amount: 1n,
           token: 0n,
         },
@@ -160,7 +160,7 @@ describe("PoolNode", () => {
       });
 
       const { executionResources, calculatedAmount } = pool.quote({
-        amount: {
+        tokenAmount: {
           amount: 1000n,
           token: 1n,
         },
@@ -185,7 +185,7 @@ describe("PoolNode", () => {
       });
 
       const { executionResources, calculatedAmount } = pool.quote({
-        amount: {
+        tokenAmount: {
           amount: 1000n,
           token: 0n,
         },
@@ -547,7 +547,7 @@ describe("PoolNode", () => {
 
       expect(
         node.quote({
-          amount: {
+          tokenAmount: {
             amount: 2000_000_000n,
             token: 1n,
           },
@@ -569,7 +569,7 @@ describe("PoolNode", () => {
 
       expect(
         node.quote({
-          amount: {
+          tokenAmount: {
             amount: 20_000_000_000n,
             token: 1n,
           },
@@ -591,7 +591,7 @@ describe("PoolNode", () => {
 
       expect(
         node.quote({
-          amount: {
+          tokenAmount: {
             amount: 10n ** 18n,
             token: 0n,
           },
@@ -613,7 +613,7 @@ describe("PoolNode", () => {
 
       expect(
         node.quote({
-          amount: {
+          tokenAmount: {
             amount: 10n ** 19n,
             token: 0n,
           },
@@ -635,7 +635,7 @@ describe("PoolNode", () => {
 
       expect(
         node.quote({
-          amount: {
+          tokenAmount: {
             amount: -2_000_000_000n,
             token: 1n,
           },
@@ -656,7 +656,7 @@ describe("PoolNode", () => {
 `);
       expect(
         node.quote({
-          amount: {
+          tokenAmount: {
             amount: -20_000_000_000n,
             token: 1n,
           },
@@ -677,7 +677,7 @@ describe("PoolNode", () => {
 `);
       expect(
         node.quote({
-          amount: {
+          tokenAmount: {
             amount: -1n * 10n ** 18n,
             token: 0n,
           },
@@ -698,7 +698,7 @@ describe("PoolNode", () => {
 `);
       expect(
         node.quote({
-          amount: {
+          tokenAmount: {
             amount: -1n * 10n ** 19n,
             token: 0n,
           },
@@ -1620,7 +1620,7 @@ describe("PoolNode", () => {
 
       expect(
         node.quote({
-          amount: {
+          tokenAmount: {
             amount: -550761295858476146n,
             token: 0n,
           },
@@ -1663,7 +1663,7 @@ describe("PoolNode", () => {
 
       expect(
         node.quote({
-          amount: {
+          tokenAmount: {
             amount: -1_000_000_000n,
             token: 1n,
           },

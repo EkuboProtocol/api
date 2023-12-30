@@ -7,8 +7,9 @@ import {
   defaultAccumulator,
   getAllRelevantPoolsAndUpdateCache,
   getCachedNode,
-  QuoteResult,
+  QuoteRouteResult,
   quoteRoute,
+  ResourcesAccumulator,
   updatePoolCache,
 } from "./quoting";
 import { findAllRoutes } from "./findAllRoutes";
@@ -40,6 +41,27 @@ const PoolKeyType = z
     extension: HexStringType.openapi({ example: "0x0" }),
   })
   .openapi({ description: "The composite key identifier for a pool in Ekubo" });
+
+const baseResourcesAccumulator: ResourcesAccumulator<
+  BaseResources,
+  BaseResources
+> = {
+  initial(): BaseResources {
+    return {
+      initializedTicksCrossed: 0,
+    };
+  },
+  accumulate(memo: BaseResources, value: BaseResources): BaseResources {
+    return {
+      initializedTicksCrossed:
+        memo.initializedTicksCrossed + value.initializedTicksCrossed,
+    };
+  },
+};
+
+// These parameters are used for optimizing when we should use multi-hop routes
+const ETH_PER_POOL_SWAPPED = new Decimal("0.0003e18");
+const ETH_PER_INITIALIZED_TICK_CROSS = new Decimal("0.0001e18");
 
 export class GetQuote extends EkuboAPIRoute {
   static route = "/quote/:amount/:token/:otherToken";
@@ -139,25 +161,58 @@ export class GetQuote extends EkuboAPIRoute {
       token: BigInt(token.l2_token_address),
     };
 
+    // get the ETH price of the other token
+    const otherTokenPrice =
+      (
+        await queries.getLastVolumeWeightedPrice({
+          baseToken: BigInt(env.ETH_TOKEN_ADDRESS),
+          quoteToken: BigInt(otherToken.l2_token_address),
+          since: null,
+        })
+      )?.price ?? new Decimal(0);
+
     const bestWorkingRoute = allRoutes.reduce<{
       route: QuoteNode<BaseResources>[];
-      quote: Readonly<QuoteResult<null>>;
+      quote: Readonly<QuoteRouteResult<BaseResources>>;
+      gasAdjustedAmount: bigint;
     } | null>((memo, route) => {
       try {
         const quote = quoteRoute({
           tokenAmount,
           route,
-          accumulator: defaultAccumulator,
+          accumulator: baseResourcesAccumulator,
         });
 
-        if (
-          quote &&
-          (!memo || quote.tokenAmount.amount > memo.quote.tokenAmount.amount)
-        ) {
-          return {
-            quote,
-            route,
-          };
+        if (quote) {
+          const gasInOtherToken = BigInt(
+            ETH_PER_POOL_SWAPPED.mul(route.length)
+              .add(
+                ETH_PER_INITIALIZED_TICK_CROSS.mul(
+                  quote?.resources.initializedTicksCrossed
+                )
+              )
+              .mul(otherTokenPrice)
+              .toInteger()
+              .toString()
+          );
+
+          const gasAdjustedAmount = quote.tokenAmount.amount - gasInOtherToken;
+
+          if (!memo) {
+            return {
+              quote,
+              route,
+              gasAdjustedAmount,
+            };
+          }
+
+          if (gasAdjustedAmount > memo.gasAdjustedAmount) {
+            return {
+              quote,
+              route,
+              gasAdjustedAmount,
+            };
+          }
         }
 
         return memo;
@@ -176,6 +231,7 @@ export class GetQuote extends EkuboAPIRoute {
     return json(
       {
         amount: bestWorkingRoute.quote.tokenAmount.amount.toString(),
+        gasAdjustedAmount: bestWorkingRoute.gasAdjustedAmount.toString(),
         route: bestWorkingRoute.route.map(({ key }, ix) => ({
           pool_key: {
             token0: num.toHex(key.token0),
@@ -241,7 +297,7 @@ export class GetQuoteToPrice extends EkuboAPIRoute {
 
     const isToken1 = sqrtRatio >= newSqrtRatio;
     const { consumedAmount, calculatedAmount } = node.quote({
-      amount: {
+      tokenAmount: {
         amount: -0xffffffffffffffffffffffffffffffffn,
         token: sqrtRatio >= newSqrtRatio ? node.key.token1 : node.key.token0,
       },

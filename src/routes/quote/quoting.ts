@@ -14,7 +14,7 @@ export function getCachedNode(key_hash: bigint) {
   return QUOTE_NODE_CACHE[key_hash.toString()]?.node;
 }
 
-export interface QuoteResult<TTotal> {
+export interface QuoteRouteResult<TTotal> {
   tokenAmount: TokenAmount;
   limits: bigint[];
   resources: TTotal;
@@ -43,9 +43,9 @@ export function quoteRoute<TResources, TTotal>({
   tokenAmount: TokenAmount;
   route: QuoteNode<TResources>[];
   accumulator: ResourcesAccumulator<TResources, TTotal>;
-}): Readonly<QuoteResult<TTotal>> | null {
+}): Readonly<QuoteRouteResult<TTotal>> | null {
   const isExactOutput = tokenAmount.amount < 0n;
-  return route.reduce<QuoteResult<TTotal> | null>(
+  return route.reduce<QuoteRouteResult<TTotal> | null>(
     (state, node) => {
       if (!state) {
         return null;
@@ -54,18 +54,19 @@ export function quoteRoute<TResources, TTotal>({
       const isToken1 = node.key.token1 === state.tokenAmount.token;
 
       const sqrtRatioLimit = node.suggestedSqrtRatioLimit({
-        amount: state.tokenAmount,
+        tokenAmount: state.tokenAmount,
         isToken1,
       });
 
       state.limits.push(sqrtRatioLimit);
 
       const quote = node.quote({
-        amount: state.tokenAmount,
+        tokenAmount: state.tokenAmount,
         sqrtRatioLimit,
       });
 
       // if we hit the price limit, there is insufficient liquidity in the pool and we do not support partial execution
+      // todo: support partial execution
       if (quote.stateAfter.sqrtRatio === sqrtRatioLimit) {
         return null;
       }

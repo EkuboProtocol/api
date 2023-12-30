@@ -60,43 +60,45 @@ export class GetPairPrice extends EkuboAPIRoute {
       return error(500, "Fee token not defined for chain");
     }
 
-    const [direct, quoteFt, baseFt] = await queries.withinTransaction(() =>
-      Promise.all([
-        queries.getLastVolumeWeightedPrice({
-          quoteToken,
-          baseToken,
-          since: oneDayAgo,
-        }),
-        queries.getLastVolumeWeightedPrice({
-          quoteToken,
-          baseToken: ethTokenAddress,
-          since: oneDayAgo,
-        }),
-        queries.getLastVolumeWeightedPrice({
-          quoteToken: ethTokenAddress,
-          baseToken,
-          since: oneDayAgo,
-        }),
-      ])
+    const [direct, quoteToEth, baseToEth] = await queries.withinTransaction(
+      () =>
+        Promise.all([
+          queries.getLastVolumeWeightedPrice({
+            quoteToken,
+            baseToken,
+            since: oneDayAgo,
+          }),
+          queries.getLastVolumeWeightedPrice({
+            quoteToken,
+            baseToken: ethTokenAddress,
+            since: oneDayAgo,
+          }),
+          queries.getLastVolumeWeightedPrice({
+            quoteToken: ethTokenAddress,
+            baseToken,
+            since: oneDayAgo,
+          }),
+        ])
     );
 
     let price: Decimal;
     if (direct) {
-      if (!quoteFt || !baseFt) {
+      if (!quoteToEth || !baseToEth) {
         price = direct.price;
+      } else if (
+        quoteToEth.k_volume * baseToEth.k_volume >
+        direct.k_volume ** 2n
+      ) {
+        price = quoteToEth.price.mul(baseToEth.price);
       } else {
-        if (quoteFt.k_volume * baseFt.k_volume > direct.k_volume ** 2n) {
-          price = quoteFt.price.mul(baseFt.price);
-        } else {
-          price = direct.price;
-        }
+        price = direct.price;
       }
     } else {
-      if (!quoteFt || !baseFt) {
+      if (!quoteToEth || !baseToEth) {
         return error(404, "No volume for this pair");
       }
 
-      price = quoteFt.price.mul(baseFt.price);
+      price = quoteToEth.price.mul(baseToEth.price);
     }
 
     const scaled = price.mul(new Decimal(10).pow(bt.decimals - qt.decimals));
@@ -202,29 +204,25 @@ export class GetPairPriceHistory extends EkuboAPIRoute {
     // convert 1e15 eth to the threshold for token0 by multiplying 1e15 eth by the price in per eth
     const ethTokenAddress = BigInt(env.ETH_TOKEN_ADDRESS);
     const price0 =
-      token0 === ethTokenAddress
-        ? new Decimal(1)
-        : (
-            await queries.getLastVolumeWeightedPrice({
-              baseToken: ethTokenAddress,
-              quoteToken: token0,
-              since: null,
-            })
-          )?.price ?? new Decimal(0);
+      (
+        await queries.getLastVolumeWeightedPrice({
+          baseToken: ethTokenAddress,
+          quoteToken: token0,
+          since: null,
+        })
+      )?.price ?? new Decimal(0);
     const price1 =
-      token1 === ethTokenAddress
-        ? new Decimal(1)
-        : (
-            await queries.getLastVolumeWeightedPrice({
-              baseToken: ethTokenAddress,
-              quoteToken: token1,
-              since: null,
-            })
-          )?.price ?? new Decimal(0);
+      (
+        await queries.getLastVolumeWeightedPrice({
+          baseToken: ethTokenAddress,
+          quoteToken: token1,
+          since: null,
+        })
+      )?.price ?? new Decimal(0);
 
-    const thresholdFeeToken = new Decimal(1e15);
-    const threshold0 = BigInt(thresholdFeeToken.mul(price0).toFixed(0));
-    const threshold1 = BigInt(thresholdFeeToken.mul(price1).toFixed(0));
+    const thresholdEth = new Decimal(1e15);
+    const threshold0 = BigInt(thresholdEth.mul(price0).toFixed(0));
+    const threshold1 = BigInt(thresholdEth.mul(price1).toFixed(0));
 
     const data = await queries.getPriceHistory({
       token0,

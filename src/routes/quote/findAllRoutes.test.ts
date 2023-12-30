@@ -1,5 +1,11 @@
 import { findAllRoutes } from "./findAllRoutes";
-import { NodeKey, Quote, QuoteNode, TokenAmount } from "./nodes/quoteNode";
+import {
+  NodeKey,
+  Quote,
+  QuoteNode,
+  QuoteParams,
+  SuggestSqrtRatioLimitParams,
+} from "./nodes/quoteNode";
 
 class FakeQuoteNode implements QuoteNode<null> {
   constructor({ token0, token1 }: { token0: string; token1: string }) {
@@ -14,7 +20,7 @@ class FakeQuoteNode implements QuoteNode<null> {
 
   key: NodeKey;
 
-  quote(params: { amount: TokenAmount; sqrtRatioLimit?: bigint }): Quote<null> {
+  quote(params: QuoteParams): Quote<null> {
     throw new Error("not implemented");
   }
 
@@ -22,10 +28,7 @@ class FakeQuoteNode implements QuoteNode<null> {
     return false;
   }
 
-  suggestedSqrtRatioLimit(params: {
-    amount: TokenAmount;
-    isToken1: boolean;
-  }): bigint {
+  suggestedSqrtRatioLimit(params: SuggestSqrtRatioLimitParams): bigint {
     throw new Error("not implemented");
   }
 }

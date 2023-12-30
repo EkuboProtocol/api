@@ -12,7 +12,7 @@ import {
   Quote,
   QuoteNode,
   QuoteParams,
-  TokenAmount,
+  SuggestSqrtRatioLimitParams,
 } from "./quoteNode";
 
 export interface Tick {
@@ -103,7 +103,7 @@ export class PlainPool implements QuoteNode<BaseResources> {
   }
 
   public quote({
-    amount: { amount, token },
+    tokenAmount: { amount, token },
     sqrtRatioLimit,
     overrideSwapState,
   }: QuoteParams): Quote<BaseResources> {
@@ -217,14 +217,11 @@ export class PlainPool implements QuoteNode<BaseResources> {
   }
 
   public suggestedSqrtRatioLimit({
-    amount,
+    tokenAmount,
     isToken1,
-  }: {
-    amount: TokenAmount;
-    isToken1: boolean;
-  }): bigint {
+  }: SuggestSqrtRatioLimitParams): bigint {
     return toSqrtRatio(
-      isPriceIncreasing(amount.amount, isToken1)
+      isPriceIncreasing(tokenAmount.amount, isToken1)
         ? Math.min(MAX_TICK, this.tick + 100 * this.key.tickSpacing)
         : Math.max(MIN_TICK, this.tick - 100 * this.key.tickSpacing)
     );
