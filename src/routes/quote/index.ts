@@ -4,11 +4,10 @@ import { getAllTokens, getTokenByIdentifier } from "../meta/tokens";
 import Decimal from "decimal.js-light";
 import { MAX_U128 } from "./math/constants";
 import {
-  defaultAccumulator,
   getAllRelevantPoolsAndUpdateCache,
   getCachedNode,
-  QuoteRouteResult,
   quoteRoute,
+  QuoteRouteResult,
   ResourcesAccumulator,
   updatePoolCache,
 } from "./quoting";
@@ -193,7 +192,7 @@ export class GetQuote extends EkuboAPIRoute {
               )
               .mul(otherTokenPrice)
               .toInteger()
-              .toString()
+              .toFixed()
           );
 
           const gasAdjustedAmount = quote.tokenAmount.amount - gasInOtherToken;
