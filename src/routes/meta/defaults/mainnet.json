@@ -144,11 +144,21 @@
   },
   {
     "name": "StarkPepe",
-    "symbol": "SPEPE",
+    "symbol": "xSPEPE",
     "decimals": 18,
     "l2_token_address": "0x06f15ec4b6ff0b7f7a216c4b2ccdefc96cbf114d6242292ca82971592f62273b",
     "sort_order": 1,
-    "total_supply": 42000000000,
+    "total_supply": null,
+    "hidden": true,
+    "isDisabled": true
+  },
+  {
+    "name": "Gary Gensler",
+    "symbol": "xGARY",
+    "decimals": 18,
+    "l2_token_address": "0xd3d60f69d76b6639fc51ae1447480ecdf0ba1ea3f6162e3230be0a40ef2a6b",
+    "sort_order": 1,
+    "total_supply": null,
     "hidden": true,
     "isDisabled": true
   }

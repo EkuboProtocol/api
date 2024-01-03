@@ -78,15 +78,6 @@ const DEFAULT_TOKENS_BY_CHAIN_ID: {
   [constants.StarknetChainId.SN_GOERLI]: GOERLI_TOKENS,
 } as const;
 
-const DISABLED_FOR_TRADING: {
-  [chainId in constants.StarknetChainId]: { [symbol: string]: true };
-} = {
-  [constants.StarknetChainId.SN_MAIN]: {
-    ["GARY"]: true,
-  },
-  [constants.StarknetChainId.SN_GOERLI]: {},
-};
-
 const lastGetAllTokens: {
   [chainId in constants.StarknetChainId]?: {
     timestamp: number;
@@ -108,8 +99,6 @@ export async function getAllTokens(
   const tokens = DEFAULT_TOKENS_BY_CHAIN_ID[env.STARKNET_CHAIN_ID] ?? [];
 
   const { rows } = await queries.getRegisteredTokens();
-
-  const disabledMap = DISABLED_FOR_TRADING[env.STARKNET_CHAIN_ID];
 
   rows.forEach((row) => {
     try {
@@ -139,7 +128,8 @@ export async function getAllTokens(
             BigInt(row.total_supply) / 10n ** BigInt(row.decimals)
           ),
           hidden: true,
-          isDisabled: disabledMap[symbol],
+          // when they are disabled, they are placed in the default token list
+          isDisabled: false,
         });
       }
     } catch (error) {}

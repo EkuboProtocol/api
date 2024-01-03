@@ -113,10 +113,8 @@ export class Queries {
                  last_liquidity_update_event_id
           FROM pool_states_materialized
                    JOIN pool_keys ON pool_key_hash = key_hash
-          WHERE (
-              (token0 IN ($1, $2) OR token0 IN (SELECT token FROM paired_with_both)) AND
-              (token1 IN ($1, $2) OR token1 IN (SELECT token FROM paired_with_both))
-              )
+          WHERE ((token0 IN ($1, $2) OR token0 IN (SELECT token FROM paired_with_both)) AND
+                 (token1 IN ($1, $2) OR token1 IN (SELECT token FROM paired_with_both)))
             AND extension = $3
       `,
       values: [tokenA, tokenB, extension],
