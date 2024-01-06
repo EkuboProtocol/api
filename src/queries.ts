@@ -940,16 +940,30 @@ export class Queries {
     collector?: bigint;
     collectedAfter?: Date;
   }) {
-    return this.client.query<{ collector: string; points: number }>({
+    return this.client.query<{
+      collector: string;
+      earned_points: string;
+      referral_points: string;
+      total_points: string;
+    }>({
       name: "leaderboard",
       text: `
-        SELECT collector, SUM(points) AS points
-        FROM leaderboard_materialized
-        WHERE collector NOT IN (1791658794084622206857007003215132198038653612739770816311687551920625505808)
-          AND (collector = $1 OR $1 IS NULL)
-          AND (points_earned_day >= $2 OR $2 IS NULL)
-        GROUP BY collector
-        ORDER BY points DESC
+        WITH earned_points AS (SELECT collector, SUM(points) AS points
+                               FROM leaderboard
+                               WHERE points_earned_day >= $2 OR $2 IS NULL
+                               GROUP BY collector),
+             referral_points AS (SELECT referrer AS collector, SUM(points / 5) AS points
+                                 FROM leaderboard
+                                 WHERE referrer != 0 AND (points_earned_day >= $2 OR $2 IS NULL)
+                                 GROUP BY referrer)
+        SELECT COALESCE(earned_points.collector, referral_points.collector)            AS collector,
+               COALESCE(earned_points.points, 0)                                       AS earned_points,
+               COALESCE(referral_points.points, 0)                                     AS referral_points,
+               COALESCE(earned_points.points, 0) + COALESCE(referral_points.points, 0) AS total_points
+        FROM earned_points
+               FULL OUTER JOIN referral_points ON earned_points.collector = referral_points.collector
+        WHERE COALESCE(earned_points.collector, referral_points.collector) = $1 OR $1 IS NULL
+        ORDER BY total_points DESC
         LIMIT 1000
       `,
       values: [collector ?? null, collectedAfter ?? null],

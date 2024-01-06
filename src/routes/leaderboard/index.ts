@@ -58,7 +58,8 @@ export class GetLeaderboard extends EkuboAPIRoute {
         timestamp: Date.now(),
         data: rows.map((row) => ({
           collector: num.toHex(row.collector),
-          points: Number(row.points),
+          referral_points: Number(row.referral_points),
+          points: Number(row.total_points),
         })),
       },
       {
@@ -96,9 +97,9 @@ export class GetLeaderboardForCollector extends EkuboAPIRoute {
     const lastMonth = query?.lastMonth === "true";
     const collector = BigInt(params.collector);
 
-    const dao = await createQueries(env);
+    const queries = await createQueries(env);
 
-    const { rows } = await dao.getLeaderboard({
+    const { rows } = await queries.getLeaderboard({
       collector,
       collectedAfter: lastMonth
         ? new Date(Date.now() - 30 * 24 * 60 * 60 * 1000)
@@ -107,7 +108,7 @@ export class GetLeaderboardForCollector extends EkuboAPIRoute {
 
     return json(
       {
-        points: Number(rows?.[0]?.points ?? 0),
+        points: Number(rows?.[0]?.total_points ?? 0),
       },
       {
         headers: {
