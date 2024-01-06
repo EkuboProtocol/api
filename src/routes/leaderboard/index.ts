@@ -33,6 +33,7 @@ export class GetLeaderboard extends EkuboAPIRoute {
           data: z.array(
             z.object({
               collector: z.string(),
+              referral_points: z.number().int().min(0),
               points: z.number().int().min(0),
             })
           ),
@@ -86,6 +87,7 @@ export class GetLeaderboardForCollector extends EkuboAPIRoute {
         description:
           "The list of addresses and the number of points earned over the specified period",
         schema: z.object({
+          referral_points: z.number().int().min(0),
           points: z.number().int().min(0),
         }),
         contentType: "application/json",
@@ -108,6 +110,7 @@ export class GetLeaderboardForCollector extends EkuboAPIRoute {
 
     return json(
       {
+        referral_points: Number(rows?.[0]?.referral_points ?? 0),
         points: Number(rows?.[0]?.total_points ?? 0),
       },
       {
