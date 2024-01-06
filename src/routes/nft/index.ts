@@ -338,7 +338,7 @@ export class ListPositions extends EkuboAPIRoute {
   ) {
     const address = BigInt(addressStr);
 
-    const showClosed = "showClosed" in query && query.showClosed === "true";
+    const showClosed = query?.showClosed === "true";
 
     const queries = await createQueries(env);
     const { rows } = await queries.getPositionsByAddress(address, showClosed);

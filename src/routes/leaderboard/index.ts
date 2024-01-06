@@ -17,13 +17,7 @@ export class GetLeaderboard extends EkuboAPIRoute {
     tags: ["Leaderboard"],
     summary: "List leaderboard",
     description: "Get the first thousand users on the leaderboard",
-    parameters: [
-      {
-        name: "lastMonth",
-        location: "query",
-        type: z.coerce.boolean(),
-      },
-    ],
+    parameters: {},
     responses: {
       "200": {
         description:
@@ -44,15 +38,9 @@ export class GetLeaderboard extends EkuboAPIRoute {
   };
 
   async handle({ query }: IRequest, { env }: RequestContext) {
-    const lastMonth = query?.lastMonth === "true";
-
     const queries = await createQueries(env);
 
-    const { rows } = await queries.getLeaderboard({
-      collectedAfter: lastMonth
-        ? new Date(Date.now() - 30 * 24 * 60 * 60 * 1000)
-        : undefined,
-    });
+    const { rows } = await queries.getLeaderboard({});
 
     return json(
       {
@@ -96,16 +84,12 @@ export class GetLeaderboardForCollector extends EkuboAPIRoute {
   };
 
   async handle({ params, query }: IRequest, { env }: RequestContext) {
-    const lastMonth = query?.lastMonth === "true";
     const collector = BigInt(params.collector);
 
     const queries = await createQueries(env);
 
     const { rows } = await queries.getLeaderboard({
       collector,
-      collectedAfter: lastMonth
-        ? new Date(Date.now() - 30 * 24 * 60 * 60 * 1000)
-        : undefined,
     });
 
     return json(

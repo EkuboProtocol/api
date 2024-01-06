@@ -18,6 +18,7 @@ export class GetPoolStates extends OpenAPIRoute {
     summary: "Get pool states",
     description:
       "Returns the current state of all the Ekubo pools, including current liquidity and price",
+    parameters: {},
     responses: {
       "200": {
         description: "The current state of all the pools",

@@ -933,13 +933,7 @@ export class Queries {
         `);
   }
 
-  public async getLeaderboard({
-    collector,
-    collectedAfter,
-  }: {
-    collector?: bigint;
-    collectedAfter?: Date;
-  }) {
+  public async getLeaderboard({ collector }: { collector?: bigint }) {
     return this.client.query<{
       collector: string;
       earned_points: string;
@@ -948,29 +942,26 @@ export class Queries {
     }>({
       name: "leaderboard",
       text: `
-          WITH earned_points AS (SELECT collector, SUM(points) AS points
+        WITH earned_points AS (SELECT collector, SUM(points) AS points
+                               FROM leaderboard
+                               GROUP BY collector),
+             referral_points AS (SELECT referrer AS collector, SUM(points / 5) AS points
                                  FROM leaderboard
-                                 WHERE points_earned_day >= $2
-                                    OR $2 IS NULL
-                                 GROUP BY collector),
-               referral_points AS (SELECT referrer AS collector, SUM(points / 5) AS points
-                                   FROM leaderboard
-                                   WHERE referrer != 0
-                                     AND (points_earned_day >= $2 OR $2 IS NULL)
-                                   GROUP BY referrer)
-          SELECT COALESCE(earned_points.collector, referral_points.collector)            AS collector,
-                 COALESCE(earned_points.points, 0)                                       AS earned_points,
-                 COALESCE(referral_points.points, 0)                                     AS referral_points,
-                 COALESCE(earned_points.points, 0) + COALESCE(referral_points.points, 0) AS total_points
-          FROM earned_points
-                   FULL OUTER JOIN referral_points ON earned_points.collector = referral_points.collector
-          WHERE (COALESCE(earned_points.collector, referral_points.collector) = $1 OR $1 IS NULL)
-            AND COALESCE(earned_points.collector, referral_points.collector) NOT IN
-                (1791658794084622206857007003215132198038653612739770816311687551920625505808)
-          ORDER BY total_points DESC
-          LIMIT 1000
+                                 WHERE referrer != 0
+                                 GROUP BY referrer)
+        SELECT COALESCE(earned_points.collector, referral_points.collector)            AS collector,
+               COALESCE(earned_points.points, 0)                                       AS earned_points,
+               COALESCE(referral_points.points, 0)                                     AS referral_points,
+               COALESCE(earned_points.points, 0) + COALESCE(referral_points.points, 0) AS total_points
+        FROM earned_points
+               FULL OUTER JOIN referral_points ON earned_points.collector = referral_points.collector
+        WHERE (COALESCE(earned_points.collector, referral_points.collector) = $1 OR $1 IS NULL)
+          AND COALESCE(earned_points.collector, referral_points.collector) NOT IN
+              (1791658794084622206857007003215132198038653612739770816311687551920625505808)
+        ORDER BY total_points DESC
+        LIMIT 1000
       `,
-      values: [collector ?? null, collectedAfter ?? null],
+      values: [collector ?? null],
     });
   }
 }
