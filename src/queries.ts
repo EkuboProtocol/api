@@ -897,43 +897,46 @@ export class Queries {
   public async getPositionsByAddress(address: bigint, showClosed: boolean) {
     return this.client.query<PositionMetadata & { token_id: string }>({
       text: `
-                WITH ranked_transfers AS (SELECT token_id,
-                                                 to_address,
-                                                 ROW_NUMBER() OVER (
-                                                     PARTITION BY token_id
-                                                     ORDER BY event_id DESC
-                                                     ) AS row_no
-                                          FROM position_transfers
-                                          WHERE (from_address = $1
-                                              OR to_address = $1)
-                                            AND (CASE WHEN $2 THEN to_address != 0 ELSE TRUE END)),
-                     final_transfer AS (SELECT token_id,
-                                               to_address AS current_owner
-                                        FROM ranked_transfers
-                                        WHERE row_no = 1)
-                SELECT token_id,
-                       event_keys.transaction_hash AS minted_tx_hash,
-                       token0,
-                       token1,
-                       fee,
-                       tick_spacing,
-                       extension,
-                       lower_bound,
-                       upper_bound,
-                       blocks.time                 AS minted_timestamp
-                FROM position_transfers
-                         LEFT JOIN LATERAL (
-                    SELECT lower_bound, upper_bound, pool_key_hash
-                    FROM position_updates AS pu
-                    WHERE pu.salt = token_id::NUMERIC
-                    LIMIT 1
-                    ) AS mint_position_update ON TRUE
-                         JOIN event_keys ON position_transfers.event_id = event_keys.id
-                         JOIN pool_keys ON mint_position_update.pool_key_hash = pool_keys.key_hash
-                         JOIN blocks ON event_keys.block_number = blocks.number
-                WHERE token_id IN (SELECT token_id FROM final_transfer WHERE current_owner = $1)
-                ORDER BY token_id DESC
-            `,
+        WITH ranked_transfers AS (SELECT token_id,
+                                         to_address,
+                                         ROW_NUMBER() OVER (
+                                           PARTITION BY token_id
+                                           ORDER BY event_id DESC
+                                           ) AS row_no
+                                  FROM position_transfers
+                                  WHERE (from_address = $1
+                                    OR to_address = $1)
+                                    AND (CASE WHEN $2 THEN to_address != 0 ELSE TRUE END)),
+             final_transfer AS (SELECT token_id,
+                                       to_address AS current_owner
+                                FROM ranked_transfers
+                                WHERE row_no = 1)
+        SELECT token_id,
+               event_keys.transaction_hash AS minted_tx_hash,
+               token0,
+               token1,
+               fee,
+               tick_spacing,
+               extension,
+               lower_bound,
+               upper_bound,
+               blocks.time                 AS minted_timestamp
+        FROM final_transfer AS ft
+               LEFT JOIN LATERAL (
+          SELECT lower_bound, upper_bound, pool_key_hash
+          FROM position_updates AS pu
+          WHERE pu.salt = token_id::NUMERIC
+          LIMIT 1
+          ) AS mint_position_update ON TRUE
+               LEFT JOIN LATERAL (
+          SELECT event_id FROM position_transfers AS pt WHERE pt.token_id = ft.token_id ORDER BY event_id ASC LIMIT 1
+          ) AS mint_tx ON TRUE
+               JOIN event_keys ON mint_tx.event_id = event_keys.id
+               JOIN pool_keys ON mint_position_update.pool_key_hash = pool_keys.key_hash
+               JOIN blocks ON event_keys.block_number = blocks.number
+        WHERE token_id IN (SELECT token_id FROM final_transfer WHERE current_owner = $1)
+        ORDER BY token_id DESC
+      `,
       values: [address, showClosed],
     });
   }
