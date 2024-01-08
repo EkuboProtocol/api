@@ -242,22 +242,39 @@ export class ListNftEvents extends EkuboAPIRoute {
       {
         events: history.map(
           ({
-            delta0,
-            liquidity_delta,
-            delta1,
-            recipient,
             transaction_hash,
             timestamp,
-            collect_fees,
-          }) => ({
-            transaction_hash: num.toHex(transaction_hash),
-            timestamp,
-            recipient: recipient === null ? null : num.toHex(recipient),
+            type,
+            from_address,
+            to_address,
             liquidity_delta,
             delta0,
             delta1,
-            collect_fees,
-          })
+          }) =>
+            type === 0
+              ? {
+                  type: "transfer",
+                  transaction_hash: num.toHex(transaction_hash),
+                  timestamp,
+                  from_address: num.toHex(from_address),
+                  to_address: num.toHex(to_address),
+                }
+              : type === 1
+              ? {
+                  type: "update",
+                  transaction_hash: num.toHex(transaction_hash),
+                  timestamp,
+                  liquidity_delta,
+                  delta0,
+                  delta1,
+                }
+              : {
+                  type: "collect_fees",
+                  transaction_hash: num.toHex(transaction_hash),
+                  timestamp,
+                  delta0,
+                  delta1,
+                }
         ),
       },
       {

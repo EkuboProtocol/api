@@ -43,7 +43,7 @@ export class Queries {
       timestamp: string;
     }>({
       text: `
-        SELECT number, hash, time as timestamp
+        SELECT number, hash, time AS timestamp
         FROM blocks
         WHERE number = $1
            OR $1 IS NULL
@@ -87,36 +87,36 @@ export class Queries {
   }) {
     return this.client.query<PoolState>({
       text: `
-          WITH paired_with_a AS (SELECT (CASE WHEN token0 = $1 THEN token1 ELSE token0 END) AS token
-                                 FROM pool_keys
-                                 WHERE token0 = $1
-                                    OR token1 = $1),
-               paired_with_b AS (SELECT (CASE WHEN token0 = $2 THEN token1 ELSE token0 END) AS token
-                                 FROM pool_keys
-                                 WHERE token0 = $2
-                                    OR token1 = $2),
-               paired_with_both AS (SELECT token
-                                    FROM paired_with_a
-                                    INTERSECT
-                                    SELECT token
-                                    FROM paired_with_b)
-          SELECT pool_key_hash,
-                 token0,
-                 token1,
-                 fee,
-                 tick_spacing,
-                 extension,
-                 sqrt_ratio,
-                 tick,
-                 liquidity,
-                 last_event_id,
-                 last_liquidity_update_event_id
-          FROM pool_states_materialized
-                   JOIN pool_keys ON pool_key_hash = key_hash
-          WHERE ((token0 IN ($1, $2) OR token0 IN (SELECT token FROM paired_with_both)) AND
-                 (token1 IN ($1, $2) OR token1 IN (SELECT token FROM paired_with_both)))
-            AND extension = $3
-      `,
+                WITH paired_with_a AS (SELECT (CASE WHEN token0 = $1 THEN token1 ELSE token0 END) AS token
+                                       FROM pool_keys
+                                       WHERE token0 = $1
+                                          OR token1 = $1),
+                     paired_with_b AS (SELECT (CASE WHEN token0 = $2 THEN token1 ELSE token0 END) AS token
+                                       FROM pool_keys
+                                       WHERE token0 = $2
+                                          OR token1 = $2),
+                     paired_with_both AS (SELECT token
+                                          FROM paired_with_a
+                                          INTERSECT
+                                          SELECT token
+                                          FROM paired_with_b)
+                SELECT pool_key_hash,
+                       token0,
+                       token1,
+                       fee,
+                       tick_spacing,
+                       extension,
+                       sqrt_ratio,
+                       tick,
+                       liquidity,
+                       last_event_id,
+                       last_liquidity_update_event_id
+                FROM pool_states_materialized
+                         JOIN pool_keys ON pool_key_hash = key_hash
+                WHERE ((token0 IN ($1, $2) OR token0 IN (SELECT token FROM paired_with_both)) AND
+                       (token1 IN ($1, $2) OR token1 IN (SELECT token FROM paired_with_both)))
+                  AND extension = $3
+            `,
       values: [tokenA, tokenB, extension],
     });
   }
@@ -189,20 +189,28 @@ export class Queries {
   ): Promise<PositionMetadata | null> {
     const { rows, rowCount } = await this.client.query<PositionMetadata>({
       text: `
-        SELECT event_keys.transaction_hash AS minted_tx_hash,
-               position_minted.lower_bound,
-               position_minted.upper_bound,
-               pool_keys.token0,
-               pool_keys.token1,
-               pool_keys.fee,
-               pool_keys.tick_spacing,
-               pool_keys.extension,
-               blocks.time                 AS minted_timestamp
-        FROM position_minted
-               JOIN pool_keys ON position_minted.pool_key_hash = pool_keys.key_hash
-               JOIN event_keys ON position_minted.event_id = event_keys.id
-               JOIN blocks ON event_keys.block_number = blocks.number
-        WHERE token_id = $1
+          SELECT event_keys.transaction_hash AS minted_tx_hash,
+                 mint_position_update.lower_bound,
+                 mint_position_update.upper_bound,
+                 pool_keys.token0,
+                 pool_keys.token1,
+                 pool_keys.fee,
+                 pool_keys.tick_spacing,
+                 pool_keys.extension,
+                 blocks.time                 AS minted_timestamp
+          FROM position_transfers AS pt
+                   LEFT JOIN LATERAL (
+              SELECT lower_bound, upper_bound, pool_key_hash
+              FROM position_updates AS pu
+              WHERE pu.salt = token_id::NUMERIC
+              LIMIT 1
+              ) AS mint_position_update ON TRUE
+                   JOIN pool_keys ON mint_position_update.pool_key_hash = pool_keys.key_hash
+                   JOIN event_keys ON pt.event_id = event_keys.id
+                   JOIN blocks ON event_keys.block_number = blocks.number
+          WHERE token_id = $1
+            AND from_address = 0
+          LIMIT 1
       `,
       values: [id],
     });
@@ -215,49 +223,103 @@ export class Queries {
   }
 
   public async getPositionHistory(id: number) {
-    const { rows } = await this.client.query<{
-      transaction_hash: string;
-      timestamp: string;
-      liquidity_delta: string;
-      delta0: string;
-      delta1: string;
-      collect_fees: boolean | null;
-      recipient: string | null;
-    }>({
+    const { rows } = await this.client.query<
+      | {
+          type: 0;
+          transaction_hash: string;
+          timestamp: string;
+          from_address: string;
+          to_address: string;
+          liquidity_delta: null;
+          delta0: null;
+          delta1: null;
+        }
+      | {
+          type: 1;
+          transaction_hash: string;
+          timestamp: string;
+          from_address: null;
+          to_address: null;
+          liquidity_delta: string;
+          delta0: string;
+          delta1: string;
+        }
+      | {
+          type: 2;
+          transaction_hash: string;
+          timestamp: string;
+          from_address: null;
+          to_address: null;
+          liquidity_delta: null;
+          delta0: string;
+          delta1: string;
+        }
+    >({
       text: `
-        WITH all_events AS (SELECT transaction_hash,
-                                   time      AS timestamp,
-                                   liquidity AS liquidity_delta,
-                                   delta0,
-                                   delta1,
-                                   NULL      AS collect_fees,
-                                   NULL      AS recipient
-                            FROM position_deposit
-                                   JOIN event_keys ON position_deposit.event_id = event_keys.id
-                                   JOIN blocks ON event_keys.block_number = blocks.number
-                            WHERE token_id = $1
-                            UNION ALL
-                            SELECT transaction_hash,
-                                   time       AS timestamp,
-                                   -liquidity AS liquidity_delta,
-                                   delta0,
-                                   delta1,
-                                   collect_fees,
-                                   recipient
-                            FROM position_withdraw
-                                   JOIN event_keys ON position_withdraw.event_id = event_keys.id
-                                   JOIN blocks ON event_keys.block_number = blocks.number
-                            WHERE token_id = $1)
-        SELECT transaction_hash,
-               timestamp,
-               liquidity_delta,
-               delta0,
-               delta1,
-               collect_fees,
-               recipient
-        FROM all_events
-        ORDER BY timestamp DESC
-      `,
+                WITH transfers AS (SELECT transaction_hash,
+                                          time AS timestamp,
+                                          from_address,
+                                          to_address
+                                   FROM position_transfers
+                                            JOIN event_keys ek ON event_id = id
+                                            JOIN blocks b ON block_number = number
+                                   WHERE token_id = $1
+                                     AND from_address != 0
+                                     AND to_address != 0),
+                     updates AS (SELECT transaction_hash,
+                                        time AS timestamp,
+                                        liquidity_delta,
+                                        delta0,
+                                        delta1
+                                 FROM position_transfers AS pt
+                                          JOIN position_updates AS pu ON pu.salt = pt.token_id
+                                          JOIN event_keys AS puek ON pu.event_id = puek.id
+                                          JOIN blocks AS b ON puek.block_number = b.number
+                                 WHERE pt.token_id = $1
+                                   AND from_address = 0),
+                     fee_collections AS (SELECT transaction_hash,
+                                                time AS timestamp,
+                                                delta0,
+                                                delta1
+                                         FROM position_transfers AS pt
+                                                  JOIN position_fees_collected AS pfc ON pfc.salt = pt.token_id
+                                                  JOIN event_keys AS puek ON pfc.event_id = puek.id
+                                                  JOIN blocks AS b ON puek.block_number = b.number
+                                         WHERE pt.token_id = $1
+                                           AND from_address = 0),
+                     all_events AS (SELECT 0    AS type,
+                                           transaction_hash,
+                                           timestamp,
+                                           from_address,
+                                           to_address,
+                                           NULL AS liquidity_delta,
+                                           NULL AS delta0,
+                                           NULL AS delta1
+                                    FROM transfers
+                                    UNION ALL
+                                    SELECT 1    AS type,
+                                           transaction_hash,
+                                           timestamp,
+                                           NULL AS from_address,
+                                           NULL AS to_address,
+                                           liquidity_delta,
+                                           delta0,
+                                           delta1
+                                    FROM updates
+                                    UNION ALL
+                                    SELECT 2    AS type,
+                                           transaction_hash,
+                                           timestamp,
+                                           NULL AS from_address,
+                                           NULL AS to_address,
+                                           NULL AS liquidity_delta,
+                                           delta0,
+                                           delta1
+                                    FROM fee_collections)
+                SELECT *
+                FROM all_events
+                ORDER BY timestamp DESC
+            `,
       values: [id],
     });
     return rows;
@@ -275,15 +337,15 @@ export class Queries {
       net_liquidity_delta_diff: string;
     }>({
       text: `
-        SELECT tick, SUM(net_liquidity_delta_diff) AS net_liquidity_delta_diff
-        FROM per_pool_per_tick_liquidity_materialized
-               JOIN pool_keys ON pool_key_hash = key_hash
-        WHERE net_liquidity_delta_diff != 0
-          AND token0 = $1
-          AND token1 = $2
-        GROUP BY tick
-        ORDER BY tick
-      `,
+                SELECT tick, SUM(net_liquidity_delta_diff) AS net_liquidity_delta_diff
+                FROM per_pool_per_tick_liquidity_materialized
+                         JOIN pool_keys ON pool_key_hash = key_hash
+                WHERE net_liquidity_delta_diff != 0
+                  AND token0 = $1
+                  AND token1 = $2
+                GROUP BY tick
+                ORDER BY tick
+            `,
       values: [token0, token1],
     });
   }
@@ -294,11 +356,11 @@ export class Queries {
       net_liquidity_delta_diff: string;
     }>({
       text: `
-        SELECT tick, net_liquidity_delta_diff
-        FROM per_pool_per_tick_liquidity_materialized
-        WHERE pool_key_hash = $1
-        ORDER BY tick
-      `,
+                SELECT tick, net_liquidity_delta_diff
+                FROM per_pool_per_tick_liquidity_materialized
+                WHERE pool_key_hash = $1
+                ORDER BY tick
+            `,
       values: [pool_key_hash],
     });
   }
@@ -330,56 +392,56 @@ export class Queries {
       delta1: string;
     }>({
       text: `
-          WITH relevant_pool_keys AS (SELECT key_hash, fee, extension, tick_spacing
-                                      FROM pool_keys
-                                      WHERE token0 = $1
-                                        AND token1 = $2),
-               relevant_swaps AS (SELECT 0                           AS type,
-                                         relevant_pool_keys.key_hash AS pool_key_hash,
-                                         relevant_pool_keys.fee,
-                                         relevant_pool_keys.tick_spacing,
-                                         relevant_pool_keys.extension,
-                                         blocks.time as timestamp,
-                                         transaction_hash,
-                                         block_number,
-                                         transaction_index,
-                                         event_index,
-                                         locker,
-                                         delta0,
-                                         delta1
-                                  FROM swaps
-                                           JOIN relevant_pool_keys ON key_hash = pool_key_hash
-                                           JOIN event_keys ON swaps.event_id = event_keys.id
-                                           JOIN blocks ON event_keys.block_number = blocks.number),
-               relevant_updates AS (SELECT 1                           AS type,
-                                           relevant_pool_keys.key_hash AS pool_key_hash,
-                                           relevant_pool_keys.fee,
-                                           relevant_pool_keys.tick_spacing,
-                                           relevant_pool_keys.extension,
-                                           blocks.time as timestamp,
-                                           transaction_hash,
-                                           block_number,
-                                           transaction_index,
-                                           event_index,
-                                           locker,
-                                           delta0,
-                                           delta1
-                                    FROM position_updates
-                                             JOIN relevant_pool_keys
-                                                  ON key_hash = pool_key_hash
-                                             JOIN event_keys ON position_updates.event_id = event_keys.id
-                                             JOIN blocks ON event_keys.block_number = blocks.number),
-               combined AS (SELECT *
-                            FROM relevant_updates
-                            UNION ALL
-                            SELECT *
-                            FROM relevant_swaps)
+                WITH relevant_pool_keys AS (SELECT key_hash, fee, extension, tick_spacing
+                                            FROM pool_keys
+                                            WHERE token0 = $1
+                                              AND token1 = $2),
+                     relevant_swaps AS (SELECT 0                           AS type,
+                                               relevant_pool_keys.key_hash AS pool_key_hash,
+                                               relevant_pool_keys.fee,
+                                               relevant_pool_keys.tick_spacing,
+                                               relevant_pool_keys.extension,
+                                               blocks.time                 AS timestamp,
+                                               transaction_hash,
+                                               block_number,
+                                               transaction_index,
+                                               event_index,
+                                               locker,
+                                               delta0,
+                                               delta1
+                                        FROM swaps
+                                                 JOIN relevant_pool_keys ON key_hash = pool_key_hash
+                                                 JOIN event_keys ON swaps.event_id = event_keys.id
+                                                 JOIN blocks ON event_keys.block_number = blocks.number),
+                     relevant_updates AS (SELECT 1                           AS type,
+                                                 relevant_pool_keys.key_hash AS pool_key_hash,
+                                                 relevant_pool_keys.fee,
+                                                 relevant_pool_keys.tick_spacing,
+                                                 relevant_pool_keys.extension,
+                                                 blocks.time                 AS timestamp,
+                                                 transaction_hash,
+                                                 block_number,
+                                                 transaction_index,
+                                                 event_index,
+                                                 locker,
+                                                 delta0,
+                                                 delta1
+                                          FROM position_updates
+                                                   JOIN relevant_pool_keys
+                                                        ON key_hash = pool_key_hash
+                                                   JOIN event_keys ON position_updates.event_id = event_keys.id
+                                                   JOIN blocks ON event_keys.block_number = blocks.number),
+                     combined AS (SELECT *
+                                  FROM relevant_updates
+                                  UNION ALL
+                                  SELECT *
+                                  FROM relevant_swaps)
 
-          SELECT *
-          FROM combined
-          ORDER BY block_number DESC, transaction_index DESC, event_index DESC
-          LIMIT $3
-      `,
+                SELECT *
+                FROM combined
+                ORDER BY block_number DESC, transaction_index DESC, event_index DESC
+                LIMIT $3
+            `,
       values: [token0, token1, limit],
     });
   }
@@ -393,37 +455,37 @@ export class Queries {
   }) {
     return this.client.query<{ token: string; volume: string }>({
       text: `
-        WITH relevant_blocks AS (SELECT number
-                                 FROM blocks
-                                 WHERE time >= $1),
-             relevant_pool_keys AS (SELECT key_hash, token0, token1, fee
-                                    FROM pool_keys
-                                    WHERE COALESCE($2, token0) = token0
-                                      AND COALESCE($3, token1) = token1),
-             token_fees_paid AS (SELECT relevant_pool_keys.token0  AS token,
-                                        -protocol_fees_paid.delta0 AS delta
-                                 FROM protocol_fees_paid
-                                        JOIN event_keys ON protocol_fees_paid.event_id = event_keys.id
-                                        JOIN relevant_blocks
-                                             ON event_keys.block_number = relevant_blocks.number
-                                        JOIN
-                                      relevant_pool_keys
-                                      ON relevant_pool_keys.key_hash = protocol_fees_paid.pool_key_hash
-                                 UNION ALL
-                                 SELECT relevant_pool_keys.token1  AS token,
-                                        -protocol_fees_paid.delta1 AS delta
-                                 FROM protocol_fees_paid
-                                        JOIN event_keys ON protocol_fees_paid.event_id = event_keys.id
-                                        JOIN relevant_blocks
-                                             ON event_keys.block_number = relevant_blocks.number
-                                        JOIN
-                                      relevant_pool_keys
-                                      ON relevant_pool_keys.key_hash = protocol_fees_paid.pool_key_hash)
-        SELECT token,
-               SUM(delta) AS revenue
-        FROM token_fees_paid
-        GROUP BY token_fees_paid.token
-      `,
+                WITH relevant_blocks AS (SELECT number
+                                         FROM blocks
+                                         WHERE time >= $1),
+                     relevant_pool_keys AS (SELECT key_hash, token0, token1, fee
+                                            FROM pool_keys
+                                            WHERE COALESCE($2, token0) = token0
+                                              AND COALESCE($3, token1) = token1),
+                     token_fees_paid AS (SELECT relevant_pool_keys.token0  AS token,
+                                                -protocol_fees_paid.delta0 AS delta
+                                         FROM protocol_fees_paid
+                                                  JOIN event_keys ON protocol_fees_paid.event_id = event_keys.id
+                                                  JOIN relevant_blocks
+                                                       ON event_keys.block_number = relevant_blocks.number
+                                                  JOIN
+                                              relevant_pool_keys
+                                              ON relevant_pool_keys.key_hash = protocol_fees_paid.pool_key_hash
+                                         UNION ALL
+                                         SELECT relevant_pool_keys.token1  AS token,
+                                                -protocol_fees_paid.delta1 AS delta
+                                         FROM protocol_fees_paid
+                                                  JOIN event_keys ON protocol_fees_paid.event_id = event_keys.id
+                                                  JOIN relevant_blocks
+                                                       ON event_keys.block_number = relevant_blocks.number
+                                                  JOIN
+                                              relevant_pool_keys
+                                              ON relevant_pool_keys.key_hash = protocol_fees_paid.pool_key_hash)
+                SELECT token,
+                       SUM(delta) AS revenue
+                FROM token_fees_paid
+                GROUP BY token_fees_paid.token
+            `,
       values: [since, pair?.token0 ?? null, pair?.token1 ?? null],
     });
   }
@@ -488,14 +550,14 @@ export class Queries {
       k_volume: string;
     }>({
       text: `
-          SELECT total, k_volume
-          FROM pair_vwap_preimages_materialized
-          WHERE token0 = $1
-            AND token1 = $2
-            AND (timestamp_start >= $3 OR $3 IS NULL)
-          ORDER BY timestamp_start DESC
-          LIMIT 1
-      `,
+                SELECT total, k_volume
+                FROM pair_vwap_preimages_materialized
+                WHERE token0 = $1
+                  AND token1 = $2
+                  AND (timestamp_start >= $3 OR $3 IS NULL)
+                ORDER BY timestamp_start DESC
+                LIMIT 1
+            `,
       values: [token0, token1, since],
     });
 
@@ -697,7 +759,7 @@ export class Queries {
                                             WHERE COALESCE($1, token0) = token0
                                               AND COALESCE($2, token1) = token1),
                      revenue_deltas AS (SELECT relevant_pool_keys.token0  AS token,
-                                               date(blocks.time)     AS date,
+                                               date(blocks.time)          AS date,
                                                -protocol_fees_paid.delta0 AS delta
                                         FROM protocol_fees_paid
                                                  JOIN
@@ -709,7 +771,7 @@ export class Queries {
                                         WHERE blocks.time >= $3
                                         UNION ALL
                                         SELECT relevant_pool_keys.token1  AS token,
-                                               date(blocks.time)     AS date,
+                                               date(blocks.time)          AS date,
                                                -protocol_fees_paid.delta1 AS delta
                                         FROM protocol_fees_paid
                                                  JOIN
@@ -858,10 +920,16 @@ export class Queries {
                        extension,
                        lower_bound,
                        upper_bound,
-                       blocks.time            AS minted_timestamp
-                FROM position_minted
-                         JOIN event_keys ON position_minted.event_id = event_keys.id
-                         JOIN pool_keys ON position_minted.pool_key_hash = pool_keys.key_hash
+                       blocks.time                 AS minted_timestamp
+                FROM position_transfers
+                         LEFT JOIN LATERAL (
+                    SELECT lower_bound, upper_bound, pool_key_hash
+                    FROM position_updates AS pu
+                    WHERE pu.salt = token_id::NUMERIC
+                    LIMIT 1
+                    ) AS mint_position_update ON TRUE
+                         JOIN event_keys ON position_transfers.event_id = event_keys.id
+                         JOIN pool_keys ON mint_position_update.pool_key_hash = pool_keys.key_hash
                          JOIN blocks ON event_keys.block_number = blocks.number
                 WHERE token_id IN (SELECT token_id FROM final_transfer WHERE current_owner = $1)
                 ORDER BY token_id DESC
@@ -905,34 +973,6 @@ export class Queries {
     }, {});
   }
 
-  public async getAllActiveTokenIdsWithPoolKeys() {
-    return this.client.query<{
-      token_id: string;
-      owner: string;
-    }>(`
-            WITH tokens_and_owners AS (SELECT token_id,
-                                              (SELECT to_address
-                                               FROM position_transfers AS pt
-                                               WHERE pt.token_id = pm.token_id
-                                               ORDER BY pt.event_id DESC
-                                               LIMIT 1) AS owner
-                                       FROM position_minted AS pm)
-            SELECT tao.token_id,
-                   tao.owner,
-                   pk.token0,
-                   pk.token1,
-                   pk.fee,
-                   pk.tick_spacing,
-                   pk.extension,
-                   pm.lower_bound,
-                   pm.upper_bound
-            FROM tokens_and_owners tao
-                     JOIN position_minted AS pm ON tao.token_id = pm.token_id
-                     JOIN pool_keys AS pk ON pm.pool_key_hash = pk.key_hash
-            WHERE tao.owner != 0
-        `);
-  }
-
   public async getLeaderboard({ collector }: { collector?: bigint }) {
     return this.client.query<{
       collector: string;
@@ -942,25 +982,27 @@ export class Queries {
     }>({
       name: "leaderboard",
       text: `
-        WITH earned_points AS (SELECT collector, SUM(points) AS points
-                               FROM leaderboard
-                               GROUP BY collector),
-             referral_points AS (SELECT referrer AS collector, SUM(points / 5) AS points
-                                 FROM leaderboard
-                                 WHERE referrer != 0
-                                 GROUP BY referrer)
-        SELECT COALESCE(earned_points.collector, referral_points.collector)            AS collector,
-               COALESCE(earned_points.points, 0)                                       AS earned_points,
-               COALESCE(referral_points.points, 0)                                     AS referral_points,
-               COALESCE(earned_points.points, 0) + COALESCE(referral_points.points, 0) AS total_points
-        FROM earned_points
-               FULL OUTER JOIN referral_points ON earned_points.collector = referral_points.collector
-        WHERE (COALESCE(earned_points.collector, referral_points.collector) = $1 OR $1 IS NULL)
-          AND COALESCE(earned_points.collector, referral_points.collector) NOT IN
-              (1791658794084622206857007003215132198038653612739770816311687551920625505808)
-        ORDER BY total_points DESC
-        LIMIT 1000
-      `,
+                WITH earned_points AS (SELECT collector, SUM(points) AS points
+                                       FROM leaderboard
+                                       GROUP BY collector),
+                     referral_points AS (SELECT referrer AS collector, SUM(points / 5) AS points
+                                         FROM leaderboard
+                                                  JOIN position_minted_with_referrer AS pmwr
+                                                       ON pmwr.token_id = leaderboard.token_id
+                                         WHERE referrer != 0
+                                         GROUP BY referrer)
+                SELECT COALESCE(earned_points.collector, referral_points.collector)            AS collector,
+                       COALESCE(earned_points.points, 0)                                       AS earned_points,
+                       COALESCE(referral_points.points, 0)                                     AS referral_points,
+                       COALESCE(earned_points.points, 0) + COALESCE(referral_points.points, 0) AS total_points
+                FROM earned_points
+                         FULL OUTER JOIN referral_points ON earned_points.collector = referral_points.collector
+                WHERE (COALESCE(earned_points.collector, referral_points.collector) = $1 OR $1 IS NULL)
+                  AND COALESCE(earned_points.collector, referral_points.collector) NOT IN
+                      (1791658794084622206857007003215132198038653612739770816311687551920625505808)
+                ORDER BY total_points DESC
+                LIMIT 1000
+            `,
       values: [collector ?? null],
     });
   }
