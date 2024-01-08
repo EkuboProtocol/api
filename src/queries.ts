@@ -926,7 +926,7 @@ export class Queries {
                lower_bound,
                upper_bound,
                blocks.time                 AS minted_timestamp,
-               (SELECT SUM(points) FROM leaderboard AS l WHERE l.token_id = ft.token_id) AS points_earned
+               (SELECT SUM(points) FROM leaderboard AS l WHERE l.collector = ft.current_owner AND l.token_id = ft.token_id) AS points_earned
         FROM final_transfer AS ft
                LEFT JOIN LATERAL (
           SELECT lower_bound, upper_bound, pool_key_hash
