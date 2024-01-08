@@ -380,6 +380,7 @@ export class ListPositions extends EkuboAPIRoute {
           metadata_url: `${origin}/${row.token_id}`,
           image: `${origin}/${row.token_id}/image.svg`,
           minted_timestamp: row.minted_timestamp.getTime(),
+          points_earned: Number(row.points_earned),
         })),
       },
       {

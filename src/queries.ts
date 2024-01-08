@@ -895,7 +895,12 @@ export class Queries {
   }
 
   public async getPositionsByAddress(address: bigint, showClosed: boolean) {
-    return this.client.query<PositionMetadata & { token_id: string }>({
+    return this.client.query<
+      PositionMetadata & {
+        token_id: string;
+        points_earned: string;
+      }
+    >({
       text: `
         WITH ranked_transfers AS (SELECT token_id,
                                          to_address,
@@ -920,7 +925,8 @@ export class Queries {
                extension,
                lower_bound,
                upper_bound,
-               blocks.time                 AS minted_timestamp
+               blocks.time                 AS minted_timestamp,
+               (SELECT SUM(points) FROM leaderboard AS l WHERE l.token_id = ft.token_id) AS points_earned
         FROM final_transfer AS ft
                LEFT JOIN LATERAL (
           SELECT lower_bound, upper_bound, pool_key_hash
