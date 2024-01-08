@@ -254,72 +254,102 @@ export class Queries {
           delta0: string;
           delta1: string;
         }
+      | {
+          type: 3;
+          transaction_hash: string;
+          timestamp: string;
+          from_address: null;
+          to_address: null;
+          liquidity_delta: null;
+          delta0: string;
+          delta1: string;
+        }
     >({
       text: `
-                WITH transfers AS (SELECT transaction_hash,
-                                          time AS timestamp,
-                                          from_address,
-                                          to_address
-                                   FROM position_transfers
-                                            JOIN event_keys ek ON event_id = id
-                                            JOIN blocks b ON block_number = number
-                                   WHERE token_id = $1
-                                     AND from_address != 0
-                                     AND to_address != 0),
-                     updates AS (SELECT transaction_hash,
+        WITH transfers AS (SELECT transaction_hash,
+                                  time AS timestamp,
+                                  from_address,
+                                  to_address
+                           FROM position_transfers
+                                  JOIN event_keys ek ON event_id = id
+                                  JOIN blocks b ON block_number = number
+                           WHERE token_id = $1
+                             AND from_address != 0
+                             AND to_address != 0),
+             updates AS (SELECT transaction_hash,
+                                time AS timestamp,
+                                liquidity_delta,
+                                delta0,
+                                delta1
+                         FROM position_transfers AS pt
+                                JOIN position_updates AS pu ON pu.salt = pt.token_id
+                                JOIN event_keys AS puek ON pu.event_id = puek.id
+                                JOIN blocks AS b ON puek.block_number = b.number
+                         WHERE pt.token_id = $1
+                           AND from_address = 0),
+             fee_collections AS (SELECT transaction_hash,
                                         time AS timestamp,
-                                        liquidity_delta,
                                         delta0,
                                         delta1
                                  FROM position_transfers AS pt
-                                          JOIN position_updates AS pu ON pu.salt = pt.token_id
-                                          JOIN event_keys AS puek ON pu.event_id = puek.id
-                                          JOIN blocks AS b ON puek.block_number = b.number
+                                        JOIN position_fees_collected AS pfc ON pfc.salt = pt.token_id
+                                        JOIN event_keys AS puek ON pfc.event_id = puek.id
+                                        JOIN blocks AS b ON puek.block_number = b.number
                                  WHERE pt.token_id = $1
                                    AND from_address = 0),
-                     fee_collections AS (SELECT transaction_hash,
-                                                time AS timestamp,
-                                                delta0,
-                                                delta1
-                                         FROM position_transfers AS pt
-                                                  JOIN position_fees_collected AS pfc ON pfc.salt = pt.token_id
-                                                  JOIN event_keys AS puek ON pfc.event_id = puek.id
-                                                  JOIN blocks AS b ON puek.block_number = b.number
-                                         WHERE pt.token_id = $1
-                                           AND from_address = 0),
-                     all_events AS (SELECT 0    AS type,
-                                           transaction_hash,
-                                           timestamp,
-                                           from_address,
-                                           to_address,
-                                           NULL AS liquidity_delta,
-                                           NULL AS delta0,
-                                           NULL AS delta1
-                                    FROM transfers
-                                    UNION ALL
-                                    SELECT 1    AS type,
-                                           transaction_hash,
-                                           timestamp,
-                                           NULL AS from_address,
-                                           NULL AS to_address,
-                                           liquidity_delta,
-                                           delta0,
-                                           delta1
-                                    FROM updates
-                                    UNION ALL
-                                    SELECT 2    AS type,
-                                           transaction_hash,
-                                           timestamp,
-                                           NULL AS from_address,
-                                           NULL AS to_address,
-                                           NULL AS liquidity_delta,
-                                           delta0,
-                                           delta1
-                                    FROM fee_collections)
-                SELECT *
-                FROM all_events
-                ORDER BY timestamp DESC
-            `,
+             protocol_fees AS (SELECT transaction_hash,
+                                      time AS timestamp,
+                                      delta0,
+                                      delta1
+                               FROM position_transfers AS pt
+                                      JOIN protocol_fees_paid AS pfp ON pfp.salt = pt.token_id
+                                      JOIN event_keys AS puek ON pfp.event_id = puek.id
+                                      JOIN blocks AS b ON puek.block_number = b.number
+                               WHERE pt.token_id = $1
+                                 AND from_address = 0),
+             all_events AS (SELECT 0    AS type,
+                                   transaction_hash,
+                                   timestamp,
+                                   from_address,
+                                   to_address,
+                                   NULL AS liquidity_delta,
+                                   NULL AS delta0,
+                                   NULL AS delta1
+                            FROM transfers
+                            UNION ALL
+                            SELECT 1    AS type,
+                                   transaction_hash,
+                                   timestamp,
+                                   NULL AS from_address,
+                                   NULL AS to_address,
+                                   liquidity_delta,
+                                   delta0,
+                                   delta1
+                            FROM updates
+                            UNION ALL
+                            SELECT 2    AS type,
+                                   transaction_hash,
+                                   timestamp,
+                                   NULL AS from_address,
+                                   NULL AS to_address,
+                                   NULL AS liquidity_delta,
+                                   delta0,
+                                   delta1
+                            FROM fee_collections
+                            UNION ALL
+                            SELECT 3    AS type,
+                                   transaction_hash,
+                                   timestamp,
+                                   NULL AS from_address,
+                                   NULL AS to_address,
+                                   NULL AS liquidity_delta,
+                                   delta0,
+                                   delta1
+                            FROM protocol_fees)
+        SELECT *
+        FROM all_events
+        ORDER BY timestamp DESC
+      `,
       values: [id],
     });
     return rows;

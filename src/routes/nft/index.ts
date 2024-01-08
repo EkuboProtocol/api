@@ -268,8 +268,16 @@ export class ListNftEvents extends EkuboAPIRoute {
                   delta0,
                   delta1,
                 }
-              : {
+              : type === 2
+              ? {
                   type: "collect_fees",
+                  transaction_hash: num.toHex(transaction_hash),
+                  timestamp,
+                  delta0,
+                  delta1,
+                }
+              : {
+                  type: "protocol_fees",
                   transaction_hash: num.toHex(transaction_hash),
                   timestamp,
                   delta0,
