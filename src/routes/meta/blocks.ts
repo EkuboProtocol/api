@@ -1,4 +1,4 @@
-import { error, IRequest, json } from "itty-router";
+import { IRequest, json } from "itty-router";
 import { EkuboAPIRoute, RequestContext } from "../../shared/context";
 import { OpenAPIRouteSchema, Path } from "@cloudflare/itty-router-openapi";
 import { z } from "zod";

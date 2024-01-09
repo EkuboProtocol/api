@@ -15,6 +15,7 @@ jobs:
         include:
           - network_name: mainnet
           - network_name: goerli
+          - network_name: sepolia
 
     runs-on: ubuntu-latest
     name: Deploy to Cloudflare

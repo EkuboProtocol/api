@@ -6,6 +6,7 @@ import { EkuboAPIRoute, RequestContext } from "../../shared/context";
 
 import MAINNET_TOKENS from "./defaults/mainnet.json";
 import GOERLI_TOKENS from "./defaults/goerli.json";
+import SEPOLIA_TOKENS from "./defaults/sepolia.json";
 import { constants, num, shortString } from "starknet";
 import { createQueries, Queries } from "../../queries";
 
@@ -76,6 +77,7 @@ const DEFAULT_TOKENS_BY_CHAIN_ID: {
 } = {
   [constants.StarknetChainId.SN_MAIN]: MAINNET_TOKENS,
   [constants.StarknetChainId.SN_GOERLI]: GOERLI_TOKENS,
+  [constants.StarknetChainId.SN_SEPOLIA]: SEPOLIA_TOKENS,
 } as const;
 
 const lastGetAllTokens: {

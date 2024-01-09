@@ -25,6 +25,15 @@ kv_namespaces = [
 ]
 vars = { STARKNET_CHAIN_ID = "0x534e5f474f45524c49", ETH_TOKEN_ADDRESS = "0x049d36570d4e46f48e99674bd3fcc84644ddd6b96f7c741b1562b82f9e004dc7" }
 
+[env.sepolia]
+hyperdrive = [
+    { binding = "HYPERDRIVE", id = "ffa6aaced51b4ecc886124b471c3154d" }
+]
+kv_namespaces = [
+    { binding = "TOKEN_LOGOS_KV", id = "aeb9aca426e34ec49ec409537da95291" },
+]
+vars = { STARKNET_CHAIN_ID = "0x534e5f5345504f4c4941", ETH_TOKEN_ADDRESS = "0x049d36570d4e46f48e99674bd3fcc84644ddd6b96f7c741b1562b82f9e004dc7" }
+
 [env.mainnet]
 hyperdrive = [
     { binding = "HYPERDRIVE", id = "7cb6a70423594e9ebef3c58d38c349e4" }
