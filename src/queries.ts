@@ -749,17 +749,21 @@ export class Queries {
       values: [quoteToken, start],
     });
 
-    return rows.map(({ token0, token1, k_volume, total }) => ({
-      token: `0x${(BigInt(token0) === quoteToken
-        ? BigInt(token1)
-        : BigInt(token0)
-      ).toString(16)}`,
-      price:
-        BigInt(token0) !== quoteToken
-          ? new Decimal(total).div(k_volume)
-          : new Decimal(k_volume).div(total),
-      k_volume: BigInt(k_volume),
-    }));
+    return rows
+      .filter(
+        ({ k_volume, total }) => BigInt(k_volume) > 0n && BigInt(total) > 0n
+      )
+      .map(({ token0, token1, k_volume, total }) => ({
+        token: `0x${(BigInt(token0) === quoteToken
+          ? BigInt(token1)
+          : BigInt(token0)
+        ).toString(16)}`,
+        price:
+          BigInt(token0) !== quoteToken
+            ? new Decimal(total).div(k_volume)
+            : new Decimal(k_volume).div(total),
+        k_volume: BigInt(k_volume),
+      }));
   }
 
   public async withinTransaction<T>(doX: () => Promise<T>): Promise<T> {
