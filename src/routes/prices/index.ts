@@ -18,7 +18,7 @@ import {
 } from "@cloudflare/itty-router-openapi";
 import { z } from "zod";
 
-const DEFAULT_PERIOD_SECONDS = 15 * 60;
+const DEFAULT_PERIOD_SECONDS = 5 * 60;
 
 export class GetPairPrice extends EkuboAPIRoute {
   static route = "/price/:baseToken/:quoteToken";
@@ -31,14 +31,9 @@ export class GetPairPrice extends EkuboAPIRoute {
       baseToken: Path(TokenIdentifierType, { example: "ETH" }),
       quoteToken: Path(TokenIdentifierType, { example: "USDC" }),
       period: Query(
-        z.coerce
-          .number()
-          .int()
-          .min(300)
-          .max(21_600)
-          .openapi({
-            description: "The amount of time over which the VWAP is measured",
-          }),
+        z.coerce.number().int().min(300).max(21_600).openapi({
+          description: "The amount of time over which the VWAP is measured",
+        }),
         {
           example: 60,
           default: DEFAULT_PERIOD_SECONDS,
