@@ -18,6 +18,8 @@ import {
 } from "@cloudflare/itty-router-openapi";
 import { z } from "zod";
 
+const DEFAULT_PERIOD_SECONDS = 15 * 60;
+
 export class GetPairPrice extends EkuboAPIRoute {
   static route = "/price/:baseToken/:quoteToken";
 
@@ -28,6 +30,20 @@ export class GetPairPrice extends EkuboAPIRoute {
     parameters: {
       baseToken: Path(TokenIdentifierType, { example: "ETH" }),
       quoteToken: Path(TokenIdentifierType, { example: "USDC" }),
+      period: Query(
+        z.coerce
+          .number()
+          .int()
+          .min(300)
+          .max(21_600)
+          .openapi({
+            description: "The amount of time over which the VWAP is measured",
+          }),
+        {
+          example: 60,
+          default: DEFAULT_PERIOD_SECONDS,
+        }
+      ),
     },
     responses: {
       "200": {
@@ -37,7 +53,7 @@ export class GetPairPrice extends EkuboAPIRoute {
     },
   };
 
-  async handle({ params }: IRequest, { env }: RequestContext) {
+  async handle({ params, query }: IRequest, { env }: RequestContext) {
     const queries = await createQueries(env);
     const allTokens = await getAllTokens(env, queries);
 
@@ -50,9 +66,10 @@ export class GetPairPrice extends EkuboAPIRoute {
 
     const baseToken = BigInt(bt.l2_token_address);
     const quoteToken = BigInt(qt.l2_token_address);
+    const period = Number(query.period ?? DEFAULT_PERIOD_SECONDS) * 1_000;
 
     const timestamp = Date.now();
-    const fifteenMinutesAgo = new Date(timestamp - 15 * 60 * 1000);
+    const startTimestamp = new Date(timestamp - period);
 
     const ethTokenAddress = BigInt(env.ETH_TOKEN_ADDRESS);
 
@@ -66,17 +83,17 @@ export class GetPairPrice extends EkuboAPIRoute {
           queries.getLastVolumeWeightedPrice({
             quoteToken,
             baseToken,
-            since: fifteenMinutesAgo,
+            since: startTimestamp,
           }),
           queries.getLastVolumeWeightedPrice({
             quoteToken,
             baseToken: ethTokenAddress,
-            since: fifteenMinutesAgo,
+            since: startTimestamp,
           }),
           queries.getLastVolumeWeightedPrice({
             quoteToken: ethTokenAddress,
             baseToken,
-            since: fifteenMinutesAgo,
+            since: startTimestamp,
           }),
         ])
     );
