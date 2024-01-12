@@ -577,8 +577,8 @@ export class Queries {
         : [quoteToken, baseToken];
 
     const { rows } = await this.client.query<{
-      total: string;
-      k_volume: string;
+      total: string | null;
+      k_volume: string | null;
     }>({
       text: `
         SELECT SUM(delta1 * delta1) AS total, SUM(ABS(delta1 * delta0)) AS k_volume
@@ -596,6 +596,8 @@ export class Queries {
     if (rows.length !== 1) return null;
 
     const { total, k_volume } = rows[0];
+
+    if (total === null || k_volume === null) return null;
 
     const price =
       baseToken < quoteToken
