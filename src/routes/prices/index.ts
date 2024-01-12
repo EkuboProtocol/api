@@ -123,7 +123,7 @@ export class GetPairPrice extends EkuboAPIRoute {
       {
         headers: {
           "cache-control": `public, max-age=${Math.floor(
-            period / 2
+            period / 10
           )}, must-revalidate`,
         },
       }
