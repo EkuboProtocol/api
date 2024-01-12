@@ -52,7 +52,7 @@ export class GetPairPrice extends EkuboAPIRoute {
     const quoteToken = BigInt(qt.l2_token_address);
 
     const timestamp = Date.now();
-    const oneDayAgo = new Date(timestamp - 86_400_000);
+    const fifteenMinutesAgo = new Date(timestamp - 15 * 60 * 1000);
 
     const ethTokenAddress = BigInt(env.ETH_TOKEN_ADDRESS);
 
@@ -66,17 +66,17 @@ export class GetPairPrice extends EkuboAPIRoute {
           queries.getLastVolumeWeightedPrice({
             quoteToken,
             baseToken,
-            since: oneDayAgo,
+            since: fifteenMinutesAgo,
           }),
           queries.getLastVolumeWeightedPrice({
             quoteToken,
             baseToken: ethTokenAddress,
-            since: oneDayAgo,
+            since: fifteenMinutesAgo,
           }),
           queries.getLastVolumeWeightedPrice({
             quoteToken: ethTokenAddress,
             baseToken,
-            since: oneDayAgo,
+            since: fifteenMinutesAgo,
           }),
         ])
     );
