@@ -61,10 +61,10 @@ export class GetPairPrice extends EkuboAPIRoute {
 
     const baseToken = BigInt(bt.l2_token_address);
     const quoteToken = BigInt(qt.l2_token_address);
-    const period = Number(query.period ?? DEFAULT_PERIOD_SECONDS) * 1_000;
+    const period = Number(query.period ?? DEFAULT_PERIOD_SECONDS);
 
     const timestamp = Date.now();
-    const startTimestamp = new Date(timestamp - period);
+    const startTimestamp = new Date(timestamp - period * 1_000);
 
     const ethTokenAddress = BigInt(env.ETH_TOKEN_ADDRESS);
 
