@@ -559,14 +559,16 @@ export class Queries {
     });
   }
 
-  public async getLastVolumeWeightedPrice({
+  public async getVolumeWeightedPriceSince({
     baseToken,
     quoteToken,
     since,
+    minSwapCount = 1,
   }: {
     baseToken: bigint;
     quoteToken: bigint;
     since: Date | null;
+    minSwapCount: number;
   }): Promise<{ price: Decimal; k_volume: bigint } | null> {
     if (baseToken === quoteToken)
       return { price: new Decimal(1), k_volume: 1n << 128n };
@@ -579,9 +581,10 @@ export class Queries {
     const { rows } = await this.client.query<{
       total: string | null;
       k_volume: string | null;
+      swap_count: number;
     }>({
       text: `
-        SELECT SUM(delta1 * delta1) AS total, SUM(ABS(delta1 * delta0)) AS k_volume
+        SELECT SUM(delta1 * delta1) AS total, SUM(ABS(delta1 * delta0)) AS k_volume, COUNT(1) as swap_count
         FROM swaps
                JOIN pool_keys AS pk ON swaps.pool_key_hash = pk.key_hash
                JOIN event_keys AS ek ON swaps.event_id = ek.id
@@ -595,9 +598,15 @@ export class Queries {
 
     if (rows.length !== 1) return null;
 
-    const { total, k_volume } = rows[0];
+    const { total, k_volume, swap_count } = rows[0];
 
-    if (total === null || k_volume === null) return null;
+    if (
+      total === null ||
+      k_volume === null ||
+      swap_count === null ||
+      swap_count < minSwapCount
+    )
+      return null;
 
     const price =
       baseToken < quoteToken

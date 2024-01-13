@@ -72,23 +72,29 @@ export class GetPairPrice extends EkuboAPIRoute {
       return error(500, "Fee token not defined for chain");
     }
 
+    // e.g. if period is 5 minutes == 300 seconds, must have swapped at least 1 time in that period
+    const minSwapCount = Math.floor(period / 300);
+
     const [direct, quoteToEth, baseToEth] = await queries.withinTransaction(
       () =>
         Promise.all([
-          queries.getLastVolumeWeightedPrice({
+          queries.getVolumeWeightedPriceSince({
             quoteToken,
             baseToken,
             since: startTimestamp,
+            minSwapCount,
           }),
-          queries.getLastVolumeWeightedPrice({
+          queries.getVolumeWeightedPriceSince({
             quoteToken,
             baseToken: ethTokenAddress,
             since: startTimestamp,
+            minSwapCount,
           }),
-          queries.getLastVolumeWeightedPrice({
+          queries.getVolumeWeightedPriceSince({
             quoteToken: ethTokenAddress,
             baseToken,
             since: startTimestamp,
+            minSwapCount,
           }),
         ])
     );
@@ -219,18 +225,20 @@ export class GetPairPriceHistory extends EkuboAPIRoute {
     const ethTokenAddress = BigInt(env.ETH_TOKEN_ADDRESS);
     const price0 =
       (
-        await queries.getLastVolumeWeightedPrice({
+        await queries.getVolumeWeightedPriceSince({
           baseToken: ethTokenAddress,
           quoteToken: token0,
           since: null,
+          minSwapCount: 10,
         })
       )?.price ?? new Decimal(0);
     const price1 =
       (
-        await queries.getLastVolumeWeightedPrice({
+        await queries.getVolumeWeightedPriceSince({
           baseToken: ethTokenAddress,
           quoteToken: token1,
           since: null,
+          minSwapCount: 10,
         })
       )?.price ?? new Decimal(0);
 
