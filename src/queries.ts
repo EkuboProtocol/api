@@ -559,15 +559,17 @@ export class Queries {
     });
   }
 
-  public async getVolumeWeightedPriceSince({
+  public async getVolumeWeightedPriceOverPeriod({
     baseToken,
     quoteToken,
-    since,
+    start,
+    end,
     minSwapCount = 1,
   }: {
     baseToken: bigint;
     quoteToken: bigint;
-    since: Date | null;
+    start: Date | null;
+    end: Date | null;
     minSwapCount: number;
   }): Promise<{ price: Decimal; k_volume: bigint } | null> {
     if (baseToken === quoteToken)
@@ -584,16 +586,16 @@ export class Queries {
       swap_count: number;
     }>({
       text: `
-        SELECT SUM(delta1 * delta1) AS total, SUM(ABS(delta1 * delta0)) AS k_volume, COUNT(1) as swap_count
+        SELECT SUM(delta1 * delta1) AS total, SUM(ABS(delta1 * delta0)) AS k_volume, COUNT(1) AS swap_count
         FROM swaps
                JOIN pool_keys AS pk ON swaps.pool_key_hash = pk.key_hash
                JOIN event_keys AS ek ON swaps.event_id = ek.id
                JOIN blocks AS b ON ek.block_number = b.number
         WHERE token0 = $1
           AND token1 = $2
-          AND (b.time >= COALESCE($3, NOW() - INTERVAL '6 hours'))
+          AND b.time BETWEEN COALESCE($3, NOW() - INTERVAL '6 hours') AND COALESCE($4, NOW())
       `,
-      values: [token0, token1, since],
+      values: [token0, token1, start, end],
     });
 
     if (rows.length !== 1) return null;

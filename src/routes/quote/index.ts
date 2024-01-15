@@ -163,10 +163,12 @@ export class GetQuote extends EkuboAPIRoute {
     // get the ETH price of the other token
     const otherTokenPrice =
       (
-        await queries.getVolumeWeightedPriceSince({
+        await queries.getVolumeWeightedPriceOverPeriod({
           baseToken: BigInt(env.ETH_TOKEN_ADDRESS),
           quoteToken: BigInt(otherToken.l2_token_address),
-          since: null,
+          start: null,
+          minSwapCount: 0,
+          end: null,
         })
       )?.price ?? new Decimal(0);
 

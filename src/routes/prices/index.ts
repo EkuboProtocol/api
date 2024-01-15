@@ -30,6 +30,12 @@ export class GetPairPrice extends EkuboAPIRoute {
     parameters: {
       baseToken: Path(TokenIdentifierType, { example: "ETH" }),
       quoteToken: Path(TokenIdentifierType, { example: "USDC" }),
+      atTime: Query(
+        z.coerce.date().openapi({
+          description: "The time from which the VWAP should be measured",
+        }),
+        { example: "2024-01-01T00:00:00", required: false }
+      ),
       period: Query(
         z.coerce.number().int().min(300).max(21_600).openapi({
           description: "The amount of time over which the VWAP is measured",
@@ -63,8 +69,12 @@ export class GetPairPrice extends EkuboAPIRoute {
     const quoteToken = BigInt(qt.l2_token_address);
     const period = Number(query.period ?? DEFAULT_PERIOD_SECONDS);
 
-    const timestamp = Date.now();
-    const startTimestamp = new Date(timestamp - period * 1_000);
+    const timestamp = new Date();
+
+    const startTimestamp =
+      query.atTime && typeof query.atTime === "string"
+        ? new Date(query.atTime)
+        : new Date(timestamp.getTime() - period * 1_000);
 
     const ethTokenAddress = BigInt(env.ETH_TOKEN_ADDRESS);
 
@@ -73,28 +83,31 @@ export class GetPairPrice extends EkuboAPIRoute {
     }
 
     // e.g. if period is 5 minutes == 300 seconds, must have swapped at least 1 time in that period
-    const minSwapCount = Math.floor(period / 300);
+    const minSwapCount = Math.floor(period / 600);
 
     const [direct, quoteToEth, baseToEth] = await queries.withinTransaction(
       () =>
         Promise.all([
-          queries.getVolumeWeightedPriceSince({
+          queries.getVolumeWeightedPriceOverPeriod({
             quoteToken,
             baseToken,
-            since: startTimestamp,
+            start: startTimestamp,
             minSwapCount,
+            end: timestamp,
           }),
-          queries.getVolumeWeightedPriceSince({
+          queries.getVolumeWeightedPriceOverPeriod({
             quoteToken,
             baseToken: ethTokenAddress,
-            since: startTimestamp,
+            start: startTimestamp,
             minSwapCount,
+            end: timestamp,
           }),
-          queries.getVolumeWeightedPriceSince({
+          queries.getVolumeWeightedPriceOverPeriod({
             quoteToken: ethTokenAddress,
             baseToken,
-            since: startTimestamp,
+            start: startTimestamp,
             minSwapCount,
+            end: timestamp,
           }),
         ])
     );
@@ -225,20 +238,22 @@ export class GetPairPriceHistory extends EkuboAPIRoute {
     const ethTokenAddress = BigInt(env.ETH_TOKEN_ADDRESS);
     const price0 =
       (
-        await queries.getVolumeWeightedPriceSince({
+        await queries.getVolumeWeightedPriceOverPeriod({
           baseToken: ethTokenAddress,
           quoteToken: token0,
-          since: null,
+          start: null,
           minSwapCount: 10,
+          end: null,
         })
       )?.price ?? new Decimal(0);
     const price1 =
       (
-        await queries.getVolumeWeightedPriceSince({
+        await queries.getVolumeWeightedPriceOverPeriod({
           baseToken: ethTokenAddress,
           quoteToken: token1,
-          since: null,
+          start: null,
           minSwapCount: 10,
+          end: null,
         })
       )?.price ?? new Decimal(0);
 
