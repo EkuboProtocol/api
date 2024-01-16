@@ -738,18 +738,21 @@ export class Queries {
   public async getAllVolumeWeightedPrices({
     start,
     quoteToken,
+    minSwapCount,
   }: {
     start: Date;
     quoteToken: bigint;
+    minSwapCount: number;
   }): Promise<{ token: string; price: Decimal; k_volume: bigint }[]> {
     const { rows } = await this.client.query<{
       token0: string;
       token1: string;
       total: string;
       k_volume: string;
+      swap_count: number;
     }>({
       text: `
-        SELECT token0, token1, SUM(delta1 * delta1) AS total, SUM(ABS(delta1 * delta0)) AS k_volume
+        SELECT token0, token1, SUM(delta1 * delta1) AS total, SUM(ABS(delta1 * delta0)) AS k_volume, COUNT(1) AS swap_count
         FROM swaps
                JOIN pool_keys AS pk ON swaps.pool_key_hash = pk.key_hash
                JOIN event_keys AS ek ON swaps.event_id = ek.id
@@ -764,7 +767,10 @@ export class Queries {
 
     return rows
       .filter(
-        ({ k_volume, total }) => BigInt(k_volume) > 0n && BigInt(total) > 0n
+        ({ k_volume, total, swap_count }) =>
+          BigInt(k_volume) > 0n &&
+          BigInt(total) > 0n &&
+          swap_count >= minSwapCount
       )
       .map(({ token0, token1, k_volume, total }) => ({
         token: `0x${(BigInt(token0) === quoteToken
