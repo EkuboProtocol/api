@@ -83,7 +83,7 @@ export class GetPairPrice extends EkuboAPIRoute {
     }
 
     // e.g. if period is 5 minutes == 300 seconds, must have swapped at least 1 time in that period
-    const minSwapCount = Math.floor(period / 450);
+    const minSwapCount = Math.floor(period / 1800);
 
     const [direct, quoteToEth, baseToEth] = await queries.withinTransaction(
       () =>
