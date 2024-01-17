@@ -43,6 +43,7 @@ export class GetPairPrice extends EkuboAPIRoute {
         {
           example: 60,
           default: DEFAULT_PERIOD_SECONDS,
+          required: false,
         }
       ),
     },
