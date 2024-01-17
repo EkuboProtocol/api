@@ -41,7 +41,7 @@ export class GetPairPrice extends EkuboAPIRoute {
           description: "The amount of time over which the VWAP is measured",
         }),
         {
-          example: 60,
+          example: 3600,
           default: DEFAULT_PERIOD_SECONDS,
           required: false,
         }
