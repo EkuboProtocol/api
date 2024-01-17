@@ -68,7 +68,6 @@ export class GetLeaderboardForCollector extends EkuboAPIRoute {
     description: "Get the points for a specific collector on the leaderboard",
     parameters: {
       collector: Path(AddressType),
-      lastMonth: Query(z.coerce.boolean()),
     },
     responses: {
       "200": {
