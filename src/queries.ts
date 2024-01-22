@@ -960,54 +960,54 @@ export class Queries {
       }
     >({
       text: `
-                WITH ranked_transfers AS (SELECT token_id,
-                                                 to_address,
-                                                 ROW_NUMBER() OVER (
-                                                     PARTITION BY token_id
-                                                     ORDER BY event_id DESC
-                                                     ) AS row_no
-                                          FROM position_transfers
-                                          WHERE (from_address = $1
-                                              OR to_address = $1)
-                                            AND (CASE WHEN $2 THEN to_address != 0 ELSE TRUE END)),
-                     final_transfer AS (SELECT token_id,
-                                               to_address AS current_owner
-                                        FROM ranked_transfers
-                                        WHERE row_no = 1)
-                SELECT token_id,
-                       event_keys.transaction_hash      AS minted_tx_hash,
-                       token0,
-                       token1,
-                       fee,
-                       tick_spacing,
-                       extension,
-                       lower_bound,
-                       upper_bound,
-                       blocks.time                      AS minted_timestamp,
-                       (SELECT SUM(points)
-                        FROM leaderboard AS l
-                        WHERE l.collector = ft.current_owner
-                          AND l.token_id = ft.token_id) AS points_earned
-                FROM final_transfer AS ft
-                         LEFT JOIN LATERAL (
-                    SELECT lower_bound, upper_bound, pool_key_hash
-                    FROM position_updates AS pu
-                    WHERE pu.salt = token_id::NUMERIC
-                    LIMIT 1
-                    ) AS mint_position_update ON TRUE
-                         LEFT JOIN LATERAL (
-                    SELECT event_id
-                    FROM position_transfers AS pt
-                    WHERE pt.token_id = ft.token_id
-                    ORDER BY event_id ASC
-                    LIMIT 1
-                    ) AS mint_tx ON TRUE
-                         JOIN event_keys ON mint_tx.event_id = event_keys.id
-                         JOIN pool_keys ON mint_position_update.pool_key_hash = pool_keys.key_hash
-                         JOIN blocks ON event_keys.block_number = blocks.number
-                WHERE token_id IN (SELECT token_id FROM final_transfer WHERE current_owner = $1)
-                ORDER BY token_id DESC
-            `,
+          WITH ranked_transfers AS (SELECT token_id,
+                                           to_address,
+                                           ROW_NUMBER() OVER (
+                                               PARTITION BY token_id
+                                               ORDER BY event_id DESC
+                                               ) AS row_no
+                                    FROM position_transfers
+                                    WHERE (from_address = $1
+                                        OR to_address = $1)
+                                      AND (CASE WHEN $2 THEN to_address != 0 ELSE TRUE END)),
+               final_transfer AS (SELECT token_id,
+                                         to_address AS current_owner
+                                  FROM ranked_transfers
+                                  WHERE row_no = 1)
+          SELECT token_id,
+                 event_keys.transaction_hash      AS minted_tx_hash,
+                 token0,
+                 token1,
+                 fee,
+                 tick_spacing,
+                 extension,
+                 lower_bound,
+                 upper_bound,
+                 blocks.time                      AS minted_timestamp,
+                 (SELECT SUM(points)
+                  FROM leaderboard AS l
+                  WHERE l.collector = ft.current_owner
+                    AND l.token_id = ft.token_id) AS points_earned
+          FROM final_transfer AS ft
+                   LEFT JOIN LATERAL (
+              SELECT lower_bound, upper_bound, pool_key_hash
+              FROM position_updates AS pu
+              WHERE pu.salt = token_id::NUMERIC
+              LIMIT 1
+              ) AS mint_position_update ON TRUE
+                   LEFT JOIN LATERAL (
+              SELECT event_id
+              FROM position_transfers AS pt
+              WHERE pt.token_id = ft.token_id
+              ORDER BY event_id ASC
+              LIMIT 1
+              ) AS mint_tx ON TRUE
+                   JOIN event_keys ON mint_tx.event_id = event_keys.id
+                   JOIN pool_keys ON mint_position_update.pool_key_hash = pool_keys.key_hash
+                   JOIN blocks ON event_keys.block_number = blocks.number
+          WHERE token_id IN (SELECT token_id FROM final_transfer WHERE current_owner = $1)
+          ORDER BY token_id DESC
+      `,
       values: [address, showClosed],
     });
   }
@@ -1056,27 +1056,13 @@ export class Queries {
     }>({
       name: "leaderboard",
       text: `
-                WITH earned_points AS (SELECT collector, SUM(points) AS points
-                                       FROM leaderboard
-                                       GROUP BY collector),
-                     referral_points AS (SELECT referrer AS collector, SUM(points / 5) AS points
-                                         FROM leaderboard
-                                                  JOIN position_minted_with_referrer AS pmwr
-                                                       ON pmwr.token_id = leaderboard.token_id
-                                         WHERE referrer != 0
-                                         GROUP BY referrer)
-                SELECT COALESCE(earned_points.collector, referral_points.collector)            AS collector,
-                       COALESCE(earned_points.points, 0)                                       AS earned_points,
-                       COALESCE(referral_points.points, 0)                                     AS referral_points,
-                       COALESCE(earned_points.points, 0) + COALESCE(referral_points.points, 0) AS total_points
-                FROM earned_points
-                         FULL OUTER JOIN referral_points ON earned_points.collector = referral_points.collector
-                WHERE (COALESCE(earned_points.collector, referral_points.collector) = $1 OR $1 IS NULL)
-                  AND COALESCE(earned_points.collector, referral_points.collector) NOT IN
-                      (1791658794084622206857007003215132198038653612739770816311687551920625505808)
-                ORDER BY total_points DESC
-                LIMIT 1000
-            `,
+          SELECT collector, earned_points, referral_points, total_points
+          FROM leaderboard_view
+          WHERE (collector = $1 OR $1 IS NULL)
+            AND collector NOT IN
+                (1791658794084622206857007003215132198038653612739770816311687551920625505808)
+          LIMIT 1000
+      `,
       values: [collector ?? null],
     });
   }
