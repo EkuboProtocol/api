@@ -172,6 +172,16 @@
     "isDisabled": true
   },
   {
+    "name": "StarkBanana",
+    "symbol": "xSBANANA",
+    "decimals": 18,
+    "l2_token_address": "0x03650d77855a4f05b9dd0acff3936cfffd693624754a96d90e4d5876e06c231d",
+    "sort_order": 1,
+    "total_supply": 100000000,
+    "hidden": true,
+    "isDisabled": true
+  },
+  {
     "name": "StarkNet Token",
     "symbol": "STRK",
     "decimals": 18,
