@@ -258,7 +258,7 @@ export class GetPairPriceHistory extends EkuboAPIRoute {
         })
       )?.price ?? new Decimal(0);
 
-    const thresholdEth = new Decimal(1e15);
+    const thresholdEth = new Decimal(1e16);
     const threshold0 = BigInt(thresholdEth.mul(price0).toFixed(0));
     const threshold1 = BigInt(thresholdEth.mul(price1).toFixed(0));
 
@@ -290,6 +290,7 @@ export class GetPairPriceHistory extends EkuboAPIRoute {
                 vwap: 1 / d.vwap,
                 max: 1 / d.min,
                 min: 1 / d.max,
+                k_volume: d.k_volume,
               })),
       },
       {

@@ -668,30 +668,32 @@ export class Queries {
       vwap: number;
       min: number;
       max: number;
+      k_volume: string;
     }>({
       text: `
-                SELECT date_bin($5 * INTERVAL '1 sec', blocks.time,
-                                '2000-01-01 00:00:00'::TIMESTAMP WITHOUT TIME ZONE)         AS start,
-                       SUM(swaps.delta1 * swaps.delta1) / SUM(ABS(swaps.delta0 * swaps.delta1)) *
-                       pow(10, $6)                                                          AS vwap,
-                       MIN(CASE
-                               WHEN ABS(swaps.delta0) > $7 AND ABS(swaps.delta1) > $8
-                                   THEN ABS(swaps.delta1 / swaps.delta0) END) *
-                       pow(10, $6)                                                          AS min,
-                       MAX(CASE
-                               WHEN ABS(swaps.delta0) > $7 AND ABS(swaps.delta1) > $8
-                                   THEN ABS(swaps.delta1 / swaps.delta0) END) * pow(10, $6) AS max
-                FROM swaps
-                         JOIN pool_keys
-                              ON swaps.pool_key_hash = pool_keys.key_hash
-                         JOIN event_keys ON swaps.event_id = event_keys.id
-                         JOIN blocks ON event_keys.block_number = blocks.number
-                WHERE pool_keys.token0 = $1
-                  AND pool_keys.token1 = $2
-                  AND blocks.time BETWEEN $3 AND $4
-                GROUP BY start
-                ORDER BY start
-            `,
+        SELECT date_bin($5 * INTERVAL '1 sec', blocks.time,
+                        '2000-01-01 00:00:00'::TIMESTAMP WITHOUT TIME ZONE)     AS start,
+               SUM(swaps.delta1 * swaps.delta1) / SUM(ABS(swaps.delta0 * swaps.delta1)) *
+               pow(10, $6)                                                      AS vwap,
+               MIN(CASE
+                     WHEN ABS(swaps.delta0) > $7 AND ABS(swaps.delta1) > $8
+                       THEN ABS(swaps.delta1 / swaps.delta0) END) *
+               pow(10, $6)                                                      AS min,
+               MAX(CASE
+                     WHEN ABS(swaps.delta0) > $7 AND ABS(swaps.delta1) > $8
+                       THEN ABS(swaps.delta1 / swaps.delta0) END) * pow(10, $6) AS max,
+               SUM(ABS(swaps.delta1 * swaps.delta0))                            AS k_volume
+        FROM swaps
+               JOIN pool_keys
+                    ON swaps.pool_key_hash = pool_keys.key_hash
+               JOIN event_keys ON swaps.event_id = event_keys.id
+               JOIN blocks ON event_keys.block_number = blocks.number
+        WHERE pool_keys.token0 = $1
+          AND pool_keys.token1 = $2
+          AND blocks.time BETWEEN $3 AND $4
+        GROUP BY start
+        ORDER BY start
+      `,
       values: [
         token0,
         token1,
