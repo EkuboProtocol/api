@@ -1068,6 +1068,64 @@ export class Queries {
       values: [collector ?? null],
     });
   }
+
+  public async hasSwapped({
+    address,
+    fromToken,
+    toToken,
+    minAmount = 0n,
+  }: {
+    address: bigint;
+    fromToken: bigint;
+    toToken: bigint;
+    minAmount?: bigint;
+  }): Promise<boolean> {
+    const [t0, t1, t0Min, t1Min] =
+      fromToken < toToken
+        ? [fromToken, toToken, minAmount, 0n]
+        : [toToken, fromToken, 0n, minAmount];
+    const { rows: swaps } = await this.client.query<{ x: 1 }>({
+      text: `SELECT 1 AS x
+             FROM transactions AS t
+                    JOIN event_keys AS ek ON t.transaction_hash = ek.transaction_hash
+                    JOIN swaps AS s ON ek.id = s.event_id
+                    JOIN pool_keys AS pk ON s.pool_key_hash = pk.key_hash
+             WHERE t.sender = $1
+               AND pk.token0 = $2
+               AND pk.token1 = $3
+               AND ($3 = 0 OR s.delta0 > $4)
+               AND ($4 = 0 OR s.delta1 > $5)
+             LIMIT 1`,
+      values: [address, t0, t1, t0Min, t1Min],
+    });
+    return swaps.length > 0;
+  }
+
+  async hasAddedLiquidity({
+    address,
+    tokenA,
+    tokenB,
+  }: {
+    address: bigint;
+    tokenA: bigint;
+    tokenB: bigint;
+  }) {
+    const [t0, t1] = tokenA < tokenB ? [tokenA, tokenB] : [tokenB, tokenA];
+
+    const { rows: deposits } = await this.client.query<{ x: 1 }>({
+      text: `SELECT 1 AS x
+             FROM transactions AS t
+                    JOIN event_keys AS ek ON t.transaction_hash = ek.transaction_hash
+                    JOIN position_updates AS pu ON ek.id = pu.event_id
+                    JOIN pool_keys AS pk ON pu.pool_key_hash = pk.key_hash
+             WHERE t.sender = $1
+               AND pk.token0 = $2
+               AND pk.token1 = $3
+             LIMIT 1`,
+      values: [address, t0, t1],
+    });
+    return deposits.length > 0;
+  }
 }
 
 export async function createQueries(env: Env) {

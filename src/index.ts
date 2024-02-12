@@ -13,6 +13,7 @@ import {GetPairPrice, GetPairPriceHistory, GetTokenPrices,} from "./routes/price
 import {GetPoolLiquidity, GetPoolStates} from "./routes/state";
 import {GetNftImage, GetNftMetadata, ListNftEvents, ListPositions} from "./routes/nft";
 import {RequestContext} from "./shared/context";
+import {IntractApiRoute} from "./routes/intract";
 
 Decimal.set({precision: 39});
 
@@ -56,6 +57,7 @@ const router = OpenAPIRouter({
     .get(GetNftMetadata.route, GetNftMetadata)
     .get(ListNftEvents.route, ListNftEvents)
     .get(GetNftImage.route, GetNftImage)
+    .post(IntractApiRoute.route, IntractApiRoute)
     // catch missed routes
     .all("*", () => error(404));
 
@@ -73,11 +75,14 @@ export default {
         const preflightResponse = preflight(request);
         if (preflightResponse) return preflightResponse;
 
+        const cacheable = request.method.toLowerCase() === 'get'
         // check cache hits for request
         // we do this outside of the router because we do not want to RE-CACHE a successful response by including the cache logic in the router handler
-        const cached = await cache.match(request);
-        if (cached) {
-            return corsify(cached);
+        if (cacheable) {
+            const cached = await cache.match(request);
+            if (cached) {
+                return corsify(cached);
+            }
         }
 
         let response: Response;
@@ -88,7 +93,7 @@ export default {
             response = json(error(500, "Internal server error"));
         }
 
-        if (response.ok) {
+        if (cacheable && response.ok) {
             await cache.put(request, response.clone());
         }
 
