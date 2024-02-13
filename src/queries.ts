@@ -1069,21 +1069,16 @@ export class Queries {
     });
   }
 
-  public async hasSwapped({
+  public async hasSwappedBetween({
     address,
-    fromToken,
-    toToken,
-    minAmount = 0n,
+    tokenA,
+    tokenB,
   }: {
     address: bigint;
-    fromToken: bigint;
-    toToken: bigint;
-    minAmount?: bigint;
+    tokenA: bigint;
+    tokenB: bigint;
   }): Promise<boolean> {
-    const [t0, t1, t0Min, t1Min] =
-      fromToken < toToken
-        ? [fromToken, toToken, minAmount, 0n]
-        : [toToken, fromToken, 0n, minAmount];
+    const [t0, t1] = tokenA < tokenB ? [tokenA, tokenB] : [tokenB, tokenA];
     const { rows: swaps } = await this.client.query<{ x: 1 }>({
       text: `SELECT 1 AS x
              FROM transactions AS t
@@ -1093,10 +1088,8 @@ export class Queries {
              WHERE t.sender = $1
                AND pk.token0 = $2
                AND pk.token1 = $3
-               AND ($3 = 0 OR s.delta0 > $4)
-               AND ($4 = 0 OR s.delta1 > $5)
              LIMIT 1`,
-      values: [address, t0, t1, t0Min, t1Min],
+      values: [address, t0, t1],
     });
     return swaps.length > 0;
   }

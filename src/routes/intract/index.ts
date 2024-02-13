@@ -7,9 +7,9 @@ import { AddressType, NumericType } from "../../shared/validation/address";
 import { getAllTokens, getTokenByIdentifier } from "../meta/tokens";
 
 enum IntractQuests {
-  SWAP_FROM_ETH_TO_STRK = 1,
-  SWAP_FROM_USDC_OR_USDT_TO_STRK = 2,
-  SWAP_FROM_USDC_OR_USDT_TO_ETH = 3,
+  SWAP_BETWEEN_ETH_TO_STRK = 1,
+  SWAP_BETWEEN_USDC_OR_USDT_TO_STRK = 2,
+  SWAP_BETWEEN_USDC_OR_USDT_TO_ETH = 3,
   ADD_LIQUIDITY_TO_STRK_ETH = 4,
   ADD_LIQUIDITY_TO_STRK_USDC = 5,
   ADD_LIQUIDITY_TO_ETH_USDC = 6,
@@ -86,22 +86,22 @@ export class IntractApiRoute extends EkuboAPIRoute {
     const tokens = await getAllTokens(env, queries);
 
     switch (parseInt(request.params.questId)) {
-      case IntractQuests.SWAP_FROM_ETH_TO_STRK: {
+      case IntractQuests.SWAP_BETWEEN_ETH_TO_STRK: {
         const [eth, strk] = [
           getTokenByIdentifier(tokens, "ETH"),
           getTokenByIdentifier(tokens, "STRK"),
         ];
         if (eth && strk) {
-          result = await queries.hasSwapped({
+          result = await queries.hasSwappedBetween({
             address,
-            fromToken: BigInt(eth.l2_token_address),
-            toToken: BigInt(strk.l2_token_address),
+            tokenA: BigInt(eth.l2_token_address),
+            tokenB: BigInt(strk.l2_token_address),
           });
         }
         break;
       }
 
-      case IntractQuests.SWAP_FROM_USDC_OR_USDT_TO_STRK: {
+      case IntractQuests.SWAP_BETWEEN_USDC_OR_USDT_TO_STRK: {
         const [usdc, usdt, strk] = [
           getTokenByIdentifier(tokens, "USDC"),
           getTokenByIdentifier(tokens, "USDT"),
@@ -109,26 +109,24 @@ export class IntractApiRoute extends EkuboAPIRoute {
         ];
 
         if (usdc && strk) {
-          result = await queries.hasSwapped({
+          result = await queries.hasSwappedBetween({
             address,
-            fromToken: BigInt(usdc.l2_token_address),
-            toToken: BigInt(strk.l2_token_address),
-            minAmount: 10n * 10n ** BigInt(usdc.decimals),
+            tokenA: BigInt(usdc.l2_token_address),
+            tokenB: BigInt(strk.l2_token_address),
           });
         }
 
         if (usdt && strk && !result) {
-          result = await queries.hasSwapped({
+          result = await queries.hasSwappedBetween({
             address,
-            fromToken: BigInt(usdt.l2_token_address),
-            toToken: BigInt(strk.l2_token_address),
-            minAmount: 10n * 10n ** BigInt(usdt.decimals),
+            tokenA: BigInt(usdt.l2_token_address),
+            tokenB: BigInt(strk.l2_token_address),
           });
         }
         break;
       }
 
-      case IntractQuests.SWAP_FROM_USDC_OR_USDT_TO_ETH: {
+      case IntractQuests.SWAP_BETWEEN_USDC_OR_USDT_TO_ETH: {
         const [usdc, usdt, eth] = [
           getTokenByIdentifier(tokens, "USDC"),
           getTokenByIdentifier(tokens, "USDT"),
@@ -136,20 +134,18 @@ export class IntractApiRoute extends EkuboAPIRoute {
         ];
 
         if (usdc && eth) {
-          result = await queries.hasSwapped({
+          result = await queries.hasSwappedBetween({
             address,
-            fromToken: BigInt(usdc.l2_token_address),
-            toToken: BigInt(eth.l2_token_address),
-            minAmount: 10n * 10n ** BigInt(usdc.decimals),
+            tokenA: BigInt(usdc.l2_token_address),
+            tokenB: BigInt(eth.l2_token_address),
           });
         }
 
         if (usdt && eth && !result) {
-          result = await queries.hasSwapped({
+          result = await queries.hasSwappedBetween({
             address,
-            fromToken: BigInt(usdt.l2_token_address),
-            toToken: BigInt(eth.l2_token_address),
-            minAmount: 10n * 10n ** BigInt(usdt.decimals),
+            tokenA: BigInt(usdt.l2_token_address),
+            tokenB: BigInt(eth.l2_token_address),
           });
         }
         break;
