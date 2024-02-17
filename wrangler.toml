@@ -36,7 +36,7 @@ vars = { STARKNET_CHAIN_ID = "0x534e5f5345504f4c4941", ETH_TOKEN_ADDRESS = "0x04
 
 [env.mainnet]
 hyperdrive = [
-    { binding = "HYPERDRIVE", id = "7cb6a70423594e9ebef3c58d38c349e4" }
+    { binding = "HYPERDRIVE", id = "575338fa53ae4a9fbd23b2cbdabb0187" }
 ]
 kv_namespaces = [
     { binding = "TOKEN_LOGOS_KV", id = "5612d9a16e6d43fea983af957f2ee69c" },
