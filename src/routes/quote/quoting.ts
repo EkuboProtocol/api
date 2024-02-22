@@ -1,7 +1,6 @@
 import { PoolState, Queries } from "../../queries";
 import { BaseResources, QuoteNode, TokenAmount } from "./nodes/quoteNode";
 import { PlainPool } from "./nodes/plainPool";
-import { CachingSplittingQuoteNode } from "./nodes/cachingSplittingQuoteNode";
 
 const QUOTE_NODE_CACHE: {
   [key_hash: string]: {
@@ -95,16 +94,6 @@ export function quoteRoute<TResources, TTotal>({
   );
 }
 
-export function plainPoolResourcesReducer(
-  memo: BaseResources,
-  value: BaseResources
-): BaseResources {
-  return {
-    initializedTicksCrossed:
-      memo.initializedTicksCrossed + value.initializedTicksCrossed,
-  };
-}
-
 export async function updatePoolCache(
   pools: PoolState[],
   queries: Queries
@@ -123,22 +112,16 @@ export async function updatePoolCache(
     poolsNeedUpdate.map(async (pool, ix) => {
       QUOTE_NODE_CACHE[pool.pool_key_hash] = {
         lastEventId: BigInt(pool.last_event_id),
-        node: new CachingSplittingQuoteNode(
-          new PlainPool({
-            token0: BigInt(pool.token0),
-            token1: BigInt(pool.token1),
-            tickSpacing: Number(pool.tick_spacing),
-            sqrtRatio: BigInt(pool.sqrt_ratio),
-            fee: BigInt(pool.fee),
-            liquidity: BigInt(pool.liquidity),
-            tick: pool.tick,
-            sortedTicks: tickData[pool.pool_key_hash] ?? [],
-          }),
-          {
-            resourcesReducer: plainPoolResourcesReducer,
-            maxSplits: 8,
-          }
-        ),
+        node: new PlainPool({
+          token0: BigInt(pool.token0),
+          token1: BigInt(pool.token1),
+          tickSpacing: Number(pool.tick_spacing),
+          sqrtRatio: BigInt(pool.sqrt_ratio),
+          fee: BigInt(pool.fee),
+          liquidity: BigInt(pool.liquidity),
+          tick: pool.tick,
+          sortedTicks: tickData[pool.pool_key_hash] ?? [],
+        }),
       };
     })
   );
