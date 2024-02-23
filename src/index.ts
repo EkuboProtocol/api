@@ -10,7 +10,7 @@ import {GetQuote, GetQuoteToPrice} from "./routes/quote";
 import {GetOverview} from "./routes/stats/overview";
 import {GetPairInfo, GetPairLiquidity, ListPairEvents,} from "./routes/stats/pair";
 import {GetPairPrice, GetPairPriceHistory, GetTokenPrices,} from "./routes/prices";
-import {GetPoolLiquidity, GetPoolStates} from "./routes/state";
+import {GetPoolKeyHash, GetPoolLiquidity, GetPoolStates} from "./routes/state";
 import {GetNftImage, GetNftMetadata, ListNftEvents, ListPositions} from "./routes/nft";
 import {RequestContext} from "./shared/context";
 import {IntractApiRoute} from "./routes/intract";
@@ -49,6 +49,7 @@ const router = OpenAPIRouter({
     .get(GetPairPriceHistory.route, GetPairPriceHistory)
     .get(GetTokenPrices.route, GetTokenPrices)
     .get(GetPoolStates.route, GetPoolStates)
+    .get(GetPoolKeyHash.route, GetPoolKeyHash)
     .get(GetPoolLiquidity.route, GetPoolLiquidity)
     .get(GetQuoteToPrice.route, GetQuoteToPrice)
     .get(ListPositions.route, ListPositions)

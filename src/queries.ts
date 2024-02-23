@@ -1069,6 +1069,23 @@ export class Queries {
     });
   }
 
+  async getPoolKey(poolKeyHash: bigint) {
+    const { rows } = await this.client.query<{
+      token0: string;
+      token1: string;
+      fee: string;
+      tick_spacing: number;
+      extension: string;
+    }>({
+      text: `SELECT token0, token1, fee, tick_spacing, extension FROM pool_keys WHERE key_hash = $1`,
+      values: [poolKeyHash],
+    });
+    if (rows.length !== 1) {
+      throw new Error("Invalid pool key hash");
+    }
+    return rows[0];
+  }
+
   public async hasSwappedBetween({
     address,
     tokenA,

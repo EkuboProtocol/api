@@ -6,9 +6,10 @@ import {
 import { error, IRequest, json } from "itty-router";
 import { EkuboAPIRoute, RequestContext } from "../../shared/context";
 import { num } from "starknet";
-import { createQueries, Queries } from "../../queries";
-import { z } from "zod";
+import { createQueries } from "../../queries";
 import { NumericType } from "../../shared/validation/address";
+import { getAllTokens, getTokenByAddress } from "../meta/tokens";
+import Decimal from "decimal.js-light";
 
 export class GetPoolStates extends OpenAPIRoute {
   static route = "/pools";
@@ -49,6 +50,70 @@ export class GetPoolStates extends OpenAPIRoute {
           event_id: pool.last_event_id,
         },
       })),
+      {
+        headers: {
+          "cache-control": "public, max-age=15, must-revalidate",
+        },
+      }
+    );
+  }
+}
+
+export class GetPoolKeyHash extends OpenAPIRoute {
+  static route = "/pools/:keyHash";
+
+  static schema: OpenAPIRouteSchema = {
+    tags: ["Swap", "Meta"],
+    summary: "Get pool info",
+    description:
+      "Returns the information associated with the given pool key hash",
+    parameters: {
+      keyHash: Path(NumericType, { example: "0xabcd" }),
+    },
+    responses: {
+      "200": {
+        description: "The description of the pool key",
+        contentType: "application/json",
+      },
+    },
+  };
+  async handle({ params: { keyHash } }: IRequest, { env }: RequestContext) {
+    const poolKeyHash = BigInt(keyHash);
+
+    const queries = await createQueries(env);
+    const poolKey = await queries.getPoolKey(poolKeyHash);
+
+    const tokens = await getAllTokens(env, queries);
+    const [token0, token1] = [
+      getTokenByAddress(tokens, poolKey.token0),
+      getTokenByAddress(tokens, poolKey.token1),
+    ];
+
+    return json(
+      {
+        pool_key: {
+          token0: num.toHex(BigInt(poolKey.token0)),
+          token1: num.toHex(BigInt(poolKey.token1)),
+          fee: num.toHex(BigInt(poolKey.fee)),
+          tick_spacing: poolKey.tick_spacing,
+          extension: num.toHex(BigInt(poolKey.extension)),
+        },
+        human_readable: {
+          token0,
+          token1,
+          fee: `${new Decimal(poolKey.fee)
+            .div(new Decimal(2).pow(128))
+            .mul(100)
+            .toSignificantDigits(6)
+            .toString()}%`,
+          tick_spacing: `${new Decimal("1.000001")
+            .pow(new Decimal(poolKey.tick_spacing))
+            .sub(1)
+            .mul(100)
+            .toSignificantDigits(6)
+            .toString()}%`,
+        },
+      },
       {
         headers: {
           "cache-control": "public, max-age=15, must-revalidate",
