@@ -10,7 +10,7 @@ import SEPOLIA_TOKENS from "./defaults/sepolia.json";
 import { constants, num, shortString } from "starknet";
 import { createQueries, Queries } from "../../queries";
 
-const TokenType = z
+export const TokenType = z
   .object({
     name: z
       .string({
