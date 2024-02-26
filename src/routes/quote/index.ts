@@ -1,6 +1,10 @@
 import { error, IRequest, json } from "itty-router";
 import { EkuboAPIRoute, RequestContext } from "../../shared/context";
-import { getAllTokens, getTokenByIdentifier } from "../meta/tokens";
+import {
+  getAllTokens,
+  getTokenByAddress,
+  getTokenByIdentifier,
+} from "../meta/tokens";
 import Decimal from "decimal.js-light";
 import { MAX_U128 } from "./math/constants";
 import {
@@ -12,7 +16,12 @@ import {
   updatePoolCache,
 } from "./quoting";
 import { findAllRoutes } from "./findAllRoutes";
-import { BaseResources, QuoteNode, TokenAmount } from "./nodes/quoteNode";
+import {
+  BaseResources,
+  BaseNodeState,
+  QuoteNode,
+  TokenAmount,
+} from "./nodes/quoteNode";
 import { num } from "starknet";
 import { createQueries } from "../../queries";
 import { OpenAPIRouteSchema, Path } from "@cloudflare/itty-router-openapi";
@@ -24,6 +33,7 @@ import {
   TokenIdentifierType,
 } from "../../shared/validation/address";
 import { MAX_SQRT_RATIO } from "./math/tick";
+import { PlainPool } from "./nodes/plainPool";
 
 const PoolKeyType = z
   .object({
@@ -173,13 +183,13 @@ export class GetQuote extends EkuboAPIRoute {
       )?.price ?? new Decimal(0);
 
     const bestWorkingRoute = allRoutes.reduce<{
-      route: QuoteNode<BaseResources>[];
-      quote: Readonly<QuoteRouteResult<BaseResources>>;
+      route: QuoteNode[];
+      quote: Readonly<QuoteRouteResult<BaseResources, BaseNodeState>>;
       gasAdjustedAmount: bigint;
     } | null>((memo, route) => {
       try {
         const quote = quoteRoute({
-          tokenAmount,
+          specifiedAmount: tokenAmount,
           route,
           accumulator: baseResourcesAccumulator,
         });
@@ -196,7 +206,8 @@ export class GetQuote extends EkuboAPIRoute {
               .toFixed(0, Decimal.ROUND_DOWN)
           );
 
-          const gasAdjustedAmount = quote.tokenAmount.amount - gasInOtherToken;
+          const gasAdjustedAmount =
+            quote.calculatedAmount.amount - gasInOtherToken;
 
           if (!memo) {
             return {
@@ -217,7 +228,7 @@ export class GetQuote extends EkuboAPIRoute {
 
         return memo;
       } catch (e) {
-        console.error("Failed to quote", route, e);
+        // Since we failed to quote this route, this route is not valid
         return memo;
       }
     }, null);
@@ -226,11 +237,9 @@ export class GetQuote extends EkuboAPIRoute {
       return error(404, "No route found");
     }
 
-    const limits = bestWorkingRoute.quote.limits;
-
     return json(
       {
-        amount: bestWorkingRoute.quote.tokenAmount.amount.toString(),
+        amount: bestWorkingRoute.quote.calculatedAmount.amount.toString(),
         route: bestWorkingRoute.route.map(({ key }, ix) => ({
           pool_key: {
             token0: num.toHex(key.token0),
@@ -239,7 +248,9 @@ export class GetQuote extends EkuboAPIRoute {
             tick_spacing: key.tickSpacing,
             extension: num.toHex(key.extension),
           },
-          sqrt_ratio_limit: num.toHex(limits[ix]),
+          sqrt_ratio_limit: num.toHex(
+            bestWorkingRoute.quote.nodeStates[ix].sqrtRatio
+          ),
         })),
       },
       {

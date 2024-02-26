@@ -1,18 +1,12 @@
 import { computeStep, isPriceIncreasing } from "../math/swap";
-import {
-  MAX_SQRT_RATIO,
-  MAX_TICK,
-  MIN_SQRT_RATIO,
-  MIN_TICK,
-  toSqrtRatio,
-} from "../math/tick";
+import { MAX_SQRT_RATIO, MIN_SQRT_RATIO, toSqrtRatio } from "../math/tick";
 import {
   BaseResources,
   NodeKey,
+  BaseNodeState,
   Quote,
   QuoteNode,
   QuoteParams,
-  SuggestSqrtRatioLimitParams,
 } from "./quoteNode";
 
 export interface Tick {
@@ -20,14 +14,14 @@ export interface Tick {
   readonly tick: number;
 }
 
-export class PlainPool implements QuoteNode<BaseResources> {
+export class PlainPool implements QuoteNode<BaseResources, BaseNodeState> {
   public readonly key: NodeKey;
 
   // state
   public readonly sqrtRatio: bigint;
   public readonly liquidity: bigint;
   public readonly tick: number;
-  private readonly sortedTicks: Tick[];
+  public readonly sortedTicks: Tick[];
 
   constructor({
     token0,
@@ -106,7 +100,7 @@ export class PlainPool implements QuoteNode<BaseResources> {
     tokenAmount: { amount, token },
     sqrtRatioLimit,
     overrideSwapState,
-  }: QuoteParams): Quote<BaseResources> {
+  }: QuoteParams<BaseNodeState>): Quote<BaseResources, BaseNodeState> {
     const isToken1 = token === this.key.token1;
     if (!isToken1 && this.key.token0 !== token) {
       throw new Error("Invalid token");
@@ -216,14 +210,11 @@ export class PlainPool implements QuoteNode<BaseResources> {
     return this.liquidity > 0n || this.sortedTicks.length > 0;
   }
 
-  public suggestedSqrtRatioLimit({
-    tokenAmount,
-    isToken1,
-  }: SuggestSqrtRatioLimitParams): bigint {
-    return toSqrtRatio(
-      isPriceIncreasing(tokenAmount.amount, isToken1)
-        ? Math.min(MAX_TICK, this.tick + 100 * this.key.tickSpacing)
-        : Math.max(MIN_TICK, this.tick - 100 * this.key.tickSpacing)
-    );
+  get state(): Readonly<BaseNodeState> {
+    return {
+      activeTickIndex: this.activeTickIndex,
+      liquidity: this.liquidity,
+      sqrtRatio: this.sqrtRatio,
+    };
   }
 }

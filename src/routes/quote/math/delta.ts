@@ -21,7 +21,7 @@ export function amount0Delta(
   }
 
   if (result0 > MAX_U256) {
-    throw new Error("AMOUNT0_DELTA_OVERFLOW");
+    throw new Error("AMOUNT0_DELTA_OVERFLOW_U256");
   }
   let result = result0 / lower;
   if (roundUp && result % lower !== 0n) {
@@ -29,7 +29,7 @@ export function amount0Delta(
   }
 
   if (result > MAX_U128) {
-    throw new Error("AMOUNT0_DELTA_OVERFLOW");
+    throw new Error("AMOUNT0_DELTA_OVERFLOW_U128");
   }
 
   return result;
@@ -52,13 +52,13 @@ export function amount1Delta(
   const result = liquidity * (upper - lower);
 
   if (result > MAX_U256) {
-    throw new Error("AMOUNT1_DELTA_OVERFLOW");
+    throw new Error("AMOUNT1_DELTA_OVERFLOW_U256");
   }
 
   if (roundUp && result % TWO_POW_128 !== 0n) {
     const delta = result / TWO_POW_128 + 1n;
     if (delta > MAX_U128) {
-      throw new Error("AMOUNT1_DELTA_OVERFLOW");
+      throw new Error("AMOUNT1_DELTA_OVERFLOW_U128");
     }
     return delta;
   } else {

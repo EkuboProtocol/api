@@ -1,39 +1,43 @@
-import { QuoteNode } from "./nodes/quoteNode";
+import { NodeKey, QuoteNode } from "./nodes/quoteNode";
 
-export function findAllRoutes<T>(
+export interface HasKey {
+  key: NodeKey;
+}
+
+export function findAllRoutes<T extends HasKey>(
   fromToken: bigint,
   toToken: bigint,
-  nodes: QuoteNode<T>[],
+  nodes: T[],
   maxPools: number = 2,
-  currentRoute: QuoteNode<T>[] = []
-): QuoteNode<T>[][] {
+  currentRoute: T[] = []
+): T[][] {
   if (maxPools < 1) return [];
-  return nodes.flatMap((pool) => {
-    if (currentRoute.includes(pool)) return [];
+  return nodes.flatMap((node) => {
+    if (currentRoute.includes(node)) return [];
 
-    if (pool.key.token0 === fromToken) {
-      const nextRoute = currentRoute.concat([pool]);
+    if (node.key.token0 === fromToken) {
+      const nextRoute = currentRoute.concat([node]);
 
-      if (pool.key.token1 === toToken) {
+      if (node.key.token1 === toToken) {
         return [nextRoute];
       }
 
       return findAllRoutes(
-        pool.key.token1,
+        node.key.token1,
         toToken,
         nodes,
         maxPools - 1,
         nextRoute
       );
-    } else if (pool.key.token1 === fromToken) {
-      const nextRoute = currentRoute.concat([pool]);
+    } else if (node.key.token1 === fromToken) {
+      const nextRoute = currentRoute.concat([node]);
 
-      if (pool.key.token0 === toToken) {
+      if (node.key.token0 === toToken) {
         return [nextRoute];
       }
 
       return findAllRoutes(
-        pool.key.token0,
+        node.key.token0,
         toToken,
         nodes,
         maxPools - 1,

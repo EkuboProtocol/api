@@ -97,17 +97,18 @@ export function computeStep({
     sqrtRatioNextFromAmount === null ||
     sqrtRatioNextFromAmount > sqrtRatioLimit === increasing
   ) {
-    const [specifiedAmountDelta, calculatedAmountDelta] = isToken1
-      ? [
-          amount1Delta(sqrtRatioLimit, sqrtRatio, liquidity, amount >= 0n) *
-            (amount < 0n ? -1n : 1n),
-          amount0Delta(sqrtRatioLimit, sqrtRatio, liquidity, amount < 0n),
-        ]
-      : [
-          amount0Delta(sqrtRatioLimit, sqrtRatio, liquidity, amount >= 0n) *
-            (amount < 0n ? -1n : 1n),
-          amount1Delta(sqrtRatioLimit, sqrtRatio, liquidity, amount < 0n),
-        ];
+    const [specifiedAmountDelta, calculatedAmountDelta]: [bigint, bigint] =
+      isToken1
+        ? [
+            amount1Delta(sqrtRatioLimit, sqrtRatio, liquidity, amount >= 0n) *
+              (amount < 0n ? -1n : 1n),
+            amount0Delta(sqrtRatioLimit, sqrtRatio, liquidity, amount < 0n),
+          ]
+        : [
+            amount0Delta(sqrtRatioLimit, sqrtRatio, liquidity, amount >= 0n) *
+              (amount < 0n ? -1n : 1n),
+            amount1Delta(sqrtRatioLimit, sqrtRatio, liquidity, amount < 0n),
+          ];
 
     if (amount < 0n) {
       const beforeFee = amountBeforeFee(calculatedAmountDelta, fee);

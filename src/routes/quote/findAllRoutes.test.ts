@@ -1,40 +1,15 @@
-import { findAllRoutes } from "./findAllRoutes";
-import {
-  NodeKey,
-  Quote,
-  QuoteNode,
-  QuoteParams,
-  SuggestSqrtRatioLimitParams,
-} from "./nodes/quoteNode";
+import { findAllRoutes, HasKey } from "./findAllRoutes";
 
-class FakeQuoteNode implements QuoteNode<null> {
-  constructor({ token0, token1 }: { token0: string; token1: string }) {
-    this.key = {
+function fqn({ token0, token1 }: { token0: string; token1: string }): HasKey {
+  return {
+    key: {
       token0: BigInt(token0),
       token1: BigInt(token1),
       fee: 0n,
       tickSpacing: 0,
       extension: 0n,
-    };
-  }
-
-  key: NodeKey;
-
-  quote(params: QuoteParams): Quote<null> {
-    throw new Error("not implemented");
-  }
-
-  hasLiquidity(): boolean {
-    return false;
-  }
-
-  suggestedSqrtRatioLimit(params: SuggestSqrtRatioLimitParams): bigint {
-    throw new Error("not implemented");
-  }
-}
-
-function fqn(p: { token0: string; token1: string }) {
-  return new FakeQuoteNode(p);
+    },
+  };
 }
 
 describe(findAllRoutes, () => {

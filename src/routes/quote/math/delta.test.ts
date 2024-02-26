@@ -126,6 +126,6 @@ describe(amount1Delta, () => {
         0xffffffffffffffffffffffffffffffffn,
         false
       )
-    ).toThrow("AMOUNT1_DELTA_OVERFLOW");
+    ).toThrow("AMOUNT1_DELTA_OVERFLOW_U256");
   });
 });

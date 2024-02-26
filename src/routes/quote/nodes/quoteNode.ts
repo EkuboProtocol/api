@@ -1,18 +1,21 @@
-export interface SwapState {
+export interface BaseNodeState {
   sqrtRatio: bigint;
   liquidity: bigint;
   activeTickIndex: number;
 }
 
-export interface Quote<TResources> {
+export interface BaseResources {
+  initializedTicksCrossed: number;
+}
+
+export interface Quote<
+  TResources extends BaseResources,
+  TState extends BaseNodeState
+> {
   consumedAmount: bigint;
   calculatedAmount: bigint;
   executionResources: TResources;
-  stateAfter: SwapState;
-}
-
-export interface BaseResources {
-  initializedTicksCrossed: number;
+  stateAfter: TState;
 }
 
 export interface NodeKey {
@@ -28,23 +31,20 @@ export interface TokenAmount {
   amount: bigint;
 }
 
-export interface SuggestSqrtRatioLimitParams {
-  tokenAmount: TokenAmount;
-  isToken1: boolean;
-}
-
-export interface QuoteParams {
+export interface QuoteParams<T extends BaseNodeState> {
   tokenAmount: TokenAmount;
   sqrtRatioLimit?: bigint;
-  overrideSwapState?: SwapState;
+  overrideSwapState?: T;
 }
 
-export interface QuoteNode<TResources> {
+export interface QuoteNode<
+  TResources extends BaseResources = BaseResources,
+  TSwapState extends BaseNodeState = BaseNodeState
+> {
   readonly key: NodeKey;
+  readonly state: Readonly<BaseNodeState>;
 
-  quote(params: QuoteParams): Quote<TResources>;
+  quote(params: QuoteParams<TSwapState>): Quote<TResources, TSwapState>;
 
   hasLiquidity(): boolean;
-
-  suggestedSqrtRatioLimit(params: SuggestSqrtRatioLimitParams): bigint;
 }
