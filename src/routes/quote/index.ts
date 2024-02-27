@@ -1,10 +1,6 @@
 import { error, IRequest, json } from "itty-router";
 import { EkuboAPIRoute, RequestContext } from "../../shared/context";
-import {
-  getAllTokens,
-  getTokenByAddress,
-  getTokenByIdentifier,
-} from "../meta/tokens";
+import { getAllTokens, getTokenByIdentifier } from "../meta/tokens";
 import Decimal from "decimal.js-light";
 import { MAX_U128 } from "./math/constants";
 import {
@@ -17,8 +13,8 @@ import {
 } from "./quoting";
 import { findAllRoutes } from "./findAllRoutes";
 import {
-  BaseResources,
   BaseNodeState,
+  BaseResources,
   QuoteNode,
   TokenAmount,
 } from "./nodes/quoteNode";
@@ -33,7 +29,7 @@ import {
   TokenIdentifierType,
 } from "../../shared/validation/address";
 import { MAX_SQRT_RATIO } from "./math/tick";
-import { PlainPool } from "./nodes/plainPool";
+import { getSqrtRatioLimit } from "./getSqrtRatioLimit";
 
 const PoolKeyType = z
   .object({
@@ -240,16 +236,20 @@ export class GetQuote extends EkuboAPIRoute {
     return json(
       {
         amount: bestWorkingRoute.quote.calculatedAmount.amount.toString(),
-        route: bestWorkingRoute.route.map(({ key }, ix) => ({
+        route: bestWorkingRoute.route.map((node, ix) => ({
           pool_key: {
-            token0: num.toHex(key.token0),
-            token1: num.toHex(key.token1),
-            fee: num.toHex(key.fee),
-            tick_spacing: key.tickSpacing,
-            extension: num.toHex(key.extension),
+            token0: num.toHex(node.key.token0),
+            token1: num.toHex(node.key.token1),
+            fee: num.toHex(node.key.fee),
+            tick_spacing: node.key.tickSpacing,
+            extension: num.toHex(node.key.extension),
           },
           sqrt_ratio_limit: num.toHex(
-            bestWorkingRoute.quote.nodeStates[ix].sqrtRatio
+            getSqrtRatioLimit(
+              node.state.sqrtRatio,
+              bestWorkingRoute.quote.nodeStates[ix].sqrtRatio,
+              node.key.tickSpacing
+            )
           ),
         })),
       },
