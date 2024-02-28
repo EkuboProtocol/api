@@ -260,7 +260,7 @@ export class GetDefiSpringIncentives extends EkuboAPIRoute {
       },
       {
         headers: {
-          // "cache-control": "public, max-age=3600, must-revalidate",
+          "cache-control": "public, max-age=3600, must-revalidate",
         },
       }
     );
