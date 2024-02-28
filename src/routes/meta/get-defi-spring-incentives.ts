@@ -10,14 +10,22 @@ import { MIN_TICK, toSqrtRatio } from "../quote/math/tick";
 
 const DEFAULT_STRK_PRICE = new Decimal("2.0");
 
-const VOLATILITY_BY_PAIR: { [pair: string]: bigint } = {
-  "STRK/ETH": 20n,
-  "STRK/USDC": 30n,
-  "ETH/USDC": 30n,
-  "USDC/USDT": 1n,
+const VOLATILITY_BY_PAIR_IN_BIPS: { [pair: string]: bigint } = {
+  "STRK/ETH": 20_00n, // 20%
+  "STRK/USDC": 30_00n, // 30%
+  "ETH/USDC": 30_00n, // 30%
+  "USDC/USDT": 1_00n, // 1%
 };
 
-const DEFAULT_VOLATILITY = 50n;
+const DEFAULT_VOLATILITY_IN_BIPS = 50_00n;
+const BASE_BIPS = 100_00n;
+
+function toSqrtBips(bips: bigint) {
+  return (
+    BigInt(Math.round(Math.sqrt(Number(BASE_BIPS * (bips + BASE_BIPS))))) -
+    BASE_BIPS
+  );
+}
 
 export class GetDefiSpringIncentives extends EkuboAPIRoute {
   public static route = "/defi-spring-incentives";
@@ -181,17 +189,19 @@ export class GetDefiSpringIncentives extends EkuboAPIRoute {
             })),
           });
 
-          const VOLATILITY_PERCENT: bigint =
-            VOLATILITY_BY_PAIR[`${token0.symbol}/${token1.symbol}`] ??
-            VOLATILITY_BY_PAIR[`${token1.symbol}/${token0.symbol}`] ??
-            DEFAULT_VOLATILITY;
+          const VOLATILITY_SQRT_BIPS: bigint = toSqrtBips(
+            VOLATILITY_BY_PAIR_IN_BIPS[`${token0.symbol}/${token1.symbol}`] ??
+              VOLATILITY_BY_PAIR_IN_BIPS[`${token1.symbol}/${token0.symbol}`] ??
+              DEFAULT_VOLATILITY_IN_BIPS
+          );
 
           const { consumedAmount: depth0 } = pool.quote({
             tokenAmount: {
               amount: -0xffffffffffffffffffffffffffffffffn,
               token: BigInt(token0.l2_token_address),
             },
-            sqrtRatioLimit: (sqrtRatio * (100n + VOLATILITY_PERCENT)) / 100n,
+            sqrtRatioLimit:
+              (sqrtRatio * (BASE_BIPS + VOLATILITY_SQRT_BIPS)) / BASE_BIPS,
           });
 
           const { consumedAmount: depth1 } = pool.quote({
@@ -199,7 +209,8 @@ export class GetDefiSpringIncentives extends EkuboAPIRoute {
               amount: -0xffffffffffffffffffffffffffffffffn,
               token: BigInt(token1.l2_token_address),
             },
-            sqrtRatioLimit: (sqrtRatio * 100n) / (100n + VOLATILITY_PERCENT),
+            sqrtRatioLimit:
+              (sqrtRatio * BASE_BIPS) / (BASE_BIPS + VOLATILITY_SQRT_BIPS),
           });
 
           const usdcValueDepth0 = price0?.price
@@ -249,7 +260,7 @@ export class GetDefiSpringIncentives extends EkuboAPIRoute {
       },
       {
         headers: {
-          "cache-control": "public, max-age=3600, must-revalidate",
+          // "cache-control": "public, max-age=3600, must-revalidate",
         },
       }
     );
