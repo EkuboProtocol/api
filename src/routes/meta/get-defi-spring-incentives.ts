@@ -83,6 +83,12 @@ export class GetDefiSpringIncentives extends EkuboAPIRoute {
 
     const pairs = Object.entries(responseBody.Ekubo);
 
+    const totalStrk = pairs.reduce(
+      (memo, [key, value]) =>
+        memo + value.reduce((memo, { allocation }) => allocation + memo, 0),
+      0
+    );
+
     const strkToken = getTokenByIdentifier(tokens, "STRK");
     const usdcToken = getTokenByIdentifier(tokens, "USDC");
 
@@ -108,6 +114,13 @@ export class GetDefiSpringIncentives extends EkuboAPIRoute {
         if (!tokenA || !tokenB) {
           return null;
         }
+
+        const pairTotal = dailyAllocations.reduce(
+          (memo, { allocation }) => memo + allocation,
+          0
+        );
+
+        const pairPercent = pairTotal / totalStrk;
 
         const [token0, token1] =
           BigInt(tokenA.l2_token_address) < BigInt(tokenB.l2_token_address)
@@ -265,6 +278,8 @@ export class GetDefiSpringIncentives extends EkuboAPIRoute {
             token1,
             allocations,
             currentApr,
+            pairPercent,
+            pairTotal,
           };
         }
 
@@ -279,6 +294,7 @@ export class GetDefiSpringIncentives extends EkuboAPIRoute {
     return json(
       {
         strkPrice: Number(strkPrice.toSignificantDigits(6).toString()),
+        totalStrk,
         pairs: pairData.filter((p) => !!p),
       },
       {
