@@ -1,8 +1,8 @@
-import { error, IRequest, json } from "itty-router";
+import { IRequest, json } from "itty-router";
 import { EkuboAPIRoute, RequestContext } from "../../shared/context";
 import { getAllTokens, getTokenByIdentifier, TokenType } from "./tokens";
 import { createQueries } from "../../queries";
-import { OpenAPIRouteSchema, Path } from "@cloudflare/itty-router-openapi";
+import { OpenAPIRouteSchema } from "@cloudflare/itty-router-openapi";
 import { z } from "zod";
 import Decimal from "decimal.js-light";
 import { PlainPool } from "../quote/nodes/plainPool";
@@ -69,12 +69,19 @@ export class GetDefiSpringIncentives extends EkuboAPIRoute {
     const tokens = await getAllTokens(context.env, queries);
 
     const response = await fetch(
-      "https://kx58j6x5me.execute-api.us-east-1.amazonaws.com//starknet/fetchFile?file=qa_strk_grant.json"
+      "https://kx58j6x5me.execute-api.us-east-1.amazonaws.com/starknet/fetchFile?file=qa_strk_grant.json"
     );
-    const responseBody = await response.json();
+    const responseBody = (await response.json()) as {
+      Ekubo: {
+        [pairId: string]: {
+          date: string;
+          allocation: number;
+          thirty_day_realized_volatility: number;
+        }[];
+      };
+    };
 
-    const pairs: [pairId: string, { date: string; allocation: number }[]][] =
-      Object.entries((responseBody as any)?.["Ekubo"]) as any;
+    const pairs = Object.entries(responseBody.Ekubo);
 
     const strkToken = getTokenByIdentifier(tokens, "STRK");
     const usdcToken = getTokenByIdentifier(tokens, "USDC");
@@ -93,7 +100,7 @@ export class GetDefiSpringIncentives extends EkuboAPIRoute {
         : DEFAULT_STRK_PRICE;
 
     const pairData = await Promise.all(
-      pairs.map(async ([id, allocations]) => {
+      pairs.map(async ([id, dailyAllocations]) => {
         const [tokenAIdentifier, tokenBIdentifier] = id.split("/");
         const tokenA = getTokenByIdentifier(tokens, tokenAIdentifier);
         const tokenB = getTokenByIdentifier(tokens, tokenBIdentifier);
@@ -138,8 +145,8 @@ export class GetDefiSpringIncentives extends EkuboAPIRoute {
               : null,
           ]);
 
-        const latestDateAllocation = allocations.reduce<
-          typeof allocations[number] | null
+        const latestDateAllocation = dailyAllocations.reduce<
+          typeof dailyAllocations[number] | null
         >((memo, value) => {
           if (!memo) return value;
           return new Date(value.date).getTime() > new Date(memo.date).getTime()
@@ -153,6 +160,11 @@ export class GetDefiSpringIncentives extends EkuboAPIRoute {
             .mul((2n ** 128n).toString())
             .toFixed(0) ?? 0n
         );
+
+        const allocations = dailyAllocations.map(({ allocation, date }) => ({
+          date,
+          allocation,
+        }));
 
         if (sqrtRatio) {
           const sortedTicks = pairLiquidityGraph.map((p) => ({
@@ -190,9 +202,25 @@ export class GetDefiSpringIncentives extends EkuboAPIRoute {
           });
 
           const VOLATILITY_SQRT_BIPS: bigint = toSqrtBips(
-            VOLATILITY_BY_PAIR_IN_BIPS[`${token0.symbol}/${token1.symbol}`] ??
-              VOLATILITY_BY_PAIR_IN_BIPS[`${token1.symbol}/${token0.symbol}`] ??
-              DEFAULT_VOLATILITY_IN_BIPS
+            latestDateAllocation?.thirty_day_realized_volatility
+              ? BigInt(
+                  Math.round(
+                    latestDateAllocation.thirty_day_realized_volatility *
+                      Number(BASE_BIPS)
+                  )
+                )
+              : VOLATILITY_BY_PAIR_IN_BIPS[
+                  `${token0.symbol}/${token1.symbol}`
+                ] ??
+                  VOLATILITY_BY_PAIR_IN_BIPS[
+                    `${token1.symbol}/${token0.symbol}`
+                  ] ??
+                  DEFAULT_VOLATILITY_IN_BIPS
+          );
+
+          console.log(
+            latestDateAllocation?.thirty_day_realized_volatility,
+            VOLATILITY_SQRT_BIPS
           );
 
           const { consumedAmount: depth0 } = pool.quote({
