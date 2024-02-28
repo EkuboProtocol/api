@@ -242,9 +242,7 @@ export class GetPairPriceHistory extends EkuboAPIRoute {
         await queries.getVolumeWeightedPriceOverPeriod({
           baseToken: ethTokenAddress,
           quoteToken: token0,
-          start: null,
           minSwapCount: 10,
-          end: null,
         })
       )?.price ?? new Decimal(0);
     const price1 =
@@ -252,9 +250,7 @@ export class GetPairPriceHistory extends EkuboAPIRoute {
         await queries.getVolumeWeightedPriceOverPeriod({
           baseToken: ethTokenAddress,
           quoteToken: token1,
-          start: null,
           minSwapCount: 10,
-          end: null,
         })
       )?.price ?? new Decimal(0);
 

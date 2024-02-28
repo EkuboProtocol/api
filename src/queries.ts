@@ -355,29 +355,30 @@ export class Queries {
     return rows;
   }
 
-  public getPairLiquidityGraph({
+  public async getPairLiquidityGraph({
     token0,
     token1,
   }: {
     token0: bigint;
     token1: bigint;
   }) {
-    return this.client.query<{
+    const { rows } = await this.client.query<{
       tick: string;
       net_liquidity_delta_diff: string;
     }>({
       text: `
-                SELECT tick, SUM(net_liquidity_delta_diff) AS net_liquidity_delta_diff
-                FROM per_pool_per_tick_liquidity_materialized
-                         JOIN pool_keys ON pool_key_hash = key_hash
-                WHERE net_liquidity_delta_diff != 0
-                  AND token0 = $1
-                  AND token1 = $2
-                GROUP BY tick
-                ORDER BY tick
-            `,
+          SELECT tick, SUM(net_liquidity_delta_diff) AS net_liquidity_delta_diff
+          FROM per_pool_per_tick_liquidity_materialized
+                   JOIN pool_keys ON pool_key_hash = key_hash
+          WHERE net_liquidity_delta_diff != 0
+            AND token0 = $1
+            AND token1 = $2
+          GROUP BY tick
+          ORDER BY tick
+      `,
       values: [token0, token1],
     });
+    return rows;
   }
 
   public getPoolLiquidityGraph(pool_key_hash: bigint) {
@@ -568,8 +569,8 @@ export class Queries {
   }: {
     baseToken: bigint;
     quoteToken: bigint;
-    start: Date | null;
-    end: Date | null;
+    start?: Date;
+    end?: Date;
     minSwapCount: number;
   }): Promise<{ price: Decimal; k_volume: bigint } | null> {
     if (baseToken === quoteToken)

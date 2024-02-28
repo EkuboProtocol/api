@@ -115,7 +115,7 @@ export class GetPairLiquidity extends EkuboAPIRoute {
       return error(400, "Invalid tokens");
     }
 
-    const { rows } = await queries.withinTransaction(() =>
+    const data = await queries.withinTransaction(() =>
       queries.getPairLiquidityGraph({
         token0,
         token1,
@@ -124,7 +124,7 @@ export class GetPairLiquidity extends EkuboAPIRoute {
 
     return json(
       {
-        data: rows,
+        data,
       },
       {
         headers: {
