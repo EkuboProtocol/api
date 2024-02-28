@@ -34,12 +34,16 @@ export class GetDefiSpringIncentives extends EkuboAPIRoute {
             {
               token0: TokenType,
               token1: TokenType,
-              allocations: z.array(
-                z.object({
-                  date: z.string(),
-                  allocation: z.number().min(0),
-                })
-              ),
+              allocations: z.object({
+                strkPrice: z.number().min(0),
+                pairs: z.array(
+                  z.object({
+                    date: z.string(),
+                    allocation: z.number().min(0),
+                    currentApr: z.number().min(0),
+                  })
+                ),
+              }),
             },
             {
               description:
@@ -240,7 +244,7 @@ export class GetDefiSpringIncentives extends EkuboAPIRoute {
 
     return json(
       {
-        strkPrice: strkPrice.toSignificantDigits(6).toString(),
+        strkPrice: Number(strkPrice.toSignificantDigits(6).toString()),
         pairs: pairData.filter((p) => !!p),
       },
       {
