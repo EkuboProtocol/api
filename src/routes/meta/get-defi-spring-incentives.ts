@@ -218,11 +218,6 @@ export class GetDefiSpringIncentives extends EkuboAPIRoute {
                   DEFAULT_VOLATILITY_IN_BIPS
           );
 
-          console.log(
-            latestDateAllocation?.thirty_day_realized_volatility,
-            VOLATILITY_SQRT_BIPS
-          );
-
           const { consumedAmount: depth0 } = pool.quote({
             tokenAmount: {
               amount: -0xffffffffffffffffffffffffffffffffn,
