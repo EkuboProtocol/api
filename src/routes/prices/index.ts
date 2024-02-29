@@ -336,7 +336,7 @@ export class GetTokenPrices extends EkuboAPIRoute {
     const prices = await queries.getAllVolumeWeightedPrices({
       quoteToken,
       start: sixHoursAgo,
-      minSwapCount: 16,
+      minSwapCount: 10,
     });
 
     const scaledPrices = prices
