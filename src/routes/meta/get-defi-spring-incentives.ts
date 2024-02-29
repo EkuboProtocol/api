@@ -77,6 +77,8 @@ export class GetDefiSpringIncentives extends EkuboAPIRoute {
           date: string;
           allocation: number;
           thirty_day_realized_volatility: number;
+          tvl_usd: number;
+          apr: number;
         }[];
       };
     };
@@ -174,10 +176,13 @@ export class GetDefiSpringIncentives extends EkuboAPIRoute {
             .toFixed(0) ?? 0n
         );
 
-        const allocations = dailyAllocations.map(({ allocation, date }) => ({
-          date,
-          allocation,
-        }));
+        const allocations = dailyAllocations.map(
+          ({ allocation, date, thirty_day_realized_volatility }) => ({
+            date,
+            allocation,
+            thirty_day_realized_volatility,
+          })
+        );
 
         if (sqrtRatio) {
           const sortedTicks = pairLiquidityGraph.map((p) => ({
