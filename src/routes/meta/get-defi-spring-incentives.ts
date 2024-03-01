@@ -2,11 +2,7 @@ import { IRequest, json } from "itty-router";
 import { EkuboAPIRoute, RequestContext } from "../../shared/context";
 import { getAllTokens, getTokenByIdentifier, TokenType } from "./tokens";
 import { createQueries } from "../../queries";
-import {
-  OpenAPIRouteSchema,
-  Path,
-  Query,
-} from "@cloudflare/itty-router-openapi";
+import { OpenAPIRouteSchema, Path } from "@cloudflare/itty-router-openapi";
 import { z } from "zod";
 import Decimal from "decimal.js-light";
 import { PlainPool } from "../quote/nodes/plainPool";
