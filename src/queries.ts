@@ -1137,6 +1137,51 @@ export class Queries {
     });
     return deposits.length > 0;
   }
+
+  async getAllocations({
+    owner,
+    start,
+    end,
+  }: {
+    owner: bigint;
+    start: Date;
+    end: Date;
+  }) {
+    const { rows } = await this.client.query<{
+      token_id: string;
+      day: string;
+      incentives: string;
+    }>({
+      values: [owner, start, end],
+      text: `
+          WITH ranked_transfers AS (SELECT token_id,
+                                           to_address,
+                                           ROW_NUMBER() OVER (
+                                               PARTITION BY token_id
+                                               ORDER BY event_id DESC
+                                               ) AS row_no
+                                    FROM position_transfers pt
+                                             JOIN event_keys ek ON pt.event_id = ek.id
+                                             JOIN blocks b ON ek.block_number = b.number
+                                    WHERE to_address != 0
+                                      AND b.time <= $3),
+
+               token_owners AS (SELECT token_id,
+                                       to_address AS owner
+                                FROM ranked_transfers
+                                WHERE row_no = 1)
+
+          SELECT token_id,
+                 day,
+                 incentives AS incentives
+          FROM strk_defi_spring_incentives
+                   JOIN token_owners ON token_id = salt
+          WHERE owner = $1
+            AND day >= $2 AND day < $3
+      `,
+    });
+    return rows;
+  }
 }
 
 export async function createQueries(env: Env) {

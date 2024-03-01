@@ -14,7 +14,10 @@ import {GetPoolKeyHash, GetPoolLiquidity, GetPoolStates} from "./routes/state";
 import {GetNftImage, GetNftMetadata, ListNftEvents, ListPositions} from "./routes/nft";
 import {RequestContext} from "./shared/context";
 import {IntractApiRoute} from "./routes/intract";
-import {GetDefiSpringIncentives} from "./routes/meta/get-defi-spring-incentives";
+import {
+    GetDefiSpringIncentives,
+    GetDefiSpringIncentivesForAddressAndDates
+} from "./routes/meta/get-defi-spring-incentives";
 
 Decimal.set({precision: 39});
 
@@ -39,6 +42,7 @@ const router = OpenAPIRouter({
     docs_url: null as unknown as undefined,
 })
     .get(GetDefiSpringIncentives.route, GetDefiSpringIncentives)
+    .get(GetDefiSpringIncentivesForAddressAndDates.route, GetDefiSpringIncentivesForAddressAndDates)
     .get(ListTokens.route, ListTokens)
     .get(GetTokenLogo.route, GetTokenLogo)
     .get(GetBlock.route, GetBlock)

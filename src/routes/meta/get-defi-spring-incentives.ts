@@ -2,11 +2,17 @@ import { IRequest, json } from "itty-router";
 import { EkuboAPIRoute, RequestContext } from "../../shared/context";
 import { getAllTokens, getTokenByIdentifier, TokenType } from "./tokens";
 import { createQueries } from "../../queries";
-import { OpenAPIRouteSchema } from "@cloudflare/itty-router-openapi";
+import {
+  OpenAPIRouteSchema,
+  Path,
+  Query,
+} from "@cloudflare/itty-router-openapi";
 import { z } from "zod";
 import Decimal from "decimal.js-light";
 import { PlainPool } from "../quote/nodes/plainPool";
 import { MIN_TICK, toSqrtRatio } from "../quote/math/tick";
+import { AddressType } from "../../shared/validation/address";
+import { DateType } from "../../shared/validation/date";
 
 const DEFAULT_STRK_PRICE = new Decimal("2.0");
 
@@ -305,6 +311,82 @@ export class GetDefiSpringIncentives extends EkuboAPIRoute {
       {
         headers: {
           "cache-control": "public, max-age=3600, must-revalidate",
+        },
+      }
+    );
+  }
+}
+
+export class GetDefiSpringIncentivesForAddressAndDates extends EkuboAPIRoute {
+  public static route = "/defi-spring-incentives/:address/:start/:end";
+  static schema: OpenAPIRouteSchema = {
+    tags: ["Meta"],
+    summary: "Get address incentives",
+    description:
+      "Get the total incentives for the given address over the period",
+    parameters: {
+      address: Path(AddressType, {
+        description: "The address for which to get the incentive allocations",
+      }),
+      start: Path(DateType, {
+        description: "The first date for which to query, inclusive",
+      }),
+      end: Path(DateType, {
+        description: "The last date for which to query, exclusive",
+      }),
+    },
+    responses: {
+      "200": {
+        description:
+          "The allocation of incentives for each token ID held or burned by the address",
+        schema: z.array(
+          z.object(
+            {
+              token_id: z.number(),
+              allocation: z.number(),
+            },
+            {
+              description: "Describes the allocation for a particular token",
+            }
+          )
+        ),
+        contentType: "application/json",
+      },
+    },
+  };
+
+  async handle(request: IRequest, context: RequestContext, data: any) {
+    const queries = await createQueries(context.env);
+
+    const result = await queries.getAllocations({
+      owner: BigInt(request.params.address),
+      start: new Date(`${request.params.start}T00:00:00Z`),
+      end: new Date(`${request.params.end}T00:00:00Z`),
+    });
+
+    return json(
+      result.reduce<{
+        [token_id: number]: {
+          total: number;
+          per_day: {
+            date: string;
+            amount: number;
+          }[];
+        };
+      }>((memo, r) => {
+        const forToken =
+          memo[Number(r.token_id)] ??
+          (memo[Number(r.token_id)] = { total: 0, per_day: [] });
+        forToken.total += Number(r.incentives);
+        forToken.per_day.push({
+          date: new Date(r.day).toISOString().split("T")[0],
+          amount: Number(r.incentives),
+        });
+        return memo;
+      }, {}),
+      {
+        headers: {
+          "cache-control": "public, max-age=1800, must-revalidate",
         },
       }
     );
