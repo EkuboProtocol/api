@@ -37,6 +37,7 @@ import { IntractApiRoute } from "./routes/intract";
 import {
   GetDefiSpringIncentives,
   GetDefiSpringIncentivesForAddressAndDates,
+  GetDefiSpringIncentivesForTokenId,
 } from "./routes/meta/get-defi-spring-incentives";
 
 Decimal.set({ precision: 39 });
@@ -62,6 +63,10 @@ const router = OpenAPIRouter({
   docs_url: null as unknown as undefined,
 })
   .get(GetDefiSpringIncentives.route, GetDefiSpringIncentives)
+  .get(
+    GetDefiSpringIncentivesForTokenId.route,
+    GetDefiSpringIncentivesForTokenId,
+  )
   .get(
     GetDefiSpringIncentivesForAddressAndDates.route,
     GetDefiSpringIncentivesForAddressAndDates,

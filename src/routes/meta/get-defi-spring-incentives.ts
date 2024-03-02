@@ -7,7 +7,7 @@ import { z } from "zod";
 import Decimal from "decimal.js-light";
 import { PlainPool } from "../quote/nodes/plainPool";
 import { MIN_TICK, toSqrtRatio } from "../quote/math/tick";
-import { AddressType } from "../../shared/validation/address";
+import { AddressType, NumericType } from "../../shared/validation/address";
 import { DateType } from "../../shared/validation/date";
 
 const DEFAULT_STRK_PRICE = new Decimal("2.0");
@@ -335,16 +335,17 @@ export class GetDefiSpringIncentivesForAddressAndDates extends EkuboAPIRoute {
       "200": {
         description:
           "The allocation of incentives for each token ID held or burned by the address",
-        schema: z.array(
-          z.object(
-            {
-              token_id: z.number(),
-              allocation: z.number(),
-            },
-            {
-              description: "Describes the allocation for a particular token",
-            },
-          ),
+        schema: z.map(
+          NumericType,
+          z.object({
+            total: z.number(),
+            per_day: z.array(
+              z.object({ date: DateType, amount: z.number().min(0) }),
+            ),
+          }),
+          {
+            description: "Describes the allocation for a particular token",
+          },
         ),
         contentType: "application/json",
       },
@@ -380,6 +381,75 @@ export class GetDefiSpringIncentivesForAddressAndDates extends EkuboAPIRoute {
         });
         return memo;
       }, {}),
+      {
+        headers: {
+          "cache-control": "public, max-age=1800, must-revalidate",
+        },
+      },
+    );
+  }
+}
+
+export class GetDefiSpringIncentivesForTokenId extends EkuboAPIRoute {
+  public static route = "/defi-spring-incentives/by-token/:tokenId";
+
+  static schema: OpenAPIRouteSchema = {
+    tags: ["Meta"],
+    summary: "Get token incentives",
+    description:
+      "Get the total incentives for the given token ID over the period",
+    parameters: {
+      tokenId: Path(NumericType, {
+        description: "The token ID for which to get the incentive allocations",
+      }),
+    },
+    responses: {
+      "200": {
+        description: "The allocation of incentives for the given token ID",
+        schema: z.object(
+          {
+            total: z.number(),
+            per_day: z.array(
+              z.object({ date: DateType, amount: z.number().min(0) }),
+            ),
+          },
+          {
+            description: "Describes the allocation for a particular token",
+          },
+        ),
+        contentType: "application/json",
+      },
+    },
+  };
+
+  async handle(request: IRequest, context: RequestContext, data: any) {
+    const queries = await createQueries(context.env);
+
+    const result = await queries.getAllocationsForToken({
+      tokenId: BigInt(request.params.tokenId),
+    });
+
+    return json(
+      result.reduce<{
+        total: number;
+        per_day: {
+          date: string;
+          amount: number;
+        }[];
+      }>(
+        (memo, r) => {
+          memo.total += Number(r.incentives);
+          memo.per_day.push({
+            date: new Date(r.day).toISOString().split("T")[0],
+            amount: Number(r.incentives),
+          });
+          return memo;
+        },
+        {
+          total: 0,
+          per_day: [],
+        },
+      ),
       {
         headers: {
           "cache-control": "public, max-age=1800, must-revalidate",

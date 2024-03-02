@@ -1182,6 +1182,22 @@ export class Queries {
     });
     return rows;
   }
+
+  async getAllocationsForToken({ tokenId }: { tokenId: bigint }) {
+    const { rows } = await this.client.query<{
+      day: string;
+      incentives: string;
+    }>({
+      values: [tokenId],
+      text: `
+          SELECT day,
+                 incentives AS incentives
+          FROM strk_defi_spring_incentives
+          WHERE salt = $1
+      `,
+    });
+    return rows;
+  }
 }
 
 export async function createQueries(env: Env) {
