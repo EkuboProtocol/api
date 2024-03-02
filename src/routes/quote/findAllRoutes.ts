@@ -9,7 +9,7 @@ export function findAllRoutes<T extends HasKey>(
   toToken: bigint,
   nodes: T[],
   maxPools: number = 2,
-  currentRoute: T[] = []
+  currentRoute: T[] = [],
 ): T[][] {
   if (maxPools < 1) return [];
   return nodes.flatMap((node) => {
@@ -27,7 +27,7 @@ export function findAllRoutes<T extends HasKey>(
         toToken,
         nodes,
         maxPools - 1,
-        nextRoute
+        nextRoute,
       );
     } else if (node.key.token1 === fromToken) {
       const nextRoute = currentRoute.concat([node]);
@@ -41,7 +41,7 @@ export function findAllRoutes<T extends HasKey>(
         toToken,
         nodes,
         maxPools - 1,
-        nextRoute
+        nextRoute,
       );
     } else {
       return [];

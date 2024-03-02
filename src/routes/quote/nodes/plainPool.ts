@@ -165,8 +165,8 @@ export class PlainPool implements QuoteNode<BaseResources, BaseNodeState> {
         nextInitializedTickSqrtRatio === null
           ? sqrtRatioLimit
           : nextInitializedTickSqrtRatio < sqrtRatioLimit === isIncreasing
-          ? nextInitializedTickSqrtRatio
-          : sqrtRatioLimit;
+            ? nextInitializedTickSqrtRatio
+            : sqrtRatioLimit;
 
       const step = computeStep({
         fee: this.key.fee,

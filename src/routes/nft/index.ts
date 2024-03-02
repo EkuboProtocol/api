@@ -33,7 +33,7 @@ const BASE = new Decimal("1.000001");
 export function formattedPrice(
   tick: bigint,
   numeratorDecimals: number,
-  denominatorDecimals: number
+  denominatorDecimals: number,
 ): string {
   return BASE.pow(tick.toString())
     .mul(new Decimal(10).pow(denominatorDecimals - numeratorDecimals))
@@ -85,7 +85,7 @@ export class GetNftMetadata extends EkuboAPIRoute {
 
   async handle(
     { url, params: { id: idStr } }: IRequest,
-    { env }: RequestContext
+    { env }: RequestContext,
   ) {
     const id = parseId(idStr);
     if (id === null) {
@@ -147,12 +147,12 @@ export class GetNftMetadata extends EkuboAPIRoute {
             formattedPrice(
               -BigInt(positionMetadata.upper_bound),
               token0.decimals,
-              token1.decimals
+              token1.decimals,
             ),
             formattedPrice(
               -BigInt(positionMetadata.lower_bound),
               token0.decimals,
-              token1.decimals
+              token1.decimals,
             ),
           ]
         : [
@@ -161,12 +161,12 @@ export class GetNftMetadata extends EkuboAPIRoute {
             formattedPrice(
               BigInt(positionMetadata.lower_bound),
               token1.decimals,
-              token0.decimals
+              token0.decimals,
             ),
             formattedPrice(
               BigInt(positionMetadata.upper_bound),
               token1.decimals,
-              token0.decimals
+              token0.decimals,
             ),
           ];
 
@@ -174,7 +174,7 @@ export class GetNftMetadata extends EkuboAPIRoute {
         name: `${numerator.symbol} / ${
           denominator.symbol
         } : ${lowerPrice} <> ${upperPrice} : ${feeToPercent(
-          positionMetadata.fee
+          positionMetadata.fee,
         )}% / ${tickSpacingToPercent(positionMetadata.tick_spacing)}%`,
         description: `A liquidity position in Ekubo consisting of the ${
           numerator.name
@@ -185,7 +185,7 @@ export class GetNftMetadata extends EkuboAPIRoute {
         } / ${denominator.symbol} to ${upperPrice} ${numerator.symbol} / ${
           denominator.symbol
         }. This position charges a ${feeToPercent(
-          positionMetadata.fee
+          positionMetadata.fee,
         )}% fee on swaps.`,
         image: `${origin}/${id}/image.svg`,
         attributes: attributesStored,
@@ -260,36 +260,36 @@ export class ListNftEvents extends EkuboAPIRoute {
                   to_address: num.toHex(to_address),
                 }
               : type === 1
-              ? {
-                  type: "update",
-                  transaction_hash: num.toHex(transaction_hash),
-                  timestamp,
-                  liquidity_delta,
-                  delta0,
-                  delta1,
-                }
-              : type === 2
-              ? {
-                  type: "collect_fees",
-                  transaction_hash: num.toHex(transaction_hash),
-                  timestamp,
-                  delta0,
-                  delta1,
-                }
-              : {
-                  type: "protocol_fees",
-                  transaction_hash: num.toHex(transaction_hash),
-                  timestamp,
-                  delta0,
-                  delta1,
-                }
+                ? {
+                    type: "update",
+                    transaction_hash: num.toHex(transaction_hash),
+                    timestamp,
+                    liquidity_delta,
+                    delta0,
+                    delta1,
+                  }
+                : type === 2
+                  ? {
+                      type: "collect_fees",
+                      transaction_hash: num.toHex(transaction_hash),
+                      timestamp,
+                      delta0,
+                      delta1,
+                    }
+                  : {
+                      type: "protocol_fees",
+                      transaction_hash: num.toHex(transaction_hash),
+                      timestamp,
+                      delta0,
+                      delta1,
+                    },
         ),
       },
       {
         headers: {
           "cache-control": "public, max-age=60, must-revalidate",
         },
-      }
+      },
     );
   }
 }
@@ -359,7 +359,7 @@ export class ListPositions extends EkuboAPIRoute {
 
   async handle(
     { params: { address: addressStr }, query, url }: IRequest,
-    { env }: RequestContext
+    { env }: RequestContext,
   ) {
     const address = BigInt(addressStr);
 
@@ -395,7 +395,7 @@ export class ListPositions extends EkuboAPIRoute {
         headers: {
           "cache-control": "no-cache",
         },
-      }
+      },
     );
   }
 }

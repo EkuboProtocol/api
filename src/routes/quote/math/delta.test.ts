@@ -8,8 +8,8 @@ describe(amount0Delta, () => {
         339942424496442021441932674757011200255n,
         0x100000000000000000000000000000000n,
         1000000n,
-        false
-      )
+        false,
+      ),
     ).toMatchInlineSnapshot(`1000n`);
   });
 
@@ -19,8 +19,8 @@ describe(amount0Delta, () => {
         0x100000000000000000000000000000000n,
         339942424496442021441932674757011200255n,
         1000000n,
-        false
-      )
+        false,
+      ),
     ).toMatchInlineSnapshot(`1000n`);
   });
 
@@ -30,8 +30,8 @@ describe(amount0Delta, () => {
         0x100000000000000000000000000000000n,
         34028236692093846346337460743176821145n + (1n << 128n),
         1000000000000000000n,
-        false
-      )
+        false,
+      ),
     ).toMatchInlineSnapshot(`90909090909090909n`);
   });
   it("price example up", () => {
@@ -40,8 +40,8 @@ describe(amount0Delta, () => {
         0x100000000000000000000000000000000n,
         34028236692093846346337460743176821145n + (1n << 128n),
         1000000000000000000n,
-        true
-      )
+        true,
+      ),
     ).toMatchInlineSnapshot(`90909090909090910n`);
   });
 });
@@ -53,8 +53,8 @@ describe(amount1Delta, () => {
         339942424496442021441932674757011200255n,
         0x100000000000000000000000000000000n,
         1000000n,
-        false
-      )
+        false,
+      ),
     ).toMatchInlineSnapshot(`999n`);
   });
   it("price_down_reverse", () => {
@@ -63,8 +63,8 @@ describe(amount1Delta, () => {
         0x100000000000000000000000000000000n,
         339942424496442021441932674757011200255n,
         1000000n,
-        false
-      )
+        false,
+      ),
     ).toMatchInlineSnapshot(`999n`);
   });
   it("price_up", () => {
@@ -73,8 +73,8 @@ describe(amount1Delta, () => {
         340622989910849312776150758189957120n + (1n << 128n),
         0x100000000000000000000000000000000n,
         1000000n,
-        false
-      )
+        false,
+      ),
     ).toMatchInlineSnapshot(`1001n`);
   });
   it("price_up_reverse", () => {
@@ -83,8 +83,8 @@ describe(amount1Delta, () => {
         0x100000000000000000000000000000000n,
         339942424496442021441932674757011200255n,
         1000000n,
-        true
-      )
+        true,
+      ),
     ).toMatchInlineSnapshot(`1000n`);
   });
   it("price_example_down", () => {
@@ -93,8 +93,8 @@ describe(amount1Delta, () => {
         0x100000000000000000000000000000000n,
         309347606291762239512158734028880192232n,
         1000000000000000000n,
-        false
-      )
+        false,
+      ),
     ).toMatchInlineSnapshot(`90909090909090909n`);
   });
   it("price_example_up", () => {
@@ -103,8 +103,8 @@ describe(amount1Delta, () => {
         0x100000000000000000000000000000000n,
         309347606291762239512158734028880192232n,
         1000000000000000000n,
-        true
-      )
+        true,
+      ),
     ).toMatchInlineSnapshot(`90909090909090910n`);
   });
   it("no overflow half price range", () => {
@@ -113,8 +113,8 @@ describe(amount1Delta, () => {
         0x100000000000000000000000000000000n,
         MAX_SQRT_RATIO,
         0xffffffffffffffffn,
-        false
-      )
+        false,
+      ),
     ).toMatchInlineSnapshot(`340282286429718909724583623827301092853n`);
   });
 
@@ -124,8 +124,8 @@ describe(amount1Delta, () => {
         MIN_SQRT_RATIO,
         MAX_SQRT_RATIO,
         0xffffffffffffffffffffffffffffffffn,
-        false
-      )
+        false,
+      ),
     ).toThrow("AMOUNT1_DELTA_OVERFLOW_U256");
   });
 });

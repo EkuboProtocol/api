@@ -29,7 +29,7 @@ export class GetLeaderboard extends EkuboAPIRoute {
               collector: z.string(),
               referral_points: z.number().int().min(0),
               points: z.number().int().min(0),
-            })
+            }),
           ),
         }),
         contentType: "application/json",
@@ -55,7 +55,7 @@ export class GetLeaderboard extends EkuboAPIRoute {
         headers: {
           "cache-control": "public,max-age=150",
         },
-      }
+      },
     );
   }
 }
@@ -100,7 +100,7 @@ export class GetLeaderboardForCollector extends EkuboAPIRoute {
         headers: {
           "cache-control": "public,max-age=150",
         },
-      }
+      },
     );
   }
 }

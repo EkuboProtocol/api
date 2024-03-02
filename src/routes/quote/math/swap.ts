@@ -83,13 +83,13 @@ export function computeStep({
     sqrtRatioNextFromAmount = nextSqrtRatioFromAmount1(
       sqrtRatio,
       liquidity,
-      priceImpactAmount
+      priceImpactAmount,
     );
   } else {
     sqrtRatioNextFromAmount = nextSqrtRatioFromAmount0(
       sqrtRatio,
       liquidity,
-      priceImpactAmount
+      priceImpactAmount,
     );
   }
 

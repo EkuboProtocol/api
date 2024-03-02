@@ -33,7 +33,7 @@ export interface ResourcesAccumulator<TResources, TTotal> {
 export function quoteRoute<
   TResources extends BaseResources,
   TState extends BaseNodeState,
-  TTotal
+  TTotal,
 >({
   route,
   specifiedAmount,
@@ -70,7 +70,7 @@ export function quoteRoute<
         },
         resources: accumulator.accumulate(
           state.resources,
-          quote.executionResources
+          quote.executionResources,
         ),
         nodeStates: state.nodeStates,
       };
@@ -79,13 +79,13 @@ export function quoteRoute<
       calculatedAmount: specifiedAmount,
       resources: accumulator.initial(),
       nodeStates: [],
-    }
+    },
   );
 }
 
 export async function updatePoolCache(
   pools: PoolState[],
-  queries: Queries
+  queries: Queries,
 ): Promise<void> {
   const poolsNeedUpdate = pools.filter(({ pool_key_hash, last_event_id }) => {
     const cached = QUOTE_NODE_CACHE[pool_key_hash];
@@ -112,13 +112,13 @@ export async function updatePoolCache(
           sortedTicks: tickData[pool.pool_key_hash] ?? [],
         }),
       };
-    })
+    }),
   );
 }
 
 export async function getAllRelevantPoolsAndUpdateCache(
   queries: Queries,
-  { tokenA, tokenB }: { tokenA: bigint; tokenB: bigint }
+  { tokenA, tokenB }: { tokenA: bigint; tokenB: bigint },
 ): Promise<QuoteNode[]> {
   return queries.withinTransaction(async () => {
     const { rows: relevantPools } = await queries.getAllRoutablePoolStates({

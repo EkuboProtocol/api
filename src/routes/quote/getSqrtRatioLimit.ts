@@ -3,7 +3,7 @@ import { MAX_SQRT_RATIO, MIN_SQRT_RATIO, toSqrtRatio } from "./math/tick";
 export function getSqrtRatioLimit(
   sqrtRatio: bigint,
   sqrtRatioAfter: bigint,
-  tickSpacing: number
+  tickSpacing: number,
 ): bigint {
   if (sqrtRatioAfter === sqrtRatio) {
     return sqrtRatioAfter;

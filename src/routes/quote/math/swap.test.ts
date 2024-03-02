@@ -20,7 +20,7 @@ describe(isPriceIncreasing, () => {
 describe(amountBeforeFee, () => {
   it("rounds up", () => {
     expect(amountBeforeFee(105n, (1n << 128n) / 100n)).toMatchInlineSnapshot(
-      `107n`
+      `107n`,
     );
   });
 });
@@ -44,7 +44,7 @@ describe(computeStep, () => {
         amount: 0n,
         isToken1: false,
         fee: 0n,
-      })
+      }),
     ).toMatchInlineSnapshot(`
 {
   "calculatedAmount": 0n,
@@ -63,7 +63,7 @@ describe(computeStep, () => {
         amount: 0n,
         isToken1: true,
         fee: 0n,
-      })
+      }),
     ).toMatchInlineSnapshot(`
 {
   "calculatedAmount": 0n,
@@ -82,7 +82,7 @@ describe(computeStep, () => {
         amount: 10000n,
         isToken1: true,
         fee: 0n,
-      })
+      }),
     ).toMatchInlineSnapshot(`
 {
   "calculatedAmount": 0n,
@@ -102,7 +102,7 @@ describe(computeStep, () => {
         amount: 10000n,
         isToken1: false,
         fee: 1n << 127n,
-      })
+      }),
     ).toMatchInlineSnapshot(`
 {
   "calculatedAmount": 4761n,
@@ -122,7 +122,7 @@ describe(computeStep, () => {
         amount: 10000n,
         isToken1: true,
         fee: 1n << 127n,
-      })
+      }),
     ).toMatchInlineSnapshot(`
 {
   "calculatedAmount": 4761n,
@@ -142,7 +142,7 @@ describe(computeStep, () => {
         amount: -10000n,
         isToken1: false,
         fee: 1n << 127n,
-      })
+      }),
     ).toMatchInlineSnapshot(`
 {
   "calculatedAmount": 22224n,
@@ -162,7 +162,7 @@ describe(computeStep, () => {
         amount: -10000n,
         isToken1: true,
         fee: 1n << 127n,
-      })
+      }),
     ).toMatchInlineSnapshot(`
 {
   "calculatedAmount": 22224n,
@@ -182,7 +182,7 @@ describe(computeStep, () => {
         amount: -10000n,
         isToken1: false,
         fee: 1n << 127n,
-      })
+      }),
     ).toMatchInlineSnapshot(`
 {
   "calculatedAmount": 11112n,
@@ -202,7 +202,7 @@ describe(computeStep, () => {
         amount: -10000n,
         isToken1: true,
         fee: 1n << 127n,
-      })
+      }),
     ).toMatchInlineSnapshot(`
 {
   "calculatedAmount": 10528n,

@@ -551,7 +551,7 @@ describe("PoolNode", () => {
             amount: 2000_000_000n,
             token: 1n,
           },
-        })
+        }),
       ).toMatchInlineSnapshot(`
 {
   "calculatedAmount": 936197803980535666n,
@@ -573,7 +573,7 @@ describe("PoolNode", () => {
             amount: 20_000_000_000n,
             token: 1n,
           },
-        })
+        }),
       ).toMatchInlineSnapshot(`
 {
   "calculatedAmount": 3452798867537863676n,
@@ -595,7 +595,7 @@ describe("PoolNode", () => {
             amount: 10n ** 18n,
             token: 0n,
           },
-        })
+        }),
       ).toMatchInlineSnapshot(`
 {
   "calculatedAmount": 2056014996n,
@@ -617,7 +617,7 @@ describe("PoolNode", () => {
             amount: 10n ** 19n,
             token: 0n,
           },
-        })
+        }),
       ).toMatchInlineSnapshot(`
 {
   "calculatedAmount": 19231691709n,
@@ -639,7 +639,7 @@ describe("PoolNode", () => {
             amount: -2_000_000_000n,
             token: 1n,
           },
-        })
+        }),
       ).toMatchInlineSnapshot(`
 {
   "calculatedAmount": 972405083420031733n,
@@ -660,7 +660,7 @@ describe("PoolNode", () => {
             amount: -20_000_000_000n,
             token: 1n,
           },
-        })
+        }),
       ).toMatchInlineSnapshot(`
 {
   "calculatedAmount": 10417135837307225847n,
@@ -681,7 +681,7 @@ describe("PoolNode", () => {
             amount: -1n * 10n ** 18n,
             token: 0n,
           },
-        })
+        }),
       ).toMatchInlineSnapshot(`
 {
   "calculatedAmount": 2139456613n,
@@ -702,7 +702,7 @@ describe("PoolNode", () => {
             amount: -1n * 10n ** 19n,
             token: 0n,
           },
-        })
+        }),
       ).toMatchInlineSnapshot(`
 {
   "calculatedAmount": 194883586930788271243317027501365n,
@@ -1624,7 +1624,7 @@ describe("PoolNode", () => {
             amount: -550761295858476146n,
             token: 0n,
           },
-        })
+        }),
       ).toMatchInlineSnapshot(`
 {
   "calculatedAmount": 263928464145073n,
@@ -1667,7 +1667,7 @@ describe("PoolNode", () => {
             amount: -1_000_000_000n,
             token: 1n,
           },
-        })
+        }),
       ).toMatchInlineSnapshot(`
 {
   "calculatedAmount": 2361232818001044269n,

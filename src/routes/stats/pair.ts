@@ -52,7 +52,7 @@ export class GetPairInfo extends EkuboAPIRoute {
         queries.getVolumeByTokenByDate(thirtyDaysAgo, pair),
         queries.getRevenueByTokenByDate(thirtyDaysAgo, pair),
         queries.getTopPools(pair),
-      ])
+      ]),
     );
 
     return json(
@@ -70,7 +70,7 @@ export class GetPairInfo extends EkuboAPIRoute {
         headers: {
           "cache-control": "public, max-age=600",
         },
-      }
+      },
     );
   }
 }
@@ -96,7 +96,7 @@ export class GetPairLiquidity extends EkuboAPIRoute {
 
   async handle(
     { params: { tokenA: tokenAStr, tokenB: tokenBStr } }: IRequest,
-    { env }: RequestContext
+    { env }: RequestContext,
   ) {
     let tokenA: bigint, tokenB: bigint;
     try {
@@ -119,7 +119,7 @@ export class GetPairLiquidity extends EkuboAPIRoute {
       queries.getPairLiquidityGraph({
         token0,
         token1,
-      })
+      }),
     );
 
     return json(
@@ -130,7 +130,7 @@ export class GetPairLiquidity extends EkuboAPIRoute {
         headers: {
           "cache-control": "public, max-age=600, must-revalidate",
         },
-      }
+      },
     );
   }
 }
@@ -155,7 +155,7 @@ export class ListPairEvents extends EkuboAPIRoute {
 
   async handle(
     { params: { tokenA: tokenAStr, tokenB: tokenBStr } }: IRequest,
-    { env }: RequestContext
+    { env }: RequestContext,
   ) {
     let tokenA: bigint, tokenB: bigint;
     try {
@@ -188,7 +188,7 @@ export class ListPairEvents extends EkuboAPIRoute {
         headers: {
           "cache-control": "public, max-age=180, must-revalidate",
         },
-      }
+      },
     );
   }
 }

@@ -12,19 +12,19 @@ describe(getSqrtRatioLimit, () => {
 
   it("increases/decreases amount based on direction", () => {
     expect(getSqrtRatioLimit(1n << 128n, 1n << 129n, 200)).toEqual(
-      689263018810250364005235617037585747940n
+      689263018810250364005235617037585747940n,
     );
     expect(getSqrtRatioLimit(1n << 128n, 1n << 127n, 200)).toEqual(
-      167994054631259719650122529639327960079n
+      167994054631259719650122529639327960079n,
     );
   });
 
   it("increases/decreases amount more for larger tick spacing", () => {
     expect(getSqrtRatioLimit(1n << 128n, 1n << 129n, 5982)).toEqual(
-      995036832955257650875497961108515997522n
+      995036832955257650875497961108515997522n,
     );
     expect(getSqrtRatioLimit(1n << 128n, 1n << 127n, 5982)).toEqual(
-      116369651255435332198942046234037800911n
+      116369651255435332198942046234037800911n,
     );
   });
 });

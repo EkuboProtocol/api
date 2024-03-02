@@ -45,7 +45,7 @@ export class GetOverview extends EkuboAPIRoute {
         queries.getTotalVolumeByToken({ since: twentyFourHoursAgo }),
         queries.getRevenueByToken({ since: twentyFourHoursAgo }),
         queries.getTopPairs(),
-      ])
+      ]),
     );
 
     return json(
@@ -65,7 +65,7 @@ export class GetOverview extends EkuboAPIRoute {
         headers: {
           "cache-control": "public, max-age=3600",
         },
-      }
+      },
     );
   }
 }

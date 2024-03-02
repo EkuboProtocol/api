@@ -18,7 +18,7 @@ export class GetBlock extends EkuboAPIRoute<{
         {
           description:
             "The tag of the block to get or the number of a block containing events",
-        }
+        },
       ),
     },
     responses: {
@@ -29,7 +29,7 @@ export class GetBlock extends EkuboAPIRoute<{
             number: z.number({ description: "The number of the block" }).int(),
             timestamp: z.date({ description: "The timestamp of the block" }),
           },
-          { description: "Array of tokens" }
+          { description: "Array of tokens" },
         ),
         contentType: "application/json",
       },
@@ -39,7 +39,7 @@ export class GetBlock extends EkuboAPIRoute<{
   public async handle(
     request: IRequest,
     { env }: RequestContext,
-    { params: { blockTag } }: { params: { blockTag: "latest" | number } }
+    { params: { blockTag } }: { params: { blockTag: "latest" | number } },
   ) {
     const queries = await createQueries(env);
 
@@ -54,7 +54,7 @@ export class GetBlock extends EkuboAPIRoute<{
         headers: {
           "cache-control": "public, max-age=10, must-revalidate",
         },
-      }
+      },
     );
   }
 }

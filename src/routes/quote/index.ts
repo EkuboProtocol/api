@@ -82,7 +82,7 @@ export class GetQuote extends EkuboAPIRoute {
           examples: ["1e9", "1000000", "-1e18", "-100000000000000"],
           example: "-1e9",
           description: "The amount of the specified token",
-        })
+        }),
       ),
       token: Path(TokenIdentifierType, { example: "USDC" }),
       otherToken: Path(TokenIdentifierType, { example: "ETH" }),
@@ -106,7 +106,7 @@ export class GetQuote extends EkuboAPIRoute {
                 sqrt_ratio_limit: HexStringType.openapi({
                   example: num.toHex(MAX_SQRT_RATIO),
                 }),
-              })
+              }),
             )
             .openapi({
               description: "The list of pool keys through which to swap",
@@ -127,7 +127,7 @@ export class GetQuote extends EkuboAPIRoute {
     } catch (e) {
       return error(
         400,
-        `Failed to parse path parameters: ${(e as Error).message}`
+        `Failed to parse path parameters: ${(e as Error).message}`,
       );
     }
 
@@ -158,7 +158,7 @@ export class GetQuote extends EkuboAPIRoute {
       BigInt(token.l2_token_address),
       BigInt(otherToken.l2_token_address),
       relevantPools,
-      2
+      2,
     );
 
     const tokenAmount: TokenAmount = {
@@ -193,11 +193,11 @@ export class GetQuote extends EkuboAPIRoute {
             ETH_PER_POOL_SWAPPED.mul(route.length)
               .add(
                 ETH_PER_INITIALIZED_TICK_CROSS.mul(
-                  quote?.resources.initializedTicksCrossed
-                )
+                  quote?.resources.initializedTicksCrossed,
+                ),
               )
               .mul(otherTokenPrice)
-              .toFixed(0, Decimal.ROUND_DOWN)
+              .toFixed(0, Decimal.ROUND_DOWN),
           );
 
           const gasAdjustedAmount =
@@ -246,8 +246,8 @@ export class GetQuote extends EkuboAPIRoute {
             getSqrtRatioLimit(
               node.state.sqrtRatio,
               bestWorkingRoute.quote.nodeStates[ix].sqrtRatio,
-              node.key.tickSpacing
-            )
+              node.key.tickSpacing,
+            ),
           ),
         })),
       },
@@ -255,7 +255,7 @@ export class GetQuote extends EkuboAPIRoute {
         headers: {
           "cache-control": "no-cache",
         },
-      }
+      },
     );
   }
 }
@@ -273,7 +273,7 @@ export class GetQuoteToPrice extends EkuboAPIRoute {
       nextSqrtRatio: Path(
         z.coerce.string().openapi({
           description: "The price to quote the pool being swapped to",
-        })
+        }),
       ),
     },
     responses: {
@@ -326,7 +326,7 @@ export class GetQuoteToPrice extends EkuboAPIRoute {
         headers: {
           "cache-control": "no-cache",
         },
-      }
+      },
     );
   }
 }

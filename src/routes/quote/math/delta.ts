@@ -4,7 +4,7 @@ export function amount0Delta(
   sqrtRatioA: bigint,
   sqrtRatioB: bigint,
   liquidity: bigint,
-  roundUp: boolean
+  roundUp: boolean,
 ): bigint {
   if (liquidity === 0n || sqrtRatioA === sqrtRatioB) return 0n;
 
@@ -40,7 +40,7 @@ export function amount1Delta(
   sqrtRatioA: bigint,
   sqrtRatioB: bigint,
   liquidity: bigint,
-  roundUp: boolean
+  roundUp: boolean,
 ): bigint {
   if (liquidity === 0n || sqrtRatioA === sqrtRatioB) return 0n;
 

@@ -10,7 +10,7 @@ export interface BaseResources {
 
 export interface Quote<
   TResources extends BaseResources,
-  TState extends BaseNodeState
+  TState extends BaseNodeState,
 > {
   consumedAmount: bigint;
   calculatedAmount: bigint;
@@ -39,7 +39,7 @@ export interface QuoteParams<T extends BaseNodeState> {
 
 export interface QuoteNode<
   TResources extends BaseResources = BaseResources,
-  TSwapState extends BaseNodeState = BaseNodeState
+  TSwapState extends BaseNodeState = BaseNodeState,
 > {
   readonly key: NodeKey;
   readonly state: Readonly<BaseNodeState>;

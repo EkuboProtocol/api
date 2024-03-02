@@ -47,19 +47,19 @@ export const TokenType = z
           description: "The total supply of the token",
         })
         .int()
-        .gte(0)
+        .gte(0),
     ),
     hidden: z.optional(
       z.boolean({
         description:
           "Whether the token should display by default in the interface.",
-      })
+      }),
     ),
     isDisabled: z.optional(
       z.boolean({
         description:
           "Buying the token on the Ekubo Interface has been disabled",
-      })
+      }),
     ),
   })
   .required({
@@ -91,7 +91,7 @@ const MEMORY_CACHE_TIME_SECONDS = 300;
 
 export async function getAllTokens(
   env: Env,
-  queries: Queries
+  queries: Queries,
 ): Promise<TokenInfo[]> {
   const last = lastGetAllTokens[env.STARKNET_CHAIN_ID];
   if (last && last.timestamp >= Date.now() - MEMORY_CACHE_TIME_SECONDS * 1000) {
@@ -122,7 +122,7 @@ export async function getAllTokens(
           (t) =>
             BigInt(t.l2_token_address) === BigInt(l2_token_address) ||
             t.symbol.toLowerCase() === symbol.toLowerCase() ||
-            t.name === name.toLowerCase()
+            t.name === name.toLowerCase(),
         )
       ) {
         tokens.push({
@@ -132,7 +132,7 @@ export async function getAllTokens(
           l2_token_address,
           sort_order: 1,
           total_supply: Number(
-            BigInt(row.total_supply) / 10n ** BigInt(row.decimals)
+            BigInt(row.total_supply) / 10n ** BigInt(row.decimals),
           ),
           hidden: true,
           // when they are disabled, they are placed in the default token list
@@ -152,21 +152,21 @@ export async function getAllTokens(
 
 export function getTokenByAddress(
   tokens: TokenInfo[],
-  address: string | bigint
+  address: string | bigint,
 ): TokenInfo | undefined {
   return tokens?.find((x) => BigInt(x.l2_token_address) === BigInt(address));
 }
 
 export function getTokenByIdentifier(
   tokens: TokenInfo[],
-  identifier: string
+  identifier: string,
 ): TokenInfo | undefined {
   if (/^0x[a-fA-F0-9]+$/.test(identifier) || /^\d+$/.test(identifier)) {
     return getTokenByAddress(tokens, identifier);
   }
 
   return tokens.find(
-    (x) => x.symbol.toLowerCase() === identifier.toLowerCase()
+    (x) => x.symbol.toLowerCase() === identifier.toLowerCase(),
   );
 }
 

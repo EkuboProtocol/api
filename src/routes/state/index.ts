@@ -32,7 +32,7 @@ export class GetPoolStates extends OpenAPIRoute {
     const queries = await createQueries(env);
 
     const { rows } = await queries.withinTransaction(() =>
-      queries.getAllPoolsWithStates()
+      queries.getAllPoolsWithStates(),
     );
 
     return json(
@@ -54,7 +54,7 @@ export class GetPoolStates extends OpenAPIRoute {
         headers: {
           "cache-control": "public, max-age=15, must-revalidate",
         },
-      }
+      },
     );
   }
 }
@@ -118,7 +118,7 @@ export class GetPoolKeyHash extends OpenAPIRoute {
         headers: {
           "cache-control": "public, max-age=15, must-revalidate",
         },
-      }
+      },
     );
   }
 }
@@ -148,7 +148,7 @@ export class GetPoolLiquidity extends EkuboAPIRoute {
     const queries = await createQueries(env);
 
     const { rows } = await queries.withinTransaction(() =>
-      queries.getPoolLiquidityGraph(poolKeyHash)
+      queries.getPoolLiquidityGraph(poolKeyHash),
     );
 
     return json(
@@ -159,7 +159,7 @@ export class GetPoolLiquidity extends EkuboAPIRoute {
         headers: {
           "cache-control": "public, max-age=15, must-revalidate",
         },
-      }
+      },
     );
   }
 }

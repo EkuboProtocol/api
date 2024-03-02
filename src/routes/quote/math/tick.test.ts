@@ -19,12 +19,16 @@ describe(toSqrtRatio, () => {
 
   it("snapshots", () => {
     expect(toSqrtRatio(1e6)).toMatchInlineSnapshot(
-      `561030636129153856592777659729523183729n`
+      `561030636129153856592777659729523183729n`,
     );
-    expect(toSqrtRatio(1e7)).toMatchInlineSnapshot(`50502254805927926084427918474025309948677n`);
+    expect(toSqrtRatio(1e7)).toMatchInlineSnapshot(
+      `50502254805927926084427918474025309948677n`,
+    );
     expect(toSqrtRatio(-1e6)).toMatchInlineSnapshot(
-      `206391740095027370700312310531588921767n`
+      `206391740095027370700312310531588921767n`,
     );
-    expect(toSqrtRatio(-1e7)).toMatchInlineSnapshot(`2292810285051363400276741638672651165n`);
+    expect(toSqrtRatio(-1e7)).toMatchInlineSnapshot(
+      `2292810285051363400276741638672651165n`,
+    );
   });
 });

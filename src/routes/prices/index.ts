@@ -34,7 +34,7 @@ export class GetPairPrice extends EkuboAPIRoute {
         z.coerce.date().openapi({
           description: "The time from which the VWAP should be measured",
         }),
-        { example: "2024-01-01T00:00:00", required: false }
+        { example: "2024-01-01T00:00:00", required: false },
       ),
       period: Query(
         z.coerce.number().int().min(300).max(21_600).openapi({
@@ -44,7 +44,7 @@ export class GetPairPrice extends EkuboAPIRoute {
           example: 3600,
           default: DEFAULT_PERIOD_SECONDS,
           required: false,
-        }
+        },
       ),
     },
     responses: {
@@ -110,7 +110,7 @@ export class GetPairPrice extends EkuboAPIRoute {
             minSwapCount,
             end: timestamp,
           }),
-        ])
+        ]),
     );
 
     let price: Decimal;
@@ -143,10 +143,10 @@ export class GetPairPrice extends EkuboAPIRoute {
       {
         headers: {
           "cache-control": `public, max-age=${Math.floor(
-            period / 10
+            period / 10,
           )}, must-revalidate`,
         },
-      }
+      },
     );
   }
 }
@@ -216,7 +216,7 @@ export class GetPairPriceHistory extends EkuboAPIRoute {
     if (durationMilliseconds > 30 * 86_400 * 1_000) {
       return error(
         400,
-        "Start time cannot be more than 30 days before end time"
+        "Start time cannot be more than 30 days before end time",
       );
     }
 
@@ -292,10 +292,10 @@ export class GetPairPriceHistory extends EkuboAPIRoute {
       {
         headers: {
           "cache-control": `public, max-age=${Math.ceil(
-            intervalSeconds / 4
+            intervalSeconds / 4,
           )}, must-revalidate`,
         },
-      }
+      },
     );
   }
 }
@@ -345,7 +345,7 @@ export class GetTokenPrices extends EkuboAPIRoute {
         if (!base) return null;
 
         const scaled = price.mul(
-          new Decimal(10).pow(base.decimals - qt.decimals)
+          new Decimal(10).pow(base.decimals - qt.decimals),
         );
 
         return {
@@ -365,7 +365,7 @@ export class GetTokenPrices extends EkuboAPIRoute {
         headers: {
           "cache-control": "public, max-age=600, must-revalidate",
         },
-      }
+      },
     );
   }
 }

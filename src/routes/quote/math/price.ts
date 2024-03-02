@@ -3,7 +3,7 @@ import { MAX_U256 } from "./constants";
 export function nextSqrtRatioFromAmount0(
   sqrtRatio: bigint,
   liquidity: bigint,
-  amount0: bigint
+  amount0: bigint,
 ): bigint | null {
   if (amount0 === 0n) return sqrtRatio;
 
@@ -51,7 +51,7 @@ export function nextSqrtRatioFromAmount0(
 export function nextSqrtRatioFromAmount1(
   sqrtRatio: bigint,
   liquidity: bigint,
-  amount1: bigint
+  amount1: bigint,
 ): bigint | null {
   if (amount1 === 0n) return sqrtRatio;
 
