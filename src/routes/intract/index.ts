@@ -216,7 +216,7 @@ export class IntractApiRoute extends EkuboAPIRoute {
       }
 
       case IntractQuests.DEPOSIT_LIQUIDITY_IN_3_POOLS: {
-        const { rows } = await queries.getPositionsByAddress(address, false);
+        const { rows } = await queries.getPositionsByAddress(address, true);
         result =
           Object.keys(
             rows.reduce(
