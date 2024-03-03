@@ -18,7 +18,7 @@ import {
 } from "@cloudflare/itty-router-openapi";
 import { z } from "zod";
 
-const DEFAULT_PERIOD_SECONDS = 5 * 60;
+const DEFAULT_PERIOD_SECONDS = 15 * 60;
 
 export class GetPairPrice extends EkuboAPIRoute {
   static route = "/price/:baseToken/:quoteToken";
