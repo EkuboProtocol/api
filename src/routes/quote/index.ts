@@ -262,10 +262,6 @@ export class GetQuote extends EkuboAPIRoute {
               node.key.tickSpacing,
             ),
           ),
-          skip_ahead: Math.floor(
-            bestWorkingRoute.quote.resources.tickSpacingsCrossed /
-              bestWorkingRoute.quote.resources.initializedTicksCrossed,
-          ),
         })),
       },
       {

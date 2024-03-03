@@ -558,7 +558,7 @@ describe("PoolNode", () => {
           "consumedAmount": 2000000000n,
           "executionResources": {
             "initializedTicksCrossed": 6,
-            "tickSpacingsCrossed": 11011564,
+            "tickSpacingsCrossed": 156,
           },
           "stateAfter": {
             "activeTickIndex": 216,
@@ -581,7 +581,7 @@ describe("PoolNode", () => {
           "consumedAmount": 20000000000n,
           "executionResources": {
             "initializedTicksCrossed": 117,
-            "tickSpacingsCrossed": 4679068,
+            "tickSpacingsCrossed": 25385,
           },
           "stateAfter": {
             "activeTickIndex": 327,
@@ -604,7 +604,7 @@ describe("PoolNode", () => {
           "consumedAmount": 1000000000000000000n,
           "executionResources": {
             "initializedTicksCrossed": 5,
-            "tickSpacingsCrossed": 11078248,
+            "tickSpacingsCrossed": 108,
           },
           "stateAfter": {
             "activeTickIndex": 205,
@@ -627,7 +627,7 @@ describe("PoolNode", () => {
           "consumedAmount": 10000000000000000000n,
           "executionResources": {
             "initializedTicksCrossed": 21,
-            "tickSpacingsCrossed": 11174231,
+            "tickSpacingsCrossed": 491,
           },
           "stateAfter": {
             "activeTickIndex": 189,
@@ -650,7 +650,7 @@ describe("PoolNode", () => {
           "consumedAmount": -2000000000n,
           "executionResources": {
             "initializedTicksCrossed": 5,
-            "tickSpacingsCrossed": 11077578,
+            "tickSpacingsCrossed": 106,
           },
           "stateAfter": {
             "activeTickIndex": 205,
@@ -672,7 +672,7 @@ describe("PoolNode", () => {
           "consumedAmount": -20000000000n,
           "executionResources": {
             "initializedTicksCrossed": 21,
-            "tickSpacingsCrossed": 11176012,
+            "tickSpacingsCrossed": 498,
           },
           "stateAfter": {
             "activeTickIndex": 189,
@@ -694,7 +694,7 @@ describe("PoolNode", () => {
           "consumedAmount": -1000000000000000000n,
           "executionResources": {
             "initializedTicksCrossed": 6,
-            "tickSpacingsCrossed": 11008324,
+            "tickSpacingsCrossed": 169,
           },
           "stateAfter": {
             "activeTickIndex": 216,
@@ -716,7 +716,7 @@ describe("PoolNode", () => {
           "consumedAmount": -3462603080395210725n,
           "executionResources": {
             "initializedTicksCrossed": 121,
-            "tickSpacingsCrossed": 97657226,
+            "tickSpacingsCrossed": 433100,
           },
           "stateAfter": {
             "activeTickIndex": 331,
@@ -1639,7 +1639,7 @@ describe("PoolNode", () => {
           "consumedAmount": -550761295858476146n,
           "executionResources": {
             "initializedTicksCrossed": 0,
-            "tickSpacingsCrossed": 11050901,
+            "tickSpacingsCrossed": 0,
           },
           "stateAfter": {
             "activeTickIndex": 257,
@@ -1683,7 +1683,7 @@ describe("PoolNode", () => {
           "consumedAmount": -1751932n,
           "executionResources": {
             "initializedTicksCrossed": 3,
-            "tickSpacingsCrossed": 72143976,
+            "tickSpacingsCrossed": 243398,
           },
           "stateAfter": {
             "activeTickIndex": -1,

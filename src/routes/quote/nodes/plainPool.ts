@@ -1,14 +1,18 @@
 import { computeStep, isPriceIncreasing } from "../math/swap";
-import { MAX_SQRT_RATIO, MIN_SQRT_RATIO, toSqrtRatio } from "../math/tick";
 import {
+  approximateNumberOfTickSpacingsCrossed,
+  MAX_SQRT_RATIO,
+  MIN_SQRT_RATIO,
+  toSqrtRatio,
+} from "../math/tick";
+import {
+  BaseNodeState,
   BaseResources,
   NodeKey,
-  BaseNodeState,
   Quote,
   QuoteNode,
   QuoteParams,
 } from "./quoteNode";
-import Decimal from "decimal.js-light";
 
 export interface Tick {
   readonly liquidityDelta: bigint;
@@ -199,17 +203,10 @@ export class PlainPool implements QuoteNode<BaseResources, BaseNodeState> {
       calculatedAmount,
       executionResources: {
         initializedTicksCrossed,
-        tickSpacingsCrossed: Number(
-          new Decimal(sqrtRatio.toString())
-            .div(
-              (overrideSwapState?.sqrtRatio ?? this.state.sqrtRatio).toString(),
-            )
-            // divided by 251 * tick spacing since that's the number of ticks in each iteration
-            .div(251 * this.key.tickSpacing)
-            .log("1.0000005")
-            .abs()
-            .toInteger()
-            .toString(),
+        tickSpacingsCrossed: approximateNumberOfTickSpacingsCrossed(
+          overrideSwapState?.sqrtRatio ?? this.state.sqrtRatio,
+          sqrtRatio,
+          this.key.tickSpacing,
         ),
       },
       stateAfter: {
