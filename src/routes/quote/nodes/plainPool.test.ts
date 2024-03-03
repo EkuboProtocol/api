@@ -7,7 +7,7 @@ describe("PoolNode", () => {
       const pool = new PlainPool({
         token0: 0n,
         token1: 1n,
-        tickSpacing: 0,
+        tickSpacing: 1,
         fee: 0n,
         tick: 0,
         sortedTicks: [],
@@ -21,7 +21,7 @@ describe("PoolNode", () => {
       const pool = new PlainPool({
         token0: 0n,
         token1: 1n,
-        tickSpacing: 0,
+        tickSpacing: 1,
         fee: 0n,
         tick: 0,
         sortedTicks: [{ tick: -1, liquidityDelta: 1n }],
@@ -35,7 +35,7 @@ describe("PoolNode", () => {
       const pool = new PlainPool({
         token0: 0n,
         token1: 1n,
-        tickSpacing: 0,
+        tickSpacing: 1,
         fee: 0n,
         tick: 0,
         sortedTicks: [{ tick: 0, liquidityDelta: 1n }],
@@ -49,7 +49,7 @@ describe("PoolNode", () => {
       const pool = new PlainPool({
         token0: 0n,
         token1: 1n,
-        tickSpacing: 0,
+        tickSpacing: 1,
         fee: 0n,
         tick: 0,
         sortedTicks: [{ tick: 1, liquidityDelta: 1n }],
@@ -63,7 +63,7 @@ describe("PoolNode", () => {
       const pool = new PlainPool({
         token0: 0n,
         token1: 1n,
-        tickSpacing: 0,
+        tickSpacing: 1,
         fee: 0n,
         tick: 0,
         sortedTicks: [
@@ -103,7 +103,7 @@ describe("PoolNode", () => {
       const pool = new PlainPool({
         token0: 0n,
         token1: 1n,
-        tickSpacing: 0,
+        tickSpacing: 1,
         fee: 0n,
         tick: 0,
         sortedTicks: [],
@@ -125,7 +125,7 @@ describe("PoolNode", () => {
       const pool = new PlainPool({
         token0: 0n,
         token1: 1n,
-        tickSpacing: 0,
+        tickSpacing: 1,
         fee: 0n,
         tick: 0,
         sortedTicks: [],
@@ -148,7 +148,7 @@ describe("PoolNode", () => {
       const pool = new PlainPool({
         token0: 0n,
         token1: 1n,
-        tickSpacing: 0,
+        tickSpacing: 1,
         fee: 0n,
         tick: 0,
         sortedTicks: [
@@ -173,7 +173,7 @@ describe("PoolNode", () => {
       const pool = new PlainPool({
         token0: 0n,
         token1: 1n,
-        tickSpacing: 0,
+        tickSpacing: 1,
         fee: 0n,
         tick: 1,
         sortedTicks: [
@@ -199,7 +199,7 @@ describe("PoolNode", () => {
       const node = new PlainPool({
         token0: 0n,
         token1: 1n,
-        tickSpacing: 0,
+        tickSpacing: 1,
         fee: 1020847100762815411640772995208708096n,
         sqrtRatio: 15563001745813054266804011142814305n,
         tick: -19985280,
@@ -553,19 +553,20 @@ describe("PoolNode", () => {
           },
         }),
       ).toMatchInlineSnapshot(`
-{
-  "calculatedAmount": 936197803980535666n,
-  "consumedAmount": 2000000000n,
-  "executionResources": {
-    "initializedTicksCrossed": 6,
-  },
-  "stateAfter": {
-    "activeTickIndex": 216,
-    "liquidity": 1838637850921516n,
-    "sqrtRatio": 15872195688912137691253264112597002n,
-  },
-}
-`);
+        {
+          "calculatedAmount": 936197803980535666n,
+          "consumedAmount": 2000000000n,
+          "executionResources": {
+            "initializedTicksCrossed": 6,
+            "tickSpacingsCrossed": 11011564,
+          },
+          "stateAfter": {
+            "activeTickIndex": 216,
+            "liquidity": 1838637850921516n,
+            "sqrtRatio": 15872195688912137691253264112597002n,
+          },
+        }
+      `);
 
       expect(
         node.quote({
@@ -575,19 +576,20 @@ describe("PoolNode", () => {
           },
         }),
       ).toMatchInlineSnapshot(`
-{
-  "calculatedAmount": 3452798867537863676n,
-  "consumedAmount": 20000000000n,
-  "executionResources": {
-    "initializedTicksCrossed": 117,
-  },
-  "stateAfter": {
-    "activeTickIndex": 327,
-    "liquidity": 10987751870970n,
-    "sqrtRatio": 376461622467786581012265718470693082n,
-  },
-}
-`);
+        {
+          "calculatedAmount": 3452798867537863676n,
+          "consumedAmount": 20000000000n,
+          "executionResources": {
+            "initializedTicksCrossed": 117,
+            "tickSpacingsCrossed": 4679068,
+          },
+          "stateAfter": {
+            "activeTickIndex": 327,
+            "liquidity": 10987751870970n,
+            "sqrtRatio": 376461622467786581012265718470693082n,
+          },
+        }
+      `);
 
       expect(
         node.quote({
@@ -597,19 +599,20 @@ describe("PoolNode", () => {
           },
         }),
       ).toMatchInlineSnapshot(`
-{
-  "calculatedAmount": 2056014996n,
-  "consumedAmount": 1000000000000000000n,
-  "executionResources": {
-    "initializedTicksCrossed": 5,
-  },
-  "stateAfter": {
-    "activeTickIndex": 205,
-    "liquidity": 3707980262711434n,
-    "sqrtRatio": 15351710788920282815253545876633442n,
-  },
-}
-`);
+        {
+          "calculatedAmount": 2056014996n,
+          "consumedAmount": 1000000000000000000n,
+          "executionResources": {
+            "initializedTicksCrossed": 5,
+            "tickSpacingsCrossed": 11078248,
+          },
+          "stateAfter": {
+            "activeTickIndex": 205,
+            "liquidity": 3707980262711434n,
+            "sqrtRatio": 15351710788920282815253545876633442n,
+          },
+        }
+      `);
 
       expect(
         node.quote({
@@ -619,19 +622,20 @@ describe("PoolNode", () => {
           },
         }),
       ).toMatchInlineSnapshot(`
-{
-  "calculatedAmount": 19231691709n,
-  "consumedAmount": 10000000000000000000n,
-  "executionResources": {
-    "initializedTicksCrossed": 21,
-  },
-  "stateAfter": {
-    "activeTickIndex": 189,
-    "liquidity": 20066300368579088n,
-    "sqrtRatio": 14632357786369744003669228231884916n,
-  },
-}
-`);
+        {
+          "calculatedAmount": 19231691709n,
+          "consumedAmount": 10000000000000000000n,
+          "executionResources": {
+            "initializedTicksCrossed": 21,
+            "tickSpacingsCrossed": 11174231,
+          },
+          "stateAfter": {
+            "activeTickIndex": 189,
+            "liquidity": 20066300368579088n,
+            "sqrtRatio": 14632357786369744003669228231884916n,
+          },
+        }
+      `);
 
       expect(
         node.quote({
@@ -641,19 +645,20 @@ describe("PoolNode", () => {
           },
         }),
       ).toMatchInlineSnapshot(`
-{
-  "calculatedAmount": 972405083420031733n,
-  "consumedAmount": -2000000000n,
-  "executionResources": {
-    "initializedTicksCrossed": 5,
-  },
-  "stateAfter": {
-    "activeTickIndex": 205,
-    "liquidity": 3707980262711434n,
-    "sqrtRatio": 15356851300529036295687296777661975n,
-  },
-}
-`);
+        {
+          "calculatedAmount": 972405083420031733n,
+          "consumedAmount": -2000000000n,
+          "executionResources": {
+            "initializedTicksCrossed": 5,
+            "tickSpacingsCrossed": 11077578,
+          },
+          "stateAfter": {
+            "activeTickIndex": 205,
+            "liquidity": 3707980262711434n,
+            "sqrtRatio": 15356851300529036295687296777661975n,
+          },
+        }
+      `);
       expect(
         node.quote({
           tokenAmount: {
@@ -662,19 +667,20 @@ describe("PoolNode", () => {
           },
         }),
       ).toMatchInlineSnapshot(`
-{
-  "calculatedAmount": 10417135837307225847n,
-  "consumedAmount": -20000000000n,
-  "executionResources": {
-    "initializedTicksCrossed": 21,
-  },
-  "stateAfter": {
-    "activeTickIndex": 189,
-    "liquidity": 20066300368579088n,
-    "sqrtRatio": 14619328889221429322165582949273604n,
-  },
-}
-`);
+        {
+          "calculatedAmount": 10417135837307225847n,
+          "consumedAmount": -20000000000n,
+          "executionResources": {
+            "initializedTicksCrossed": 21,
+            "tickSpacingsCrossed": 11176012,
+          },
+          "stateAfter": {
+            "activeTickIndex": 189,
+            "liquidity": 20066300368579088n,
+            "sqrtRatio": 14619328889221429322165582949273604n,
+          },
+        }
+      `);
       expect(
         node.quote({
           tokenAmount: {
@@ -683,19 +689,20 @@ describe("PoolNode", () => {
           },
         }),
       ).toMatchInlineSnapshot(`
-{
-  "calculatedAmount": 2139456613n,
-  "consumedAmount": -1000000000000000000n,
-  "executionResources": {
-    "initializedTicksCrossed": 6,
-  },
-  "stateAfter": {
-    "activeTickIndex": 216,
-    "liquidity": 1838637850921516n,
-    "sqrtRatio": 15897927924484882480384197655799943n,
-  },
-}
-`);
+        {
+          "calculatedAmount": 2139456613n,
+          "consumedAmount": -1000000000000000000n,
+          "executionResources": {
+            "initializedTicksCrossed": 6,
+            "tickSpacingsCrossed": 11008324,
+          },
+          "stateAfter": {
+            "activeTickIndex": 216,
+            "liquidity": 1838637850921516n,
+            "sqrtRatio": 15897927924484882480384197655799943n,
+          },
+        }
+      `);
       expect(
         node.quote({
           tokenAmount: {
@@ -704,26 +711,27 @@ describe("PoolNode", () => {
           },
         }),
       ).toMatchInlineSnapshot(`
-{
-  "calculatedAmount": 194883586930788271243317027501365n,
-  "consumedAmount": -3462603080395210725n,
-  "executionResources": {
-    "initializedTicksCrossed": 121,
-  },
-  "stateAfter": {
-    "activeTickIndex": 331,
-    "liquidity": 0n,
-    "sqrtRatio": 6277100250585753475930931601400621808602321654880405518632n,
-  },
-}
-`);
+        {
+          "calculatedAmount": 194883586930788271243317027501365n,
+          "consumedAmount": -3462603080395210725n,
+          "executionResources": {
+            "initializedTicksCrossed": 121,
+            "tickSpacingsCrossed": 97657226,
+          },
+          "stateAfter": {
+            "activeTickIndex": 331,
+            "liquidity": 0n,
+            "sqrtRatio": 6277100250585753475930931601400621808602321654880405518632n,
+          },
+        }
+      `);
     });
 
     it("eth dai example pool", () => {
       const node = new PlainPool({
         token0: 0n,
         token1: 1n,
-        tickSpacing: 0,
+        tickSpacing: 1,
         fee: 170141183460469235273462165868118016n,
         sqrtRatio: 7447172931220104502713977734064586728n,
         tick: -7643887,
@@ -1626,26 +1634,27 @@ describe("PoolNode", () => {
           },
         }),
       ).toMatchInlineSnapshot(`
-{
-  "calculatedAmount": 263928464145073n,
-  "consumedAmount": -550761295858476146n,
-  "executionResources": {
-    "initializedTicksCrossed": 0,
-  },
-  "stateAfter": {
-    "activeTickIndex": 257,
-    "liquidity": 3214722905666182801858n,
-    "sqrtRatio": 7447200854403535845014925589223357062n,
-  },
-}
-`);
+        {
+          "calculatedAmount": 263928464145073n,
+          "consumedAmount": -550761295858476146n,
+          "executionResources": {
+            "initializedTicksCrossed": 0,
+            "tickSpacingsCrossed": 11050901,
+          },
+          "stateAfter": {
+            "activeTickIndex": 257,
+            "liquidity": 3214722905666182801858n,
+            "sqrtRatio": 7447200854403535845014925589223357062n,
+          },
+        }
+      `);
     });
 
     it("dai usdc example pool", () => {
       const node = new PlainPool({
         token0: 0n,
         token1: 1n,
-        tickSpacing: 0,
+        tickSpacing: 1,
         fee: 17014118346046923173168730371588410572n,
         sqrtRatio: 340492544394014493270092018910666n,
         tick: -27629800,
@@ -1669,19 +1678,20 @@ describe("PoolNode", () => {
           },
         }),
       ).toMatchInlineSnapshot(`
-{
-  "calculatedAmount": 2361232818001044269n,
-  "consumedAmount": -1751932n,
-  "executionResources": {
-    "initializedTicksCrossed": 3,
-  },
-  "stateAfter": {
-    "activeTickIndex": -1,
-    "liquidity": 0n,
-    "sqrtRatio": 18446748437148339061n,
-  },
-}
-`);
+        {
+          "calculatedAmount": 2361232818001044269n,
+          "consumedAmount": -1751932n,
+          "executionResources": {
+            "initializedTicksCrossed": 3,
+            "tickSpacingsCrossed": 72143976,
+          },
+          "stateAfter": {
+            "activeTickIndex": -1,
+            "liquidity": 0n,
+            "sqrtRatio": 18446748437148339061n,
+          },
+        }
+      `);
     });
   });
 });
