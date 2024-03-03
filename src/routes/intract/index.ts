@@ -14,6 +14,7 @@ enum IntractQuests {
   ADD_LIQUIDITY_TO_STRK_USDC = 5,
   ADD_LIQUIDITY_TO_ETH_USDC = 6,
   ADD_LIQUIDITY_TO_USDC_USDT = 7,
+  DEPOSIT_LIQUIDITY_IN_3_POOLS = 8,
 }
 
 export class IntractApiRoute extends EkuboAPIRoute {
@@ -211,6 +212,23 @@ export class IntractApiRoute extends EkuboAPIRoute {
             tokenB: BigInt(usdc.l2_token_address),
           });
         }
+        break;
+      }
+
+      case IntractQuests.DEPOSIT_LIQUIDITY_IN_3_POOLS: {
+        const { rows } = await queries.getPositionsByAddress(address, false);
+        result =
+          Object.keys(
+            rows.reduce(
+              (memo, value) =>
+                (memo = {
+                  ...memo,
+                  [`${value.token0}-${value.token1}-${value.fee}-${value.tick_spacing}`]:
+                    true,
+                }),
+              {},
+            ),
+          ).length >= 3;
         break;
       }
 
