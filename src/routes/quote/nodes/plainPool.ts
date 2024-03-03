@@ -8,7 +8,6 @@ import {
   QuoteNode,
   QuoteParams,
 } from "./quoteNode";
-import Decimal from "decimal.js-light";
 
 export interface Tick {
   readonly liquidityDelta: bigint;
@@ -111,7 +110,6 @@ export class PlainPool implements QuoteNode<BaseResources, BaseNodeState> {
         consumedAmount: 0n,
         calculatedAmount: 0n,
         executionResources: {
-          tickSpacingsCrossed: 0,
           initializedTicksCrossed: 0,
         },
         stateAfter: {
@@ -199,18 +197,6 @@ export class PlainPool implements QuoteNode<BaseResources, BaseNodeState> {
       calculatedAmount,
       executionResources: {
         initializedTicksCrossed,
-        tickSpacingsCrossed: Number(
-          new Decimal(sqrtRatio.toString())
-            .div(
-              (overrideSwapState?.sqrtRatio ?? this.state.sqrtRatio).toString(),
-            )
-            // divided by 251 * tick spacing since that's the number of ticks in each iteration
-            .div(251 * this.key.tickSpacing)
-            .log("1.0000005")
-            .abs()
-            .toInteger()
-            .toString(),
-        ),
       },
       stateAfter: {
         sqrtRatio,

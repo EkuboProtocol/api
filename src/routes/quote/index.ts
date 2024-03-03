@@ -54,14 +54,12 @@ const baseResourcesAccumulator: ResourcesAccumulator<
   initial(): BaseResources {
     return {
       initializedTicksCrossed: 0,
-      tickSpacingsCrossed: 0,
     };
   },
   accumulate(memo: BaseResources, value: BaseResources): BaseResources {
     return {
       initializedTicksCrossed:
         memo.initializedTicksCrossed + value.initializedTicksCrossed,
-      tickSpacingsCrossed: memo.tickSpacingsCrossed + value.tickSpacingsCrossed,
     };
   },
 };
@@ -69,7 +67,6 @@ const baseResourcesAccumulator: ResourcesAccumulator<
 // These parameters are used for optimizing when we should use multi-hop routes
 const ETH_PER_POOL_SWAPPED = new Decimal("0.0003e18");
 const ETH_PER_INITIALIZED_TICK_CROSS = new Decimal("0.0001e18");
-const ETH_PER_TICK_SPACING_CROSSED = new Decimal("0.00001e18");
 
 export class GetQuote extends EkuboAPIRoute {
   static route = "/quote/:amount/:token/:otherToken";
@@ -108,11 +105,6 @@ export class GetQuote extends EkuboAPIRoute {
                 pool_key: PoolKeyType,
                 sqrt_ratio_limit: HexStringType.openapi({
                   example: num.toHex(MAX_SQRT_RATIO),
-                }),
-                skip_ahead: z.number().openapi({
-                  description:
-                    "A suggested skip_ahead value for gas optimizing the trade",
-                  example: 123,
                 }),
               }),
             )
@@ -201,12 +193,7 @@ export class GetQuote extends EkuboAPIRoute {
             ETH_PER_POOL_SWAPPED.mul(route.length)
               .add(
                 ETH_PER_INITIALIZED_TICK_CROSS.mul(
-                  quote.resources.initializedTicksCrossed,
-                ),
-              )
-              .add(
-                ETH_PER_TICK_SPACING_CROSSED.mul(
-                  quote.resources.tickSpacingsCrossed,
+                  quote?.resources.initializedTicksCrossed,
                 ),
               )
               .mul(otherTokenPrice)
@@ -261,10 +248,6 @@ export class GetQuote extends EkuboAPIRoute {
               bestWorkingRoute.quote.nodeStates[ix].sqrtRatio,
               node.key.tickSpacing,
             ),
-          ),
-          skip_ahead: Math.floor(
-            bestWorkingRoute.quote.resources.tickSpacingsCrossed /
-              bestWorkingRoute.quote.resources.initializedTicksCrossed,
           ),
         })),
       },

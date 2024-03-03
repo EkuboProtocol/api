@@ -6,7 +6,6 @@ export interface BaseNodeState {
 
 export interface BaseResources {
   initializedTicksCrossed: number;
-  tickSpacingsCrossed: number;
 }
 
 export interface Quote<
