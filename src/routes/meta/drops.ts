@@ -57,7 +57,7 @@ export class ListDrops extends EkuboAPIRoute {
       })),
       {
         headers: {
-          "cache-control": `public,max-age=3600`,
+          "cache-control": `public,max-age=600`,
         },
       },
     );
@@ -127,7 +127,7 @@ export class ListAvailableClaimsForUser extends EkuboAPIRoute {
       ),
       {
         headers: {
-          "cache-control": `public,max-age=0`,
+          "cache-control": `public,max-age=600`,
         },
       },
     );

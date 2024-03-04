@@ -306,7 +306,7 @@ export class GetDefiSpringIncentives extends EkuboAPIRoute {
       },
       {
         headers: {
-          "cache-control": "public, max-age=3600, must-revalidate",
+          "cache-control": "public, max-age=600, must-revalidate",
         },
       },
     );
@@ -383,7 +383,7 @@ export class GetDefiSpringIncentivesForAddressAndDates extends EkuboAPIRoute {
       }, {}),
       {
         headers: {
-          "cache-control": "public, max-age=1800, must-revalidate",
+          "cache-control": "public, max-age=600, must-revalidate",
         },
       },
     );
@@ -452,7 +452,7 @@ export class GetDefiSpringIncentivesForTokenId extends EkuboAPIRoute {
       ),
       {
         headers: {
-          "cache-control": "public, max-age=1800, must-revalidate",
+          "cache-control": "public, max-age=600, must-revalidate",
         },
       },
     );
