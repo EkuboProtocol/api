@@ -71,7 +71,7 @@ export class GetDefiSpringIncentives extends EkuboAPIRoute {
     const tokens = await getAllTokens(context.env, queries);
 
     const response = await fetch(
-      "https://kx58j6x5me.execute-api.us-east-1.amazonaws.com/starknet/fetchFile?file=qa_strk_grant.json",
+      "https://kx58j6x5me.execute-api.us-east-1.amazonaws.com/starknet/fetchFile?file=strk_grant.json",
     );
     const responseBody = (await response.json()) as {
       Ekubo: {
