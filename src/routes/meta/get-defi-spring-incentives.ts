@@ -335,18 +335,28 @@ export class GetDefiSpringIncentivesForAddressAndDates extends EkuboAPIRoute {
       "200": {
         description:
           "The allocation of incentives for each token ID held or burned by the address",
-        schema: z.map(
-          NumericType,
-          z.object({
-            total: z.number(),
-            per_day: z.array(
-              z.object({ date: DateType, amount: z.number().min(0) }),
-            ),
+        schema: z
+          .map(
+            NumericType,
+            z.object({
+              total: z.number(),
+              per_day: z.array(
+                z.object({ date: DateType, amount: z.number().min(0) }),
+              ),
+            }),
+            {
+              description: "Describes the allocation for a particular token",
+            },
+          )
+          .openapi({
+            type: "object",
+            example: {
+              [1]: {
+                total: 1234.56,
+                per_day: [{ date: "2024-02-22", amount: 1234.56 }],
+              },
+            } as any,
           }),
-          {
-            description: "Describes the allocation for a particular token",
-          },
-        ),
         contentType: "application/json",
       },
     },
