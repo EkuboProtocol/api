@@ -8,7 +8,7 @@ import { z } from "zod";
 import { EkuboAPIRoute, RequestContext } from "../../shared/context";
 import { num } from "starknet";
 import { createQueries } from "../../queries";
-import { AddressType } from "../../shared/validation/address";
+import { AddressType, HexStringType } from "../../shared/validation/address";
 
 export class ListDrops extends EkuboAPIRoute {
   static route = "/airdrops";
@@ -68,8 +68,9 @@ export class ListAvailableClaimsForUser extends EkuboAPIRoute {
   static route = "/airdrops/:address";
   static schema: OpenAPIRouteSchema = {
     tags: ["Meta"],
-    summary: "List airdrops",
-    description: "Get the list of airdrop contracts",
+    summary: "List claims for account",
+    description:
+      "Get the list of airdrop contracts and related claims for the given account",
     parameters: {
       address: Path(AddressType),
       token: Query(AddressType, {
@@ -87,6 +88,13 @@ export class ListAvailableClaimsForUser extends EkuboAPIRoute {
               token: AddressType,
               start_date: z.string().datetime(),
               end_date: z.string().datetime(),
+
+              claim: z.object({
+                id: z.number().int().min(0),
+                claimee: AddressType,
+                amount: z.number().int().min(0),
+              }),
+              proof: z.array(HexStringType),
             }),
           )
           .openapi({ description: "Array of airdrop contracts" }),
