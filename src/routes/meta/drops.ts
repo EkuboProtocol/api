@@ -3,17 +3,21 @@ import {
   Path,
   Query,
 } from "@cloudflare/itty-router-openapi";
-import { IRequest, json } from "itty-router";
+import { error, IRequest, json } from "itty-router";
 import { z } from "zod";
 import { EkuboAPIRoute, RequestContext } from "../../shared/context";
 import { num } from "starknet";
 import { createQueries } from "../../queries";
-import { AddressType, HexStringType } from "../../shared/validation/address";
+import {
+  AddressType,
+  HexStringType,
+  NumericType,
+} from "../../shared/validation/address";
 
 export class ListDrops extends EkuboAPIRoute {
   static route = "/airdrops";
   static schema: OpenAPIRouteSchema = {
-    tags: ["Meta"],
+    tags: ["Airdrop"],
     summary: "List airdrops",
     description: "Get the list of airdrop contracts",
     parameters: {
@@ -67,7 +71,7 @@ export class ListDrops extends EkuboAPIRoute {
 export class ListAvailableClaimsForUser extends EkuboAPIRoute {
   static route = "/airdrops/:address";
   static schema: OpenAPIRouteSchema = {
-    tags: ["Meta"],
+    tags: ["Airdrop"],
     summary: "List claims for account",
     description:
       "Get the list of airdrop contracts and related claims for the given account",
@@ -136,6 +140,102 @@ export class ListAvailableClaimsForUser extends EkuboAPIRoute {
       {
         headers: {
           "cache-control": `public,max-age=600`,
+        },
+      },
+    );
+  }
+}
+
+export class GetBatchAirdropClaim extends EkuboAPIRoute {
+  static route = "/airdrops/:contractAddress/:startingId";
+  static schema: OpenAPIRouteSchema = {
+    tags: ["Airdrop"],
+    summary: "Get batch claim data",
+    description:
+      "Returns the batch claim data for the given contract and starting ID",
+    parameters: {
+      contractAddress: Path(AddressType),
+      startingId: Path(NumericType),
+    },
+    responses: {
+      "200": {
+        description: "List of claims and remaining proof data",
+        schema: z
+          .object({
+            claims: z.array(
+              z.object({
+                id: z.number().int().min(0),
+                claimee: AddressType,
+                amount: z.number().int().min(0),
+              }),
+            ),
+            remaining_proof: z.array(HexStringType),
+          })
+          .openapi({
+            description:
+              "Array of claim data and the remaining proof starting from the given ID",
+          }),
+        contentType: "application/json",
+      },
+    },
+  };
+
+  static PROOF_ELEMENTS_SKIPPED = 7;
+
+  async handle(request: IRequest, { env }: RequestContext) {
+    const queries = await createQueries(env);
+    const startingId = Number(request.params.startingId);
+    if (startingId % 128 !== 0) {
+      return error(400, {
+        message: "`startingId` must be multiple of 128",
+      });
+    }
+    const claims = await queries.getClaimsBetween({
+      claimContract: BigInt(request.params.contractAddress),
+      startingId,
+      // this id is inclusive so we add 127
+      endingId: startingId + 127,
+    });
+
+    if (claims.length === 0) {
+      return error(404, {
+        message: `No claims for the given address starting from ID ${startingId}`,
+      });
+    }
+
+    const remainingProof = claims[0].proof.slice(
+      GetBatchAirdropClaim.PROOF_ELEMENTS_SKIPPED,
+    );
+
+    // check that all the remaining proof elements match
+    if (
+      !claims.every(
+        ({ proof }) =>
+          remainingProof.length +
+            GetBatchAirdropClaim.PROOF_ELEMENTS_SKIPPED ===
+            proof.length &&
+          remainingProof.every(
+            (element, ix) =>
+              element ===
+              proof[ix + GetBatchAirdropClaim.PROOF_ELEMENTS_SKIPPED],
+          ),
+      )
+    ) {
+      return error(500, "Proof prefix validation failed");
+    }
+
+    return json(
+      {
+        claims: claims.map(({ claim_id, amount, claimee, proof }) => ({
+          id: claim_id,
+          claimee: num.toHex(BigInt(claimee)),
+          amount: num.toHex(BigInt(amount)),
+        })),
+        remaining_proof: remainingProof.map((x) => num.toHex(BigInt(x))),
+      },
+      {
+        headers: {
+          "cache-control": `public,max-age=86400`,
         },
       },
     );

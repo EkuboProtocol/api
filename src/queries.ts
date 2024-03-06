@@ -1201,6 +1201,38 @@ export class Queries {
     return rows;
   }
 
+  async getClaimsBetween({
+    claimContract,
+    startingId,
+    endingId,
+  }: {
+    claimContract: bigint;
+    startingId: number;
+    endingId: number;
+  }) {
+    const { rows } = await this.client.query<{
+      claim_id: number;
+      claimee: string;
+      amount: string;
+      proof: string[];
+    }>({
+      text: `
+          SELECT gdp.id            AS claim_id,
+                 gdp.claimee       AS claimee,
+                 gdp.amount        AS amount,
+                 gdp.proof::TEXT[] AS proof
+          FROM deployed_airdrop_contracts da
+                   JOIN generated_drop gd ON da.drop_id = gd.id
+                   JOIN generated_drop_proof gdp ON gd.id = gdp.drop_id
+          WHERE da.funded
+            AND da.address = $1
+            AND gdp.id BETWEEN $2 AND $3
+      `,
+      values: [claimContract, startingId, endingId],
+    });
+    return rows;
+  }
+
   async getAllocations({
     owner,
     start,

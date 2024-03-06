@@ -39,7 +39,11 @@ import {
   GetDefiSpringIncentivesForAddressAndDates,
   GetDefiSpringIncentivesForTokenId,
 } from "./routes/meta/get-defi-spring-incentives";
-import { ListAvailableClaimsForUser, ListDrops } from "./routes/meta/drops";
+import {
+  GetBatchAirdropClaim,
+  ListAvailableClaimsForUser,
+  ListDrops,
+} from "./routes/meta/drops";
 
 Decimal.set({ precision: 39 });
 
@@ -65,6 +69,7 @@ const router = OpenAPIRouter({
 })
   .get(ListDrops.route, ListDrops)
   .get(ListAvailableClaimsForUser.route, ListAvailableClaimsForUser)
+  .get(GetBatchAirdropClaim.route, GetBatchAirdropClaim)
   .get(GetDefiSpringIncentives.route, GetDefiSpringIncentives)
   .get(
     GetDefiSpringIncentivesForTokenId.route,
