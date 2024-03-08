@@ -1054,8 +1054,17 @@ export class Queries {
     }, {});
   }
 
-  public async getLeaderboard({ collector }: { collector?: bigint }) {
+  public async getLeaderboard({
+    collector,
+    pageSize,
+    start,
+  }: {
+    collector?: bigint;
+    pageSize: number;
+    start: number;
+  }) {
     return this.client.query<{
+      rank: string;
       collector: string;
       earned_points: string;
       referral_points: string;
@@ -1063,14 +1072,13 @@ export class Queries {
     }>({
       name: "leaderboard",
       text: `
-                SELECT collector, earned_points, referral_points, total_points
-                FROM leaderboard_view
-                WHERE (collector = $1 OR $1 IS NULL)
-                  AND collector NOT IN
-                      (1791658794084622206857007003215132198038653612739770816311687551920625505808)
-                LIMIT 1000
-            `,
-      values: [collector ?? null],
+        SELECT rank, collector, earned_points, referral_points, total_points
+        FROM leaderboard_materialized_view
+        WHERE (collector = $1 OR $1 IS NULL)
+        ORDER BY rank
+        LIMIT $2 OFFSET $3
+      `,
+      values: [collector ?? null, pageSize, start],
     });
   }
 

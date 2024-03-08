@@ -8,7 +8,7 @@ import { EkuboAPIRoute, RequestContext } from "../../shared/context";
 import { z } from "zod";
 import { num } from "starknet";
 import { createQueries } from "../../queries";
-import { AddressType } from "../../shared/validation/address";
+import { AddressType, NumericType } from "../../shared/validation/address";
 
 export class GetLeaderboard extends EkuboAPIRoute {
   public static route = "/leaderboard";
@@ -17,7 +17,12 @@ export class GetLeaderboard extends EkuboAPIRoute {
     tags: ["Leaderboard"],
     summary: "List leaderboard",
     description: "Get the first thousand users on the leaderboard",
-    parameters: {},
+    parameters: {
+      pageSize: Query(z.coerce.number().min(1).max(1000).int(), {
+        required: false,
+      }),
+      start: Query(z.coerce.number().min(0).int(), { required: false }),
+    },
     responses: {
       "200": {
         description:
@@ -40,12 +45,18 @@ export class GetLeaderboard extends EkuboAPIRoute {
   async handle({ query }: IRequest, { env }: RequestContext) {
     const queries = await createQueries(env);
 
-    const { rows } = await queries.getLeaderboard({});
+    const { pageSize, start } = query;
+
+    const { rows } = await queries.getLeaderboard({
+      pageSize: Number(pageSize ?? 1000),
+      start: Number(start ?? 0),
+    });
 
     return json(
       {
         timestamp: Date.now(),
         data: rows.map((row) => ({
+          rank: Number(row.rank),
           collector: num.toHex(row.collector),
           referral_points: Number(row.referral_points),
           points: Number(row.total_points),
@@ -53,7 +64,7 @@ export class GetLeaderboard extends EkuboAPIRoute {
       },
       {
         headers: {
-          "cache-control": "public,max-age=150",
+          "cache-control": `public, max-age=150, must-revalidate`,
         },
       },
     );
@@ -89,16 +100,19 @@ export class GetLeaderboardForCollector extends EkuboAPIRoute {
 
     const { rows } = await queries.getLeaderboard({
       collector,
+      pageSize: 1,
+      start: 0,
     });
 
     return json(
       {
+        rank: Number(rows[0]?.rank) - 1,
         referral_points: Number(rows?.[0]?.referral_points ?? 0),
         points: Number(rows?.[0]?.total_points ?? 0),
       },
       {
         headers: {
-          "cache-control": "public,max-age=150",
+          "cache-control": "public,max-age=150, must-revalidate",
         },
       },
     );
