@@ -341,7 +341,7 @@ export class GetTokenPrices extends EkuboAPIRoute {
 
     const timestamp = Date.now();
     const sixHoursAgo = new Date(
-      timestamp - Number(query.period ?? 3600) * 1000 * 6,
+      timestamp - Number(query.period ?? 21_600) * 1000,
     );
 
     const prices = await queries.getAllVolumeWeightedPrices({
