@@ -310,6 +310,15 @@ export class GetTokenPrices extends EkuboAPIRoute {
       "Given a quote token, returns the price of all other tokens in terms of the qutoe token",
     parameters: {
       quoteToken: Path(AddressType, { description: "The quote token address" }),
+      period: Query(z.coerce.number().int().min(180).max(86400), {
+        description: "The period in seconds over which to measure the VWAP",
+        required: false,
+      }),
+      minSwapCount: Query(z.coerce.number().int().min(1), {
+        description:
+          "The minimum number of swaps over the period for the VWAP to be returned",
+        required: false,
+      }),
     },
     responses: {
       "200": {
@@ -319,7 +328,7 @@ export class GetTokenPrices extends EkuboAPIRoute {
     },
   };
 
-  async handle({ params }: IRequest, { env }: RequestContext) {
+  async handle({ params, query }: IRequest, { env }: RequestContext) {
     const quoteToken = BigInt(params.quoteToken);
 
     const queries = await createQueries(env);
@@ -331,12 +340,14 @@ export class GetTokenPrices extends EkuboAPIRoute {
     }
 
     const timestamp = Date.now();
-    const sixHoursAgo = new Date(timestamp - 3_600_000 * 6);
+    const sixHoursAgo = new Date(
+      timestamp - Number(query.period ?? 3600) * 1000 * 6,
+    );
 
     const prices = await queries.getAllVolumeWeightedPrices({
       quoteToken,
       start: sixHoursAgo,
-      minSwapCount: 5,
+      minSwapCount: Number(query.minSwapCount ?? 4),
     });
 
     const scaledPrices = prices
