@@ -222,6 +222,33 @@ export class Queries {
     return rows[0];
   }
 
+  public async getPositionState(id: number) {
+    const { rows, rowCount } = await this.client.query<{
+      points_earned: number;
+      last_owner: string;
+    }>({
+      text: `
+        SELECT (SELECT SUM(points)
+                FROM leaderboard AS l
+                WHERE l.collector = pt.to_address
+                  AND l.token_id = pt.token_id) AS points_earned,
+               to_address                       AS last_owner
+        FROM position_transfers pt
+        WHERE token_id = $1
+          AND to_address != 0
+        ORDER BY event_id DESC
+        LIMIT 1;
+      `,
+      values: [id],
+    });
+
+    if (rowCount !== 1) {
+      return null;
+    }
+
+    return rows[0];
+  }
+
   public async getPositionHistory(id: number) {
     const { rows } = await this.client.query<
       | {

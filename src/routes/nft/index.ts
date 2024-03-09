@@ -13,7 +13,7 @@ import {
   Query,
 } from "@cloudflare/itty-router-openapi";
 import { z } from "zod";
-import { AddressType } from "../../shared/validation/address";
+import { AddressType, HexStringType } from "../../shared/validation/address";
 
 export interface NFTMetadata {
   name: string;
@@ -204,6 +204,56 @@ export class GetNftMetadata extends EkuboAPIRoute {
         "cache-control": "public,max-age=3600,immutable",
       },
     });
+  }
+}
+
+export class GetNftState extends EkuboAPIRoute {
+  static route = "/:id/state";
+  static schema: OpenAPIRouteSchema = {
+    tags: ["Positions"],
+    summary: "Get NFT State",
+    description:
+      "Returns the last owner of the position and the number of points earned",
+    parameters: {
+      id: Path(TokenIdType),
+    },
+    responses: {
+      "200": {
+        description: "The state of the NFT with the given token ID",
+        contentType: "application/json",
+        schema: z.object({
+          points: z.number().int(),
+          last_owner: HexStringType,
+        }),
+      },
+    },
+  };
+
+  async handle({ params: { id: idStr } }: IRequest, { env }: RequestContext) {
+    const id = parseId(idStr);
+    if (id === null) {
+      return error(400, "Invalid token ID");
+    }
+
+    const queries = await createQueries(env);
+
+    const state = await queries.getPositionState(id);
+
+    if (state === null) {
+      return error(404, `Token ID ${id} not found`);
+    }
+
+    return json(
+      {
+        points: state.points_earned,
+        last_owner: num.toHex(BigInt(state.last_owner)),
+      },
+      {
+        headers: {
+          "cache-control": "public,max-age=180",
+        },
+      },
+    );
   }
 }
 

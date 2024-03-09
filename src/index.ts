@@ -29,6 +29,7 @@ import {
 import {
   GetNftImage,
   GetNftMetadata,
+  GetNftState,
   ListNftEvents,
   ListPositions,
 } from "./routes/nft";
@@ -97,6 +98,7 @@ const router = OpenAPIRouter({
   .get(ListPositions.route, ListPositions)
   .get(GetPairLiquidity.route, GetPairLiquidity)
   .get(ListPairEvents.route, ListPairEvents)
+  .get(GetNftState.route, GetNftState)
   .get(GetNftMetadata.route, GetNftMetadata)
   .get(ListNftEvents.route, ListNftEvents)
   .get(GetNftImage.route, GetNftImage)
