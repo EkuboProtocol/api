@@ -224,7 +224,7 @@ export class Queries {
 
   public async getPositionState(id: number) {
     const { rows, rowCount } = await this.client.query<{
-      points_earned: number;
+      points_earned: string;
       last_owner: string;
     }>({
       text: `

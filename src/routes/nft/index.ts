@@ -245,7 +245,7 @@ export class GetNftState extends EkuboAPIRoute {
 
     return json(
       {
-        points: state.points_earned,
+        points: Number(state.points_earned),
         last_owner: num.toHex(BigInt(state.last_owner)),
       },
       {
