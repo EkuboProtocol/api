@@ -47,14 +47,18 @@ export class GetLeaderboard extends EkuboAPIRoute {
 
     const { pageSize, start } = query;
 
-    const { rows } = await queries.getLeaderboard({
-      pageSize: Number(pageSize ?? 1000),
-      start: Number(start ?? 0),
-    });
+    const [{ rows }, count] = await Promise.all([
+      queries.getLeaderboard({
+        pageSize: Number(pageSize ?? 1000),
+        start: Number(start ?? 0),
+      }),
+      queries.getLeaderboardCount(),
+    ]);
 
     return json(
       {
         timestamp: Date.now(),
+        count,
         data: rows.map((row) => ({
           rank: Number(row.rank),
           collector: num.toHex(row.collector),

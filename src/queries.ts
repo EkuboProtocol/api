@@ -1097,7 +1097,6 @@ export class Queries {
       referral_points: string;
       total_points: string;
     }>({
-      name: "leaderboard",
       text: `
         SELECT rank, collector, earned_points, referral_points, total_points
         FROM leaderboard_materialized_view
@@ -1107,6 +1106,16 @@ export class Queries {
       `,
       values: [collector ?? null, pageSize, start],
     });
+  }
+
+  public async getLeaderboardCount(): Promise<number> {
+    const { rows } = await this.client.query<{
+      count: string;
+    }>(`
+      SELECT COUNT(1) AS count
+      FROM leaderboard_materialized_view
+    `);
+    return Number(rows[0].count);
   }
 
   async getPoolKey(poolKeyHash: bigint) {
