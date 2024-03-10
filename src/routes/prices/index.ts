@@ -36,16 +36,12 @@ export class GetPairPrice extends EkuboAPIRoute {
         }),
         { example: "2024-01-01T00:00:00", required: false },
       ),
-      period: Query(
-        z.coerce.number().int().min(300).max(21_600).openapi({
-          description: "The amount of time over which the VWAP is measured",
-        }),
-        {
-          example: 3600,
-          default: DEFAULT_PERIOD_SECONDS,
-          required: false,
-        },
-      ),
+      period: Query(z.coerce.number().int().min(300).max(86_400), {
+        description: "The amount of time over which the VWAP is measured",
+        example: 3600,
+        default: DEFAULT_PERIOD_SECONDS,
+        required: false,
+      }),
     },
     responses: {
       "200": {
