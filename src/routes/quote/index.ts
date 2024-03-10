@@ -283,11 +283,11 @@ export class GetQuoteToPrice extends EkuboAPIRoute {
       "Returns the token deltas for swapping a specific pool to the given square root ratio.",
     parameters: {
       keyHash: Path(NumericType, { example: "0xabcd" }),
-      nextSqrtRatio: Path(
-        z.coerce.string().openapi({
-          description: "The price to quote the pool being swapped to",
-        }),
-      ),
+      nextSqrtRatio: Path(z.coerce.string(), {
+        description:
+          "The next square root ratio to quote the pool being swapped to",
+        required: true,
+      }),
     },
     responses: {
       "200": {
