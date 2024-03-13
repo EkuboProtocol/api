@@ -67,9 +67,9 @@ const baseResourcesAccumulator: ResourcesAccumulator<
 };
 
 // These parameters are used for optimizing when we should use multi-hop routes
-const ETH_PER_POOL_SWAPPED = new Decimal("0.0003e18");
-const ETH_PER_INITIALIZED_TICK_CROSS = new Decimal("0.0001e18");
-const ETH_PER_TICK_SPACING_CROSSED = new Decimal("0.00001e18");
+const ETH_PER_POOL_SWAPPED = new Decimal("0.00003e18");
+const ETH_PER_INITIALIZED_TICK_CROSS = new Decimal("0.00001e18");
+const ETH_PER_TICK_SPACING_CROSSED = new Decimal("0.000001e18");
 
 export class GetQuote extends EkuboAPIRoute {
   static route = "/quote/:amount/:token/:otherToken";
