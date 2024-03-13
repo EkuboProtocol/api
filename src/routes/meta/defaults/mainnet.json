@@ -205,5 +205,15 @@
     "l2_token_address": "0x00585c32b625999e6e5e78645ff8df7a9001cf5cf3eb6b80ccdd16cb64bd3a34",
     "sort_order": 1,
     "total_supply": null
+  },
+  {
+    "name": "Drowzy",
+    "symbol": "ZZZ",
+    "decimals": 18,
+    "l2_token_address": "0x01597c6265320a24c8adb2054a117f8be35c5e3e12aab80bbeccf3cfbcdeeb5a",
+    "sort_order": 1,
+    "total_supply": null,
+    "hidden": true,
+    "isDisabled": true
   }
 ]
