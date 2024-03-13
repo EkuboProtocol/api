@@ -6,21 +6,23 @@ import { MAX_U128 } from "./math/constants";
 import {
   getAllRelevantPoolsAndUpdateCache,
   getCachedNode,
-  quoteRoute,
-  QuoteRouteResult,
-  ResourcesAccumulator,
   updatePoolCache,
 } from "./quoting";
 import { findAllRoutes } from "./findAllRoutes";
 import {
   BaseNodeState,
   BaseResources,
+  Quote,
   QuoteNode,
   TokenAmount,
 } from "./nodes/quoteNode";
 import { num } from "starknet";
 import { createQueries } from "../../queries";
-import { OpenAPIRouteSchema, Path } from "@cloudflare/itty-router-openapi";
+import {
+  OpenAPIRouteSchema,
+  Path,
+  Query,
+} from "@cloudflare/itty-router-openapi";
 import { z } from "zod";
 import {
   AddressType,
@@ -30,6 +32,11 @@ import {
 } from "../../shared/validation/address";
 import { MAX_SQRT_RATIO } from "./math/tick";
 import { getSqrtRatioLimit } from "./getSqrtRatioLimit";
+import {
+  getBestSingularRoute,
+  GetBestSingularRouteResult,
+} from "./getBestSingularRoute";
+import { GasEstimator } from "./quoteRoute";
 
 const PoolKeyType = z
   .object({
@@ -47,29 +54,101 @@ const PoolKeyType = z
   })
   .openapi({ description: "The composite key identifier for a pool in Ekubo" });
 
-const baseResourcesAccumulator: ResourcesAccumulator<
-  BaseResources,
-  BaseResources
-> = {
-  initial(): BaseResources {
-    return {
-      initializedTicksCrossed: 0,
-      tickSpacingsCrossed: 0,
-    };
-  },
-  accumulate(memo: BaseResources, value: BaseResources): BaseResources {
-    return {
-      initializedTicksCrossed:
-        memo.initializedTicksCrossed + value.initializedTicksCrossed,
-      tickSpacingsCrossed: memo.tickSpacingsCrossed + value.tickSpacingsCrossed,
-    };
-  },
-};
+const GetQuoteResponseType = z.object({
+  specifiedAmount: z.string(),
+  amount: z
+    .string()
+    .regex(/^-?\d+$/)
+    .openapi({
+      description: "The calculated amount for the quote",
+      example: "-123456",
+    }),
+  route: z
+    .array(
+      z.object({
+        pool_key: PoolKeyType,
+        sqrt_ratio_limit: HexStringType.openapi({
+          example: num.toHex(MAX_SQRT_RATIO),
+        }),
+        skip_ahead: z.number().openapi({
+          description:
+            "A suggested skip_ahead value for gas optimizing the trade",
+          example: 123,
+        }),
+      }),
+    )
+    .openapi({
+      description: "The list of pool keys through which to swap",
+    }),
+});
 
-// These parameters are used for optimizing when we should use multi-hop routes
-const ETH_PER_POOL_SWAPPED = new Decimal("0.00003e18");
-const ETH_PER_INITIALIZED_TICK_CROSS = new Decimal("0.00001e18");
-const ETH_PER_TICK_SPACING_CROSSED = new Decimal("0.000001e18");
+const GetQuoteWithSplitsResponseType = z.object({
+  total: z.string(),
+  splits: z.array(GetQuoteResponseType),
+});
+
+class BaseResourcesGasEstimator
+  implements GasEstimator<BaseResources, BaseNodeState, QuoteNode>
+{
+  // These parameters are used for optimizing when we should use multi-hop routes
+  public static ETH_PER_POOL_SWAPPED = new Decimal("0.00003e18");
+  public static ETH_PER_INITIALIZED_TICK_CROSS = new Decimal("0.00001e18");
+  public static ETH_PER_TICK_SPACING_CROSSED = new Decimal("0.000001e18");
+
+  private readonly calculatedTokenPrice: Decimal;
+
+  public constructor(calculatedTokenPrice: Decimal) {
+    this.calculatedTokenPrice = calculatedTokenPrice;
+  }
+
+  getGasAdjustedAmount(
+    calculatedAmount: bigint,
+    route: QuoteNode[],
+    quoteResults: Quote<BaseResources, BaseNodeState>[],
+    poolStateOverrides: WeakMap<QuoteNode, BaseNodeState>,
+  ): bigint {
+    const totalRouteResources = route.reduce(
+      (memo, node, ix) => {
+        return {
+          newPoolsSwapped: poolStateOverrides.has(node)
+            ? memo.newPoolsSwapped
+            : memo.newPoolsSwapped + 1,
+          initializedTicksCrossed:
+            memo.initializedTicksCrossed +
+            quoteResults[ix].executionResources.initializedTicksCrossed,
+          tickSpacingsCrossed:
+            memo.initializedTicksCrossed +
+            quoteResults[ix].executionResources.tickSpacingsCrossed,
+        };
+      },
+      {
+        newPoolsSwapped: 0,
+        initializedTicksCrossed: 0,
+        tickSpacingsCrossed: 0,
+      },
+    );
+
+    const gasInOtherToken = BigInt(
+      BaseResourcesGasEstimator.ETH_PER_POOL_SWAPPED.mul(
+        totalRouteResources.newPoolsSwapped,
+      )
+        .add(
+          BaseResourcesGasEstimator.ETH_PER_INITIALIZED_TICK_CROSS.mul(
+            totalRouteResources.initializedTicksCrossed,
+          ),
+        )
+        .add(
+          BaseResourcesGasEstimator.ETH_PER_TICK_SPACING_CROSSED.mul(
+            totalRouteResources.tickSpacingsCrossed,
+          ),
+        )
+        .mul(this.calculatedTokenPrice)
+        .toFixed(0, Decimal.ROUND_DOWN),
+    );
+
+    return calculatedAmount - gasInOtherToken;
+  }
+}
 
 export class GetQuote extends EkuboAPIRoute {
   static route = "/quote/:amount/:token/:otherToken";
@@ -87,44 +166,36 @@ export class GetQuote extends EkuboAPIRoute {
           description: "The amount of the specified token",
         }),
       ),
+      maxSplits: Query(z.coerce.number().int().min(0).max(8), {
+        description:
+          "The maximum number of routes that the amount can be split across",
+        required: false,
+      }),
       token: Path(TokenIdentifierType, { example: "USDC" }),
       otherToken: Path(TokenIdentifierType, { example: "ETH" }),
     },
     responses: {
       "200": {
-        description: "The amount to swap to a price for a pool",
+        description: "The suggested route(s) to get the best price",
         contentType: "application/json",
-        schema: z.object({
-          amount: z
-            .string()
-            .regex(/^-?\d+$/)
-            .openapi({
-              description: "The calculated amount for the quote",
-              example: "-123456",
-            }),
-          route: z
-            .array(
-              z.object({
-                pool_key: PoolKeyType,
-                sqrt_ratio_limit: HexStringType.openapi({
-                  example: num.toHex(MAX_SQRT_RATIO),
-                }),
-                skip_ahead: z.number().openapi({
-                  description:
-                    "A suggested skip_ahead value for gas optimizing the trade",
-                  example: 123,
-                }),
-              }),
-            )
-            .openapi({
-              description: "The list of pool keys through which to swap",
-            }),
-        }),
+        schema: z.union([GetQuoteResponseType, GetQuoteWithSplitsResponseType]),
       },
     },
   };
 
-  async handle({ params }: IRequest, { env }: RequestContext) {
+  async handle({ params, query }: IRequest, { env }: RequestContext) {
+    const maxSplitsQueryParam = query.maxSplits;
+    const specifiedMaxSplits = typeof maxSplitsQueryParam === "string";
+
+    let maxSplits: number = 0;
+    if (specifiedMaxSplits) {
+      try {
+        maxSplits = parseInt(maxSplitsQueryParam);
+      } catch (e) {
+        return error(400, "`maxSplits` must be an integer");
+      }
+    }
+
     const queries = await createQueries(env);
 
     const allTokens = await getAllTokens(env, queries);
@@ -133,10 +204,7 @@ export class GetQuote extends EkuboAPIRoute {
     try {
       amount = BigInt(new Decimal(params.amount).toInteger().toFixed());
     } catch (e) {
-      return error(
-        400,
-        `Failed to parse path parameters: ${(e as Error).message}`,
-      );
+      return error(400, `Failed to parse amount: ${(e as Error).message}`);
     }
 
     const token = getTokenByIdentifier(allTokens, params.token);
@@ -184,93 +252,214 @@ export class GetQuote extends EkuboAPIRoute {
         })
       )?.price ?? new Decimal(0);
 
-    const bestWorkingRoute = allRoutes.reduce<{
-      route: QuoteNode[];
-      quote: Readonly<QuoteRouteResult<BaseResources, BaseNodeState>>;
-      gasAdjustedAmount: bigint;
-    } | null>((memo, route) => {
-      try {
-        const quote = quoteRoute({
-          specifiedAmount: tokenAmount,
-          route,
-          accumulator: baseResourcesAccumulator,
-        });
+    const splitRoutes = findOptimalSplitRoute({
+      allRoutes,
+      tokenAmount,
+      poolStateOverrides: new WeakMap(),
+      gasEstimator: new BaseResourcesGasEstimator(otherTokenPrice),
+      maxSplits,
+    });
 
-        if (quote) {
-          const gasInOtherToken = BigInt(
-            ETH_PER_POOL_SWAPPED.mul(route.length)
-              .add(
-                ETH_PER_INITIALIZED_TICK_CROSS.mul(
-                  quote.resources.initializedTicksCrossed,
-                ),
-              )
-              .add(
-                ETH_PER_TICK_SPACING_CROSSED.mul(
-                  quote.resources.tickSpacingsCrossed,
-                ),
-              )
-              .mul(otherTokenPrice)
-              .toFixed(0, Decimal.ROUND_DOWN),
-          );
-
-          const gasAdjustedAmount =
-            quote.calculatedAmount.amount - gasInOtherToken;
-
-          if (!memo) {
-            return {
-              quote,
-              route,
-              gasAdjustedAmount,
-            };
-          }
-
-          if (gasAdjustedAmount > memo.gasAdjustedAmount) {
-            return {
-              quote,
-              route,
-              gasAdjustedAmount,
-            };
-          }
-        }
-
-        return memo;
-      } catch (e) {
-        // Since we failed to quote this route, this route is not valid
-        return memo;
-      }
-    }, null);
-
-    if (!bestWorkingRoute) {
-      return error(404, "No route found");
+    if (splitRoutes === null) {
+      return error(404, "Route not found");
     }
 
-    return json(
-      {
-        amount: bestWorkingRoute.quote.calculatedAmount.amount.toString(),
-        route: bestWorkingRoute.route.map((node, ix) => ({
-          pool_key: {
-            token0: num.toHex(node.key.token0),
-            token1: num.toHex(node.key.token1),
-            fee: num.toHex(node.key.fee),
-            tick_spacing: node.key.tickSpacing,
-            extension: num.toHex(node.key.extension),
-          },
-          sqrt_ratio_limit: num.toHex(
-            getSqrtRatioLimit(
-              node.state.sqrtRatio,
-              bestWorkingRoute.quote.nodeStates[ix].sqrtRatio,
-              node.key.tickSpacing,
-            ),
-          ),
-        })),
-      },
-      {
-        headers: {
-          "cache-control": "no-cache",
+    const serializedRoutes = splitRoutes.map((route) => ({
+      specifiedAmount:
+        route.quoteRouteResult.quotes[0].consumedAmount.toString(),
+      amount: route.quoteRouteResult.calculatedAmount.amount.toString(),
+      route: route.route.map((node, ix) => ({
+        pool_key: {
+          token0: num.toHex(node.key.token0),
+          token1: num.toHex(node.key.token1),
+          fee: num.toHex(node.key.fee),
+          tick_spacing: node.key.tickSpacing,
+          extension: num.toHex(node.key.extension),
         },
+        sqrt_ratio_limit: num.toHex(
+          getSqrtRatioLimit(
+            node.state.sqrtRatio,
+            route.quoteRouteResult.quotes[ix].stateAfter.sqrtRatio,
+            node.key.tickSpacing,
+          ),
+        ),
+      })),
+    }));
+
+    const responseBody = specifiedMaxSplits
+      ? {
+          total: splitRoutes
+            .reduce(
+              (sum, route) =>
+                route.quoteRouteResult.calculatedAmount.amount + sum,
+              0n,
+            )
+            .toString(),
+          splits: serializedRoutes,
+        }
+      : serializedRoutes[0];
+
+    return json(responseBody, {
+      headers: {
+        "cache-control": "no-cache",
       },
-    );
+    });
   }
+}
+
+function findOptimalSplitRoute<
+  TResources extends BaseResources,
+  TState extends BaseNodeState,
+  TQuoteNode extends QuoteNode<TResources, TState>,
+>({
+  allRoutes,
+  tokenAmount,
+  gasEstimator,
+  maxSplits,
+  poolStateOverrides,
+}: {
+  allRoutes: TQuoteNode[][];
+  tokenAmount: TokenAmount;
+  gasEstimator: GasEstimator<TResources, TState, TQuoteNode>;
+  maxSplits: number;
+  poolStateOverrides: WeakMap<TQuoteNode, TState>;
+}): GetBestSingularRouteResult<TResources, TState, TQuoteNode>[] | null {
+  if (maxSplits === 0) {
+    const result = getBestSingularRoute({
+      allRoutes,
+      tokenAmount,
+      gasEstimator,
+      poolStateOverrides,
+    });
+
+    if (result === null) {
+      return null;
+    }
+
+    return [result];
+  }
+
+  // Split the amount into two parts
+  const firstHalfSpecifiedAmount = {
+    ...tokenAmount,
+    amount: tokenAmount.amount / 2n,
+  };
+
+  // Recursive calls for each half
+  const firstHalfQuoteRoutes = findOptimalSplitRoute<
+    TResources,
+    TState,
+    TQuoteNode
+  >({
+    tokenAmount: firstHalfSpecifiedAmount,
+    allRoutes,
+    poolStateOverrides,
+    gasEstimator,
+    maxSplits: maxSplits - 1,
+  });
+
+  if (firstHalfQuoteRoutes === null) {
+    return null;
+  }
+
+  for (const route of firstHalfQuoteRoutes) {
+    for (let i = 0; i < route.route.length; i++) {
+      // todo: why do we have to cast?
+      poolStateOverrides.set(
+        route.route[i] as TQuoteNode,
+        route.quoteRouteResult.quotes[i].stateAfter as TState,
+      );
+    }
+  }
+
+  const secondHalfSpecifiedAmount = {
+    ...tokenAmount,
+    amount: tokenAmount.amount - firstHalfSpecifiedAmount.amount,
+  };
+  const secondHalfQuoteRoutes = findOptimalSplitRoute({
+    tokenAmount: secondHalfSpecifiedAmount,
+    allRoutes,
+    poolStateOverrides,
+    gasEstimator,
+    maxSplits: maxSplits - firstHalfQuoteRoutes.length,
+  });
+
+  if (secondHalfQuoteRoutes === null) {
+    return null;
+  }
+
+  for (const route of secondHalfQuoteRoutes) {
+    for (let i = 0; i < route.route.length; i++) {
+      // todo: why do we have to cast?
+      poolStateOverrides.set(
+        route.route[i] as TQuoteNode,
+        route.quoteRouteResult.quotes[i].stateAfter as TState,
+      );
+    }
+  }
+
+  const routeMap = new WeakMap<
+    TQuoteNode[],
+    GetBestSingularRouteResult<TResources, TState, TQuoteNode>
+  >();
+  const routeSet = new Set<TQuoteNode[]>();
+
+  const combinedRoutes = firstHalfQuoteRoutes.concat(secondHalfQuoteRoutes);
+
+  // merge routes here if there are duplicates.
+  for (const routeExecution of combinedRoutes) {
+    const lastRouteExecution = routeMap.get(routeExecution.route);
+    if (!lastRouteExecution) {
+      routeSet.add(routeExecution.route);
+      routeMap.set(routeExecution.route, routeExecution);
+    } else {
+      routeMap.set(routeExecution.route, {
+        route: routeExecution.route,
+        gasAdjustedCalculatedAmount:
+          lastRouteExecution.gasAdjustedCalculatedAmount +
+          routeExecution.gasAdjustedCalculatedAmount,
+        quoteRouteResult: {
+          calculatedAmount: {
+            token: lastRouteExecution.quoteRouteResult.calculatedAmount.token,
+            amount:
+              lastRouteExecution.quoteRouteResult.calculatedAmount.amount +
+              routeExecution.quoteRouteResult.calculatedAmount.amount,
+          },
+          gasAdjustedCalculatedAmount:
+            lastRouteExecution.gasAdjustedCalculatedAmount +
+            routeExecution.gasAdjustedCalculatedAmount,
+          quotes: routeExecution.quoteRouteResult.quotes.map(
+            (newQuoteResult, ix) => ({
+              // use the latter state, since it is the most updated
+              stateAfter: newQuoteResult.stateAfter,
+              calculatedAmount:
+                newQuoteResult.calculatedAmount +
+                lastRouteExecution.quoteRouteResult.quotes[ix].calculatedAmount,
+              consumedAmount:
+                newQuoteResult.consumedAmount +
+                lastRouteExecution.quoteRouteResult.quotes[ix].consumedAmount,
+              // todo: these cannot be trivially combined, but they are also not used in the result
+              //  because each quote already has its own gas adjusted amount
+              executionResources: newQuoteResult.executionResources,
+            }),
+          ),
+        },
+      });
+    }
+  }
+
+  const dedupedRoutes: GetBestSingularRouteResult<
+    TResources,
+    TState,
+    TQuoteNode
+  >[] = [];
+
+  routeSet.forEach((route) => {
+    const resultForRoute = routeMap.get(route);
+    if (resultForRoute) dedupedRoutes.push(resultForRoute);
+  });
+
+  return dedupedRoutes;
 }
 
 export class GetQuoteToPrice extends EkuboAPIRoute {
