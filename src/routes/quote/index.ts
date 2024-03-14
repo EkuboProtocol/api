@@ -326,23 +326,30 @@ export class GetQuoteToPrice extends EkuboAPIRoute {
     });
 
     const isToken1 = sqrtRatio >= newSqrtRatio;
-    const { consumedAmount, calculatedAmount } = node.quote({
-      tokenAmount: {
-        amount: -0xffffffffffffffffffffffffffffffffn,
-        token: sqrtRatio >= newSqrtRatio ? node.key.token1 : node.key.token0,
-      },
-      sqrtRatioLimit: newSqrtRatio,
-    });
+    const { consumedAmount, calculatedAmount, executionResources, stateAfter } =
+      node.quote({
+        tokenAmount: {
+          amount: -0xffffffffffffffffffffffffffffffffn,
+          token: sqrtRatio >= newSqrtRatio ? node.key.token1 : node.key.token0,
+        },
+        sqrtRatioLimit: newSqrtRatio,
+      });
 
     return json(
       isToken1
         ? {
             delta0: calculatedAmount.toString(),
             delta1: consumedAmount.toString(),
+            state: node.state,
+            executionResources,
+            stateAfter,
           }
         : {
             delta0: consumedAmount.toString(),
             delta1: calculatedAmount.toString(),
+            state: node.state,
+            executionResources,
+            stateAfter,
           },
       {
         headers: {
