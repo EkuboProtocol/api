@@ -43,9 +43,9 @@ export interface QuoteNode<
   TSwapState extends BaseNodeState = BaseNodeState,
 > {
   readonly key: NodeKey;
-  readonly state: Readonly<BaseNodeState>;
+  readonly state: Readonly<TSwapState>;
 
   quote(params: QuoteParams<TSwapState>): Quote<TResources, TSwapState>;
-  
+
   hasLiquidity(): boolean;
 }
