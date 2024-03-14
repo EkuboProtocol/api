@@ -11,9 +11,9 @@ export class BaseResourcesGasEstimator
   implements GasEstimator<BaseResources, BaseNodeState, QuoteNode>
 {
   // These parameters are used for optimizing when we should use multi-hop routes
-  public static ETH_PER_POOL_SWAPPED = new Decimal("0.00003e18");
-  public static ETH_PER_INITIALIZED_TICK_CROSS = new Decimal("0.00001e18");
-  public static ETH_PER_TICK_SPACING_CROSSED = new Decimal("0.000001e18");
+  public static ETH_PER_POOL_SWAPPED = new Decimal("1e13");
+  public static ETH_PER_INITIALIZED_TICK_CROSS = new Decimal("1e12");
+  public static ETH_PER_TICK_SPACING_CROSSED = new Decimal("1e10");
 
   private readonly calculatedTokenPrice: Decimal;
 
