@@ -28,6 +28,7 @@ import { MAX_SQRT_RATIO } from "./math/tick";
 import { getSqrtRatioLimit } from "./getSqrtRatioLimit";
 import { BaseResourcesGasEstimator } from "./baseResourcesGasEstimator";
 import { findOptimalSplitRoute } from "./findOptimalSplitRoute";
+import { quoteRoute } from "./quoteRoute";
 
 const PoolKeyType = z
   .object({
@@ -99,6 +100,11 @@ export class GetQuote extends EkuboAPIRoute {
           "The maximum number of routes that the amount can be split across",
         required: false,
       }),
+      maxHops: Query(z.coerce.number().int().min(1).max(3), {
+        description:
+          "The maximum number of pools that may be used in any route",
+        required: false,
+      }),
       token: Path(TokenIdentifierType, { example: "USDC" }),
       otherToken: Path(TokenIdentifierType, { example: "ETH" }),
     },
@@ -117,11 +123,12 @@ export class GetQuote extends EkuboAPIRoute {
 
     let maxSplits: number = 0;
     if (specifiedMaxSplits) {
-      try {
-        maxSplits = parseInt(maxSplitsQueryParam);
-      } catch (e) {
-        return error(400, "`maxSplits` must be an integer");
-      }
+      maxSplits = parseInt(maxSplitsQueryParam);
+    }
+
+    let maxHops: number = 3;
+    if (typeof query.maxHops === "string") {
+      maxHops = parseInt(query.maxHops);
     }
 
     const queries = await createQueries(env);
@@ -135,12 +142,15 @@ export class GetQuote extends EkuboAPIRoute {
       return error(400, `Failed to parse amount: ${(e as Error).message}`);
     }
 
-    const token = getTokenByIdentifier(allTokens, params.token);
-    const otherToken = getTokenByIdentifier(allTokens, params.otherToken);
+    const tokenInfo = getTokenByIdentifier(allTokens, params.token);
+    const otherTokenInfo = getTokenByIdentifier(allTokens, params.otherToken);
 
-    if (!token || !otherToken) {
+    if (!tokenInfo || !otherTokenInfo) {
       return error(400, "Invalid token parameters");
     }
+
+    const token = BigInt(tokenInfo.l2_token_address);
+    const otherToken = BigInt(otherTokenInfo.l2_token_address);
 
     const isExactOutput = amount < 0n;
 
@@ -149,8 +159,8 @@ export class GetQuote extends EkuboAPIRoute {
     }
 
     const relevantPools = await getAllRelevantPoolsAndUpdateCache(queries, {
-      tokenA: BigInt(token.l2_token_address),
-      tokenB: BigInt(otherToken.l2_token_address),
+      tokenA: token,
+      tokenB: otherToken,
     });
 
     if (!relevantPools.length) {
@@ -158,16 +168,11 @@ export class GetQuote extends EkuboAPIRoute {
     }
 
     // routes are executed in reverse for exact output
-    const allRoutes = findAllRoutes(
-      BigInt(token.l2_token_address),
-      BigInt(otherToken.l2_token_address),
-      relevantPools,
-      2,
-    );
+    const allRoutes = findAllRoutes(token, otherToken, relevantPools, maxHops);
 
     const tokenAmount: TokenAmount = {
       amount,
-      token: BigInt(token.l2_token_address),
+      token,
     };
 
     // get the ETH price of the other token
@@ -175,13 +180,44 @@ export class GetQuote extends EkuboAPIRoute {
       (
         await queries.getVolumeWeightedPriceOverPeriod({
           baseToken: BigInt(env.ETH_TOKEN_ADDRESS),
-          quoteToken: BigInt(otherToken.l2_token_address),
+          quoteToken: otherToken,
           minSwapCount: 0,
         })
       )?.price ?? new Decimal(0);
 
+    const smallestSplitAmount = amount / 2n ** BigInt(maxSplits);
+    const noOverrides = new WeakMap();
+    // try the smallest split across all the routes first, and only consider the top 2**maxSplits
+    const feasibleRoutes = allRoutes
+      .map((route) => {
+        try {
+          const quote = quoteRoute({
+            route,
+            gasEstimator: new BaseResourcesGasEstimator(otherTokenPrice),
+            poolStateOverrides: noOverrides,
+            specifiedAmount: {
+              token,
+              amount: smallestSplitAmount,
+            },
+          });
+          return { quote, route };
+        } catch (e) {
+          return { route, quote: null };
+        }
+      })
+      .sort(({ quote: quoteA }, { quote: quoteB }) => {
+        if (!quoteA) return 1;
+        if (!quoteB) return -1;
+        return Number(
+          quoteB.gasAdjustedCalculatedAmount -
+            quoteA.gasAdjustedCalculatedAmount,
+        );
+      })
+      .slice(0, Math.pow(2, maxSplits))
+      .map(({ route }) => route);
+
     const splitRoutes = findOptimalSplitRoute({
-      allRoutes,
+      allRoutes: feasibleRoutes,
       tokenAmount,
       poolStateOverrides: new WeakMap(),
       gasEstimator: new BaseResourcesGasEstimator(otherTokenPrice),
