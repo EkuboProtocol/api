@@ -334,23 +334,24 @@ export class GetQuoteToPrice extends EkuboAPIRoute {
         },
         sqrtRatioLimit: newSqrtRatio,
       });
+    const delta = isToken1
+      ? {
+          delta0: calculatedAmount.toString(),
+          delta1: consumedAmount.toString(),
+        }
+      : {
+          delta0: consumedAmount.toString(),
+          delta1: calculatedAmount.toString(),
+        };
 
     return json(
-      isToken1
-        ? {
-            delta0: calculatedAmount.toString(),
-            delta1: consumedAmount.toString(),
-            state: node.state,
-            executionResources,
-            stateAfter,
-          }
-        : {
-            delta0: consumedAmount.toString(),
-            delta1: calculatedAmount.toString(),
-            state: node.state,
-            executionResources,
-            stateAfter,
-          },
+      {
+        ...delta,
+        sqrtRatio: num.toHex(node.state.sqrtRatio),
+        tickSpacingsCrossed: executionResources.tickSpacingsCrossed,
+        initializedTicksCrossed: executionResources.initializedTicksCrossed,
+        sqrtRatioAfter: num.toHex(stateAfter.sqrtRatio),
+      },
       {
         headers: {
           "cache-control": "no-cache",
