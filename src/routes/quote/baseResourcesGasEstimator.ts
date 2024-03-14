@@ -13,7 +13,7 @@ export class BaseResourcesGasEstimator
   // These parameters are used for optimizing when we should use multi-hop routes
   public static ETH_PER_POOL_SWAPPED = new Decimal("1e13");
   public static ETH_PER_INITIALIZED_TICK_CROSS = new Decimal("1e12");
-  public static ETH_PER_TICK_SPACING_CROSSED = new Decimal("1e10");
+  public static ETH_PER_TICK_SPACING_CROSSED = new Decimal("5e10");
 
   private readonly calculatedTokenPrice: Decimal;
 

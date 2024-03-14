@@ -247,6 +247,17 @@ export class GetQuote extends EkuboAPIRoute {
             node.key.tickSpacing,
           ),
         ),
+        skip_ahead: num.toHex(
+          Math.round(
+            route.quoteRouteResult.quotes[ix].executionResources
+              .tickSpacingsCrossed /
+              Math.max(
+                route.quoteRouteResult.quotes[ix].executionResources
+                  .initializedTicksCrossed,
+                1,
+              ),
+          ),
+        ),
       })),
     }));
 
