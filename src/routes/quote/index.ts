@@ -126,7 +126,7 @@ export class GetQuote extends EkuboAPIRoute {
       maxSplits = parseInt(maxSplitsQueryParam);
     }
 
-    let maxHops: number = 3;
+    let maxHops: number = 2;
     if (typeof query.maxHops === "string") {
       maxHops = parseInt(query.maxHops);
     }
