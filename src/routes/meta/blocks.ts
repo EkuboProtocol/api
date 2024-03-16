@@ -4,9 +4,7 @@ import { OpenAPIRouteSchema, Path } from "@cloudflare/itty-router-openapi";
 import { z } from "zod";
 import { createQueries } from "../../queries";
 
-export class GetBlock extends EkuboAPIRoute<{
-  params: { blockTag: "latest" | number };
-}> {
+export class GetBlock extends EkuboAPIRoute {
   public static route = "/blocks/:blockTag";
   static schema: OpenAPIRouteSchema = {
     tags: ["Meta"],
@@ -29,21 +27,21 @@ export class GetBlock extends EkuboAPIRoute<{
             number: z.number({ description: "The number of the block" }).int(),
             timestamp: z.date({ description: "The timestamp of the block" }),
           },
-          { description: "Array of tokens" },
+          { description: "Description of the latest block" },
         ),
         contentType: "application/json",
       },
     },
   };
 
-  public async handle(
-    request: IRequest,
-    { env }: RequestContext,
-    { params: { blockTag } }: { params: { blockTag: "latest" | number } },
-  ) {
+  public async handle(request: IRequest, { env }: RequestContext) {
     const queries = await createQueries(env);
 
-    const block = await queries.getBlock(blockTag);
+    const block = await queries.getBlock(
+      request.params.blockTag === "latest"
+        ? "latest"
+        : Number(request.params.blockTag),
+    );
 
     return json(
       {

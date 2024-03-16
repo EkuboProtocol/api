@@ -45,6 +45,7 @@ import {
   ListAvailableClaimsForUser,
   ListDrops,
 } from "./routes/meta/drops";
+import { GetFees } from "./routes/meta/fees";
 
 Decimal.set({ precision: 39 });
 
@@ -83,6 +84,7 @@ const router = OpenAPIRouter({
   .get(ListTokens.route, ListTokens)
   .get(GetTokenLogo.route, GetTokenLogo)
   .get(GetBlock.route, GetBlock)
+  .get(GetFees.route, GetFees)
   .get(GetLeaderboard.route, GetLeaderboard)
   .get(GetLeaderboardForCollector.route, GetLeaderboardForCollector)
   .get(GetQuote.route, GetQuote)
