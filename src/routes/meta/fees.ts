@@ -27,7 +27,10 @@ export class GetFees extends EkuboAPIRoute {
           .object(
             {
               dollarPrice: z.number().min(0),
-              byToken: z.map(z.string(), z.number().min(0).or(z.null())),
+              byToken: z.object({
+                ETH: z.number().min(0).or(z.null()),
+                STRK: z.number().min(0).or(z.null()),
+              }),
             },
             { description: "Information about the current fees on L2" },
           )
