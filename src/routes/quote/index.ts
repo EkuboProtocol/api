@@ -187,13 +187,16 @@ export class GetQuote extends EkuboAPIRoute {
 
     const smallestSplitAmount = amount / 2n ** BigInt(maxSplits);
     const noOverrides = new WeakMap();
+
+    const gasEstimator = new BaseResourcesGasEstimator(otherTokenPrice);
+
     // try the smallest split across all the routes first, and only consider the top 2**maxSplits
     const feasibleRoutes = allRoutes
       .map((route) => {
         try {
           const quote = quoteRoute({
             route,
-            gasEstimator: new BaseResourcesGasEstimator(otherTokenPrice),
+            gasEstimator,
             poolStateOverrides: noOverrides,
             specifiedAmount: {
               token,
@@ -220,7 +223,7 @@ export class GetQuote extends EkuboAPIRoute {
       allRoutes: feasibleRoutes,
       tokenAmount,
       poolStateOverrides: new WeakMap(),
-      gasEstimator: new BaseResourcesGasEstimator(otherTokenPrice),
+      gasEstimator,
       maxSplits,
     });
 
