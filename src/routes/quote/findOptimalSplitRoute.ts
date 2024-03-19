@@ -141,9 +141,19 @@ export function findOptimalSplitRoute<
               consumedAmount:
                 newQuoteResult.consumedAmount +
                 lastRouteExecution.quoteRouteResult.quotes[ix].consumedAmount,
-              // todo: these cannot be trivially combined, but they are also not used in the result
-              //  because each quote already has its own gas adjusted amount
-              executionResources: newQuoteResult.executionResources,
+              // todo: these cannot be trivially combined, need a solution where the quote node can handle it, e.g. by
+              //  returning the combined result from quote
+              executionResources: {
+                ...newQuoteResult.executionResources,
+                tickSpacingsCrossed:
+                  newQuoteResult.executionResources.tickSpacingsCrossed +
+                  lastRouteExecution.quoteRouteResult.quotes[ix]
+                    .executionResources.tickSpacingsCrossed,
+                initializedTicksCrossed:
+                  newQuoteResult.executionResources.initializedTicksCrossed +
+                  lastRouteExecution.quoteRouteResult.quotes[ix]
+                    .executionResources.initializedTicksCrossed,
+              },
             }),
           ),
         },
