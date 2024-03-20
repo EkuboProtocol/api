@@ -27,111 +27,68 @@ export function findOptimalSplitRoute<
   maxSplits: number;
   poolStateOverrides: WeakMap<TQuoteNode, TState>;
 }): GetBestSingularRouteResult<TResources, TState, TQuoteNode>[] | null {
-  if (maxSplits === 0) {
-    const result = getBestSingularRoute({
-      allRoutes,
-      tokenAmount,
+  const maxRoutes = maxSplits + 1;
+  const numPieces = 2 ** maxSplits;
+  const smallestAmount = tokenAmount.amount / BigInt(numPieces);
+  const results: GetBestSingularRouteResult<TResources, TState, TQuoteNode>[] =
+    [];
+
+  for (let i = 0; i < numPieces; i++) {
+    const tokenAmountPortion = {
+      token: tokenAmount.token,
+      amount:
+        // for the last piece, we need to add the remainder so we always quote the exact amount
+        i === numPieces - 1
+          ? smallestAmount + (tokenAmount.amount % BigInt(numPieces))
+          : smallestAmount,
+    };
+
+    if (tokenAmountPortion.amount === 0n) continue;
+
+    const splitResult = getBestSingularRoute({
+      allRoutes:
+        results.length < maxRoutes ? allRoutes : results.map((r) => r.route),
+      tokenAmount: tokenAmountPortion,
       gasEstimator,
       poolStateOverrides,
     });
 
-    if (result === null) {
+    if (!splitResult) {
       return null;
     }
 
-    return [result];
-  }
-
-  // Split the amount into two parts
-  const firstHalfSpecifiedAmount = {
-    ...tokenAmount,
-    amount: tokenAmount.amount / 2n,
-  };
-
-  // Recursive calls for each half
-  const firstHalfQuoteRoutes = findOptimalSplitRoute<
-    TResources,
-    TState,
-    TQuoteNode
-  >({
-    tokenAmount: firstHalfSpecifiedAmount,
-    allRoutes,
-    poolStateOverrides,
-    gasEstimator,
-    maxSplits: maxSplits - 1,
-  });
-
-  if (firstHalfQuoteRoutes === null) {
-    return null;
-  }
-
-  for (const route of firstHalfQuoteRoutes) {
-    for (let i = 0; i < route.route.length; i++) {
-      // todo: why do we have to cast?
+    for (let j = 0; j < splitResult.route.length; j++) {
       poolStateOverrides.set(
-        route.route[i] as TQuoteNode,
-        route.quoteRouteResult.quotes[i].stateAfter as TState,
+        splitResult.route[j],
+        splitResult.quoteRouteResult.quotes[j].stateAfter,
       );
     }
-  }
 
-  const secondHalfSpecifiedAmount = {
-    ...tokenAmount,
-    amount: tokenAmount.amount - firstHalfSpecifiedAmount.amount,
-  };
-  const secondHalfQuoteRoutes = findOptimalSplitRoute({
-    tokenAmount: secondHalfSpecifiedAmount,
-    allRoutes,
-    poolStateOverrides,
-    gasEstimator,
-    maxSplits: maxSplits - firstHalfQuoteRoutes.length,
-  });
+    // merge in the new route to the result
+    const existingRouteResultIndex = results.findIndex(
+      (r) => r.route === splitResult.route,
+    );
 
-  if (secondHalfQuoteRoutes === null) {
-    return null;
-  }
-
-  for (const route of secondHalfQuoteRoutes) {
-    for (let i = 0; i < route.route.length; i++) {
-      // todo: why do we have to cast?
-      poolStateOverrides.set(
-        route.route[i] as TQuoteNode,
-        route.quoteRouteResult.quotes[i].stateAfter as TState,
-      );
-    }
-  }
-
-  const routeMap = new WeakMap<
-    TQuoteNode[],
-    GetBestSingularRouteResult<TResources, TState, TQuoteNode>
-  >();
-  const routeSet = new Set<TQuoteNode[]>();
-
-  const combinedRoutes = firstHalfQuoteRoutes.concat(secondHalfQuoteRoutes);
-
-  // merge routes here if there are duplicates.
-  for (const routeExecution of combinedRoutes) {
-    const lastRouteExecution = routeMap.get(routeExecution.route);
-    if (!lastRouteExecution) {
-      routeSet.add(routeExecution.route);
-      routeMap.set(routeExecution.route, routeExecution);
+    if (existingRouteResultIndex === -1) {
+      results.push(splitResult);
     } else {
-      routeMap.set(routeExecution.route, {
-        route: routeExecution.route,
+      const lastRouteExecution = results[existingRouteResultIndex];
+      results[existingRouteResultIndex] = {
+        route: splitResult.route,
         gasAdjustedCalculatedAmount:
           lastRouteExecution.gasAdjustedCalculatedAmount +
-          routeExecution.gasAdjustedCalculatedAmount,
+          splitResult.gasAdjustedCalculatedAmount,
         quoteRouteResult: {
           calculatedAmount: {
             token: lastRouteExecution.quoteRouteResult.calculatedAmount.token,
             amount:
               lastRouteExecution.quoteRouteResult.calculatedAmount.amount +
-              routeExecution.quoteRouteResult.calculatedAmount.amount,
+              splitResult.quoteRouteResult.calculatedAmount.amount,
           },
           gasAdjustedCalculatedAmount:
             lastRouteExecution.gasAdjustedCalculatedAmount +
-            routeExecution.gasAdjustedCalculatedAmount,
-          quotes: routeExecution.quoteRouteResult.quotes.map(
+            splitResult.gasAdjustedCalculatedAmount,
+          quotes: splitResult.quoteRouteResult.quotes.map(
             (newQuoteResult, ix) => ({
               // use the latter state, since it is the most updated
               stateAfter: newQuoteResult.stateAfter,
@@ -157,20 +114,9 @@ export function findOptimalSplitRoute<
             }),
           ),
         },
-      });
+      };
     }
   }
 
-  const dedupedRoutes: GetBestSingularRouteResult<
-    TResources,
-    TState,
-    TQuoteNode
-  >[] = [];
-
-  routeSet.forEach((route) => {
-    const resultForRoute = routeMap.get(route);
-    if (resultForRoute) dedupedRoutes.push(resultForRoute);
-  });
-
-  return dedupedRoutes;
+  return results;
 }
