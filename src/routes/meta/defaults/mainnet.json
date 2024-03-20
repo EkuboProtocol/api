@@ -168,7 +168,6 @@
     "sort_order": 1,
     "total_supply": null,
     "hidden": true,
-    "isDisabled": true,
     "disabled": true
   },
   {
@@ -179,7 +178,6 @@
     "sort_order": 1,
     "total_supply": null,
     "hidden": true,
-    "isDisabled": true,
     "disabled": true
   },
   {
@@ -190,7 +188,6 @@
     "sort_order": 1,
     "total_supply": 100000000,
     "hidden": true,
-    "isDisabled": true,
     "disabled": true
   },
   {

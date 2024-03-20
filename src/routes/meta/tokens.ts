@@ -55,12 +55,6 @@ export const TokenType = z
           "Whether the token should display by default in the interface.",
       }),
     ),
-    isDisabled: z.optional(
-      z.boolean({
-        description:
-          "Buying the token on the Ekubo Interface has been disabled",
-      }),
-    ),
     disabled: z.optional(
       z.boolean({
         description:
