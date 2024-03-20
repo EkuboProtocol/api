@@ -12,23 +12,6 @@ import { DateType } from "../../shared/validation/date";
 
 const DEFAULT_STRK_PRICE = new Decimal("2.0");
 
-const VOLATILITY_BY_PAIR_IN_BIPS: { [pair: string]: bigint } = {
-  "STRK/ETH": 20_00n, // 20%
-  "STRK/USDC": 30_00n, // 30%
-  "ETH/USDC": 30_00n, // 30%
-  "USDC/USDT": 1_00n, // 1%
-};
-
-const DEFAULT_VOLATILITY_IN_BIPS = 50_00n;
-const BASE_BIPS = 100_00n;
-
-function toSqrtBips(bips: bigint) {
-  return (
-    BigInt(Math.round(Math.sqrt(Number(BASE_BIPS * (bips + BASE_BIPS))))) -
-    BASE_BIPS
-  );
-}
-
 export class GetDefiSpringIncentives extends EkuboAPIRoute {
   public static route = "/defi-spring-incentives";
   static schema: OpenAPIRouteSchema = {
@@ -66,7 +49,7 @@ export class GetDefiSpringIncentives extends EkuboAPIRoute {
     },
   };
 
-  async handle(request: IRequest, context: RequestContext, data: any) {
+  async handle(request: IRequest, context: RequestContext) {
     const queries = await createQueries(context.env);
     const tokens = await getAllTokens(context.env, queries);
 
@@ -109,8 +92,8 @@ export class GetDefiSpringIncentives extends EkuboAPIRoute {
           ) ?? DEFAULT_STRK_PRICE
         : DEFAULT_STRK_PRICE;
 
-    const pairData = await Promise.all(
-      pairs.map(async ([id, dailyAllocations]) => {
+    const filteredPairs = pairs
+      .map(([id, data]) => {
         const [tokenAIdentifier, tokenBIdentifier] = id.split("/");
         const tokenA = getTokenByIdentifier(tokens, tokenAIdentifier);
         const tokenB = getTokenByIdentifier(tokens, tokenBIdentifier);
@@ -119,17 +102,47 @@ export class GetDefiSpringIncentives extends EkuboAPIRoute {
           return null;
         }
 
+        const [token0, token1] =
+          BigInt(tokenA.l2_token_address) < BigInt(tokenB.l2_token_address)
+            ? [tokenA, tokenB]
+            : [tokenB, tokenA];
+
+        return {
+          ...data,
+          dailyAllocations: data,
+          token0,
+          token1,
+        };
+      })
+      .filter((x): x is Exclude<typeof x, null> => !!x);
+
+    const volatilityData = await queries.getVolatilityData({
+      fromDate: new Date(`${new Date().toISOString().split("T")[0]}T00:00:00Z`),
+      numDays: 28,
+      pairs: filteredPairs.map((p) => ({
+        token0: BigInt(p.token0.l2_token_address),
+        token1: BigInt(p.token1.l2_token_address),
+      })),
+    });
+
+    const pairData = await Promise.all(
+      filteredPairs.map(async ({ token0, token1, dailyAllocations }) => {
         const pairTotal = dailyAllocations.reduce(
           (memo, { allocation }) => memo + allocation,
           0,
         );
 
-        const pairPercent = pairTotal / totalStrk;
+        const volatilityInTicks = volatilityData.find(
+          (vd) =>
+            BigInt(vd.token0) === BigInt(token0.l2_token_address) &&
+            BigInt(vd.token1) === BigInt(token1.l2_token_address),
+        )?.volatility_in_ticks;
 
-        const [token0, token1] =
-          BigInt(tokenA.l2_token_address) < BigInt(tokenB.l2_token_address)
-            ? [tokenA, tokenB]
-            : [tokenB, tokenA];
+        if (!volatilityInTicks) {
+          throw new Error("Missing volatility data");
+        }
+
+        const pairPercent = pairTotal / totalStrk;
 
         const [pairLiquidityGraph, pairPrice, price0, price1] =
           await Promise.all([
@@ -221,30 +234,12 @@ export class GetDefiSpringIncentives extends EkuboAPIRoute {
             })),
           });
 
-          const VOLATILITY_SQRT_BIPS: bigint = toSqrtBips(
-            latestDateAllocation?.thirty_day_realized_volatility
-              ? BigInt(
-                  Math.round(
-                    latestDateAllocation.thirty_day_realized_volatility *
-                      Number(BASE_BIPS),
-                  ),
-                )
-              : VOLATILITY_BY_PAIR_IN_BIPS[
-                  `${token0.symbol}/${token1.symbol}`
-                ] ??
-                  VOLATILITY_BY_PAIR_IN_BIPS[
-                    `${token1.symbol}/${token0.symbol}`
-                  ] ??
-                  DEFAULT_VOLATILITY_IN_BIPS,
-          );
-
           const { consumedAmount: depth0 } = pool.quote({
             tokenAmount: {
               amount: -0xffffffffffffffffffffffffffffffffn,
               token: BigInt(token0.l2_token_address),
             },
-            sqrtRatioLimit:
-              (sqrtRatio * (BASE_BIPS + VOLATILITY_SQRT_BIPS)) / BASE_BIPS,
+            sqrtRatioLimit: toSqrtRatio(pool.tick + volatilityInTicks * 2),
           });
 
           const { consumedAmount: depth1 } = pool.quote({
@@ -252,8 +247,7 @@ export class GetDefiSpringIncentives extends EkuboAPIRoute {
               amount: -0xffffffffffffffffffffffffffffffffn,
               token: BigInt(token1.l2_token_address),
             },
-            sqrtRatioLimit:
-              (sqrtRatio * BASE_BIPS) / (BASE_BIPS + VOLATILITY_SQRT_BIPS),
+            sqrtRatioLimit: toSqrtRatio(pool.tick - volatilityInTicks * 2),
           });
 
           const usdcValueDepth0 = price0?.price
@@ -287,6 +281,7 @@ export class GetDefiSpringIncentives extends EkuboAPIRoute {
             currentApr,
             pairPercent,
             pairTotal,
+            volatilityInTicks,
           };
         }
 
@@ -306,7 +301,7 @@ export class GetDefiSpringIncentives extends EkuboAPIRoute {
       },
       {
         headers: {
-          "cache-control": "public, max-age=600, must-revalidate",
+          "cache-control": "public, max-age=3600, must-revalidate",
         },
       },
     );
@@ -362,7 +357,7 @@ export class GetDefiSpringIncentivesForAddressAndDates extends EkuboAPIRoute {
     },
   };
 
-  async handle(request: IRequest, context: RequestContext, data: any) {
+  async handle(request: IRequest, context: RequestContext) {
     const queries = await createQueries(context.env);
 
     const result = await queries.getAllocations({
@@ -432,7 +427,7 @@ export class GetDefiSpringIncentivesForTokenId extends EkuboAPIRoute {
     },
   };
 
-  async handle(request: IRequest, context: RequestContext, data: any) {
+  async handle(request: IRequest, context: RequestContext) {
     const queries = await createQueries(context.env);
 
     const result = await queries.getAllocationsForToken({

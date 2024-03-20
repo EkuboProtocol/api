@@ -587,6 +587,74 @@ export class Queries {
     });
   }
 
+  public async getVolatilityData({
+    fromDate,
+    pairs,
+    numDays = 14,
+  }: {
+    fromDate: Date;
+    pairs: { token0: bigint; token1: bigint }[];
+    numDays?: number;
+  }) {
+    const { rows: volatilityData } = await this.client.query<{
+      token0: string;
+      token1: string;
+      volatility_in_ticks: number;
+    }>({
+      text: `
+          WITH times AS (SELECT $1::timestamptz                      AS end,
+                                $1::timestamptz - ($2 * INTERVAL '1 days') AS start),
+
+               prices AS (SELECT pk.token0,
+                                 pk.token1,
+                                 date_bin(INTERVAL '1 hour', b.time,
+                                          '2000-01-01 00:00:00'::TIMESTAMP WITHOUT TIME ZONE) AS period_start,
+                                 SUM(delta1 * delta1) / SUM(ABS(delta1 * delta0))             AS price
+                          FROM swaps s
+                                   JOIN event_keys ek ON s.event_id = ek.id
+                                   JOIN blocks b ON ek.block_number = b.number
+                                   JOIN pool_keys pk ON s.pool_key_hash = pk.key_hash,
+                               times t
+                          WHERE b.time >= t.start
+                            AND b.time < t.end
+                            AND delta1 != 0
+                            AND delta0 != 0
+                          GROUP BY pk.token0, pk.token1, period_start),
+
+               log_price_changes AS (SELECT token0,
+                                            token1,
+                                            LN(price) -
+                                            LN(COALESCE(
+                                                            LAG(price) OVER (PARTITION BY token0, token1 ORDER BY period_start),
+                                                            price))                                   AS price_change,
+                                            EXTRACT(HOURS FROM period_start - COALESCE(LAG(period_start)
+                                                                                       OVER (PARTITION BY token0, token1 ORDER BY period_start),
+                                                                                       period_start)) AS hours_since_last
+                                     FROM prices p,
+                                          times t
+                                     ORDER BY period_start),
+
+               realized_volatility_by_pair AS (SELECT token0,
+                                                      token1,
+                                                      STDDEV(lpc.price_change) * SQRT(SUM(hours_since_last)) AS realized_volatility
+                                               FROM log_price_changes lpc
+                                               GROUP BY token0, token1)
+
+          SELECT token0,
+                 token1,
+                 int4(FLOOR(LOG(EXP(realized_volatility)) / LOG(1.000001::NUMERIC))) AS volatility_in_ticks
+          FROM realized_volatility_by_pair
+          WHERE (token0, token1) IN (
+              ${pairs
+                .map((p) => `(${p.token0}::numeric, ${p.token1}::numeric)`)
+                .join(", ")}
+              );
+      `,
+      values: [fromDate, numDays],
+    });
+    return volatilityData;
+  }
+
   public async getVolumeWeightedPriceOverPeriod({
     baseToken,
     quoteToken,
