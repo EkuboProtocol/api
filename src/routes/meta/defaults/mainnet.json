@@ -168,7 +168,8 @@
     "sort_order": 1,
     "total_supply": null,
     "hidden": true,
-    "isDisabled": true
+    "isDisabled": true,
+    "disabled": true
   },
   {
     "name": "Gary Gensler",
@@ -178,7 +179,8 @@
     "sort_order": 1,
     "total_supply": null,
     "hidden": true,
-    "isDisabled": true
+    "isDisabled": true,
+    "disabled": true
   },
   {
     "name": "StarkBanana",
@@ -188,7 +190,8 @@
     "sort_order": 1,
     "total_supply": 100000000,
     "hidden": true,
-    "isDisabled": true
+    "isDisabled": true,
+    "disabled": true
   },
   {
     "name": "StarkNet Token",

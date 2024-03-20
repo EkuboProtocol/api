@@ -61,6 +61,12 @@ export const TokenType = z
           "Buying the token on the Ekubo Interface has been disabled",
       }),
     ),
+    disabled: z.optional(
+      z.boolean({
+        description:
+          "Whether the token has been disabled for use in Ekubo Interface",
+      }),
+    ),
   })
   .required({
     name: true,
@@ -135,8 +141,6 @@ export async function getAllTokens(
             BigInt(row.total_supply) / 10n ** BigInt(row.decimals),
           ),
           hidden: true,
-          // when they are disabled, they are placed in the default token list
-          isDisabled: false,
         });
       }
     } catch (error) {}
