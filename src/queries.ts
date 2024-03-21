@@ -1266,15 +1266,17 @@ export class Queries {
       start_date: string;
       end_date: string;
       token: string;
+      funded: boolean;
     }>({
       text: `
           SELECT address AS contract_address,
                  gd.start_date,
                  gd.end_date,
-                 token
+                 token,
+                 funded
           FROM deployed_airdrop_contracts da
                    JOIN generated_drop gd ON da.drop_id = gd.id
-          WHERE da.funded AND da.token = COALESCE($1, da.token)
+          WHERE da.token = COALESCE($1, da.token)
       `,
       values: [token ?? null],
     });
@@ -1296,6 +1298,7 @@ export class Queries {
       claim_id: number;
       amount: string;
       proof: string[];
+      funded: boolean;
     }>({
       text: `
           SELECT address    AS contract_address,
@@ -1304,12 +1307,12 @@ export class Queries {
                  token,
                  gdp.id     AS claim_id,
                  gdp.amount AS amount,
-                 gdp.proof::text[] AS proof
+                 gdp.proof::text[] AS proof,
+                 da.funded as funded
           FROM deployed_airdrop_contracts da
                    JOIN generated_drop gd ON da.drop_id = gd.id
                    JOIN generated_drop_proof gdp ON gd.id = gdp.drop_id
-          WHERE da.funded
-            AND gdp.claimee = $1
+          WHERE gdp.claimee = $1
             AND da.token = COALESCE($2, token)
       `,
       values: [forAddress, token],
@@ -1331,17 +1334,18 @@ export class Queries {
       claimee: string;
       amount: string;
       proof: string[];
+      funded: boolean;
     }>({
       text: `
           SELECT gdp.id            AS claim_id,
                  gdp.claimee       AS claimee,
                  gdp.amount        AS amount,
-                 gdp.proof::TEXT[] AS proof
+                 gdp.proof::TEXT[] AS proof,
+                 da.funded as funded
           FROM deployed_airdrop_contracts da
                    JOIN generated_drop gd ON da.drop_id = gd.id
                    JOIN generated_drop_proof gdp ON gd.id = gdp.drop_id
-          WHERE da.funded
-            AND da.address = $1
+          WHERE da.address = $1
             AND gdp.id BETWEEN $2 AND $3
       `,
       values: [claimContract, startingId, endingId],

@@ -36,6 +36,7 @@ export class ListDrops extends EkuboAPIRoute {
               token: AddressType,
               start_date: z.string().datetime(),
               end_date: z.string().datetime(),
+              funded: z.boolean(),
             }),
           )
           .openapi({ description: "Array of airdrop contracts" }),
@@ -53,12 +54,15 @@ export class ListDrops extends EkuboAPIRoute {
     });
 
     return json(
-      drops.map(({ end_date, start_date, token, contract_address }) => ({
-        contract_address: num.toHex(contract_address),
-        token: num.toHex(token),
-        start_date,
-        end_date,
-      })),
+      drops.map(
+        ({ end_date, start_date, token, contract_address, funded }) => ({
+          contract_address: num.toHex(contract_address),
+          token: num.toHex(token),
+          start_date,
+          end_date,
+          funded,
+        }),
+      ),
       {
         headers: {
           "cache-control": `public,max-age=600`,
@@ -99,6 +103,8 @@ export class ListAvailableClaimsForUser extends EkuboAPIRoute {
                 amount: z.number().int().min(0),
               }),
               proof: z.array(HexStringType),
+
+              funded: z.boolean(),
             }),
           )
           .openapi({ description: "Array of airdrop contracts" }),
@@ -127,6 +133,7 @@ export class ListAvailableClaimsForUser extends EkuboAPIRoute {
           claim_id,
           amount,
           proof,
+          funded,
         }) => ({
           contract_address: num.toHex(contract_address),
           token: num.toHex(token),
@@ -135,6 +142,8 @@ export class ListAvailableClaimsForUser extends EkuboAPIRoute {
 
           claim: { id: claim_id, amount, claimee },
           proof: proof.map((p) => num.toHex(p)),
+
+          funded,
         }),
       ),
       {
