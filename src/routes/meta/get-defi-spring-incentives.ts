@@ -94,6 +94,8 @@ export class GetDefiSpringIncentives extends EkuboAPIRoute {
 
     const filteredPairs = pairs
       .map(([id, data]) => {
+        if (id === "Discretionary") return null;
+
         const [tokenAIdentifier, tokenBIdentifier] = id.split("/");
         const tokenA = getTokenByIdentifier(tokens, tokenAIdentifier);
         const tokenB = getTokenByIdentifier(tokens, tokenBIdentifier);
