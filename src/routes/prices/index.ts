@@ -147,6 +147,89 @@ export class GetPairPrice extends EkuboAPIRoute {
   }
 }
 
+export class GetPairVolatility extends EkuboAPIRoute {
+  static route = "/volatility/:baseToken/:quoteToken";
+
+  static schema: OpenAPIRouteSchema = {
+    tags: ["Prices"],
+    summary: "Get pair volatility",
+    description: "Get the realized volatility (historical) of a token pair",
+    parameters: {
+      baseToken: Path(TokenIdentifierType, { example: "ETH" }),
+      quoteToken: Path(TokenIdentifierType, { example: "USDC" }),
+      fromDate: Query(
+        z.coerce.date().openapi({
+          description: "The time from which the volatility should be measured",
+        }),
+        { example: "2024-01-01T00:00:00", required: true },
+      ),
+      numDays: Query(z.coerce.number().int().min(7).max(90), {
+        description: "The number of days over which the volatility is measured",
+        required: true,
+      }),
+    },
+    responses: {
+      "200": {
+        description: "The volatility of the token pair",
+        contentType: "application/json",
+        schema: z.object({
+          volatility: z.object({
+            ticks: z.number().int(),
+          }),
+        }),
+      },
+    },
+  };
+
+  async handle({ params, query }: IRequest, { env }: RequestContext) {
+    const queries = await createQueries(env);
+    const allTokens = await getAllTokens(env, queries);
+
+    const tokenA = getTokenByIdentifier(allTokens, params.baseToken);
+    const tokenB = getTokenByIdentifier(allTokens, params.quoteToken);
+
+    if (!tokenA || !tokenB) {
+      return error(400, "Base token or quote token not known");
+    }
+
+    if (typeof query.fromDate !== "string") {
+      return error(400, "Invalid `fromDate`");
+    }
+
+    if (typeof query.numDays !== "string") {
+      return error(400, "Invalid `numDays`");
+    }
+
+    const volatilityData = await queries.getVolatilityData({
+      fromDate: new Date(query.fromDate),
+      pairs: [
+        {
+          token0: BigInt(tokenA.l2_token_address),
+          token1: BigInt(tokenB.l2_token_address),
+        },
+      ],
+      numDays: parseInt(query.numDays),
+    });
+
+    if (!volatilityData.length) {
+      return error(404, "No volatility data for the pair");
+    }
+
+    return json(
+      {
+        volatility: {
+          ticks: volatilityData[0].volatility_in_ticks,
+        },
+      },
+      {
+        headers: {
+          "cache-control": `public, immutable, max-age=3600, must-revalidate`,
+        },
+      },
+    );
+  }
+}
+
 export class GetPairPriceHistory extends EkuboAPIRoute {
   static route = "/price/:baseToken/:quoteToken/history";
 

@@ -19,6 +19,7 @@ import {
 import {
   GetPairPrice,
   GetPairPriceHistory,
+  GetPairVolatility,
   GetTokenPrices,
 } from "./routes/prices";
 import {
@@ -91,6 +92,7 @@ const router = OpenAPIRouter({
   .get(GetOverview.route, GetOverview)
   .get(GetPairInfo.route, GetPairInfo)
   .get(GetPairPrice.route, GetPairPrice)
+  .get(GetPairVolatility.route, GetPairVolatility)
   .get(GetPairPriceHistory.route, GetPairPriceHistory)
   .get(GetTokenPrices.route, GetTokenPrices)
   .get(GetPoolStates.route, GetPoolStates)
