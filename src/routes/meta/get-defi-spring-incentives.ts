@@ -1,6 +1,11 @@
 import { IRequest, json } from "itty-router";
 import { EkuboAPIRoute, RequestContext } from "../../shared/context";
-import { getAllTokens, getTokenByIdentifier, TokenType } from "./tokens";
+import {
+  getAllTokens,
+  getTokenByIdentifier,
+  TokenInfo,
+  TokenType,
+} from "./tokens";
 import { createQueries } from "../../queries";
 import { OpenAPIRouteSchema, Path } from "@cloudflare/itty-router-openapi";
 import { z } from "zod";
@@ -11,6 +16,90 @@ import { AddressType, NumericType } from "../../shared/validation/address";
 import { DateType } from "../../shared/validation/date";
 
 const DEFAULT_STRK_PRICE = new Decimal("2.0");
+
+interface OBLIncentiveResponse {
+  Ekubo: {
+    [pairId: string]: {
+      date: string;
+      allocation: number;
+      thirty_day_realized_volatility: number;
+    }[];
+  };
+}
+
+async function getOBLIncentiveDataForEkubo(): Promise<
+  OBLIncentiveResponse["Ekubo"]
+> {
+  const response = await fetch(
+    "https://kx58j6x5me.execute-api.us-east-1.amazonaws.com/starknet/fetchFile?file=strk_grant.json",
+  );
+
+  const responseText = await response.text();
+  const parsed = JSON.parse(responseText.replaceAll(/NaN/g, "0"));
+  const result = parsed as OBLIncentiveResponse;
+  if (!result.Ekubo) throw new Error("Missing Ekubo key in OBL response data");
+  return result.Ekubo;
+}
+
+function addIncentivesToData(
+  map: OBLIncentiveResponse["Ekubo"],
+  { pairId, date, amount }: { pairId: string; date: string; amount: number },
+) {
+  const [tokenA, tokenB] = pairId.split("/");
+  const pairDailyData =
+    map[`${tokenA}/${tokenB}`] ?? map[`${tokenB}/${tokenA}`];
+
+  if (!pairDailyData) {
+    map[`${tokenA}/${tokenB}`] = [
+      {
+        date,
+        allocation: amount,
+        // we use the value 1 as a fallback
+        thirty_day_realized_volatility: 1,
+      },
+    ];
+  } else {
+    const dayData = pairDailyData.find((d) => d.date === date);
+    if (dayData) {
+      dayData.allocation += amount;
+    } else {
+      pairDailyData.push({
+        date,
+        allocation: amount,
+        thirty_day_realized_volatility: 1,
+      });
+    }
+  }
+}
+
+const SPLITS_BY_DATE_RANGE: {
+  start: Date;
+  end: Date;
+  splits: { pairId: string; weight: number }[];
+}[] = [
+  {
+    start: new Date("2024-03-21"),
+    end: new Date("2024-04-04"),
+    splits: [
+      {
+        pairId: "ZEND/ETH",
+        weight: 1,
+      },
+      {
+        pairId: "LORDS/ETH",
+        weight: 10,
+      },
+      {
+        pairId: "rETH/ETH",
+        weight: 1,
+      },
+      {
+        pairId: "ETH/USDT",
+        weight: 3,
+      },
+    ],
+  },
+];
 
 export class GetDefiSpringIncentives extends EkuboAPIRoute {
   public static route = "/defi-spring-incentives";
@@ -31,26 +120,37 @@ export class GetDefiSpringIncentives extends EkuboAPIRoute {
     const queries = await createQueries(context.env);
     const tokens = await getAllTokens(context.env, queries);
 
-    const response = await fetch(
-      "https://kx58j6x5me.execute-api.us-east-1.amazonaws.com/starknet/fetchFile?file=strk_grant.json",
-    );
+    const incentiveData = await getOBLIncentiveDataForEkubo();
 
-    const responseText = await response.text();
-    const parsed = JSON.parse(responseText.replaceAll(/NaN/g, "0"));
+    {
+      // manipulate the response object, replacing discretionary with our own allocations
+      const discretionary = incentiveData.Discretionary;
+      delete incentiveData.Discretionary;
 
-    const responseBody = parsed as {
-      Ekubo: {
-        [pairId: string]: {
-          date: string;
-          allocation: number;
-          thirty_day_realized_volatility: number;
-          tvl_usd: number;
-          apr: number;
-        }[];
-      };
-    };
+      if (discretionary) {
+        discretionary.forEach(({ date, allocation }) => {
+          const d = new Date(date);
+          const matching = SPLITS_BY_DATE_RANGE.find(
+            (s) => d >= s.start && d < s.end,
+          );
 
-    const pairs = Object.entries(responseBody.Ekubo);
+          if (!matching) return;
+
+          const totalWeight = matching.splits.reduce((m, v) => m + v.weight, 0);
+
+          matching.splits.forEach(({ pairId, weight }) => {
+            addIncentivesToData(incentiveData, {
+              pairId,
+              date,
+              amount:
+                Math.floor((allocation * weight * 1000) / totalWeight) / 1000,
+            });
+          });
+        });
+      }
+    }
+
+    const pairs = Object.entries(incentiveData);
 
     const totalStrk = pairs.reduce(
       (memo, [key, value]) =>
@@ -126,7 +226,7 @@ export class GetDefiSpringIncentives extends EkuboAPIRoute {
           volatilityInTicks = Math.round(
             new Decimal(
               dailyAllocations[dailyAllocations.length - 1]
-                ?.thirty_day_realized_volatility ?? 0,
+                ?.thirty_day_realized_volatility ?? 1,
             )
               .exp()
               .log("1.000001")
