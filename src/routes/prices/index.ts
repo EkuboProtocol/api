@@ -200,12 +200,17 @@ export class GetPairVolatility extends EkuboAPIRoute {
       return error(400, "Invalid `numDays`");
     }
 
+    const [token0, token1] =
+      BigInt(tokenA.l2_token_address) < BigInt(tokenB.l2_token_address)
+        ? [BigInt(tokenA.l2_token_address), BigInt(tokenB.l2_token_address)]
+        : [BigInt(tokenB.l2_token_address), BigInt(tokenA.l2_token_address)];
+
     const volatilityData = await queries.getVolatilityData({
       fromDate: new Date(query.fromDate),
       pairs: [
         {
-          token0: BigInt(tokenA.l2_token_address),
-          token1: BigInt(tokenB.l2_token_address),
+          token0,
+          token1,
         },
       ],
       numDays: parseInt(query.numDays),
