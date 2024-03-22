@@ -196,6 +196,11 @@ export class GetPairVolatility extends EkuboAPIRoute {
       return error(400, "Invalid `fromDate`");
     }
 
+    const fromDate = new Date(query.fromDate);
+    if (fromDate.getTime() > Date.now()) {
+      return error(400, "`fromDate` cannot be in future");
+    }
+
     if (typeof query.numDays !== "string") {
       return error(400, "Invalid `numDays`");
     }
@@ -206,7 +211,7 @@ export class GetPairVolatility extends EkuboAPIRoute {
         : [BigInt(tokenB.l2_token_address), BigInt(tokenA.l2_token_address)];
 
     const volatilityData = await queries.getVolatilityData({
-      fromDate: new Date(query.fromDate),
+      fromDate,
       pairs: [
         {
           token0,
