@@ -22,28 +22,6 @@ export class GetDefiSpringIncentives extends EkuboAPIRoute {
     responses: {
       "200": {
         description: "The allocation of incentives",
-        schema: z.array(
-          z.object(
-            {
-              token0: TokenType,
-              token1: TokenType,
-              allocations: z.object({
-                strkPrice: z.number().min(0),
-                pairs: z.array(
-                  z.object({
-                    date: z.string(),
-                    allocation: z.number().min(0),
-                    currentApr: z.number().min(0),
-                  }),
-                ),
-              }),
-            },
-            {
-              description:
-                "Array of token pairs and their respective daily allocations",
-            },
-          ),
-        ),
         contentType: "application/json",
       },
     },
@@ -122,9 +100,9 @@ export class GetDefiSpringIncentives extends EkuboAPIRoute {
       })
       .filter((x): x is Exclude<typeof x, null> => !!x);
 
-    const volatilityData = await queries.getVolatilityData({
+    const currentVolatilityData = await queries.getVolatilityData({
       fromDate: new Date(`${new Date().toISOString().split("T")[0]}T00:00:00Z`),
-      numDays: 28,
+      numDays: 30,
       pairs: filteredPairs.map((p) => ({
         token0: BigInt(p.token0.l2_token_address),
         token1: BigInt(p.token1.l2_token_address),
@@ -138,7 +116,7 @@ export class GetDefiSpringIncentives extends EkuboAPIRoute {
           0,
         );
 
-        let volatilityInTicks = volatilityData.find(
+        let volatilityInTicks = currentVolatilityData.find(
           (vd) =>
             BigInt(vd.token0) === BigInt(token0.l2_token_address) &&
             BigInt(vd.token1) === BigInt(token1.l2_token_address),
