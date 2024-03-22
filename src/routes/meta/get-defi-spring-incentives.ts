@@ -56,7 +56,11 @@ export class GetDefiSpringIncentives extends EkuboAPIRoute {
     const response = await fetch(
       "https://kx58j6x5me.execute-api.us-east-1.amazonaws.com/starknet/fetchFile?file=strk_grant.json",
     );
-    const responseBody = (await response.json()) as {
+
+    const responseText = await response.text();
+    const parsed = JSON.parse(responseText.replaceAll(/NaN/g, "0"));
+
+    const responseBody = parsed as {
       Ekubo: {
         [pairId: string]: {
           date: string;
@@ -134,14 +138,22 @@ export class GetDefiSpringIncentives extends EkuboAPIRoute {
           0,
         );
 
-        const volatilityInTicks = volatilityData.find(
+        let volatilityInTicks = volatilityData.find(
           (vd) =>
             BigInt(vd.token0) === BigInt(token0.l2_token_address) &&
             BigInt(vd.token1) === BigInt(token1.l2_token_address),
         )?.volatility_in_ticks;
 
         if (!volatilityInTicks) {
-          throw new Error("Missing volatility data");
+          volatilityInTicks = Math.round(
+            new Decimal(
+              dailyAllocations[dailyAllocations.length - 1]
+                ?.thirty_day_realized_volatility ?? 0,
+            )
+              .exp()
+              .log("1.000001")
+              .toNumber(),
+          );
         }
 
         const pairPercent = pairTotal / totalStrk;
