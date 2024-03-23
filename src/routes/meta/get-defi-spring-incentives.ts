@@ -1,11 +1,6 @@
 import { IRequest, json } from "itty-router";
 import { EkuboAPIRoute, RequestContext } from "../../shared/context";
-import {
-  getAllTokens,
-  getTokenByIdentifier,
-  TokenInfo,
-  TokenType,
-} from "./tokens";
+import { getAllTokens, getTokenByIdentifier } from "./tokens";
 import { createQueries } from "../../queries";
 import { OpenAPIRouteSchema, Path } from "@cloudflare/itty-router-openapi";
 import { z } from "zod";
@@ -23,6 +18,8 @@ interface OBLIncentiveResponse {
       date: string;
       allocation: number;
       thirty_day_realized_volatility: number;
+      tvl_usd?: number;
+      apr?: number;
     }[];
   };
 }
@@ -211,11 +208,6 @@ export class GetDefiSpringIncentives extends EkuboAPIRoute {
 
     const pairData = await Promise.all(
       filteredPairs.map(async ({ token0, token1, dailyAllocations }) => {
-        const pairTotal = dailyAllocations.reduce(
-          (memo, { allocation }) => memo + allocation,
-          0,
-        );
-
         let volatilityInTicks = currentVolatilityData.find(
           (vd) =>
             BigInt(vd.token0) === BigInt(token0.l2_token_address) &&
@@ -233,8 +225,6 @@ export class GetDefiSpringIncentives extends EkuboAPIRoute {
               .toNumber(),
           );
         }
-
-        const pairPercent = pairTotal / totalStrk;
 
         const [pairLiquidityGraph, pairPrice, price0, price1] =
           await Promise.all([
@@ -357,7 +347,12 @@ export class GetDefiSpringIncentives extends EkuboAPIRoute {
             latestDateAllocation?.allocation ?? 0,
           )
             .mul(365)
-            .mul(strkPrice);
+            .mul(strkPrice)
+            .mul(
+              totalValueLockedInRange.div(
+                latestDateAllocation?.tvl_usd ?? totalValueLockedInRange,
+              ),
+            );
 
           const currentApr = Number(
             extrapolatedUsdcReward
@@ -371,8 +366,6 @@ export class GetDefiSpringIncentives extends EkuboAPIRoute {
             token1,
             allocations,
             currentApr,
-            pairPercent,
-            pairTotal,
             volatilityInTicks,
           };
         }
