@@ -233,7 +233,7 @@ export class GetPairVolatility extends EkuboAPIRoute {
       },
       {
         headers: {
-          "cache-control": `public, immutable, max-age=3600, must-revalidate`,
+          "cache-control": `public,max-age=86400,immutable`,
         },
       },
     );
