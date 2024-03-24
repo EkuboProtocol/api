@@ -3,7 +3,7 @@ import {
   OpenAPIRouteSchema,
   Path,
 } from "@cloudflare/itty-router-openapi";
-import { error, IRequest, json } from "itty-router";
+import { IRequest, json } from "itty-router";
 import { EkuboAPIRoute, RequestContext } from "../../shared/context";
 import { num } from "starknet";
 import { createQueries } from "../../queries";
@@ -52,7 +52,7 @@ export class GetPoolStates extends OpenAPIRoute {
       })),
       {
         headers: {
-          "cache-control": "public, max-age=15, must-revalidate",
+          "cache-control": "public, max-age=180, must-revalidate",
         },
       },
     );
@@ -77,6 +77,7 @@ export class GetPoolKeyHash extends OpenAPIRoute {
       },
     },
   };
+
   async handle({ params: { keyHash } }: IRequest, { env }: RequestContext) {
     const poolKeyHash = BigInt(keyHash);
 
@@ -116,7 +117,7 @@ export class GetPoolKeyHash extends OpenAPIRoute {
       },
       {
         headers: {
-          "cache-control": "public, max-age=15, must-revalidate",
+          "cache-control": "public, immutable, max-age=86400",
         },
       },
     );
@@ -157,7 +158,7 @@ export class GetPoolLiquidity extends EkuboAPIRoute {
       },
       {
         headers: {
-          "cache-control": "public, max-age=15, must-revalidate",
+          "cache-control": "public, max-age=600, must-revalidate",
         },
       },
     );
