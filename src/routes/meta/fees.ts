@@ -92,14 +92,6 @@ export class GetFees extends EkuboAPIRoute {
           .mul(averageStrkPrice?.avg_fee_paid ?? 0),
       );
 
-    console.log(
-      totalDollars.toString(),
-      usdcPriceStrk?.price?.toString(),
-      usdcPriceEth?.price?.toString(),
-      averageEthPrice,
-      averageStrkPrice,
-    );
-
     const averageDollarPrice = totalDollars
       .div(
         Math.max(
