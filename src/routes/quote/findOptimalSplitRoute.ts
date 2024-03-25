@@ -1,6 +1,7 @@
 import {
   BaseNodeState,
   BaseResources,
+  QuoteMeta,
   QuoteNode,
   TokenAmount,
 } from "./nodes/quoteNode";
@@ -20,12 +21,14 @@ export function findOptimalSplitRoute<
   gasEstimator,
   maxSplits,
   poolStateOverrides,
+  meta,
 }: {
   allRoutes: TQuoteNode[][];
   tokenAmount: TokenAmount;
   gasEstimator: GasEstimator<TResources, TState, TQuoteNode>;
   maxSplits: number;
   poolStateOverrides: WeakMap<TQuoteNode, TState>;
+  meta: QuoteMeta;
 }): GetBestSingularRouteResult<TResources, TState, TQuoteNode>[] | null {
   const maxRoutes = maxSplits + 1;
   const numPieces = 2 ** maxSplits;
@@ -51,6 +54,7 @@ export function findOptimalSplitRoute<
       tokenAmount: tokenAmountPortion,
       gasEstimator,
       poolStateOverrides,
+      meta,
     });
 
     if (!splitResult) {

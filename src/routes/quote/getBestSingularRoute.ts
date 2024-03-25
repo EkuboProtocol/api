@@ -1,6 +1,7 @@
 import {
   BaseNodeState,
   BaseResources,
+  QuoteMeta,
   QuoteNode,
   TokenAmount,
 } from "./nodes/quoteNode";
@@ -32,11 +33,13 @@ export function getBestSingularRoute<
   tokenAmount,
   gasEstimator,
   poolStateOverrides,
+  meta,
 }: {
   allRoutes: TQuoteNode[][];
   tokenAmount: TokenAmount;
   gasEstimator: GasEstimator<TResources, TState, TQuoteNode>;
   poolStateOverrides: WeakMap<TQuoteNode, TState>;
+  meta: QuoteMeta;
 }): GetBestSingularRouteResult<TResources, TState, TQuoteNode> | null {
   return allRoutes.reduce<GetBestSingularRouteResult<
     TResources,
@@ -49,6 +52,7 @@ export function getBestSingularRoute<
         route,
         gasEstimator,
         poolStateOverrides,
+        meta,
       });
 
       if (result) {

@@ -9,7 +9,7 @@ import {
   updatePoolCache,
 } from "./quoting";
 import { findAllRoutes } from "./findAllRoutes";
-import { TokenAmount } from "./nodes/quoteNode";
+import { QuoteMeta, TokenAmount } from "./nodes/quoteNode";
 import { num } from "starknet";
 import { createQueries } from "../../queries";
 import {
@@ -190,6 +190,12 @@ export class GetQuote extends EkuboAPIRoute {
 
     const gasEstimator = new BaseResourcesGasEstimator(otherTokenPrice);
 
+    const block = await queries.getLatestBlockMeta();
+
+    const meta: QuoteMeta = {
+      block: { number: block.number, time: block.time.getTime() / 1000 },
+    };
+
     // try the smallest split across all the routes first, and only consider the top 2**maxSplits
     const feasibleRoutes = allRoutes
       .map((route) => {
@@ -202,6 +208,7 @@ export class GetQuote extends EkuboAPIRoute {
               token,
               amount: smallestSplitAmount,
             },
+            meta,
           });
           return { quote, route };
         } catch (e) {
@@ -225,6 +232,7 @@ export class GetQuote extends EkuboAPIRoute {
       poolStateOverrides: new WeakMap(),
       gasEstimator,
       maxSplits,
+      meta,
     });
 
     if (splitRoutes === null) {
@@ -320,13 +328,24 @@ export class GetQuoteToPrice extends EkuboAPIRoute {
 
     const queries = await createQueries(env);
 
-    const [node, sqrtRatio] = await queries.withinTransaction(async () => {
-      const poolState = await queries.getPoolState({ keyHash: poolKeyHash });
+    const [meta, node, sqrtRatio] = await queries.withinTransaction(
+      async () => {
+        const [block, poolState] = await Promise.all([
+          queries.getLatestBlockMeta(),
+          queries.getPoolState({ keyHash: poolKeyHash }),
+        ]);
 
-      await updatePoolCache([poolState], queries);
+        await updatePoolCache([poolState], queries);
 
-      return [getCachedNode(poolKeyHash), BigInt(poolState.sqrt_ratio)];
-    });
+        return [
+          {
+            block: { number: block.number, time: block.time.getTime() / 1000 },
+          },
+          getCachedNode(poolKeyHash),
+          BigInt(poolState.sqrt_ratio),
+        ];
+      },
+    );
 
     const isToken1 = sqrtRatio >= newSqrtRatio;
     const { consumedAmount, calculatedAmount, executionResources, stateAfter } =
@@ -336,7 +355,9 @@ export class GetQuoteToPrice extends EkuboAPIRoute {
           token: sqrtRatio >= newSqrtRatio ? node.key.token1 : node.key.token0,
         },
         sqrtRatioLimit: newSqrtRatio,
+        meta,
       });
+
     const delta = isToken1
       ? {
           delta0: calculatedAmount.toString(),

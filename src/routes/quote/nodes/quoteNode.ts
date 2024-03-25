@@ -32,10 +32,20 @@ export interface TokenAmount {
   amount: bigint;
 }
 
+export interface Block {
+  readonly number: number;
+  readonly time: number;
+}
+
+export interface QuoteMeta {
+  readonly block: Block;
+}
+
 export interface QuoteParams<T extends BaseNodeState> {
   tokenAmount: TokenAmount;
   sqrtRatioLimit?: bigint;
   overrideSwapState?: T;
+  meta: QuoteMeta;
 }
 
 export interface QuoteNode<

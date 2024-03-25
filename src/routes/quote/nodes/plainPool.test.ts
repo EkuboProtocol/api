@@ -116,6 +116,7 @@ describe("PoolNode", () => {
           amount: 1n,
           token: 1n,
         },
+        meta: { block: { number: 1, time: 2 } },
       });
 
       expect(calculatedAmount).toEqual(0n);
@@ -138,6 +139,7 @@ describe("PoolNode", () => {
           amount: 1n,
           token: 0n,
         },
+        meta: { block: { number: 1, time: 2 } },
       });
 
       expect(calculatedAmount).toEqual(0n);
@@ -164,6 +166,7 @@ describe("PoolNode", () => {
           amount: 1000n,
           token: 1n,
         },
+        meta: { block: { number: 1, time: 2 } },
       });
 
       expect(calculatedAmount).toEqual(499n);
@@ -189,6 +192,7 @@ describe("PoolNode", () => {
           amount: 1000n,
           token: 0n,
         },
+        meta: { block: { number: 1, time: 2 } },
       });
 
       expect(calculatedAmount).toEqual(499n);
@@ -551,6 +555,7 @@ describe("PoolNode", () => {
             amount: 2000_000_000n,
             token: 1n,
           },
+          meta: { block: { number: 1, time: 2 } },
         }),
       ).toMatchInlineSnapshot(`
         {
@@ -574,6 +579,7 @@ describe("PoolNode", () => {
             amount: 20_000_000_000n,
             token: 1n,
           },
+          meta: { block: { number: 1, time: 2 } },
         }),
       ).toMatchInlineSnapshot(`
         {
@@ -597,6 +603,7 @@ describe("PoolNode", () => {
             amount: 10n ** 18n,
             token: 0n,
           },
+          meta: { block: { number: 1, time: 2 } },
         }),
       ).toMatchInlineSnapshot(`
         {
@@ -620,6 +627,7 @@ describe("PoolNode", () => {
             amount: 10n ** 19n,
             token: 0n,
           },
+          meta: { block: { number: 1, time: 2 } },
         }),
       ).toMatchInlineSnapshot(`
         {
@@ -643,6 +651,7 @@ describe("PoolNode", () => {
             amount: -2_000_000_000n,
             token: 1n,
           },
+          meta: { block: { number: 1, time: 2 } },
         }),
       ).toMatchInlineSnapshot(`
         {
@@ -665,6 +674,7 @@ describe("PoolNode", () => {
             amount: -20_000_000_000n,
             token: 1n,
           },
+          meta: { block: { number: 1, time: 2 } },
         }),
       ).toMatchInlineSnapshot(`
         {
@@ -687,6 +697,7 @@ describe("PoolNode", () => {
             amount: -1n * 10n ** 18n,
             token: 0n,
           },
+          meta: { block: { number: 1, time: 2 } },
         }),
       ).toMatchInlineSnapshot(`
         {
@@ -709,6 +720,7 @@ describe("PoolNode", () => {
             amount: -1n * 10n ** 19n,
             token: 0n,
           },
+          meta: { block: { number: 1, time: 2 } },
         }),
       ).toMatchInlineSnapshot(`
         {
@@ -1632,6 +1644,7 @@ describe("PoolNode", () => {
             amount: -550761295858476146n,
             token: 0n,
           },
+          meta: { block: { number: 1, time: 2 } },
         }),
       ).toMatchInlineSnapshot(`
         {
@@ -1676,6 +1689,7 @@ describe("PoolNode", () => {
             amount: -1_000_000_000n,
             token: 1n,
           },
+          meta: { block: { number: 1, time: 2 } },
         }),
       ).toMatchInlineSnapshot(`
         {

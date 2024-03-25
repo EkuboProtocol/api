@@ -1433,6 +1433,14 @@ export class Queries {
     });
     return rows;
   }
+
+  async getLatestBlockMeta() {
+    const { rows } = await this.client.query<{ number: number; time: Date }>(
+      `SELECT number, time FROM blocks ORDER BY number DESC LIMIT 1`,
+    );
+    if (!rows.length) throw new Error("No blocks");
+    return rows[0];
+  }
 }
 
 export async function createQueries(env: Env) {

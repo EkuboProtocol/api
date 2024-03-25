@@ -322,6 +322,7 @@ export class GetDefiSpringIncentives extends EkuboAPIRoute {
               token: BigInt(token0.l2_token_address),
             },
             sqrtRatioLimit: toSqrtRatio(pool.tick + volatilityInTicks * 2),
+            meta: { block: { number: 1, time: 2 } },
           });
 
           const { consumedAmount: depth1 } = pool.quote({
@@ -330,6 +331,7 @@ export class GetDefiSpringIncentives extends EkuboAPIRoute {
               token: BigInt(token1.l2_token_address),
             },
             sqrtRatioLimit: toSqrtRatio(pool.tick - volatilityInTicks * 2),
+            meta: { block: { number: 1, time: 2 } },
           });
 
           const usdcValueDepth0 = price0?.price

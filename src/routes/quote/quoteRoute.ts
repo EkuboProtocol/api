@@ -2,6 +2,7 @@ import {
   BaseNodeState,
   BaseResources,
   Quote,
+  QuoteMeta,
   QuoteNode,
   TokenAmount,
 } from "./nodes/quoteNode";
@@ -44,11 +45,13 @@ export function quoteRoute<
   route,
   gasEstimator,
   poolStateOverrides,
+  meta,
 }: {
   specifiedAmount: TokenAmount;
   route: TQuoteNode[];
   gasEstimator: GasEstimator<TResources, TState, TQuoteNode>;
   poolStateOverrides: WeakMap<TQuoteNode, TState>;
+  meta: QuoteMeta;
 }): Readonly<QuoteRouteResult<TResources, TState>> | null {
   const isExactOutput = specifiedAmount.amount < 0n;
   const { quotes, calculatedAmount } = route.reduce<{
@@ -61,6 +64,7 @@ export function quoteRoute<
       const quote = node.quote({
         tokenAmount: state.calculatedAmount,
         overrideSwapState: poolStateOverrides.get(node),
+        meta,
       });
 
       if (quote.consumedAmount !== state.calculatedAmount.amount) {
