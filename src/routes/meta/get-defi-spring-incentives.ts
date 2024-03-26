@@ -5,7 +5,7 @@ import { createQueries } from "../../queries";
 import { OpenAPIRouteSchema, Path } from "@cloudflare/itty-router-openapi";
 import { z } from "zod";
 import Decimal from "decimal.js-light";
-import { PlainPool } from "../quote/nodes/plainPool";
+import { BasePool } from "../quote/nodes/basePool";
 import { MIN_TICK, toSqrtRatio } from "../quote/math/tick";
 import { AddressType, NumericType } from "../../shared/validation/address";
 import { DateType } from "../../shared/validation/date";
@@ -300,7 +300,7 @@ export class GetDefiSpringIncentives extends EkuboAPIRoute {
             0n,
           );
 
-          const pool = new PlainPool({
+          const pool = new BasePool({
             token0: BigInt(token0.l2_token_address),
             token1: BigInt(token1.l2_token_address),
             fee: 0n,

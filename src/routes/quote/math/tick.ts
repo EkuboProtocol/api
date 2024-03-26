@@ -6,6 +6,7 @@ export const MAX_TICK = 88722883;
 export const MAX_SQRT_RATIO: bigint =
   6277100250585753475930931601400621808602321654880405518632n;
 export const MIN_SQRT_RATIO: bigint = 18446748437148339061n;
+export const MAX_TICK_SPACING = 354892;
 
 export function toSqrtRatio(tick: number): bigint {
   if (tick < MIN_TICK || tick > MAX_TICK)

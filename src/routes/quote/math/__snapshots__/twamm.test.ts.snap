@@ -1,0 +1,49 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`calculateNextSqrtRatio > many such cases > high liquidity, same sale rate 1`] = `680563712996817854572641655025714932412n`;
+
+exports[`calculateNextSqrtRatio > many such cases > high liquidity, token0SaleRate > token1SaleRate 1`] = `340282026639252106125320592736626435739n`;
+
+exports[`calculateNextSqrtRatio > many such cases > high liquidity, token1SaleRate > token0SaleRate 1`] = `340282707202965102147504331693640508329n`;
+
+exports[`calculateNextSqrtRatio > many such cases > large exponent (> 88), price is sqrtSaleRatio 1`] = `15141609448466370575819539296664158208000n`;
+
+exports[`calculateNextSqrtRatio > many such cases > liquidity is zero, price is sqrtSaleRatio 1`] = `340282366920938463463374607431768211456n`;
+
+exports[`calculateNextSqrtRatio > many such cases > low liquidity, same sale rate 1`] = `340282366920938463463374607431768211456n`;
+
+exports[`calculateNextSqrtRatio > many such cases > low liquidity, token0SaleRate > token1SaleRate 1`] = `240615969168004511538585310832300654592n`;
+
+exports[`calculateNextSqrtRatio > many such cases > low liquidity, token1SaleRate > token0SaleRate 1`] = `481231938336009023077170621664601309184n`;
+
+exports[`exp > test 1 1`] = `340282366920938463481821351505477763073n`;
+
+exports[`exp > test 16 1`] = `340282366920938463758522512611121037439n`;
+
+exports[`exp > test 256 1`] = `340282366920938468185741090301413457919n`;
+
+exports[`exp > test 4096 1`] = `340282366920938539021238333346100019199n`;
+
+exports[`exp > test 65536 1`] = `340282366920939672389194222063090401279n`;
+
+exports[`exp > test 1048576 1`] = `340282366920957806276488442048319324159n`;
+
+exports[`exp > test 16777216 1`] = `340282366921247948473196093237981347883n`;
+
+exports[`exp > test 268435456 1`] = `340282366925890223620552157328383847083n`;
+
+exports[`exp > test 4294967296 1`] = `340282367000166625986862317062882765483n`;
+
+exports[`exp > test 18446744073709551616 1`] = `924983374546220337150911035843336795078n`;
+
+exports[`exp > test 36893488147419103232 1`] = `2514365498655717699434277416465328696985n`;
+
+exports[`exp > test 1623313478486440542208 1`] = `56202269414179362208214868742863362868341779313762687677660940959816606662721n`;
+
+exports[`sqrt > test 2 1`] = `1n`;
+
+exports[`sqrt > test 4294967296 1`] = `65536n`;
+
+exports[`sqrt > test 18446744073709551616 1`] = `4294967296n`;
+
+exports[`sqrt > test 4294967296000000000000000000 1`] = `65536000000000n`;

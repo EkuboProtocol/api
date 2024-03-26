@@ -1,6 +1,6 @@
 import { Client } from "pg";
 import Decimal from "decimal.js-light";
-import { Tick } from "./routes/quote/nodes/plainPool";
+import { Tick } from "./routes/quote/nodes/basePool";
 import { Env } from "./env";
 import { TWAMMPoolState } from "./routes/twamm/splitOrder";
 
@@ -1439,15 +1439,14 @@ export class Queries {
     token0,
     token1,
     startTime,
-    endTime
+    endTime,
   }: {
-    token0: bigint,
-    token1: bigint,
-    startTime: Date,
-    endTime: Date
+    token0: bigint;
+    token1: bigint;
+    startTime: Date;
+    endTime: Date;
   }) {
     const { rows } = await this.client.query<TWAMMPoolState>({
-      
       values: [endTime, startTime, token0, token1],
       text: `
               WITH twamm_pool_states AS (

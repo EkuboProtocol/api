@@ -19,7 +19,7 @@ export interface Tick {
   readonly tick: number;
 }
 
-export class PlainPool implements QuoteNode<BaseResources, BaseNodeState> {
+export class BasePool implements QuoteNode {
   public readonly key: NodeKey;
 
   // state
@@ -46,6 +46,7 @@ export class PlainPool implements QuoteNode<BaseResources, BaseNodeState> {
     liquidity: bigint;
     tick: number;
     sortedTicks: Tick[];
+    extension?: bigint;
   }) {
     this.key = {
       token0,

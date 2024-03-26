@@ -1,10 +1,10 @@
-import { PlainPool } from "./plainPool";
+import { BasePool } from "./basePool";
 import { toSqrtRatio } from "../math/tick";
 
 describe("PoolNode", () => {
   describe("findNearestInitializedTickIndex", () => {
     it("no ticks", () => {
-      const pool = new PlainPool({
+      const pool = new BasePool({
         token0: 0n,
         token1: 1n,
         tickSpacing: 1,
@@ -18,7 +18,7 @@ describe("PoolNode", () => {
       expect(pool.findNearestInitializedTickIndex(0)).toBe(-1);
     });
     it("one tick less than", () => {
-      const pool = new PlainPool({
+      const pool = new BasePool({
         token0: 0n,
         token1: 1n,
         tickSpacing: 1,
@@ -32,7 +32,7 @@ describe("PoolNode", () => {
       expect(pool.findNearestInitializedTickIndex(0)).toBe(0);
     });
     it("one tick equal to", () => {
-      const pool = new PlainPool({
+      const pool = new BasePool({
         token0: 0n,
         token1: 1n,
         tickSpacing: 1,
@@ -46,7 +46,7 @@ describe("PoolNode", () => {
       expect(pool.findNearestInitializedTickIndex(0)).toBe(0);
     });
     it("one tick greater than", () => {
-      const pool = new PlainPool({
+      const pool = new BasePool({
         token0: 0n,
         token1: 1n,
         tickSpacing: 1,
@@ -60,7 +60,7 @@ describe("PoolNode", () => {
       expect(pool.findNearestInitializedTickIndex(0)).toBe(-1);
     });
     it("many ticks", () => {
-      const pool = new PlainPool({
+      const pool = new BasePool({
         token0: 0n,
         token1: 1n,
         tickSpacing: 1,
@@ -100,7 +100,7 @@ describe("PoolNode", () => {
 
   describe("quote", () => {
     it("works for 0 liquidity 1 token1 input", () => {
-      const pool = new PlainPool({
+      const pool = new BasePool({
         token0: 0n,
         token1: 1n,
         tickSpacing: 1,
@@ -123,7 +123,7 @@ describe("PoolNode", () => {
       expect(executionResources.initializedTicksCrossed).toEqual(0);
     });
     it("works for 0 liquidity 1 token0 input", () => {
-      const pool = new PlainPool({
+      const pool = new BasePool({
         token0: 0n,
         token1: 1n,
         tickSpacing: 1,
@@ -147,7 +147,7 @@ describe("PoolNode", () => {
     });
 
     it("works for 10000 liquidity 1000 token1 input", () => {
-      const pool = new PlainPool({
+      const pool = new BasePool({
         token0: 0n,
         token1: 1n,
         tickSpacing: 1,
@@ -173,7 +173,7 @@ describe("PoolNode", () => {
       expect(executionResources.initializedTicksCrossed).toEqual(1);
     });
     it("works for 10000 liquidity 1000 token1 input", () => {
-      const pool = new PlainPool({
+      const pool = new BasePool({
         token0: 0n,
         token1: 1n,
         tickSpacing: 1,
@@ -200,7 +200,7 @@ describe("PoolNode", () => {
     });
 
     it("eth usdc example pool", () => {
-      const node = new PlainPool({
+      const node = new BasePool({
         token0: 0n,
         token1: 1n,
         tickSpacing: 1,
@@ -740,7 +740,7 @@ describe("PoolNode", () => {
     });
 
     it("eth dai example pool", () => {
-      const node = new PlainPool({
+      const node = new BasePool({
         token0: 0n,
         token1: 1n,
         tickSpacing: 1,
@@ -1664,7 +1664,7 @@ describe("PoolNode", () => {
     });
 
     it("dai usdc example pool", () => {
-      const node = new PlainPool({
+      const node = new BasePool({
         token0: 0n,
         token1: 1n,
         tickSpacing: 1,

@@ -1,6 +1,6 @@
 import { PoolState, Queries } from "../../queries";
 import { QuoteNode } from "./nodes/quoteNode";
-import { PlainPool } from "./nodes/plainPool";
+import { BasePool } from "./nodes/basePool";
 
 const QUOTE_NODE_CACHE: {
   [key_hash: string]: {
@@ -30,7 +30,7 @@ export async function updatePoolCache(
   poolsNeedUpdate.forEach((pool) => {
     QUOTE_NODE_CACHE[pool.pool_key_hash] = {
       lastEventId: BigInt(pool.last_event_id),
-      node: new PlainPool({
+      node: new BasePool({
         token0: BigInt(pool.token0),
         token1: BigInt(pool.token1),
         tickSpacing: Number(pool.tick_spacing),
