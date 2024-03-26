@@ -1,10 +1,10 @@
 import { MAX_SQRT_RATIO, MIN_SQRT_RATIO, toSqrtRatio } from "../math/tick";
-import { MAX_BOUND_USABLE_TICK_MAGNITUDE, TWAMMPool } from "./TWAMMPool";
+import { MAX_BOUND_USABLE_TICK_MAGNITUDE, TwammPool } from "./twammPool";
 
 describe("TWAMMPoolNode", () => {
   describe("quote", () => {
     it("zero sale rates, quote token0", () => {
-      const pool = new TWAMMPool({
+      const pool = new TwammPool({
         token0: 0n,
         token1: 1n,
         fee: 0n,
@@ -15,7 +15,7 @@ describe("TWAMMPoolNode", () => {
         token0SaleRate: 0n,
         token1SaleRate: 0n,
         lastExecutionTime: 0,
-        saleRateDeltas: []
+        saleRateDeltas: [],
       });
 
       const { executionResources, calculatedAmount } = pool.quote({
@@ -23,7 +23,7 @@ describe("TWAMMPoolNode", () => {
           amount: 1000n,
           token: 0n,
         },
-        meta: { block: { number: 1, time: 32 } }
+        meta: { block: { number: 1, time: 32 } },
       });
 
       expect(calculatedAmount).toMatchSnapshot();
@@ -32,7 +32,7 @@ describe("TWAMMPoolNode", () => {
     });
 
     it("zero sale rates, quote token1", () => {
-      const pool = new TWAMMPool({
+      const pool = new TwammPool({
         token0: 0n,
         token1: 1n,
         fee: 0n,
@@ -43,7 +43,7 @@ describe("TWAMMPoolNode", () => {
         token0SaleRate: 0n,
         token1SaleRate: 0n,
         lastExecutionTime: 0,
-        saleRateDeltas: []
+        saleRateDeltas: [],
       });
 
       const { executionResources, calculatedAmount } = pool.quote({
@@ -51,7 +51,7 @@ describe("TWAMMPoolNode", () => {
           amount: 1000n,
           token: 1n,
         },
-        meta: { block: { number: 1, time: 32 } }
+        meta: { block: { number: 1, time: 32 } },
       });
 
       expect(calculatedAmount).toMatchSnapshot();
@@ -60,7 +60,7 @@ describe("TWAMMPoolNode", () => {
     });
 
     it("zero sale rate token0, quote token1", () => {
-      const pool = new TWAMMPool({
+      const pool = new TwammPool({
         token0: 0n,
         token1: 1n,
         fee: 0n,
@@ -71,7 +71,7 @@ describe("TWAMMPoolNode", () => {
         token0SaleRate: 0n,
         token1SaleRate: 1n << 32n,
         lastExecutionTime: 0,
-        saleRateDeltas: []
+        saleRateDeltas: [],
       });
 
       const { executionResources, calculatedAmount } = pool.quote({
@@ -79,7 +79,7 @@ describe("TWAMMPoolNode", () => {
           amount: 1000n,
           token: 1n,
         },
-        meta: { block: { number: 1, time: 32 } }
+        meta: { block: { number: 1, time: 32 } },
       });
 
       expect(calculatedAmount).toMatchSnapshot();
@@ -88,7 +88,7 @@ describe("TWAMMPoolNode", () => {
     });
 
     it("zero sale rate token1, quote token1", () => {
-      const pool = new TWAMMPool({
+      const pool = new TwammPool({
         token0: 0n,
         token1: 1n,
         fee: 0n,
@@ -99,7 +99,7 @@ describe("TWAMMPoolNode", () => {
         token0SaleRate: 1n << 32n,
         token1SaleRate: 0n,
         lastExecutionTime: 0,
-        saleRateDeltas: []
+        saleRateDeltas: [],
       });
 
       const { executionResources, calculatedAmount } = pool.quote({
@@ -107,7 +107,7 @@ describe("TWAMMPoolNode", () => {
           amount: 1000n,
           token: 1n,
         },
-        meta: { block: { number: 1, time: 32 } }
+        meta: { block: { number: 1, time: 32 } },
       });
 
       expect(calculatedAmount).toMatchSnapshot();
@@ -116,7 +116,7 @@ describe("TWAMMPoolNode", () => {
     });
 
     it("zero sale rate token0, max price, quote token1", () => {
-      const pool = new TWAMMPool({
+      const pool = new TwammPool({
         token0: 0n,
         token1: 1n,
         fee: 0n,
@@ -127,7 +127,7 @@ describe("TWAMMPoolNode", () => {
         token0SaleRate: 0n,
         token1SaleRate: 1n << 32n,
         lastExecutionTime: 0,
-        saleRateDeltas: []
+        saleRateDeltas: [],
       });
 
       const { executionResources, calculatedAmount } = pool.quote({
@@ -135,7 +135,7 @@ describe("TWAMMPoolNode", () => {
           amount: 1000n,
           token: 1n,
         },
-        meta: { block: { number: 1, time: 32 } }
+        meta: { block: { number: 1, time: 32 } },
       });
 
       expect(calculatedAmount).toMatchSnapshot();
@@ -144,7 +144,7 @@ describe("TWAMMPoolNode", () => {
     });
 
     it("zero sale rate token1, min price, quote token1", () => {
-      const pool = new TWAMMPool({
+      const pool = new TwammPool({
         token0: 0n,
         token1: 1n,
         fee: 0n,
@@ -155,7 +155,7 @@ describe("TWAMMPoolNode", () => {
         token0SaleRate: 1n << 32n,
         token1SaleRate: 0n,
         lastExecutionTime: 0,
-        saleRateDeltas: []
+        saleRateDeltas: [],
       });
 
       const { executionResources, calculatedAmount } = pool.quote({
@@ -163,7 +163,7 @@ describe("TWAMMPoolNode", () => {
           amount: 1000n,
           token: 1n,
         },
-        meta: { block: { number: 1, time: 32 } }
+        meta: { block: { number: 1, time: 32 } },
       });
 
       expect(calculatedAmount).toMatchSnapshot();
@@ -172,7 +172,7 @@ describe("TWAMMPoolNode", () => {
     });
 
     it("zero sale rate token0, close to max usable price, quote token1", () => {
-      const pool = new TWAMMPool({
+      const pool = new TwammPool({
         token0: 0n,
         token1: 1n,
         fee: 0n,
@@ -183,7 +183,7 @@ describe("TWAMMPoolNode", () => {
         token0SaleRate: 0n,
         token1SaleRate: 1n << 32n,
         lastExecutionTime: 0,
-        saleRateDeltas: []
+        saleRateDeltas: [],
       });
 
       const { executionResources, calculatedAmount } = pool.quote({
@@ -191,7 +191,7 @@ describe("TWAMMPoolNode", () => {
           amount: 1000n,
           token: 1n,
         },
-        meta: { block: { number: 1, time: 32 } }
+        meta: { block: { number: 1, time: 32 } },
       });
 
       expect(calculatedAmount).toMatchSnapshot();
@@ -200,7 +200,7 @@ describe("TWAMMPoolNode", () => {
     });
 
     it("zero sale rate token0, close to max usable price, quote token0", () => {
-      const pool = new TWAMMPool({
+      const pool = new TwammPool({
         token0: 0n,
         token1: 1n,
         fee: 0n,
@@ -211,7 +211,7 @@ describe("TWAMMPoolNode", () => {
         token0SaleRate: 0n,
         token1SaleRate: 1n << 32n,
         lastExecutionTime: 0,
-        saleRateDeltas: []
+        saleRateDeltas: [],
       });
 
       const { executionResources, calculatedAmount } = pool.quote({
@@ -219,7 +219,7 @@ describe("TWAMMPoolNode", () => {
           amount: 1000n,
           token: 0n,
         },
-        meta: { block: { number: 1, time: 32 } }
+        meta: { block: { number: 1, time: 32 } },
       });
 
       expect(calculatedAmount).toMatchSnapshot();
@@ -228,7 +228,7 @@ describe("TWAMMPoolNode", () => {
     });
 
     it("zero sale rate token1, close to min usable price, quote token0", () => {
-      const pool = new TWAMMPool({
+      const pool = new TwammPool({
         token0: 0n,
         token1: 1n,
         fee: 0n,
@@ -239,7 +239,7 @@ describe("TWAMMPoolNode", () => {
         token0SaleRate: 1n << 32n,
         token1SaleRate: 0n,
         lastExecutionTime: 0,
-        saleRateDeltas: []
+        saleRateDeltas: [],
       });
 
       const { executionResources, calculatedAmount } = pool.quote({
@@ -247,7 +247,7 @@ describe("TWAMMPoolNode", () => {
           amount: 1000n,
           token: 0n,
         },
-        meta: { block: { number: 1, time: 32 } }
+        meta: { block: { number: 1, time: 32 } },
       });
 
       expect(calculatedAmount).toMatchSnapshot();
@@ -256,7 +256,7 @@ describe("TWAMMPoolNode", () => {
     });
 
     it("zero sale rate token1, close to min usable price, quote token1", () => {
-      const pool = new TWAMMPool({
+      const pool = new TwammPool({
         token0: 0n,
         token1: 1n,
         fee: 0n,
@@ -267,7 +267,7 @@ describe("TWAMMPoolNode", () => {
         token0SaleRate: 1n << 32n,
         token1SaleRate: 0n,
         lastExecutionTime: 0,
-        saleRateDeltas: []
+        saleRateDeltas: [],
       });
 
       const { executionResources, calculatedAmount } = pool.quote({
@@ -275,7 +275,7 @@ describe("TWAMMPoolNode", () => {
           amount: 1000n,
           token: 1n,
         },
-        meta: { block: { number: 1, time: 32 } }
+        meta: { block: { number: 1, time: 32 } },
       });
 
       expect(calculatedAmount).toMatchSnapshot();
@@ -284,7 +284,7 @@ describe("TWAMMPoolNode", () => {
     });
 
     it("zero sale rate token1, close to min usable price, quote token0", () => {
-      const pool = new TWAMMPool({
+      const pool = new TwammPool({
         token0: 0n,
         token1: 1n,
         fee: 0n,
@@ -295,7 +295,7 @@ describe("TWAMMPoolNode", () => {
         token0SaleRate: 1n << 32n,
         token1SaleRate: 0n,
         lastExecutionTime: 0,
-        saleRateDeltas: []
+        saleRateDeltas: [],
       });
 
       const { executionResources, calculatedAmount } = pool.quote({
@@ -303,7 +303,7 @@ describe("TWAMMPoolNode", () => {
           amount: 1000n,
           token: 0n,
         },
-        meta: { block: { number: 1, time: 32 } }
+        meta: { block: { number: 1, time: 32 } },
       });
 
       expect(calculatedAmount).toMatchSnapshot();
@@ -312,7 +312,7 @@ describe("TWAMMPoolNode", () => {
     });
 
     it("zero sale rate token0, close to max usable price, deltas move to usable price, quote token1", () => {
-      const pool = new TWAMMPool({
+      const pool = new TwammPool({
         token0: 0n,
         token1: 1n,
         fee: 0n,
@@ -327,9 +327,9 @@ describe("TWAMMPoolNode", () => {
           {
             saleRateDelta0: 100000n * (1n << 32n),
             saleRateDelta1: 0n,
-            time: 16
-          }
-        ]
+            time: 16,
+          },
+        ],
       });
 
       const { executionResources, calculatedAmount } = pool.quote({
@@ -337,7 +337,7 @@ describe("TWAMMPoolNode", () => {
           amount: 1000n,
           token: 1n,
         },
-        meta: { block: { number: 1, time: 32 } }
+        meta: { block: { number: 1, time: 32 } },
       });
 
       expect(calculatedAmount).toMatchSnapshot();
@@ -346,7 +346,7 @@ describe("TWAMMPoolNode", () => {
     });
 
     it("zero sale rate token1, close to min usable price, deltas move to usable price, quote token1", () => {
-      const pool = new TWAMMPool({
+      const pool = new TwammPool({
         token0: 0n,
         token1: 1n,
         fee: 0n,
@@ -361,9 +361,9 @@ describe("TWAMMPoolNode", () => {
           {
             saleRateDelta0: 0n,
             saleRateDelta1: 100000n * (1n << 32n),
-            time: 16
-          }
-        ]
+            time: 16,
+          },
+        ],
       });
 
       const { executionResources, calculatedAmount } = pool.quote({
@@ -371,7 +371,7 @@ describe("TWAMMPoolNode", () => {
           amount: 1000n,
           token: 1n,
         },
-        meta: { block: { number: 1, time: 32 } }
+        meta: { block: { number: 1, time: 32 } },
       });
 
       expect(calculatedAmount).toMatchSnapshot();
@@ -380,7 +380,7 @@ describe("TWAMMPoolNode", () => {
     });
 
     it("zero sale rate token0, close to max usable price, deltas move to usable price, quote token0", () => {
-      const pool = new TWAMMPool({
+      const pool = new TwammPool({
         token0: 0n,
         token1: 1n,
         fee: 0n,
@@ -395,9 +395,9 @@ describe("TWAMMPoolNode", () => {
           {
             saleRateDelta0: 100000n * (1n << 32n),
             saleRateDelta1: 0n,
-            time: 16
-          }
-        ]
+            time: 16,
+          },
+        ],
       });
 
       const { executionResources, calculatedAmount } = pool.quote({
@@ -405,7 +405,7 @@ describe("TWAMMPoolNode", () => {
           amount: 1000n,
           token: 0n,
         },
-        meta: { block: { number: 1, time: 32 } }
+        meta: { block: { number: 1, time: 32 } },
       });
 
       expect(calculatedAmount).toMatchSnapshot();
@@ -414,7 +414,7 @@ describe("TWAMMPoolNode", () => {
     });
 
     it("zero sale rate token1, close to min usable price, deltas move to usable price, quote token0", () => {
-      const pool = new TWAMMPool({
+      const pool = new TwammPool({
         token0: 0n,
         token1: 1n,
         fee: 0n,
@@ -429,9 +429,9 @@ describe("TWAMMPoolNode", () => {
           {
             saleRateDelta0: 0n,
             saleRateDelta1: 100000n * (1n << 32n),
-            time: 16
-          }
-        ]
+            time: 16,
+          },
+        ],
       });
 
       const { executionResources, calculatedAmount } = pool.quote({
@@ -439,7 +439,7 @@ describe("TWAMMPoolNode", () => {
           amount: 1000n,
           token: 0n,
         },
-        meta: { block: { number: 1, time: 32 } }
+        meta: { block: { number: 1, time: 32 } },
       });
 
       expect(calculatedAmount).toMatchSnapshot();
@@ -448,7 +448,7 @@ describe("TWAMMPoolNode", () => {
     });
 
     it("1e18 sale rates, no sale rate deltas, quote token1", () => {
-      const pool = new TWAMMPool({
+      const pool = new TwammPool({
         token0: 0n,
         token1: 1n,
         fee: 0n,
@@ -459,7 +459,7 @@ describe("TWAMMPoolNode", () => {
         token0SaleRate: 1n << 32n,
         token1SaleRate: 1n << 32n,
         lastExecutionTime: 0,
-        saleRateDeltas: []
+        saleRateDeltas: [],
       });
 
       const { executionResources, calculatedAmount } = pool.quote({
@@ -467,16 +467,16 @@ describe("TWAMMPoolNode", () => {
           amount: 1000n,
           token: 1n,
         },
-        meta: { block: { number: 1, time: 32 } }
+        meta: { block: { number: 1, time: 32 } },
       });
 
       expect(calculatedAmount).toMatchSnapshot();
       expect(executionResources.initializedTicksCrossed).toEqual(0);
       expect(executionResources.virtualOrderSecondsExecuted).toEqual(32);
-     });
+    });
 
     it("1e18 sale rates, no sale rate deltas, quote token0", () => {
-      const pool = new TWAMMPool({
+      const pool = new TwammPool({
         token0: 0n,
         token1: 1n,
         fee: 0n,
@@ -487,7 +487,7 @@ describe("TWAMMPoolNode", () => {
         token0SaleRate: 1n << 32n,
         token1SaleRate: 1n << 32n,
         lastExecutionTime: 0,
-        saleRateDeltas: []
+        saleRateDeltas: [],
       });
 
       const { executionResources, calculatedAmount } = pool.quote({
@@ -495,16 +495,16 @@ describe("TWAMMPoolNode", () => {
           amount: 1000n,
           token: 0n,
         },
-        meta: { block: { number: 1, time: 32 } }
+        meta: { block: { number: 1, time: 32 } },
       });
 
       expect(calculatedAmount).toMatchSnapshot();
       expect(executionResources.initializedTicksCrossed).toEqual(0);
       expect(executionResources.virtualOrderSecondsExecuted).toEqual(32);
-     });
+    });
 
     it("token0SaleRate > token1SaleRate, no sale rate deltas, quote token1", () => {
-      const pool = new TWAMMPool({
+      const pool = new TwammPool({
         token0: 0n,
         token1: 1n,
         fee: 0n,
@@ -515,7 +515,7 @@ describe("TWAMMPoolNode", () => {
         token0SaleRate: 10n << 32n,
         token1SaleRate: 1n << 32n,
         lastExecutionTime: 0,
-        saleRateDeltas: []
+        saleRateDeltas: [],
       });
 
       const { executionResources, calculatedAmount } = pool.quote({
@@ -523,16 +523,16 @@ describe("TWAMMPoolNode", () => {
           amount: 1000n,
           token: 1n,
         },
-        meta: { block: { number: 1, time: 32 } }
+        meta: { block: { number: 1, time: 32 } },
       });
 
       expect(calculatedAmount).toMatchSnapshot();
       expect(executionResources.initializedTicksCrossed).toEqual(0);
       expect(executionResources.virtualOrderSecondsExecuted).toEqual(32);
-     });
+    });
 
     it("token1SaleRate > token0SaleRate, no sale rate deltas, quote token1", () => {
-      const pool = new TWAMMPool({
+      const pool = new TwammPool({
         token0: 0n,
         token1: 1n,
         fee: 0n,
@@ -543,7 +543,7 @@ describe("TWAMMPoolNode", () => {
         token0SaleRate: 1n << 32n,
         token1SaleRate: 10n << 32n,
         lastExecutionTime: 0,
-        saleRateDeltas: []
+        saleRateDeltas: [],
       });
 
       const { executionResources, calculatedAmount } = pool.quote({
@@ -551,16 +551,16 @@ describe("TWAMMPoolNode", () => {
           amount: 1000n,
           token: 1n,
         },
-        meta: { block: { number: 1, time: 32 } }
+        meta: { block: { number: 1, time: 32 } },
       });
 
       expect(calculatedAmount).toMatchSnapshot();
       expect(executionResources.initializedTicksCrossed).toEqual(0);
       expect(executionResources.virtualOrderSecondsExecuted).toEqual(32);
-     });
+    });
 
     it("token0SaleRate > token1SaleRate, no sale rate deltas, quote token0", () => {
-      const pool = new TWAMMPool({
+      const pool = new TwammPool({
         token0: 0n,
         token1: 1n,
         fee: 0n,
@@ -571,7 +571,7 @@ describe("TWAMMPoolNode", () => {
         token0SaleRate: 10n << 32n,
         token1SaleRate: 1n << 32n,
         lastExecutionTime: 0,
-        saleRateDeltas: []
+        saleRateDeltas: [],
       });
 
       const { executionResources, calculatedAmount } = pool.quote({
@@ -579,16 +579,16 @@ describe("TWAMMPoolNode", () => {
           amount: 1000n,
           token: 0n,
         },
-        meta: { block: { number: 1, time: 32 } }
+        meta: { block: { number: 1, time: 32 } },
       });
 
       expect(calculatedAmount).toMatchSnapshot();
       expect(executionResources.initializedTicksCrossed).toEqual(0);
       expect(executionResources.virtualOrderSecondsExecuted).toEqual(32);
-     });
+    });
 
     it("token1SaleRate > token0SaleRate, no sale rate deltas, quote token0", () => {
-      const pool = new TWAMMPool({
+      const pool = new TwammPool({
         token0: 0n,
         token1: 1n,
         fee: 0n,
@@ -599,7 +599,7 @@ describe("TWAMMPoolNode", () => {
         token0SaleRate: 1n << 32n,
         token1SaleRate: 10n << 32n,
         lastExecutionTime: 0,
-        saleRateDeltas: []
+        saleRateDeltas: [],
       });
 
       const { executionResources, calculatedAmount } = pool.quote({
@@ -607,16 +607,16 @@ describe("TWAMMPoolNode", () => {
           amount: 1000n,
           token: 0n,
         },
-        meta: { block: { number: 1, time: 32 } }
+        meta: { block: { number: 1, time: 32 } },
       });
 
       expect(calculatedAmount).toMatchSnapshot();
       expect(executionResources.initializedTicksCrossed).toEqual(0);
       expect(executionResources.virtualOrderSecondsExecuted).toEqual(32);
-     });
+    });
 
     it("sale rate deltas goes to zero halfway through execution, quote token0", () => {
-      const pool = new TWAMMPool({
+      const pool = new TwammPool({
         token0: 0n,
         token1: 1n,
         fee: 0n,
@@ -631,9 +631,9 @@ describe("TWAMMPoolNode", () => {
           {
             saleRateDelta0: -1n << 32n,
             saleRateDelta1: -1n << 32n,
-            time: 16
-          }
-        ]
+            time: 16,
+          },
+        ],
       });
 
       const { executionResources, calculatedAmount } = pool.quote({
@@ -641,16 +641,16 @@ describe("TWAMMPoolNode", () => {
           amount: 1000n,
           token: 0n,
         },
-        meta: { block: { number: 1, time: 32 } }
+        meta: { block: { number: 1, time: 32 } },
       });
 
       expect(calculatedAmount).toMatchSnapshot();
       expect(executionResources.initializedTicksCrossed).toEqual(0);
       expect(executionResources.virtualOrderSecondsExecuted).toEqual(32);
-     });
+    });
 
     it("sale rate deltas doubles halfway through execution, quote token0", () => {
-      const pool = new TWAMMPool({
+      const pool = new TwammPool({
         token0: 0n,
         token1: 1n,
         fee: 0n,
@@ -665,9 +665,9 @@ describe("TWAMMPoolNode", () => {
           {
             saleRateDelta0: 1n << 32n,
             saleRateDelta1: 1n << 32n,
-            time: 16
-          }
-        ]
+            time: 16,
+          },
+        ],
       });
 
       const { executionResources, calculatedAmount } = pool.quote({
@@ -675,12 +675,12 @@ describe("TWAMMPoolNode", () => {
           amount: 1000n,
           token: 0n,
         },
-        meta: { block: { number: 1, time: 32 } }
+        meta: { block: { number: 1, time: 32 } },
       });
 
       expect(calculatedAmount).toMatchSnapshot();
       expect(executionResources.initializedTicksCrossed).toEqual(0);
       expect(executionResources.virtualOrderSecondsExecuted).toEqual(32);
-     });
+    });
   });
 });

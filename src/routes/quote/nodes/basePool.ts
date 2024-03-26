@@ -46,7 +46,6 @@ export class BasePool implements QuoteNode {
     liquidity: bigint;
     tick: number;
     sortedTicks: Tick[];
-    extension?: bigint;
   }) {
     this.key = {
       token0,

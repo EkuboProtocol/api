@@ -1,28 +1,49 @@
 import { MAX_SQRT_RATIO, MAX_TICK_SPACING, MIN_SQRT_RATIO } from "../math/tick";
 import { calculateNextSqrtRatio } from "../math/twamm";
 import { BasePool } from "./basePool";
-import { BaseNodeState, BaseResources, Quote, QuoteParams } from "./quoteNode";
+import {
+  BaseNodeState,
+  BaseResources,
+  NodeKey,
+  Quote,
+  QuoteNode,
+  QuoteParams,
+} from "./quoteNode";
 
 export const MAX_BOUND_USABLE_TICK_MAGNITUDE = 88368108;
 const MAX_BOUNDS_MIN_SQRT_RATIO: bigint = 22027144413679976675n;
 const MAX_BOUNDS_MAX_SQRT_RATIO: bigint =
   5256790760649093508123362461711849782692726119655358142129n;
 
-export interface TWAMMResources extends BaseResources {
+export interface TwammResources extends BaseResources {
   virtualOrderSecondsExecuted: number;
 }
 
-export interface TWAMMSaleRateDeltas {
+export interface TwammSaleRateDelta {
   saleRateDelta0: bigint;
   saleRateDelta1: bigint;
   time: number;
 }
 
-export class TWAMMPool extends BasePool {
+export interface TwammPoolState extends BaseNodeState {
+  readonly token0SaleRate: bigint;
+  readonly token1SaleRate: bigint;
+  lastExecutionTime: number;
+}
+
+export class TwammPool implements QuoteNode<TwammResources, TwammPoolState> {
+  public get key(): NodeKey {
+    return { ...this.pool.key, extension: this.extension };
+  }
+
+  private readonly extension: bigint;
+  private readonly pool: BasePool;
+
+  // state
   public readonly token0SaleRate: bigint;
   public readonly token1SaleRate: bigint;
-  public lastExecutionTime: number;
-  public readonly saleRateDeltas: TWAMMSaleRateDeltas[];
+  public readonly lastExecutionTime: number;
+  public readonly saleRateDeltas: Readonly<TwammSaleRateDelta[]>;
 
   constructor({
     token0,
@@ -31,11 +52,11 @@ export class TWAMMPool extends BasePool {
     sqrtRatio,
     liquidity,
     tick,
-    extension,
     token0SaleRate,
     token1SaleRate,
     lastExecutionTime,
     saleRateDeltas,
+    extension,
   }: {
     token0: bigint;
     token1: bigint;
@@ -43,13 +64,14 @@ export class TWAMMPool extends BasePool {
     sqrtRatio: bigint;
     liquidity: bigint;
     tick: number;
-    extension: bigint;
     token0SaleRate: bigint;
     token1SaleRate: bigint;
     lastExecutionTime: number;
-    saleRateDeltas: TWAMMSaleRateDeltas[];
+    saleRateDeltas: TwammSaleRateDelta[];
+    extension: bigint;
   }) {
-    super({
+    this.extension = extension;
+    this.pool = new BasePool({
       token0,
       token1,
       tickSpacing: MAX_TICK_SPACING,
@@ -61,7 +83,6 @@ export class TWAMMPool extends BasePool {
         { tick: -MAX_BOUND_USABLE_TICK_MAGNITUDE, liquidityDelta: liquidity },
         { tick: MAX_BOUND_USABLE_TICK_MAGNITUDE, liquidityDelta: -liquidity },
       ],
-      extension,
     });
 
     this.token0SaleRate = token0SaleRate;
@@ -75,26 +96,32 @@ export class TWAMMPool extends BasePool {
     sqrtRatioLimit,
     overrideSwapState,
     meta,
-  }: QuoteParams<BaseNodeState>): Quote<TWAMMResources, BaseNodeState> {
+  }: QuoteParams<TwammPoolState>): Quote<TwammResources, TwammPoolState> {
     const { block } = meta;
 
-    const virtualOrderSecondsExecuted = block.time - this.lastExecutionTime;
+    let lastExecutionTime =
+      overrideSwapState?.lastExecutionTime ?? this.lastExecutionTime;
 
-    let liquidity = this.liquidity;
-    let nextSqrtRatio = this.sqrtRatio;
-    let lastExecutionTime = this.lastExecutionTime;
+    const virtualOrderSecondsExecuted = block.time - lastExecutionTime;
+    if (virtualOrderSecondsExecuted < 0)
+      throw new Error("Last execution time exceeds block time");
+
+    let liquidity = overrideSwapState?.liquidity ?? this.pool.liquidity;
+    let nextSqrtRatio = overrideSwapState?.sqrtRatio ?? this.pool.sqrtRatio;
     let [token0SaleRate, token1SaleRate] = [
-      this.token0SaleRate,
-      this.token1SaleRate,
+      overrideSwapState?.token0SaleRate ?? this.token0SaleRate,
+      overrideSwapState?.token1SaleRate ?? this.token1SaleRate,
     ];
-    const saleRateDeltas: TWAMMSaleRateDeltas[] = this.saleRateDeltas.sort(
-      (a, b) => a.time - b.time,
-    );
     let twammInitializedTicksCrossed = 0;
     let twammTickSpacingsCrossed = 0;
 
+    // cache this
+    let saleRateDeltaIndex = this.saleRateDeltas.findIndex(
+      (srd) => srd.time > lastExecutionTime,
+    );
+
     while (lastExecutionTime !== block.time) {
-      const saleRateDelta = saleRateDeltas.pop();
+      const saleRateDelta = this.saleRateDeltas[saleRateDeltaIndex];
 
       const nextExecutionTime = saleRateDelta ? saleRateDelta.time : block.time;
 
@@ -106,7 +133,7 @@ export class TWAMMPool extends BasePool {
       ];
 
       if (amount0 > 0n && amount1 > 0n) {
-        liquidity = max(this.liquidity, liquidity);
+        liquidity = max(this.pool.liquidity, liquidity);
         nextSqrtRatio = calculateNextSqrtRatio(
           max(
             MAX_BOUNDS_MIN_SQRT_RATIO,
@@ -124,10 +151,10 @@ export class TWAMMPool extends BasePool {
             : [amount1, true, MAX_SQRT_RATIO];
 
         const { executionResources: twammSwapExecutionResources, stateAfter } =
-          super.quote({
+          this.pool.quote({
             tokenAmount: {
               amount,
-              token: isToken1 ? this.key.token1 : this.key.token0,
+              token: isToken1 ? this.pool.key.token1 : this.pool.key.token0,
             },
             sqrtRatioLimit,
             meta,
@@ -147,15 +174,14 @@ export class TWAMMPool extends BasePool {
       if (saleRateDelta) {
         token0SaleRate += saleRateDelta.saleRateDelta0;
         token1SaleRate += saleRateDelta.saleRateDelta1;
+        saleRateDeltaIndex++;
       }
 
       lastExecutionTime = nextExecutionTime;
     }
 
-    this.lastExecutionTime = lastExecutionTime;
-
     const { consumedAmount, calculatedAmount, executionResources, stateAfter } =
-      super.quote({
+      this.pool.quote({
         tokenAmount: { amount, token },
         sqrtRatioLimit,
         overrideSwapState: {
@@ -166,42 +192,36 @@ export class TWAMMPool extends BasePool {
         meta,
       });
 
-    if (twammInitializedTicksCrossed > 0 || twammTickSpacingsCrossed > 0) {
-      return {
-        consumedAmount,
-        calculatedAmount,
-        executionResources: {
-          initializedTicksCrossed:
-            executionResources.initializedTicksCrossed +
-            twammInitializedTicksCrossed,
-          tickSpacingsCrossed:
-            executionResources.tickSpacingsCrossed + twammTickSpacingsCrossed,
-          virtualOrderSecondsExecuted,
-        },
-        stateAfter,
-      };
-    }
-
     return {
       consumedAmount,
       calculatedAmount,
       executionResources: {
-        ...executionResources,
+        initializedTicksCrossed:
+          executionResources.initializedTicksCrossed +
+          twammInitializedTicksCrossed,
+        tickSpacingsCrossed:
+          executionResources.tickSpacingsCrossed + twammTickSpacingsCrossed,
         virtualOrderSecondsExecuted,
       },
-      stateAfter,
+      stateAfter: {
+        ...stateAfter,
+        token0SaleRate,
+        token1SaleRate,
+        lastExecutionTime: meta.block.time,
+      } as TwammPoolState,
     };
   }
 
   public hasLiquidity(): boolean {
-    return this.liquidity > 0n;
+    return this.pool.hasLiquidity();
   }
 
-  get state(): Readonly<BaseNodeState> {
+  get state(): Readonly<TwammPoolState> {
     return {
-      activeTickIndex: 0,
-      liquidity: this.liquidity,
-      sqrtRatio: this.sqrtRatio,
+      ...this.pool.state,
+      token0SaleRate: this.token0SaleRate,
+      token1SaleRate: this.token1SaleRate,
+      lastExecutionTime: this.lastExecutionTime,
     };
   }
 }
