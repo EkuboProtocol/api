@@ -189,7 +189,7 @@ const SellParamsType = z
   .openapi({ description: "The key identifier for a TWAP order in Ekubo" });
 
 export class GetSplitTWAPOrderByDuration extends EkuboAPIRoute {
-  static route = "/split_twap_order_by_duration/:buyToken/:sellToken/:amount/:startTime/:duration";
+  static route = "/split_twap_order_by_duration/:buyToken/:sellToken/:amount/:duration";
 
   static schema: OpenAPIRouteSchema = {
     tags: ["TWAP"],
@@ -205,10 +205,6 @@ export class GetSplitTWAPOrderByDuration extends EkuboAPIRoute {
           description: "The amount of the token to sell",
         }),
       ),
-      startTime: Path(
-        z.literal('now').or(DateIdentifierType).openapi({
-        example: "2020-01-01T00:00:01Z"
-      })),
       duration: Path(NumericType.openapi({
           example: "256"
         })
@@ -272,24 +268,9 @@ export class GetSplitTWAPOrderByDuration extends EkuboAPIRoute {
       return error(400, "Invalid token parameters");
     }
 
-    let startTime: Date;
-
-    try {
-      startTime = params.startTime == "now" ? new Date() : new Date(params.startTime);
-    } catch (e) {
-      return error(400, "Invalid startTime parameters");
-    }
-
     const duration: number = Number(params.duration);
-    const endTime = new Date(new Date().getTime() + duration * 1_000)
-
-    const now = new Date();
-
-    if (endTime < now) {
-        return error(400, "Invalid endTime parameters");
-    } else if (startTime > endTime) {
-        return error(400, "Invalid startTime parameters");
-    } 
+    const startTime: Date = new Date();
+    const endTime = new Date(startTime.getTime() + duration * 1_000)
 
     const orders = await splitOrder(
       sellToken,
