@@ -47,6 +47,11 @@ import {
   ListDrops,
 } from "./routes/meta/drops";
 import { GetFees } from "./routes/meta/fees";
+import {
+  GetSplitTWAPOrderByDate,
+  GetSplitTWAPOrderByDuration
+} from "./routes/twamm";
+
 
 Decimal.set({ precision: 39 });
 
@@ -106,6 +111,8 @@ const router = OpenAPIRouter({
   .get(GetNftMetadata.route, GetNftMetadata)
   .get(ListNftEvents.route, ListNftEvents)
   .get(GetNftImage.route, GetNftImage)
+  .get(GetSplitTWAPOrderByDate.route, GetSplitTWAPOrderByDate)
+  .get(GetSplitTWAPOrderByDuration.route, GetSplitTWAPOrderByDuration)
   .post(IntractApiRoute.route, IntractApiRoute)
   // catch missed routes
   .all("*", () => error(404));

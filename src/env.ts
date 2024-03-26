@@ -11,4 +11,6 @@ export interface Env {
   readonly HYPERDRIVE?: Hyperdrive;
 
   readonly TOKEN_LOGOS_KV?: KVNamespace;
+
+  readonly TWAMM_ADDRESS: string;
 }

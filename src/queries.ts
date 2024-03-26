@@ -2,6 +2,7 @@ import { Client } from "pg";
 import Decimal from "decimal.js-light";
 import { Tick } from "./routes/quote/nodes/plainPool";
 import { Env } from "./env";
+import { TWAMMPoolState } from "./routes/twamm/splitOrder";
 
 interface PositionMetadata {
   lower_bound: string;
@@ -1430,6 +1431,53 @@ export class Queries {
         GROUP BY r.fee_paid_unit
       `,
       values: [since],
+    });
+    return rows;
+  }
+
+  async getTWAMMSaleRateAt({
+    token0,
+    token1,
+    startTime,
+    endTime
+  }: {
+    token0: bigint,
+    token1: bigint,
+    startTime: Date,
+    endTime: Date
+  }) {
+    const { rows } = await this.client.query<TWAMMPoolState>({
+      
+      values: [endTime, startTime, token0, token1],
+      text: `
+              WITH twamm_pool_states AS (
+                  SELECT
+                      pk.key_hash,
+                      pk.fee,
+                      COALESCE(SUM(tou.sale_rate_delta0), 0) AS token0_sale_rate,
+                      COALESCE(SUM(tou.sale_rate_delta1), 0) AS token1_sale_rate
+                  FROM
+                      pool_keys pk
+                      RIGHT JOIN twamm_pool_states_materialized tpsm ON tpsm.key_hash = pk.key_hash
+                      LEFT JOIN twamm_order_updates tou ON tou.key_hash = pk.key_hash
+                          AND start_time <= $1::timestamptz
+                          AND end_time > $2::timestamptz
+                      WHERE
+                          pk.token0 = $3
+                          AND pk.token1 = $4
+                  GROUP BY
+                      pk.key_hash
+              )
+              SELECT 
+                  tps.key_hash,
+                  tps.fee,
+                  tps.token0_sale_rate,
+                  tps.token1_sale_rate,
+                  psm.liquidity
+              FROM 
+                  twamm_pool_states AS tps
+                  LEFT JOIN pool_states_materialized psm ON psm.pool_key_hash = tps.key_hash;
+            `,
     });
     return rows;
   }
