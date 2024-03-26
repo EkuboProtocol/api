@@ -107,7 +107,7 @@ export async function getAllTokens(
       const name = shortString.decodeShortString(row.name).trim();
       const symbol = shortString.decodeShortString(row.symbol).trim();
       const l2_token_address = num.toHex(row.address);
-      if (symbol.length > 8) return;
+      if (symbol.length > 9) return;
       if (
         ["eku", "ekubo", "kubo", "kub", "kube"].includes(symbol.toLowerCase())
       ) {
