@@ -18,7 +18,13 @@ export function calculateNextSqrtRatio(
 
     const sRate = sqrt(token1SaleRate * token0SaleRate);
 
-    const exponent = 0x200000000n * timeElapsed * sRate / liquidity;
+    const roundUp = sqrtRatio > sqrtSaleRatio;
+
+    const exponent = div(
+        0x200000000n * timeElapsed * sRate,
+        liquidity,
+        roundUp
+    );
 
     if (exponent > EXPONENT_LIMIT) {
         return sqrtSaleRatio;
@@ -26,11 +32,27 @@ export function calculateNextSqrtRatio(
 
     const e = exp(exponent);
 
-    const c = ((sqrtSaleRatio - sqrtRatio) << 128n) / (sqrtSaleRatio + sqrtRatio);
+    const [num, sign] = 
+        roundUp ? [sqrtRatio - sqrtSaleRatio, true] : [sqrtSaleRatio - sqrtRatio, false];
 
-    const scale = ((e - c) << 128n) / (e + c);
+    const c = div(
+        num << 128n,
+        (sqrtSaleRatio + sqrtRatio),
+        roundUp
+    );
+
+    const [term1, term2] = [e - c , e + c]
+    const scale = sign ? 
+        div(term2 << 128n, term1, roundUp) :
+        div(term1 << 128n, term2, roundUp);
 
     return (sqrtSaleRatio * scale) >> 128n;
+}
+
+function div(x: bigint, y: bigint, round: boolean): bigint {
+    const quotient = x / y;
+    const remainder: bigint = x % y;
+    return quotient + (remainder !== 0n && round ? 1n : 0n);
 }
 
 // Computes e^x where x is a fixed point 64.64 number and the result is a fixed point 128.128 number

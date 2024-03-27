@@ -707,5 +707,34 @@ describe("TWAMMPoolNode", () => {
       expect(executionResources.virtualOrderSecondsExecuted).toEqual(32);
       expect(executionResources.virtualOrderDeltaTimesCrossed).toEqual(1);
     });
+
+    it("quote -- compare to contract output", () => {
+      const pool = new TwammPool({
+        token0: 0n,
+        token1: 1n,
+        fee: 0n,
+        sqrtRatio: toSqrtRatio(693147),
+        liquidity: 70710696755630728101718334n,
+        tick: 693147,
+        extension: 1n,
+        token0SaleRate: 10526880627450980392156862745n,
+        token1SaleRate: 10526880627450980392156862745n,
+        lastExecutionTime: 0,
+        saleRateDeltas: [],
+      });
+
+      const { executionResources, calculatedAmount } = pool.quote({
+        tokenAmount: {
+          amount: 10_000n * (10n ** 18n),
+          token: 0n,
+        },
+        meta: { block: { number: 1, time: 2040 } },
+      });
+
+      expect(calculatedAmount).toMatchSnapshot();
+      expect(executionResources.initializedTicksCrossed).toEqual(0);
+      expect(executionResources.virtualOrderSecondsExecuted).toEqual(2040);
+      expect(executionResources.virtualOrderDeltaTimesCrossed).toEqual(0);
+    });
   });
 });

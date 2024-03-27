@@ -72,6 +72,14 @@ const TEST_CASES: {
         token1SaleRate: (2n * (10n ** 18n)) << 32n,
         timeElapsed: 1n
     },
+    {
+        description: "round in direction of price",
+         sqrtRatio: 481231811499356508086519009265716982182n,
+         liquidity: 70710696755630728101718334n,
+         token0SaleRate: 10526880627450980392156862745n,
+         token1SaleRate: 10526880627450980392156862745n,
+         timeElapsed: 2040n
+    },
 ];
 
 describe(calculateNextSqrtRatio, () => {

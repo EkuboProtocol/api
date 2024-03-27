@@ -1,8 +1,8 @@
 // Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
 
-exports[`calculateNextSqrtRatio > many such cases > high liquidity, same sale rate 1`] = `680563712996817854572641655025714932412n`;
+exports[`calculateNextSqrtRatio > many such cases > high liquidity, same sale rate 1`] = `680563712996817854544971649595310676716n`;
 
-exports[`calculateNextSqrtRatio > many such cases > high liquidity, token0SaleRate > token1SaleRate 1`] = `340282026639252106125320592736626435739n`;
+exports[`calculateNextSqrtRatio > many such cases > high liquidity, token0SaleRate > token1SaleRate 1`] = `340282026639252106118798709911530476351n`;
 
 exports[`calculateNextSqrtRatio > many such cases > high liquidity, token1SaleRate > token0SaleRate 1`] = `340282707202965102147504331693640508329n`;
 
@@ -15,6 +15,8 @@ exports[`calculateNextSqrtRatio > many such cases > low liquidity, same sale rat
 exports[`calculateNextSqrtRatio > many such cases > low liquidity, token0SaleRate > token1SaleRate 1`] = `240615969168004511538585310832300654592n`;
 
 exports[`calculateNextSqrtRatio > many such cases > low liquidity, token1SaleRate > token0SaleRate 1`] = `481231938336009023077170621664601309184n`;
+
+exports[`calculateNextSqrtRatio > many such cases > round in direction of price 1`] = `481207752340103616358571818546900413164n`;
 
 exports[`exp > test 1 1`] = `340282366920938463481821351505477763073n`;
 

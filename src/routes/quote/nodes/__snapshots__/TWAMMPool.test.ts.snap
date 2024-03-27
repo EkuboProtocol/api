@@ -4,6 +4,8 @@ exports[`TWAMMPoolNode > quote > 1e18 sale rates, no sale rate deltas, quote tok
 
 exports[`TWAMMPoolNode > quote > 1e18 sale rates, no sale rate deltas, quote token1 1`] = `990n`;
 
+exports[`TWAMMPoolNode > quote > quote -- compare to contract output 1`] = `19993991114278719145825n`;
+
 exports[`TWAMMPoolNode > quote > sale rate deltas doubles halfway through execution, quote token0 1`] = `989n`;
 
 exports[`TWAMMPoolNode > quote > sale rate deltas goes to zero halfway through execution, quote token0 1`] = `989n`;
