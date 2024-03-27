@@ -1449,12 +1449,15 @@ export class Queries {
     const { rows } = await this.client.query<TWAMMPoolState>({
       values: [endTime, startTime, token0, token1],
       text: `
-              WITH twamm_pool_states AS (
+              WITH twamm_order_updates_sale_rates AS (
                   SELECT
                       pk.key_hash,
                       pk.fee,
-                      COALESCE(SUM(tou.sale_rate_delta0), 0) AS token0_sale_rate,
-                      COALESCE(SUM(tou.sale_rate_delta1), 0) AS token1_sale_rate
+                      tou.sale_rate_delta0 AS token0_sale_rate,
+                      tou.sale_rate_delta1 AS token1_sale_rate,
+                      FLOOR(EXTRACT(EPOCH FROM (
+                          LEAST($1::timestamptz, tou.end_time) - GREATEST($2::timestamptz, tou.start_time)
+                      ))) AS order_duration
                   FROM
                       pool_keys pk
                       RIGHT JOIN twamm_pool_states_materialized tpsm ON tpsm.key_hash = pk.key_hash
@@ -1464,16 +1467,26 @@ export class Queries {
                       WHERE
                           pk.token0 = $3
                           AND pk.token1 = $4
+              ),
+              twamm_pool_states AS (
+                  SELECT
+                      tousr.key_hash,
+                      tousr.fee,
+                      SUM(COALESCE(tousr.token0_sale_rate * tousr.order_duration, 0)) as token0_sold_amount,
+                      SUM(COALESCE(tousr.token1_sale_rate * tousr.order_duration, 0)) as token1_sold_amount
+                  FROM 
+                      twamm_order_updates_sale_rates AS tousr
                   GROUP BY
-                      pk.key_hash
+                      key_hash, fee
               )
               SELECT 
                   tps.key_hash,
                   tps.fee,
-                  tps.token0_sale_rate,
-                  tps.token1_sale_rate,
-                  psm.liquidity
-              FROM 
+                  tps.token0_sold_amount,
+                  tps.token1_sold_amount,
+                  psm.liquidity,
+                  psm.sqrt_ratio
+              FROM
                   twamm_pool_states AS tps
                   LEFT JOIN pool_states_materialized psm ON psm.pool_key_hash = tps.key_hash;
             `,

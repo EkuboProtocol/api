@@ -6,8 +6,8 @@ Decimal.set({ precision: 100 });
 export type TWAMMPoolState = {
   key_hash: string;
   fee: number,
-  token0_sale_rate: bigint,
-  token1_sale_rate: bigint
+  token0_sold_amount: bigint,
+  token1_sold_amount: bigint
   liquidity: bigint
 }
 
@@ -25,10 +25,10 @@ export async function splitTWAMMOrder(
     const timeWindow = BigInt(endSec - startSec);
 
     let poolStatesWithScores = poolStates.map((poolState) => {
-        const token0Sold = BigInt(poolState.token0_sale_rate) * timeWindow;
-        const token1Sold = BigInt(poolState.token1_sale_rate) * timeWindow;
+        const avgToken0SoldAmount = BigInt(poolState.token0_sold_amount) / timeWindow;
+        const avgToken1SoldAmount = BigInt(poolState.token1_sold_amount) / timeWindow;
 
-        const score = sqrtRate(token0Sold, token1Sold).add(poolState.liquidity.toString()); 
+        const score = sqrtRate(avgToken0SoldAmount, avgToken1SoldAmount).add(poolState.liquidity.toString()); 
 
         return { ...poolState, score };
     }).sort((a, b) => b.score.minus(a.score).toNumber()).slice(0, maxSplits);
