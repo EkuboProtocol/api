@@ -112,6 +112,7 @@ export class BasePool implements QuoteNode {
     }
     if (amount === 0n) {
       return {
+        isPriceIncreasing: isToken1,
         consumedAmount: 0n,
         calculatedAmount: 0n,
         executionResources: {
@@ -199,6 +200,7 @@ export class BasePool implements QuoteNode {
     }
 
     return {
+      isPriceIncreasing: isIncreasing,
       consumedAmount: amount - amountRemaining,
       calculatedAmount,
       executionResources: {

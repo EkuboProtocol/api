@@ -30,6 +30,7 @@ import { BaseOrTwammResourcesGasEstimator } from "./baseResourcesGasEstimator";
 import { findOptimalSplitRoute } from "./findOptimalSplitRoute";
 import { quoteRoute } from "./quoteRoute";
 import { TwammPool } from "./nodes/twammPool";
+import { isPriceIncreasing } from "./math/swap";
 
 const PoolKeyType = z
   .object({
@@ -263,9 +264,9 @@ export class GetQuote extends EkuboAPIRoute {
         },
         sqrt_ratio_limit: num.toHex(
           getSqrtRatioLimit(
-            node.state.sqrtRatio,
             route.quoteRouteResult.quotes[ix].stateAfter.sqrtRatio,
             node.key.tickSpacing,
+            route.quoteRouteResult.quotes[ix].isPriceIncreasing,
           ),
         ),
         skip_ahead: num.toHex(
