@@ -19,7 +19,7 @@ export class BaseResourcesGasEstimator
   public static ETH_PER_TICK_SPACING_CROSSED =
     BaseResourcesGasEstimator.ETH_PER_INITIALIZED_TICK_CROSS.div(5);
 
-  private readonly calculatedTokenPrice: Decimal;
+  readonly calculatedTokenPrice: Decimal;
 
   public constructor(calculatedTokenPrice: Decimal) {
     this.calculatedTokenPrice = calculatedTokenPrice;
@@ -88,6 +88,11 @@ export class BaseOrTwammResourcesGasEstimator
     this.baseGasEstimator = new BaseResourcesGasEstimator(calculatedTokenPrice);
   }
 
+  public static EXECUTION_COST_EXECUTE_VIRTUAL_ORDERS = new Decimal("1e13");
+  public static EXECUTION_COST_EXECUTE_VIRTUAL_ORDERS_CROSS_DELTA = new Decimal(
+    "1e14",
+  );
+
   getGasAdjustedAmount(
     calculatedAmount: bigint,
     route: (TwammPool | BasePool)[],
@@ -107,15 +112,35 @@ export class BaseOrTwammResourcesGasEstimator
       poolStateOverrides,
     );
 
-    const adjusted =
+    return (
       baseAmount -
-      route.reduce<bigint>((memo, value) => {
-        if (!(route instanceof TwammPool)) return memo;
+      route.reduce<bigint>((memo, node, ix) => {
+        if (!(node instanceof TwammPool)) return memo;
 
-        // todo: estimate gas of twamm swap
-        return memo;
-      }, 0n);
+        // no additional cost if the pool has already been touched
+        if (poolStateOverrides.has(node)) {
+          return memo;
+        }
 
-    return adjusted;
+        const resources = quoteResults[ix].executionResources;
+
+        if (!("virtualOrderSecondsExecuted" in resources)) return memo;
+
+        if (resources.virtualOrderSecondsExecuted === 0) return memo;
+
+        return (
+          memo +
+          BigInt(
+            BaseOrTwammResourcesGasEstimator.EXECUTION_COST_EXECUTE_VIRTUAL_ORDERS.add(
+              BaseOrTwammResourcesGasEstimator.EXECUTION_COST_EXECUTE_VIRTUAL_ORDERS_CROSS_DELTA.mul(
+                resources.virtualOrderDeltaTimesCrossed,
+              ),
+            )
+              .mul(this.baseGasEstimator.calculatedTokenPrice)
+              .toFixed(0, Decimal.ROUND_DOWN),
+          )
+        );
+      }, 0n)
+    );
   }
 }

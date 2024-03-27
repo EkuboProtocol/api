@@ -94,6 +94,7 @@ export function findOptimalSplitRoute<
             splitResult.gasAdjustedCalculatedAmount,
           quotes: splitResult.quoteRouteResult.quotes.map(
             (newQuoteResult, ix) => ({
+              isPriceIncreasing: newQuoteResult.isPriceIncreasing,
               // use the latter state, since it is the most updated
               stateAfter: newQuoteResult.stateAfter,
               calculatedAmount:

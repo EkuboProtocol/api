@@ -565,6 +565,7 @@ describe("PoolNode", () => {
             "initializedTicksCrossed": 6,
             "tickSpacingsCrossed": 156,
           },
+          "isPriceIncreasing": true,
           "stateAfter": {
             "activeTickIndex": 216,
             "liquidity": 1838637850921516n,
@@ -589,6 +590,7 @@ describe("PoolNode", () => {
             "initializedTicksCrossed": 117,
             "tickSpacingsCrossed": 25385,
           },
+          "isPriceIncreasing": true,
           "stateAfter": {
             "activeTickIndex": 327,
             "liquidity": 10987751870970n,
@@ -613,6 +615,7 @@ describe("PoolNode", () => {
             "initializedTicksCrossed": 5,
             "tickSpacingsCrossed": 108,
           },
+          "isPriceIncreasing": false,
           "stateAfter": {
             "activeTickIndex": 205,
             "liquidity": 3707980262711434n,
@@ -637,6 +640,7 @@ describe("PoolNode", () => {
             "initializedTicksCrossed": 21,
             "tickSpacingsCrossed": 491,
           },
+          "isPriceIncreasing": false,
           "stateAfter": {
             "activeTickIndex": 189,
             "liquidity": 20066300368579088n,
@@ -661,6 +665,7 @@ describe("PoolNode", () => {
             "initializedTicksCrossed": 5,
             "tickSpacingsCrossed": 106,
           },
+          "isPriceIncreasing": false,
           "stateAfter": {
             "activeTickIndex": 205,
             "liquidity": 3707980262711434n,
@@ -684,6 +689,7 @@ describe("PoolNode", () => {
             "initializedTicksCrossed": 21,
             "tickSpacingsCrossed": 498,
           },
+          "isPriceIncreasing": false,
           "stateAfter": {
             "activeTickIndex": 189,
             "liquidity": 20066300368579088n,
@@ -707,6 +713,7 @@ describe("PoolNode", () => {
             "initializedTicksCrossed": 6,
             "tickSpacingsCrossed": 169,
           },
+          "isPriceIncreasing": true,
           "stateAfter": {
             "activeTickIndex": 216,
             "liquidity": 1838637850921516n,
@@ -730,6 +737,7 @@ describe("PoolNode", () => {
             "initializedTicksCrossed": 121,
             "tickSpacingsCrossed": 433100,
           },
+          "isPriceIncreasing": true,
           "stateAfter": {
             "activeTickIndex": 331,
             "liquidity": 0n,
@@ -1654,6 +1662,7 @@ describe("PoolNode", () => {
             "initializedTicksCrossed": 0,
             "tickSpacingsCrossed": 0,
           },
+          "isPriceIncreasing": true,
           "stateAfter": {
             "activeTickIndex": 257,
             "liquidity": 3214722905666182801858n,
@@ -1699,6 +1708,7 @@ describe("PoolNode", () => {
             "initializedTicksCrossed": 3,
             "tickSpacingsCrossed": 243398,
           },
+          "isPriceIncreasing": false,
           "stateAfter": {
             "activeTickIndex": -1,
             "liquidity": 0n,

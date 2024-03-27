@@ -167,45 +167,43 @@ export class TwammPool implements QuoteNode<TwammResources, TwammPoolState> {
           timeElapsed,
         );
 
-        const quote =
-          this.basePool.quote({
-            tokenAmount: {
-              amount: -MAX_U128,
-              token: current_sqrt_ratio >= nextSqrtRatio
+        const quote = this.basePool.quote({
+          tokenAmount: {
+            amount: -MAX_U128,
+            token:
+              current_sqrt_ratio >= nextSqrtRatio
                 ? this.basePool.key.token1
                 : this.basePool.key.token0,
-            },
-            overrideSwapState: poolOverrideSwapState,
-            sqrtRatioLimit: nextSqrtRatio,
-            meta,
-          });
-          
-          poolOverrideSwapState = quote.stateAfter;
-          quoteExecutionResources = quote.executionResources;
+          },
+          overrideSwapState: poolOverrideSwapState,
+          sqrtRatioLimit: nextSqrtRatio,
+          meta,
+        });
+
+        poolOverrideSwapState = quote.stateAfter;
+        quoteExecutionResources = quote.executionResources;
       } else if (amount0 > 0n || amount1 > 0n) {
         const [amount, isToken1, sqrtRatioLimit] =
           amount0 !== 0n
             ? [amount0, false, MIN_SQRT_RATIO]
             : [amount1, true, MAX_SQRT_RATIO];
 
-        const quote =
-          this.basePool.quote({
-            tokenAmount: {
-              amount,
-              token: isToken1
-                ? this.basePool.key.token1
-                : this.basePool.key.token0,
-            },
-            overrideSwapState: poolOverrideSwapState,
-            sqrtRatioLimit,
-            meta,
-          });
+        const quote = this.basePool.quote({
+          tokenAmount: {
+            amount,
+            token: isToken1
+              ? this.basePool.key.token1
+              : this.basePool.key.token0,
+          },
+          overrideSwapState: poolOverrideSwapState,
+          sqrtRatioLimit,
+          meta,
+        });
 
         poolOverrideSwapState = quote.stateAfter;
         quoteExecutionResources = quote.executionResources;
 
         nextSqrtRatio = poolOverrideSwapState.sqrtRatio;
-
       }
 
       // if the last swap pushes the price out of range, the pool will have no liquidity
@@ -232,6 +230,7 @@ export class TwammPool implements QuoteNode<TwammResources, TwammPoolState> {
       calculatedAmount,
       executionResources,
       stateAfter: finalStateAfter,
+      isPriceIncreasing,
     } = this.basePool.quote({
       tokenAmount,
       sqrtRatioLimit,
@@ -240,6 +239,7 @@ export class TwammPool implements QuoteNode<TwammResources, TwammPoolState> {
     });
 
     return {
+      isPriceIncreasing,
       consumedAmount,
       calculatedAmount,
       executionResources: {
