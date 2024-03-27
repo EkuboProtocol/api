@@ -1,0 +1,49 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`TWAMMPoolNode > quote > 1e18 sale rates, no sale rate deltas, quote token0 1`] = `989n`;
+
+exports[`TWAMMPoolNode > quote > 1e18 sale rates, no sale rate deltas, quote token1 1`] = `990n`;
+
+exports[`TWAMMPoolNode > quote > quote -- compare to contract output 1`] = `19993991114278719145825n`;
+
+exports[`TWAMMPoolNode > quote > sale rate deltas doubles halfway through execution, quote token0 1`] = `989n`;
+
+exports[`TWAMMPoolNode > quote > sale rate deltas goes to zero halfway through execution, quote token0 1`] = `989n`;
+
+exports[`TWAMMPoolNode > quote > token0SaleRate > token1SaleRate, no sale rate deltas, quote token0 1`] = `983n`;
+
+exports[`TWAMMPoolNode > quote > token0SaleRate > token1SaleRate, no sale rate deltas, quote token1 1`] = `717n`;
+
+exports[`TWAMMPoolNode > quote > token1SaleRate > token0SaleRate, no sale rate deltas, quote token0 1`] = `994n`;
+
+exports[`TWAMMPoolNode > quote > token1SaleRate > token0SaleRate, no sale rate deltas, quote token1 1`] = `984n`;
+
+exports[`TWAMMPoolNode > quote > zero sale rate token0, close to max usable price, deltas move to usable price, quote token0 1`] = `390n`;
+
+exports[`TWAMMPoolNode > quote > zero sale rate token0, close to max usable price, deltas move to usable price, quote token1 1`] = `2555n`;
+
+exports[`TWAMMPoolNode > quote > zero sale rate token0, close to max usable price, quote token0 1`] = `15448319606494511814769784n`;
+
+exports[`TWAMMPoolNode > quote > zero sale rate token0, close to max usable price, quote token1 1`] = `0n`;
+
+exports[`TWAMMPoolNode > quote > zero sale rate token0, max price, quote token1 1`] = `0n`;
+
+exports[`TWAMMPoolNode > quote > zero sale rate token0, quote token1 1`] = `998n`;
+
+exports[`TWAMMPoolNode > quote > zero sale rate token1, close to min usable price, deltas move to usable price, quote token0 1`] = `2555n`;
+
+exports[`TWAMMPoolNode > quote > zero sale rate token1, close to min usable price, deltas move to usable price, quote token1 1`] = `390n`;
+
+exports[`TWAMMPoolNode > quote > zero sale rate token1, close to min usable price, quote token0 1`] = `0n`;
+
+exports[`TWAMMPoolNode > quote > zero sale rate token1, close to min usable price, quote token0 2`] = `0n`;
+
+exports[`TWAMMPoolNode > quote > zero sale rate token1, close to min usable price, quote token1 1`] = `15448319606494511814769784n`;
+
+exports[`TWAMMPoolNode > quote > zero sale rate token1, min price, quote token1 1`] = `18446739710271795309434404n`;
+
+exports[`TWAMMPoolNode > quote > zero sale rate token1, quote token1 1`] = `999n`;
+
+exports[`TWAMMPoolNode > quote > zero sale rates, quote token0 1`] = `999n`;
+
+exports[`TWAMMPoolNode > quote > zero sale rates, quote token1 1`] = `990n`;
