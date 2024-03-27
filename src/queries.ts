@@ -2,7 +2,8 @@ import { Client } from "pg";
 import Decimal from "decimal.js-light";
 import { Tick } from "./routes/quote/nodes/basePool";
 import { Env } from "./env";
-import { TWAMMPoolState } from "./routes/twamm/splitOrder";
+import { TwammExtensionPoolState } from "./routes/twamm/splitOrder";
+import { TwammSaleRateDelta } from "./routes/quote/nodes/twammPool";
 
 interface PositionMetadata {
   lower_bound: string;
@@ -16,7 +17,7 @@ interface PositionMetadata {
   minted_tx_hash: string;
 }
 
-export interface PoolState {
+export interface BasePoolStateQueryResult {
   pool_key_hash: string;
   token0: string;
   token1: string;
@@ -28,6 +29,13 @@ export interface PoolState {
   liquidity: string;
   last_event_id: string;
   last_liquidity_update_event_id: string;
+}
+
+export interface TwammPoolStateQueryResult
+  extends Omit<BasePoolStateQueryResult, "last_liquidity_update_event_id"> {
+  token0_sale_rate: string;
+  token1_sale_rate: string;
+  last_execution_time: Date;
 }
 
 export class Queries {
@@ -59,21 +67,21 @@ export class Queries {
 
   public async getAllPoolsWithStates() {
     return this.client.query<
-      Omit<PoolState, "last_liquidity_update_event_id">
+      Omit<BasePoolStateQueryResult, "last_liquidity_update_event_id">
     >(`
-            SELECT pool_key_hash,
-                   token0,
-                   token1,
-                   fee,
-                   tick_spacing,
-                   extension,
-                   sqrt_ratio,
-                   tick,
-                   liquidity,
-                   last_event_id
-            FROM pool_states_materialized
-                     JOIN pool_keys ON pool_key_hash = key_hash
-        `);
+      SELECT pool_key_hash,
+             token0,
+             token1,
+             fee,
+             tick_spacing,
+             extension,
+             sqrt_ratio,
+             tick,
+             liquidity,
+             last_event_id
+      FROM pool_states_materialized
+             JOIN pool_keys ON pool_key_hash = key_hash
+    `);
   }
 
   // Returns all pools containing either tokenA or tokenB and their states
@@ -86,39 +94,95 @@ export class Queries {
     tokenB: bigint;
     extension?: bigint;
   }) {
-    return this.client.query<PoolState>({
+    return this.client.query<BasePoolStateQueryResult>({
       text: `
-                WITH paired_with_a AS (SELECT (CASE WHEN token0 = $1 THEN token1 ELSE token0 END) AS token
-                                       FROM pool_keys
-                                       WHERE token0 = $1
-                                          OR token1 = $1),
-                     paired_with_b AS (SELECT (CASE WHEN token0 = $2 THEN token1 ELSE token0 END) AS token
-                                       FROM pool_keys
-                                       WHERE token0 = $2
-                                          OR token1 = $2),
-                     paired_with_both AS (SELECT token
-                                          FROM paired_with_a
-                                          INTERSECT
-                                          SELECT token
-                                          FROM paired_with_b)
-                SELECT pool_key_hash,
-                       token0,
-                       token1,
-                       fee,
-                       tick_spacing,
-                       extension,
-                       sqrt_ratio,
-                       tick,
-                       liquidity,
-                       last_event_id,
-                       last_liquidity_update_event_id
-                FROM pool_states_materialized
-                         JOIN pool_keys ON pool_key_hash = key_hash
-                WHERE ((token0 IN ($1, $2) OR token0 IN (SELECT token FROM paired_with_both)) AND
-                       (token1 IN ($1, $2) OR token1 IN (SELECT token FROM paired_with_both)))
-                  AND extension = $3
-            `,
+          WITH paired_with_a AS (SELECT (CASE WHEN token0 = $1 THEN token1 ELSE token0 END) AS token
+                                 FROM pool_keys
+                                 WHERE token0 = $1
+                                    OR token1 = $1),
+               paired_with_b AS (SELECT (CASE WHEN token0 = $2 THEN token1 ELSE token0 END) AS token
+                                 FROM pool_keys
+                                 WHERE token0 = $2
+                                    OR token1 = $2),
+               paired_with_both AS (SELECT token
+                                    FROM paired_with_a
+                                    INTERSECT
+                                    SELECT token
+                                    FROM paired_with_b)
+          SELECT pool_key_hash,
+                 token0,
+                 token1,
+                 fee,
+                 tick_spacing,
+                 extension,
+                 sqrt_ratio,
+                 tick,
+                 liquidity,
+                 last_event_id,
+                 last_liquidity_update_event_id
+          FROM pool_states_materialized
+                   JOIN pool_keys ON pool_key_hash = key_hash
+          WHERE ((token0 IN ($1, $2) OR token0 IN (SELECT token FROM paired_with_both)) AND
+                 (token1 IN ($1, $2) OR token1 IN (SELECT token FROM paired_with_both)))
+            AND extension = $3
+      `,
       values: [tokenA, tokenB, extension],
+    });
+  }
+
+  public async getAllRoutableTwammPoolStates({
+    tokenA,
+    tokenB,
+  }: {
+    tokenA: bigint;
+    tokenB: bigint;
+  }) {
+    return this.client.query<TwammPoolStateQueryResult>({
+      text: `
+        WITH paired_with_a AS (SELECT (CASE
+                                         WHEN token0 = $1
+                                           THEN token1
+                                         ELSE token0 END) AS token
+                               FROM pool_keys
+                               WHERE token0 = $1
+                                  OR token1 = $1),
+             paired_with_b AS (SELECT (CASE
+                                         WHEN token0 = $2
+                                           THEN token1
+                                         ELSE token0 END) AS token
+                               FROM pool_keys
+                               WHERE token0 = $2
+                                  OR token1 = $2),
+             paired_with_both AS (SELECT token
+                                  FROM paired_with_a
+                                  INTERSECT
+                                  SELECT token
+                                  FROM paired_with_b)
+        SELECT pool_key_hash,
+               token0,
+               token1,
+               fee,
+               tick_spacing,
+               extension,
+               sqrt_ratio,
+               tick,
+               liquidity,
+               GREATEST(last_event_id,
+                        (SELECT event_id FROM twamm_virtual_order_executions WHERE key_hash = pk.key_hash ORDER BY event_id DESC LIMIT 1),
+                        (SELECT event_id FROM twamm_order_updates WHERE key_hash = pk.key_hash ORDER BY event_id DESC LIMIT 1),
+                        (SELECT event_id FROM twamm_proceeds_withdrawals WHERE key_hash = pk.key_hash ORDER BY event_id DESC LIMIT 1)) AS last_event_id,
+               token0_sale_rate,
+               token1_sale_rate,
+               block_time                                 AS last_execution_time
+        FROM twamm_pool_states_materialized AS tpsm
+               JOIN pool_keys pk ON tpsm.key_hash = pk.key_hash
+               JOIN pool_states_materialized psm ON tpsm.key_hash = psm.pool_key_hash
+        WHERE (token0 IN ($1, $2)
+          OR token0 IN (SELECT token FROM paired_with_both))
+          AND (token1 IN ($1, $2)
+          OR token1 IN (SELECT token FROM paired_with_both));
+      `,
+      values: [tokenA, tokenB],
     });
   }
 
@@ -156,8 +220,10 @@ export class Queries {
     keyHash,
   }: {
     keyHash: bigint;
-  }): Promise<PoolState> {
-    const { rows } = await this.client.query<Omit<PoolState, "pool_key_hash">>({
+  }): Promise<BasePoolStateQueryResult> {
+    const { rows } = await this.client.query<
+      Omit<BasePoolStateQueryResult, "pool_key_hash">
+    >({
       text: `
                 SELECT token0,
                        token1,
@@ -1130,11 +1196,11 @@ export class Queries {
       tick: number;
     }>({
       text: `
-                SELECT pool_key_hash, tick, net_liquidity_delta_diff AS liquidity_delta
-                FROM per_pool_per_tick_liquidity_materialized
-                WHERE pool_key_hash = ANY ($1::NUMERIC[])
-                ORDER BY pool_key_hash, tick
-            `,
+          SELECT pool_key_hash, tick, net_liquidity_delta_diff AS liquidity_delta
+          FROM per_pool_per_tick_liquidity_materialized
+          WHERE pool_key_hash = ANY ($1::NUMERIC[])
+          ORDER BY pool_key_hash, tick
+      `,
       values: [poolKeyHashes],
     });
 
@@ -1152,6 +1218,50 @@ export class Queries {
 
       return memo;
     }, {});
+  }
+
+  public async getOrderTimeData({
+    poolKeyHashes,
+  }: {
+    poolKeyHashes: bigint[];
+  }): Promise<{ [key_hash: string]: TwammSaleRateDelta[] }> {
+    const { rows } = await this.client.query<{
+      pool_key_hash: string;
+      time: Date;
+      net_sale_rate_delta0: string;
+      net_sale_rate_delta1: string;
+    }>({
+      text: `
+          SELECT pool_key_hash, time, net_sale_rate_delta0, net_sale_rate_delta1
+          FROM twamm_sale_rate_deltas_materialized
+          WHERE pool_key_hash = ANY ($1::NUMERIC[])
+          ORDER BY pool_key_hash, time
+      `,
+      values: [poolKeyHashes],
+    });
+
+    return rows.reduce<{ [pool_key_hash: string]: TwammSaleRateDelta[] }>(
+      (memo, value) => {
+        if (memo[value.pool_key_hash]) {
+          memo[value.pool_key_hash].push({
+            time: value.time.getTime() / 1000,
+            saleRateDelta0: BigInt(value.net_sale_rate_delta0),
+            saleRateDelta1: BigInt(value.net_sale_rate_delta1),
+          });
+        } else {
+          memo[value.pool_key_hash] = [
+            {
+              time: value.time.getTime() / 1000,
+              saleRateDelta0: BigInt(value.net_sale_rate_delta0),
+              saleRateDelta1: BigInt(value.net_sale_rate_delta1),
+            },
+          ];
+        }
+
+        return memo;
+      },
+      {},
+    );
   }
 
   public async getLeaderboard({
@@ -1446,7 +1556,7 @@ export class Queries {
     startTime: Date;
     endTime: Date;
   }) {
-    const { rows } = await this.client.query<TWAMMPoolState>({
+    const { rows } = await this.client.query<TwammExtensionPoolState>({
       values: [endTime, startTime, token0, token1],
       text: `
               WITH twamm_order_updates_sale_rates AS (

@@ -3,18 +3,20 @@ import { EkuboAPIRoute, RequestContext } from "../../shared/context";
 import { getAllTokens, getTokenByIdentifier, TokenInfo } from "../meta/tokens";
 import Decimal from "decimal.js-light";
 import { createQueries, Queries } from "../../queries";
-import { OpenAPIRouteSchema, Path, Query } from "@cloudflare/itty-router-openapi";
+import {
+  OpenAPIRouteSchema,
+  Path,
+  Query,
+} from "@cloudflare/itty-router-openapi";
 import { z } from "zod";
 import {
   AddressType,
   TokenIdentifierType,
   DateType,
   DateIdentifierType,
-  NumericType
+  NumericType,
 } from "../../shared/validation/address";
-import {
-  splitTWAMMOrder, TWAMMPoolState,
-} from "./splitOrder";
+import { splitTWAMMOrder, TwammExtensionPoolState } from "./splitOrder";
 
 const OrderKeyType = z
   .object({
@@ -27,25 +29,25 @@ const OrderKeyType = z
         "0x053c91253bc9682c04929ca02ed00b3e423f6710d2ee7e0d5ebb06f3ecf368a8",
     }),
     fee: z.string().openapi({
-      example: "1020847100762815411640772995208708096"
+      example: "1020847100762815411640772995208708096",
     }),
     start_time: DateType.openapi({
-        example: "2020-01-01T00:00:00Z"
+      example: "2020-01-01T00:00:00Z",
     }),
     end_time: DateType.openapi({
-        example: "2020-01-01T00:00:01Z"
+      example: "2020-01-01T00:00:01Z",
     }),
   })
   .openapi({ description: "The key identifier for a TWAP order in Ekubo" });
- 
+
 export class GetSplitTWAPOrderByDate extends EkuboAPIRoute {
-  static route = "/split_twap_order_by_date/:buyToken/:sellToken/:amount/:startTime/:endTime";
+  static route =
+    "/split_twap_order_by_date/:buyToken/:sellToken/:amount/:startTime/:endTime";
 
   static schema: OpenAPIRouteSchema = {
     tags: ["TWAP"],
     summary: "Split TWAP order by date",
-    description:
-      "Returns a set of orders split across TWAMM pools",
+    description: "Returns a set of orders split across TWAMM pools",
     parameters: {
       buyToken: Path(TokenIdentifierType, { example: "USDC" }),
       sellToken: Path(TokenIdentifierType, { example: "ETH" }),
@@ -56,10 +58,10 @@ export class GetSplitTWAPOrderByDate extends EkuboAPIRoute {
         }),
       ),
       startTime: Path(DateIdentifierType, {
-        example: "2020-01-01T00:00:01Z"
+        example: "2020-01-01T00:00:01Z",
       }),
       endTime: Path(DateIdentifierType, {
-        example: "2020-01-02T00:00:01Z"
+        example: "2020-01-02T00:00:01Z",
       }),
       maxSplits: Query(z.coerce.number().int().min(0).max(8), {
         description:
@@ -79,8 +81,8 @@ export class GetSplitTWAPOrderByDate extends EkuboAPIRoute {
                   examples: ["1000000", "100000000000000"],
                   description: "The amount to sell on this pool",
                 }),
-                order_key: OrderKeyType
-              })
+                order_key: OrderKeyType,
+              }),
             )
             .openapi({
               description: "The list of TWAP orders to place",
@@ -126,10 +128,10 @@ export class GetSplitTWAPOrderByDate extends EkuboAPIRoute {
     const now = new Date();
 
     if (endTime < now) {
-        return error(400, "Invalid endTime parameters");
+      return error(400, "Invalid endTime parameters");
     } else if (startTime > endTime) {
-        return error(400, "Invalid startTime parameters");
-    } 
+      return error(400, "Invalid startTime parameters");
+    }
 
     const orders = await splitOrder(
       sellToken,
@@ -138,7 +140,7 @@ export class GetSplitTWAPOrderByDate extends EkuboAPIRoute {
       endTime,
       amount,
       maxSplits,
-      queries
+      queries,
     );
 
     if (orders.length == 0) {
@@ -147,7 +149,7 @@ export class GetSplitTWAPOrderByDate extends EkuboAPIRoute {
 
     return json(
       {
-        orders: orders.map(order => {
+        orders: orders.map((order) => {
           return {
             amount: order.amount,
             order_key: {
@@ -155,10 +157,10 @@ export class GetSplitTWAPOrderByDate extends EkuboAPIRoute {
               buy_token: buyToken.l2_token_address,
               fee: order.fee,
               start_time: startTime,
-              end_time: endTime
-            }
-          }
-        })
+              end_time: endTime,
+            },
+          };
+        }),
       },
       {
         headers: {
@@ -180,22 +182,22 @@ const SellParamsType = z
         "0x053c91253bc9682c04929ca02ed00b3e423f6710d2ee7e0d5ebb06f3ecf368a8",
     }),
     fee: z.string().openapi({
-      example: "1020847100762815411640772995208708096"
+      example: "1020847100762815411640772995208708096",
     }),
     duration: NumericType.openapi({
-      example: "256"
+      example: "256",
     }),
   })
   .openapi({ description: "The key identifier for a TWAP order in Ekubo" });
 
 export class GetSplitTWAPOrderByDuration extends EkuboAPIRoute {
-  static route = "/split_twap_order_by_duration/:buyToken/:sellToken/:amount/:duration";
+  static route =
+    "/split_twap_order_by_duration/:buyToken/:sellToken/:amount/:duration";
 
   static schema: OpenAPIRouteSchema = {
     tags: ["TWAP"],
     summary: "Split TWAP order by duration",
-    description:
-      "Returns a set of orders split across TWAMM pools",
+    description: "Returns a set of orders split across TWAMM pools",
     parameters: {
       buyToken: Path(TokenIdentifierType, { example: "USDC" }),
       sellToken: Path(TokenIdentifierType, { example: "ETH" }),
@@ -205,9 +207,10 @@ export class GetSplitTWAPOrderByDuration extends EkuboAPIRoute {
           description: "The amount of the token to sell",
         }),
       ),
-      duration: Path(NumericType.openapi({
-          example: "256"
-        })
+      duration: Path(
+        NumericType.openapi({
+          example: "256",
+        }),
       ),
       maxSplits: Query(z.coerce.number().int().min(0).max(8), {
         description:
@@ -227,8 +230,8 @@ export class GetSplitTWAPOrderByDuration extends EkuboAPIRoute {
                   examples: ["1000000", "100000000000000"],
                   description: "The amount to sell on this pool",
                 }),
-                sell_params: SellParamsType
-              })
+                sell_params: SellParamsType,
+              }),
             )
             .openapi({
               description: "The list of TWAP orders to place",
@@ -270,7 +273,7 @@ export class GetSplitTWAPOrderByDuration extends EkuboAPIRoute {
 
     const duration: number = Number(params.duration);
     const startTime: Date = new Date();
-    const endTime = new Date(startTime.getTime() + duration * 1_000)
+    const endTime = new Date(startTime.getTime() + duration * 1_000);
 
     const orders = await splitOrder(
       sellToken,
@@ -279,7 +282,7 @@ export class GetSplitTWAPOrderByDuration extends EkuboAPIRoute {
       endTime,
       amount,
       maxSplits,
-      queries
+      queries,
     );
 
     if (orders.length == 0) {
@@ -288,7 +291,7 @@ export class GetSplitTWAPOrderByDuration extends EkuboAPIRoute {
 
     return json(
       {
-        orders: orders.map(order => {
+        orders: orders.map((order) => {
           return {
             amount: order.amount,
             sell_params: {
@@ -296,9 +299,9 @@ export class GetSplitTWAPOrderByDuration extends EkuboAPIRoute {
               buy_token: buyToken.l2_token_address,
               fee: order.fee,
               duration,
-            }
-          }
-        })
+            },
+          };
+        }),
       },
       {
         headers: {
@@ -316,27 +319,30 @@ async function splitOrder(
   endTime: Date,
   amount: bigint,
   maxSplits: number,
-  queries: Queries
+  queries: Queries,
 ) {
   const sellTokenAddress: string = sellToken.l2_token_address;
   const buyTokenAddress: string = buyToken.l2_token_address;
 
-  const [token0, token1]: [string, string] = BigInt(sellToken.l2_token_address) > BigInt(buyToken.l2_token_address) ?
-    [buyTokenAddress, sellTokenAddress] : [sellTokenAddress, buyTokenAddress];
+  const [token0, token1]: [string, string] =
+    BigInt(sellToken.l2_token_address) > BigInt(buyToken.l2_token_address)
+      ? [buyTokenAddress, sellTokenAddress]
+      : [sellTokenAddress, buyTokenAddress];
 
-  const poolStates: TWAMMPoolState[] = await queries.getTWAMMSaleRateAt({
-    token0: BigInt(token0),
-    token1: BigInt(token1),
-    startTime,
-    endTime
-  });
+  const poolStates: TwammExtensionPoolState[] =
+    await queries.getTWAMMSaleRateAt({
+      token0: BigInt(token0),
+      token1: BigInt(token1),
+      startTime,
+      endTime,
+    });
 
   const orders = await splitTWAMMOrder(
     amount,
     startTime,
     endTime,
     poolStates,
-    maxSplits
+    maxSplits,
   );
   return orders;
 }

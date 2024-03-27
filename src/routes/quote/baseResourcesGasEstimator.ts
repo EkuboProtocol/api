@@ -6,6 +6,8 @@ import {
   QuoteNode,
 } from "./nodes/quoteNode";
 import Decimal from "decimal.js-light";
+import { TwammPool, TwammPoolState, TwammResources } from "./nodes/twammPool";
+import { BasePool } from "./nodes/basePool";
 
 export class BaseResourcesGasEstimator
   implements GasEstimator<BaseResources, BaseNodeState, QuoteNode>
@@ -69,5 +71,51 @@ export class BaseResourcesGasEstimator
     );
 
     return calculatedAmount - gasInOtherToken;
+  }
+}
+
+export class BaseOrTwammResourcesGasEstimator
+  implements
+    GasEstimator<
+      BaseResources | TwammResources,
+      BaseNodeState | TwammPoolState,
+      BasePool | TwammPool
+    >
+{
+  private readonly baseGasEstimator: BaseResourcesGasEstimator;
+
+  public constructor(calculatedTokenPrice: Decimal) {
+    this.baseGasEstimator = new BaseResourcesGasEstimator(calculatedTokenPrice);
+  }
+
+  getGasAdjustedAmount(
+    calculatedAmount: bigint,
+    route: (TwammPool | BasePool)[],
+    quoteResults: Quote<
+      BaseResources | TwammResources,
+      BaseNodeState | TwammPoolState
+    >[],
+    poolStateOverrides: WeakMap<
+      TwammPool | BasePool,
+      BaseNodeState | TwammPoolState
+    >,
+  ): bigint {
+    const baseAmount = this.baseGasEstimator.getGasAdjustedAmount(
+      calculatedAmount,
+      route,
+      quoteResults,
+      poolStateOverrides,
+    );
+
+    const adjusted =
+      baseAmount -
+      route.reduce<bigint>((memo, value) => {
+        if (!(route instanceof TwammPool)) return memo;
+
+        // todo: estimate gas of twamm swap
+        return memo;
+      }, 0n);
+
+    return adjusted;
   }
 }

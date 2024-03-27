@@ -6,12 +6,12 @@ import { MAX_U128 } from "./math/constants";
 import {
   getAllRelevantPoolsAndUpdateCache,
   getCachedNode,
-  updatePoolCache,
+  updateBasePoolCache,
 } from "./quoting";
 import { findAllRoutes } from "./findAllRoutes";
-import { QuoteMeta, TokenAmount } from "./nodes/quoteNode";
+import { QuoteMeta, QuoteNode, TokenAmount } from "./nodes/quoteNode";
 import { num } from "starknet";
-import { createQueries } from "../../queries";
+import { createQueries, Queries } from "../../queries";
 import {
   OpenAPIRouteSchema,
   Path,
@@ -26,9 +26,10 @@ import {
 } from "../../shared/validation/address";
 import { MAX_SQRT_RATIO } from "./math/tick";
 import { getSqrtRatioLimit } from "./getSqrtRatioLimit";
-import { BaseResourcesGasEstimator } from "./baseResourcesGasEstimator";
+import { BaseOrTwammResourcesGasEstimator } from "./baseResourcesGasEstimator";
 import { findOptimalSplitRoute } from "./findOptimalSplitRoute";
 import { quoteRoute } from "./quoteRoute";
+import { TwammPool } from "./nodes/twammPool";
 
 const PoolKeyType = z
   .object({
@@ -186,16 +187,25 @@ export class GetQuote extends EkuboAPIRoute {
       )?.price ?? new Decimal(0);
 
     const smallestSplitAmount = amount / 2n ** BigInt(maxSplits);
-    const noOverrides = new WeakMap();
 
-    const gasEstimator = new BaseResourcesGasEstimator(otherTokenPrice);
+    const gasEstimator = new BaseOrTwammResourcesGasEstimator(otherTokenPrice);
 
     const block = await queries.getLatestBlockMeta();
 
+    const ageLastBlockSeconds = Math.floor(
+      (Date.now() - block.time.getTime()) / 1000,
+    );
+
+    const estimatedNumberOfBlocksBehind = Math.floor(ageLastBlockSeconds / 60);
+
     const meta: QuoteMeta = {
-      block: { number: block.number, time: block.time.getTime() / 1000 },
+      block: {
+        number: block.number + estimatedNumberOfBlocksBehind,
+        time: Math.ceil(Date.now() / 1000),
+      },
     };
 
+    const poolStateOverrides = new WeakMap();
     // try the smallest split across all the routes first, and only consider the top 2**maxSplits
     const feasibleRoutes = allRoutes
       .map((route) => {
@@ -203,7 +213,7 @@ export class GetQuote extends EkuboAPIRoute {
           const quote = quoteRoute({
             route,
             gasEstimator,
-            poolStateOverrides: noOverrides,
+            poolStateOverrides,
             specifiedAmount: {
               token,
               amount: smallestSplitAmount,
@@ -229,7 +239,7 @@ export class GetQuote extends EkuboAPIRoute {
     const splitRoutes = findOptimalSplitRoute({
       allRoutes: feasibleRoutes,
       tokenAmount,
-      poolStateOverrides: new WeakMap(),
+      poolStateOverrides,
       gasEstimator,
       maxSplits,
       meta,
@@ -335,17 +345,30 @@ export class GetQuoteToPrice extends EkuboAPIRoute {
           queries.getPoolState({ keyHash: poolKeyHash }),
         ]);
 
-        await updatePoolCache([poolState], queries);
-
-        return [
-          {
-            block: { number: block.number, time: block.time.getTime() / 1000 },
+        const meta = {
+          block: {
+            number: block.number,
+            time: block.time.getTime() / 1000,
           },
-          getCachedNode(poolKeyHash),
-          BigInt(poolState.sqrt_ratio),
-        ];
+        };
+
+        if (BigInt(poolState.extension) === 0n) {
+          await updateBasePoolCache([poolState], queries);
+
+          return [
+            meta,
+            getCachedNode(poolKeyHash),
+            BigInt(poolState.sqrt_ratio),
+          ];
+        } else {
+          return [meta, null, null];
+        }
       },
     );
+
+    if (node === null || sqrtRatio === null) {
+      return error(501, "Only base pools are implemented for this API");
+    }
 
     const isToken1 = sqrtRatio >= newSqrtRatio;
     const { consumedAmount, calculatedAmount, executionResources, stateAfter } =
