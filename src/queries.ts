@@ -1589,18 +1589,21 @@ export class Queries {
       avg_fee_paid: string;
     }>({
       text: `
-        SELECT COUNT(1) AS count, r.fee_paid_unit, AVG(r.fee_paid) AS avg_fee_paid
-        FROM swaps s
-               JOIN event_keys ek ON s.event_id = ek.id
-               JOIN transaction_receipts r ON ek.transaction_hash = r.transaction_hash
-
-        WHERE s.event_id > (SELECT id
-                            FROM event_keys
-                            WHERE block_number <=
-                                  (SELECT number FROM blocks WHERE time < $1 ORDER BY number DESC LIMIT 1)
-                            ORDER BY id DESC
+        SELECT COUNT(1) AS count, tr.fee_paid_unit, AVG(tr.fee_paid) AS avg_fee_paid
+        FROM event_keys ek
+               JOIN transaction_receipts tr ON ek.transaction_hash = tr.transaction_hash
+        WHERE id >= (SELECT id
+                     FROM event_keys
+                     WHERE block_number <=
+                           (SELECT number
+                            FROM blocks
+                            WHERE time < $1
+                            ORDER BY number DESC
                             LIMIT 1)
-        GROUP BY r.fee_paid_unit
+                     ORDER BY id DESC
+                     LIMIT 1)
+          AND id IN (SELECT event_id FROM swaps)
+        GROUP BY tr.fee_paid_unit
       `,
       values: [since],
     });
