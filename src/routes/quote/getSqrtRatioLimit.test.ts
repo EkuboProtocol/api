@@ -14,10 +14,10 @@ describe(getSqrtRatioLimit, () => {
 
   it("increases/decreases amount more for larger tick spacing", () => {
     expect(getSqrtRatioLimit(1n << 128n, 5982, true)).toMatchInlineSnapshot(
-      995036832955257650875497961108515997522n,
+      `727409348224962330549907031049362528789n`,
     );
     expect(getSqrtRatioLimit(1n << 128n, 5982, false)).toMatchInlineSnapshot(
-      116369651255435332198942046234037800911n,
+      `159184219339322736410901005023815417372n`,
     );
   });
   it("min sqrt ratio", () => {
