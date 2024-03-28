@@ -119,7 +119,7 @@ export class BasePool implements QuoteNode {
           tickSpacingsCrossed: 0,
           initializedTicksCrossed: 0,
         },
-        stateAfter: {
+        stateAfter: overrideSwapState ?? {
           sqrtRatio: this.sqrtRatio,
           liquidity: this.liquidity,
           activeTickIndex: this.activeTickIndex,
@@ -129,12 +129,14 @@ export class BasePool implements QuoteNode {
 
     const isIncreasing = isPriceIncreasing(amount, isToken1);
 
+    let sqrtRatio = overrideSwapState?.sqrtRatio ?? this.sqrtRatio;
+
     if (sqrtRatioLimit) {
       // validate sqrtRatioLimit
-      if (isIncreasing && sqrtRatioLimit < this.sqrtRatio) {
+      if (isIncreasing && sqrtRatioLimit < sqrtRatio) {
         throw new Error("sqrtRatioLimit cannot be less than sqrtRatio");
       }
-      if (!isIncreasing && sqrtRatioLimit > this.sqrtRatio) {
+      if (!isIncreasing && sqrtRatioLimit > sqrtRatio) {
         throw new Error("sqrtRatioLimit cannot be greater than sqrtRatio");
       }
       if (sqrtRatioLimit < MIN_SQRT_RATIO) {
@@ -147,7 +149,6 @@ export class BasePool implements QuoteNode {
       sqrtRatioLimit = isIncreasing ? MAX_SQRT_RATIO : MIN_SQRT_RATIO;
     }
 
-    let sqrtRatio = overrideSwapState?.sqrtRatio ?? this.sqrtRatio;
     let liquidity = overrideSwapState?.liquidity ?? this.liquidity;
     let tickIndex = overrideSwapState?.activeTickIndex ?? this.activeTickIndex;
 
