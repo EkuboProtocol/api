@@ -49,9 +49,9 @@ import {
 import { GetFees } from "./routes/meta/fees";
 import {
   GetSplitTWAPOrderByDate,
-  GetSplitTWAPOrderByDuration
+  GetSplitTWAPOrderByDuration,
 } from "./routes/twamm";
-
+import { ListOrders } from "./routes/twamm/orders";
 
 Decimal.set({ precision: 39 });
 
@@ -113,6 +113,7 @@ const router = OpenAPIRouter({
   .get(GetNftImage.route, GetNftImage)
   .get(GetSplitTWAPOrderByDate.route, GetSplitTWAPOrderByDate)
   .get(GetSplitTWAPOrderByDuration.route, GetSplitTWAPOrderByDuration)
+  .get(ListOrders.route, ListOrders)
   .post(IntractApiRoute.route, IntractApiRoute)
   // catch missed routes
   .all("*", () => error(404));

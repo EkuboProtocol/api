@@ -17,6 +17,15 @@ interface PositionMetadata {
   minted_tx_hash: string;
 }
 
+interface TwammOrderMetadata {
+  sell_token: string;
+  buy_token: string;
+  start_time: Date;
+  end_time: Date;
+  fee: string;
+  block_time_at_start: Date;
+}
+
 export interface BasePoolStateQueryResult {
   pool_key_hash: string;
   token0: string;
@@ -1181,6 +1190,56 @@ export class Queries {
                 WHERE token_id IN (SELECT token_id FROM final_transfer WHERE current_owner = $1)
                 ORDER BY token_id DESC
             `,
+      values: [address, showClosed],
+    });
+  }
+
+  public async getTwammOrdersByAddress(address: bigint, showClosed: boolean) {
+    return this.client.query<
+      TwammOrderMetadata & {
+        token_id: string;
+      }
+    >({
+      text: `
+        WITH ranked_transfers AS (SELECT token_id,
+                                         to_address,
+                                         ROW_NUMBER() OVER (
+                                           PARTITION BY token_id
+                                           ORDER BY event_id DESC
+                                           ) AS row_no
+                                  FROM position_transfers
+                                  WHERE (from_address = $1
+                                    OR to_address = $1)
+                                    AND (CASE WHEN $2 THEN to_address != 0 ELSE TRUE END)),
+             final_transfer AS (SELECT token_id,
+                                       to_address AS current_owner
+                                FROM ranked_transfers
+                                WHERE row_no = 1)
+        SELECT token_id,
+               sell_token,
+               buy_token,
+               start_time,
+               end_time,
+               fee,
+               block_time_at_start
+        FROM final_transfer AS ft
+               JOIN LATERAL (
+          SELECT (CASE WHEN tou.sale_rate_delta0 != 0 THEN token0 ELSE token1 END) AS sell_token,
+                 (CASE WHEN tou.sale_rate_delta0 != 0 THEN token1 ELSE token0 END) AS buy_token,
+                 start_time,
+                 end_time,
+                 fee,
+                 MIN(b.time) AS block_time_at_start
+          FROM twamm_order_updates AS tou
+                 JOIN pool_keys ON tou.key_hash = pool_keys.key_hash
+          JOIN event_keys ek ON tou.event_id = ek.id
+          JOIN blocks b ON ek.block_number = b.number
+          WHERE tou.salt = token_id::NUMERIC
+          GROUP BY 1, 2, 3, 4, 5
+          ) AS distinct_orders ON TRUE
+        WHERE token_id IN (SELECT token_id FROM final_transfer WHERE current_owner = $1)
+        ORDER BY token_id DESC
+      `,
       values: [address, showClosed],
     });
   }

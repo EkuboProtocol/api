@@ -17,8 +17,9 @@ import {
   NumericType,
 } from "../../shared/validation/address";
 import { splitTWAMMOrder, TwammExtensionPoolState } from "./splitOrder";
+import { num } from "starknet";
 
-const OrderKeyType = z
+export const OrderKeyType = z
   .object({
     sell_token: AddressType.openapi({
       example:
@@ -31,11 +32,11 @@ const OrderKeyType = z
     fee: z.string().openapi({
       example: "1020847100762815411640772995208708096",
     }),
-    start_time: DateType.openapi({
-      example: "2020-01-01T00:00:00Z",
+    start_time: z.number().int().min(0).openapi({
+      description: "The epoch time in seconds at which the order starts",
     }),
-    end_time: DateType.openapi({
-      example: "2020-01-01T00:00:01Z",
+    end_time: z.number().int().min(0).openapi({
+      description: "The epoch time in seconds at which the order ends",
     }),
   })
   .openapi({ description: "The key identifier for a TWAP order in Ekubo" });
@@ -155,9 +156,9 @@ export class GetSplitTWAPOrderByDate extends EkuboAPIRoute {
             order_key: {
               sell_token: sellToken.l2_token_address,
               buy_token: buyToken.l2_token_address,
-              fee: order.fee,
-              start_time: startTime,
-              end_time: endTime,
+              fee: num.toHex(BigInt(order.fee)),
+              start_time: startTime.getTime() / 1000,
+              end_time: endTime.getTime() / 1000,
             },
           };
         }),
