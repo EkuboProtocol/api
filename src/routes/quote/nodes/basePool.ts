@@ -19,13 +19,43 @@ export interface Tick {
   readonly tick: number;
 }
 
+/**
+ * Returns the index in the sorted tick array that has the greatest value of tick that is not greater than the given tick
+ * @param sortedTicks the sorted list of ticks to search in
+ * @param tick the tick to search for
+ */
+export function findNearestInitializedTickIndex(
+  sortedTicks: Tick[],
+  tick: number,
+): number {
+  let l = 0,
+    r = sortedTicks.length;
+
+  while (l < r) {
+    const mid = Math.floor((l + r) / 2);
+    const midTick = sortedTicks[mid].tick;
+    if (midTick <= tick) {
+      // if it's the last index, or the next tick is greater, we've found our index
+      if (mid === sortedTicks.length - 1 || sortedTicks[mid + 1].tick > tick) {
+        return mid;
+      } else {
+        // otherwise our value is to the right of this one
+        l = mid;
+      }
+    } else {
+      // the mid tick is greater than the one we want, so we know it's not mid
+      r = mid;
+    }
+  }
+
+  return -1;
+}
+
 export class BasePool implements QuoteNode {
   public readonly key: NodeKey;
 
   // state
-  public readonly sqrtRatio: bigint;
-  public readonly liquidity: bigint;
-  public readonly tick: number;
+  public readonly state: Readonly<BaseNodeState>;
   public readonly sortedTicks: Tick[];
 
   constructor({
@@ -54,51 +84,12 @@ export class BasePool implements QuoteNode {
       tickSpacing,
       extension: 0n,
     };
-    this.sqrtRatio = sqrtRatio;
-    this.liquidity = liquidity;
-    this.tick = tick;
     this.sortedTicks = sortedTicks;
-  }
-
-  // Deferred caching of the binary search result
-  private _activeTickIndex: number | null = null;
-  public get activeTickIndex(): number {
-    return (
-      this._activeTickIndex ??
-      (this._activeTickIndex = this.findNearestInitializedTickIndex(this.tick))
-    );
-  }
-
-  /**
-   * Returns the index in the sorted tick array that has the greatest value of tick that is not greater than the given tick
-   * @param tick the tick to search for
-   * @private
-   */
-  public findNearestInitializedTickIndex(tick: number): number {
-    let l = 0,
-      r = this.sortedTicks.length;
-
-    while (l < r) {
-      const mid = Math.floor((l + r) / 2);
-      const midTick = this.sortedTicks[mid].tick;
-      if (midTick <= tick) {
-        // if it's the last index, or the next tick is greater, we've found our index
-        if (
-          mid === this.sortedTicks.length - 1 ||
-          this.sortedTicks[mid + 1].tick > tick
-        ) {
-          return mid;
-        } else {
-          // otherwise our value is to the right of this one
-          l = mid;
-        }
-      } else {
-        // the mid tick is greater than the one we want, so we know it's not mid
-        r = mid;
-      }
-    }
-
-    return -1;
+    this.state = {
+      sqrtRatio,
+      liquidity,
+      activeTickIndex: findNearestInitializedTickIndex(sortedTicks, tick),
+    };
   }
 
   public quote({
@@ -107,9 +98,11 @@ export class BasePool implements QuoteNode {
     overrideSwapState,
   }: QuoteParams<BaseNodeState>): Quote<BaseResources, BaseNodeState> {
     const isToken1 = token === this.key.token1;
+
     if (!isToken1 && this.key.token0 !== token) {
       throw new Error("Invalid token");
     }
+
     if (amount === 0n) {
       return {
         isPriceIncreasing: isToken1,
@@ -119,17 +112,17 @@ export class BasePool implements QuoteNode {
           tickSpacingsCrossed: 0,
           initializedTicksCrossed: 0,
         },
-        stateAfter: overrideSwapState ?? {
-          sqrtRatio: this.sqrtRatio,
-          liquidity: this.liquidity,
-          activeTickIndex: this.activeTickIndex,
-        },
+        stateAfter: overrideSwapState ?? this.state,
       };
     }
 
     const isIncreasing = isPriceIncreasing(amount, isToken1);
 
-    let sqrtRatio = overrideSwapState?.sqrtRatio ?? this.sqrtRatio;
+    let { sqrtRatio, liquidity, activeTickIndex } =
+      overrideSwapState ?? this.state;
+
+    // this is used to compute the approximate number of tick spacings crossed by the swap
+    const startingSqrtRatio = sqrtRatio;
 
     if (sqrtRatioLimit) {
       // validate sqrtRatioLimit
@@ -149,9 +142,6 @@ export class BasePool implements QuoteNode {
       sqrtRatioLimit = isIncreasing ? MAX_SQRT_RATIO : MIN_SQRT_RATIO;
     }
 
-    let liquidity = overrideSwapState?.liquidity ?? this.liquidity;
-    let tickIndex = overrideSwapState?.activeTickIndex ?? this.activeTickIndex;
-
     // the index of the sorted ticks array of the tick that is <= current tick
     let calculatedAmount = 0n;
     let initializedTicksCrossed = 0;
@@ -162,8 +152,8 @@ export class BasePool implements QuoteNode {
     while (amountRemaining !== 0n && sqrtRatio !== sqrtRatioLimit) {
       const nextInitializedTick: Tick | null =
         (isIncreasing
-          ? this.sortedTicks[tickIndex + 1]
-          : this.sortedTicks[tickIndex]) ?? null;
+          ? this.sortedTicks[activeTickIndex + 1]
+          : this.sortedTicks[activeTickIndex]) ?? null;
 
       const nextInitializedTickSqrtRatio = nextInitializedTick
         ? toSqrtRatio(nextInitializedTick.tick)
@@ -192,7 +182,9 @@ export class BasePool implements QuoteNode {
 
       // cross the tick if the price moved all the way to the next initialized tick price
       if (nextInitializedTick && sqrtRatio === nextInitializedTickSqrtRatio) {
-        tickIndex = isIncreasing ? tickIndex + 1 : tickIndex - 1;
+        activeTickIndex = isIncreasing
+          ? activeTickIndex + 1
+          : activeTickIndex - 1;
         initializedTicksCrossed++;
         liquidity += isIncreasing
           ? nextInitializedTick.liquidityDelta
@@ -207,7 +199,7 @@ export class BasePool implements QuoteNode {
       executionResources: {
         initializedTicksCrossed,
         tickSpacingsCrossed: approximateNumberOfTickSpacingsCrossed(
-          overrideSwapState?.sqrtRatio ?? this.state.sqrtRatio,
+          startingSqrtRatio,
           sqrtRatio,
           this.key.tickSpacing,
         ),
@@ -215,20 +207,12 @@ export class BasePool implements QuoteNode {
       stateAfter: {
         sqrtRatio,
         liquidity,
-        activeTickIndex: tickIndex,
+        activeTickIndex,
       },
     };
   }
 
   public hasLiquidity(): boolean {
-    return this.liquidity > 0n || this.sortedTicks.length > 0;
-  }
-
-  get state(): Readonly<BaseNodeState> {
-    return {
-      activeTickIndex: this.activeTickIndex,
-      liquidity: this.liquidity,
-      sqrtRatio: this.sqrtRatio,
-    };
+    return this.state.liquidity > 0n || this.sortedTicks.length > 0;
   }
 }

@@ -116,8 +116,10 @@ export class TwammPool implements QuoteNode<TwammResources, TwammPoolState> {
 
     let virtualOrderDeltaTimesCrossed: number = 0;
 
-    let liquidity = overrideSwapState?.liquidity ?? this.basePool.liquidity;
-    let nextSqrtRatio = overrideSwapState?.sqrtRatio ?? this.basePool.sqrtRatio;
+    let liquidity =
+      overrideSwapState?.liquidity ?? this.basePool.state.liquidity;
+    let nextSqrtRatio =
+      overrideSwapState?.sqrtRatio ?? this.basePool.state.sqrtRatio;
     let [token0SaleRate, token1SaleRate] = [
       overrideSwapState?.token0SaleRate ?? this.token0SaleRate,
       overrideSwapState?.token1SaleRate ?? this.token1SaleRate,
@@ -152,7 +154,7 @@ export class TwammPool implements QuoteNode<TwammResources, TwammPoolState> {
       };
 
       if (amount0 > 0n && amount1 > 0n) {
-        liquidity = max(this.basePool.liquidity, liquidity);
+        liquidity = max(this.basePool.state.liquidity, liquidity);
 
         const current_sqrt_ratio = max(
           MAX_BOUNDS_MIN_SQRT_RATIO,
