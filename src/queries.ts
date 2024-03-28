@@ -24,6 +24,7 @@ interface TwammOrderMetadata {
   end_time: Date;
   fee: string;
   block_time_at_start: Date;
+  last_order_update: Date;
 }
 
 export interface BasePoolStateQueryResult {
@@ -1221,7 +1222,8 @@ export class Queries {
                start_time,
                end_time,
                fee,
-               block_time_at_start
+               block_time_at_start,
+               last_order_update
         FROM final_transfer AS ft
                JOIN LATERAL (
           SELECT (CASE WHEN tou.sale_rate_delta0 != 0 THEN token0 ELSE token1 END) AS sell_token,
@@ -1229,7 +1231,8 @@ export class Queries {
                  start_time,
                  end_time,
                  fee,
-                 MIN(b.time) AS block_time_at_start
+                 MIN(b.time) AS block_time_at_start,
+                 MAX(b.time) as last_order_update
           FROM twamm_order_updates AS tou
                  JOIN pool_keys ON tou.key_hash = pool_keys.key_hash
           JOIN event_keys ek ON tou.event_id = ek.id
