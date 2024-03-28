@@ -1,7 +1,7 @@
 import Decimal from "decimal.js-light";
-import { sqrtRate } from "./math";
+import { sqrt } from "../quote/math/twamm";
 
-Decimal.set({ precision: 100 });
+Decimal.set({ precision: 78 });
 
 export type TwammExtensionPoolState = {
   key_hash: string;
@@ -29,7 +29,7 @@ export async function splitTWAMMOrder(
       const avgToken0SoldAmount = BigInt(poolState.token0_sold_amount) / timeWindow;
       const avgToken1SoldAmount = BigInt(poolState.token1_sold_amount) / timeWindow;
 
-      const score = sqrtRate(avgToken0SoldAmount, avgToken1SoldAmount).add(
+      const score = new Decimal(sqrt(avgToken0SoldAmount * avgToken1SoldAmount).toString()).add(
         poolState.liquidity.toString(),
       );
 

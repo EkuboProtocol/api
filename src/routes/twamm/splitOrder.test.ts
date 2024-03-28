@@ -1,7 +1,7 @@
 import Decimal from "decimal.js-light";
 import { TwammExtensionPoolState, splitTWAMMOrder } from "./splitOrder";
 
-Decimal.set({ precision: 100 });
+const DURATION = 16n;
 
 const TEST_CASES: {
   description: string;
@@ -16,9 +16,9 @@ const TEST_CASES: {
       {
         key_hash: "0",
         fee: 1,
-        token0_sale_rate: 1n << 96n,
-        token1_sale_rate: 1n << 96n,
-        liquidity: 1n * 18n,
+        token0_sold_amount: (10n ** 18n) * DURATION,
+        token1_sold_amount: (10n ** 18n) * DURATION,
+        liquidity: 10n ** 18n,
       },
     ],
     maxSplits: 1,
@@ -30,15 +30,15 @@ const TEST_CASES: {
       {
         key_hash: "0",
         fee: 1,
-        token0_sale_rate: 1n << 96n,
-        token1_sale_rate: 1n << 96n,
+        token0_sold_amount: (10n ** 18n) * DURATION,
+        token1_sold_amount: (10n ** 18n) * DURATION,
         liquidity: 10n ** 18n,
       },
       {
         key_hash: "1",
         fee: 2,
-        token0_sale_rate: 1n << 96n,
-        token1_sale_rate: 1n << 96n,
+        token0_sold_amount: (10n ** 18n) * DURATION,
+        token1_sold_amount: (10n ** 18n) * DURATION,
         liquidity: 10n ** 18n,
       },
     ],
@@ -51,16 +51,16 @@ const TEST_CASES: {
       {
         key_hash: "0",
         fee: 1,
-        token0_sale_rate: 1n << 96n,
-        token1_sale_rate: 1n << 96n,
-        liquidity: 4n * 10n ** 18n,
+        token0_sold_amount: (10n ** 18n) * DURATION,
+        token1_sold_amount: (10n ** 18n) * DURATION,
+        liquidity: 4n * (10n ** 18n),
       },
       {
         key_hash: "1",
         fee: 2,
-        token0_sale_rate: 1n << 96n,
-        token1_sale_rate: 1n << 96n,
-        liquidity: 10n ** 18n,
+        token0_sold_amount: (10n ** 18n) * DURATION,
+        token1_sold_amount: (10n ** 18n) * DURATION,
+        liquidity: (10n ** 18n),
       },
     ],
     maxSplits: 2,
@@ -72,22 +72,22 @@ const TEST_CASES: {
       {
         key_hash: "0",
         fee: 1,
-        token0_sale_rate: 1n << 96n,
-        token1_sale_rate: 1n << 96n,
+        token0_sold_amount: (10n ** 18n) * DURATION,
+        token1_sold_amount: (10n ** 18n) * DURATION,
         liquidity: 4n * 10n ** 18n,
       },
       {
         key_hash: "0",
         fee: 0,
-        token0_sale_rate: 1n << 96n,
-        token1_sale_rate: 1n << 96n,
+        token0_sold_amount: (10n ** 18n) * DURATION,
+        token1_sold_amount: (10n ** 18n) * DURATION,
         liquidity: 10n ** 18n,
       },
       {
         key_hash: "1",
         fee: 2,
-        token0_sale_rate: 1n << 96n,
-        token1_sale_rate: 1n << 96n,
+        token0_sold_amount: (10n ** 18n) * DURATION,
+        token1_sold_amount: (10n ** 18n) * DURATION,
         liquidity: 10n ** 18n,
       },
     ],
@@ -100,15 +100,15 @@ const TEST_CASES: {
       {
         key_hash: "0",
         fee: 1,
-        token0_sale_rate: 10n << 96n,
-        token1_sale_rate: 1n << 96n,
+        token0_sold_amount: 10n * (10n ** 18n) * DURATION,
+        token1_sold_amount: (10n ** 18n) * DURATION,
         liquidity: 10n ** 18n,
       },
       {
         key_hash: "1",
         fee: 2,
-        token0_sale_rate: 1n << 96n,
-        token1_sale_rate: 1n << 96n,
+        token0_sold_amount: (10n ** 18n) * DURATION,
+        token1_sold_amount: (10n ** 18n) * DURATION,
         liquidity: 10n ** 18n,
       },
     ],
@@ -116,20 +116,20 @@ const TEST_CASES: {
   },
   {
     description: "two pools, same liquidity, maxSplits 2, check rounding",
-    amount: 10n ** 18n + 1n,
+    amount: (10n ** 18n) + 1n,
     poolStates: [
       {
         key_hash: "0",
         fee: 1,
-        token0_sale_rate: 10n << 96n,
-        token1_sale_rate: 1n << 96n,
+        token0_sold_amount: 10n * (10n ** 18n) * DURATION,
+        token1_sold_amount: (10n ** 18n) * DURATION,
         liquidity: 100n * 10n ** 18n,
       },
       {
         key_hash: "1",
         fee: 2,
-        token0_sale_rate: 1n << 96n,
-        token1_sale_rate: 1n << 96n,
+        token0_sold_amount: (10n ** 18n) * DURATION,
+        token1_sold_amount: (10n ** 18n) * DURATION,
         liquidity: 100n * 10n ** 18n,
       },
     ],
@@ -142,22 +142,22 @@ const TEST_CASES: {
       {
         key_hash: "0",
         fee: 1,
-        token0_sale_rate: 10n << 96n,
-        token1_sale_rate: 1n << 96n,
+        token0_sold_amount: 10n * (10n ** 18n) * DURATION,
+        token1_sold_amount: (10n ** 18n) * DURATION,
         liquidity: 10n ** 18n,
       },
       {
         key_hash: "1",
         fee: 2,
-        token0_sale_rate: 1n << 96n,
-        token1_sale_rate: 1n << 96n,
+        token0_sold_amount: (10n ** 18n) * DURATION,
+        token1_sold_amount: (10n ** 18n) * DURATION,
         liquidity: 2n * 10n ** 18n,
       },
       {
         key_hash: "0",
         fee: 3,
-        token0_sale_rate: 10n << 96n,
-        token1_sale_rate: 1n << 96n,
+        token0_sold_amount: 10n * (10n ** 18n) * DURATION,
+        token1_sold_amount: (10n ** 18n) * DURATION,
         liquidity: 3n * 10n ** 18n,
       },
     ],
@@ -170,22 +170,22 @@ const TEST_CASES: {
       {
         key_hash: "0",
         fee: 1,
-        token0_sale_rate: 10n << 96n,
-        token1_sale_rate: 10n << 96n,
+        token0_sold_amount: 10n * (10n ** 18n) * DURATION,
+        token1_sold_amount: 10n * (10n ** 18n) * DURATION,
         liquidity: 10n ** 18n,
       },
       {
         key_hash: "1",
         fee: 2,
-        token0_sale_rate: 10n << 96n,
-        token1_sale_rate: 10n << 96n,
+        token0_sold_amount: 10n * (10n ** 18n) * DURATION,
+        token1_sold_amount: 10n * (10n ** 18n) * DURATION,
         liquidity: 2n * 10n ** 18n,
       },
       {
         key_hash: "0",
         fee: 3,
-        token0_sale_rate: 10n << 96n,
-        token1_sale_rate: 10n << 96n,
+        token0_sold_amount: 10n * (10n ** 18n) * DURATION,
+        token1_sold_amount: 10n * (10n ** 18n) * DURATION,
         liquidity: 3n * 10n ** 18n,
       },
     ],
@@ -193,27 +193,27 @@ const TEST_CASES: {
   },
   {
     description: "three pools, diff liquidity, maxSplits 3, check rounding",
-    amount: 100n * 10n ** 18n + 1n,
+    amount: 100n * (10n ** 18n) + 1n,
     poolStates: [
       {
         key_hash: "0",
         fee: 1,
-        token0_sale_rate: 10n << 96n,
-        token1_sale_rate: 10n << 96n,
+        token0_sold_amount: 10n * (10n ** 18n) * DURATION,
+        token1_sold_amount: 10n * (10n ** 18n) * DURATION,
         liquidity: 10n ** 18n,
       },
       {
         key_hash: "1",
         fee: 2,
-        token0_sale_rate: 10n << 96n,
-        token1_sale_rate: 10n << 96n,
+        token0_sold_amount: 10n * (10n ** 18n) * DURATION,
+        token1_sold_amount: 10n * (10n ** 18n) * DURATION,
         liquidity: 2n * 10n ** 18n,
       },
       {
         key_hash: "0",
         fee: 3,
-        token0_sale_rate: 10n << 96n,
-        token1_sale_rate: 10n << 96n,
+        token0_sold_amount: 10n * (10n ** 18n) * DURATION,
+        token1_sold_amount: 10n * (10n ** 18n) * DURATION,
         liquidity: 3n * 10n ** 18n,
       },
     ],
@@ -236,7 +236,7 @@ describe(splitTWAMMOrder, () => {
   describe("various pools", async () => {
     const baseOrderKey = {
       start_time: new Date(),
-      end_time: new Date(new Date().getTime() + 16000),
+      end_time: new Date(new Date().getTime() + Number(DURATION * 1_000n)),
     };
 
     for (const testCase of TEST_CASES) {

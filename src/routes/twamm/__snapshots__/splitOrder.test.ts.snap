@@ -1,0 +1,122 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`splitTWAMMOrder > various pools > one pool 1`] = `
+[
+  {
+    "amount": "1000000000000000000",
+    "fee": "1",
+  },
+]
+`;
+
+exports[`splitTWAMMOrder > various pools > three pools, diff liquidity, maxSplits 3, check rounding 1`] = `
+[
+  {
+    "amount": "225148226554413778",
+    "fee": "2",
+  },
+  {
+    "amount": "312376477871321851",
+    "fee": "1",
+  },
+  {
+    "amount": "462475295574264372",
+    "fee": "3",
+  },
+]
+`;
+
+exports[`splitTWAMMOrder > various pools > three pools, diff liquidity, maxSplits 3, check rounding 2`] = `
+[
+  {
+    "amount": "611111111111111111",
+    "fee": "1",
+  },
+  {
+    "amount": "666666666666666666",
+    "fee": "2",
+  },
+  {
+    "amount": "722222222222222224",
+    "fee": "3",
+  },
+]
+`;
+
+exports[`splitTWAMMOrder > various pools > three pools, diff liquidity, maxSplits 3, check rounding 3`] = `
+[
+  {
+    "amount": "30555555555555555555",
+    "fee": "1",
+  },
+  {
+    "amount": "33333333333333333333",
+    "fee": "2",
+  },
+  {
+    "amount": "36111111111111111113",
+    "fee": "3",
+  },
+]
+`;
+
+exports[`splitTWAMMOrder > various pools > three pools, one with 4x liquidity, maxSplits 2 1`] = `
+[
+  {
+    "amount": "285714285714285714",
+    "fee": "0",
+  },
+  {
+    "amount": "714285714285714286",
+    "fee": "1",
+  },
+]
+`;
+
+exports[`splitTWAMMOrder > various pools > two pools, one with 4x liquidity 1`] = `
+[
+  {
+    "amount": "285714285714285714",
+    "fee": "2",
+  },
+  {
+    "amount": "714285714285714286",
+    "fee": "1",
+  },
+]
+`;
+
+exports[`splitTWAMMOrder > various pools > two pools, same liquidity 1`] = `
+[
+  {
+    "amount": "500000000000000000",
+    "fee": "2",
+  },
+  {
+    "amount": "500000000000000000",
+    "fee": "1",
+  },
+]
+`;
+
+exports[`splitTWAMMOrder > various pools > two pools, same liquidity, different rates, maxSplits 1 1`] = `
+[
+  {
+    "amount": "1000000000000000000",
+    "fee": "1",
+  },
+]
+`;
+
+exports[`splitTWAMMOrder > various pools > two pools, same liquidity, maxSplits 2, check rounding 1`] = `
+[
+  {
+    "amount": "494704512300339028",
+    "fee": "2",
+  },
+  {
+    "amount": "505295487699660973",
+    "fee": "1",
+  },
+]
+`;
