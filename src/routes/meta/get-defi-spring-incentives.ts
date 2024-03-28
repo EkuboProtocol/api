@@ -300,6 +300,9 @@ export class GetDefiSpringIncentives extends EkuboAPIRoute {
             0n,
           );
 
+          const tick = Number(
+            pairLiquidityGraph[currentTickIndex]?.tick ?? MIN_TICK,
+          );
           const pool = new BasePool({
             token0: BigInt(token0.l2_token_address),
             token1: BigInt(token1.l2_token_address),
@@ -307,9 +310,7 @@ export class GetDefiSpringIncentives extends EkuboAPIRoute {
             tickSpacing: 1,
             sqrtRatio: sqrtRatio,
             liquidity: liquidityAtTick,
-            tick: Number(
-              pairLiquidityGraph[currentTickIndex]?.tick ?? MIN_TICK,
-            ),
+            tick,
             sortedTicks: pairLiquidityGraph.map((p) => ({
               tick: Number(p.tick),
               liquidityDelta: BigInt(p.net_liquidity_delta_diff),
@@ -321,7 +322,7 @@ export class GetDefiSpringIncentives extends EkuboAPIRoute {
               amount: -0xffffffffffffffffffffffffffffffffn,
               token: BigInt(token0.l2_token_address),
             },
-            sqrtRatioLimit: toSqrtRatio(pool.tick + volatilityInTicks * 2),
+            sqrtRatioLimit: toSqrtRatio(tick + volatilityInTicks * 2),
             meta: { block: { number: 1, time: 2 } },
           });
 
@@ -330,7 +331,7 @@ export class GetDefiSpringIncentives extends EkuboAPIRoute {
               amount: -0xffffffffffffffffffffffffffffffffn,
               token: BigInt(token1.l2_token_address),
             },
-            sqrtRatioLimit: toSqrtRatio(pool.tick - volatilityInTicks * 2),
+            sqrtRatioLimit: toSqrtRatio(tick - volatilityInTicks * 2),
             meta: { block: { number: 1, time: 2 } },
           });
 
