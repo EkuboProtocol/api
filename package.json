@@ -3,8 +3,9 @@
   "version": "0.0.1",
   "devDependencies": {
     "@cloudflare/itty-router-openapi": "^1.0.6",
-    "@cloudflare/workers-types": "^4.20230914.0",
+    "@cloudflare/workers-types": "^4.20240320.1",
     "@types/pg": "^8.10.2",
+    "abi-wan-kanabi": "^2.2.2",
     "decimal.js-light": "^2.5.1",
     "itty-router": "^4.0.23",
     "pg": "^8.11.1",
@@ -19,7 +20,7 @@
   "private": true,
   "scripts": {
     "start": "wrangler dev",
-    "deploy": "wrangler deploy",
-    "test": "vitest"
+    "test": "vitest",
+    "check-ts": "tsc --noEmit"
   }
 }

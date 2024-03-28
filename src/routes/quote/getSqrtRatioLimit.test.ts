@@ -1,10 +1,6 @@
 import { getSqrtRatioLimit } from "./getSqrtRatioLimit";
-import {
-  MAX_SQRT_RATIO,
-  MAX_TICK,
-  MAX_TICK_SPACING,
-  MIN_SQRT_RATIO,
-} from "./math/tick";
+import { describe, expect, it } from "vitest";
+import { MAX_SQRT_RATIO, MAX_TICK_SPACING, MIN_SQRT_RATIO } from "./math/tick";
 
 describe(getSqrtRatioLimit, () => {
   it("increases/decreases amount based on direction", () => {

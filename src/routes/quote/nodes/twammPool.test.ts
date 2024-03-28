@@ -1,6 +1,8 @@
 import { MAX_SQRT_RATIO, MIN_SQRT_RATIO, toSqrtRatio } from "../math/tick";
 import { MAX_BOUND_USABLE_TICK_MAGNITUDE, TwammPool } from "./twammPool";
 
+import { describe, expect, it } from "vitest";
+
 describe("TWAMMPoolNode", () => {
   describe("quote", () => {
     it("zero sale rates, quote token0", () => {
@@ -725,7 +727,7 @@ describe("TWAMMPoolNode", () => {
 
       const { executionResources, calculatedAmount } = pool.quote({
         tokenAmount: {
-          amount: 10_000n * (10n ** 18n),
+          amount: 10_000n * 10n ** 18n,
           token: 0n,
         },
         meta: { block: { number: 1, time: 2040 } },

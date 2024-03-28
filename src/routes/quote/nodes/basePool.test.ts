@@ -1,5 +1,6 @@
 import { BasePool, findNearestInitializedTickIndex } from "./basePool";
 import { toSqrtRatio } from "../math/tick";
+import { describe, expect, it } from "vitest";
 
 describe(findNearestInitializedTickIndex, () => {
   it("no ticks", () => {

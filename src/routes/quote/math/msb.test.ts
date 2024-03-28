@@ -1,3 +1,4 @@
+import { describe, expect, it } from "vitest";
 import msb from "./msb";
 
 describe(msb, () => {

@@ -1,12 +1,14 @@
 {
-	"compilerOptions": {
-		"target": "ESNext",
-		"esModuleInterop": true,
-		"moduleResolution": "nodenext",
-		"resolveJsonModule": true,
-		"lib": ["ESNext"],
-		"types": ["@cloudflare/workers-types", "vitest/globals"],
-		"strict": true,
-		"alwaysStrict": true,
-	}
+  "include": ["src/"],
+  "compilerOptions": {
+    "target": "ESNext",
+    "moduleResolution": "Bundler",
+    "lib": [
+      "ESNext"
+    ],
+    "types": [
+      "@cloudflare/workers-types"
+    ],
+    "skipLibCheck": true
+  }
 }
