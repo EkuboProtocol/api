@@ -1143,54 +1143,47 @@ export class Queries {
       }
     >({
       text: `
-                WITH ranked_transfers AS (SELECT token_id,
-                                                 to_address,
-                                                 ROW_NUMBER() OVER (
-                                                     PARTITION BY token_id
-                                                     ORDER BY event_id DESC
-                                                     ) AS row_no
-                                          FROM position_transfers
-                                          WHERE (from_address = $1
-                                              OR to_address = $1)
-                                            AND (CASE WHEN $2 THEN to_address != 0 ELSE TRUE END)),
-                     final_transfer AS (SELECT token_id,
-                                               to_address AS current_owner
-                                        FROM ranked_transfers
-                                        WHERE row_no = 1)
-                SELECT token_id,
-                       event_keys.transaction_hash      AS minted_tx_hash,
-                       token0,
-                       token1,
-                       fee,
-                       tick_spacing,
-                       extension,
-                       lower_bound,
-                       upper_bound,
-                       blocks.time                      AS minted_timestamp,
-                       (SELECT SUM(points)
-                        FROM leaderboard AS l
-                        WHERE l.collector = ft.current_owner
-                          AND l.token_id = ft.token_id) AS points_earned
-                FROM final_transfer AS ft
-                         LEFT JOIN LATERAL (
-                    SELECT lower_bound, upper_bound, pool_key_hash
-                    FROM position_updates AS pu
-                    WHERE pu.salt = token_id::NUMERIC
-                    LIMIT 1
-                    ) AS mint_position_update ON TRUE
-                         LEFT JOIN LATERAL (
-                    SELECT event_id
-                    FROM position_transfers AS pt
-                    WHERE pt.token_id = ft.token_id
-                    ORDER BY event_id ASC
-                    LIMIT 1
-                    ) AS mint_tx ON TRUE
-                         JOIN event_keys ON mint_tx.event_id = event_keys.id
-                         JOIN pool_keys ON mint_position_update.pool_key_hash = pool_keys.key_hash
-                         JOIN blocks ON event_keys.block_number = blocks.number
-                WHERE token_id IN (SELECT token_id FROM final_transfer WHERE current_owner = $1)
-                ORDER BY token_id DESC
-            `,
+        WITH owned_tokens AS (SELECT token_id
+                              FROM position_transfers pt1
+                              WHERE to_address = $1
+                                AND NOT EXISTS (SELECT 1
+                                                FROM position_transfers pt2
+                                                WHERE pt2.token_id = pt1.token_id
+                                                  AND pt2.event_id > pt1.event_id
+                                                  AND (CASE WHEN $2 THEN pt2.to_address != 0 ELSE TRUE END)))
+        SELECT token_id,
+               event_keys.transaction_hash      AS minted_tx_hash,
+               token0,
+               token1,
+               fee,
+               tick_spacing,
+               extension,
+               lower_bound,
+               upper_bound,
+               blocks.time                      AS minted_timestamp,
+               (SELECT SUM(points)
+                FROM leaderboard AS l
+                WHERE l.collector = $1
+                  AND l.token_id = ot.token_id) AS points_earned
+        FROM owned_tokens AS ot
+               LEFT JOIN LATERAL (
+          SELECT lower_bound, upper_bound, pool_key_hash
+          FROM position_updates AS pu
+          WHERE pu.salt = token_id::NUMERIC
+          LIMIT 1
+          ) AS mint_position_update ON TRUE
+               LEFT JOIN LATERAL (
+          SELECT event_id
+          FROM position_transfers AS pt
+          WHERE pt.token_id = ot.token_id
+          ORDER BY event_id ASC
+          LIMIT 1
+          ) AS mint_tx ON TRUE
+               JOIN event_keys ON mint_tx.event_id = event_keys.id
+               JOIN pool_keys ON mint_position_update.pool_key_hash = pool_keys.key_hash
+               JOIN blocks ON event_keys.block_number = blocks.number
+        ORDER BY token_id DESC
+      `,
       values: [address, showClosed],
     });
   }
@@ -1202,20 +1195,14 @@ export class Queries {
       }
     >({
       text: `
-        WITH ranked_transfers AS (SELECT token_id,
-                                         to_address,
-                                         ROW_NUMBER() OVER (
-                                           PARTITION BY token_id
-                                           ORDER BY event_id DESC
-                                           ) AS row_no
-                                  FROM position_transfers
-                                  WHERE (from_address = $1
-                                    OR to_address = $1)
-                                    AND (CASE WHEN $2 THEN to_address != 0 ELSE TRUE END)),
-             final_transfer AS (SELECT token_id,
-                                       to_address AS current_owner
-                                FROM ranked_transfers
-                                WHERE row_no = 1)
+        WITH owned_tokens AS (SELECT token_id
+                              FROM position_transfers pt1
+                              WHERE to_address = $1
+                                AND NOT EXISTS (SELECT 1
+                                                FROM position_transfers pt2
+                                                WHERE pt2.token_id = pt1.token_id
+                                                  AND pt2.event_id > pt1.event_id
+                                                  AND (CASE WHEN $2 THEN pt2.to_address != 0 ELSE TRUE END)))
         SELECT token_id,
                sell_token,
                buy_token,
@@ -1224,7 +1211,7 @@ export class Queries {
                fee,
                block_time_at_start,
                last_order_update
-        FROM final_transfer AS ft
+        FROM owned_tokens AS ot
                JOIN LATERAL (
           SELECT (CASE WHEN tou.sale_rate_delta0 != 0 THEN token0 ELSE token1 END) AS sell_token,
                  (CASE WHEN tou.sale_rate_delta0 != 0 THEN token1 ELSE token0 END) AS buy_token,
@@ -1232,7 +1219,7 @@ export class Queries {
                  end_time,
                  fee,
                  MIN(b.time) AS block_time_at_start,
-                 MAX(b.time) as last_order_update
+                 MAX(b.time) AS last_order_update
           FROM twamm_order_updates AS tou
                  JOIN pool_keys ON tou.key_hash = pool_keys.key_hash
           JOIN event_keys ek ON tou.event_id = ek.id
@@ -1240,7 +1227,6 @@ export class Queries {
           WHERE tou.salt = token_id::NUMERIC
           GROUP BY 1, 2, 3, 4, 5
           ) AS distinct_orders ON TRUE
-        WHERE token_id IN (SELECT token_id FROM final_transfer WHERE current_owner = $1)
         ORDER BY token_id DESC
       `,
       values: [address, showClosed],
@@ -1536,32 +1522,32 @@ export class Queries {
     }>({
       values: [owner, start, end],
       text: `
-                WITH ranked_transfers AS (SELECT token_id,
-                                                 to_address,
-                                                 ROW_NUMBER() OVER (
-                                                     PARTITION BY token_id
-                                                     ORDER BY event_id DESC
-                                                     ) AS row_no
-                                          FROM position_transfers pt
-                                                   JOIN event_keys ek ON pt.event_id = ek.id
-                                                   JOIN blocks b ON ek.block_number = b.number
-                                          WHERE to_address != 0
-                                            AND b.time <= $3),
+        WITH ranked_transfers AS (SELECT token_id,
+                                         to_address,
+                                         ROW_NUMBER() OVER (
+                                           PARTITION BY token_id
+                                           ORDER BY event_id DESC
+                                           ) AS row_no
+                                  FROM position_transfers pt
+                                         JOIN event_keys ek ON pt.event_id = ek.id
+                                         JOIN blocks b ON ek.block_number = b.number
+                                  WHERE to_address != 0
+                                    AND b.time <= $3),
 
-                     token_owners AS (SELECT token_id,
-                                             to_address AS owner
-                                      FROM ranked_transfers
-                                      WHERE row_no = 1)
+             token_owners AS (SELECT token_id,
+                                     to_address AS owner
+                              FROM ranked_transfers
+                              WHERE row_no = 1)
 
-                SELECT token_id,
-                       day,
-                       incentives AS incentives
-                FROM strk_defi_spring_incentives
-                         JOIN token_owners ON token_id = salt
-                WHERE owner = $1
-                  AND day >= $2
-                  AND day < $3
-            `,
+        SELECT token_id,
+               day,
+               incentives AS incentives
+        FROM strk_defi_spring_incentives
+               JOIN token_owners ON token_id = salt
+        WHERE owner = $1
+          AND day >= $2
+          AND day < $3
+      `,
     });
     return rows;
   }
