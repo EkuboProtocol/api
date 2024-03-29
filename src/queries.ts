@@ -174,7 +174,7 @@ export class Queries {
   }) {
     return this.client.query<TwammPoolStateQueryResult>({
       text: `
-          SELECT pool_key_hash,
+          SELECT tpsm.pool_key_hash,
                  token0,
                  token1,
                  fee,
@@ -185,27 +185,12 @@ export class Queries {
                  liquidity,
                  token0_sale_rate,
                  token1_sale_rate,
-                 block_time          AS last_execution_time,
-                 GREATEST(last_event_id,
-                          (SELECT event_id
-                           FROM twamm_virtual_order_executions
-                           WHERE key_hash = psm.pool_key_hash
-                           ORDER BY event_id DESC
-                           LIMIT 1),
-                          (SELECT event_id
-                           FROM twamm_order_updates
-                           WHERE key_hash = psm.pool_key_hash
-                           ORDER BY event_id DESC
-                           LIMIT 1),
-                          (SELECT event_id
-                           FROM twamm_proceeds_withdrawals
-                           WHERE key_hash = psm.pool_key_hash
-                           ORDER BY event_id DESC
-                           LIMIT 1)) AS last_event_id
+                 tpsm.last_virtual_execution_time AS last_execution_time,
+                 tpsm.last_event_id
           FROM twamm_pool_states_materialized AS tpsm
-                   JOIN pool_keys pk ON tpsm.key_hash = pk.key_hash
-                   JOIN pool_states_materialized psm ON tpsm.key_hash = psm.pool_key_hash
-          WHERE pool_key_hash = ANY ($1::NUMERIC[])
+                   JOIN pool_states_materialized psm ON psm.pool_key_hash = tpsm.pool_key_hash
+                   JOIN pool_keys pk ON tpsm.pool_key_hash = pk.key_hash
+          WHERE tpsm.pool_key_hash = ANY ($1::NUMERIC[])
       `,
       values: [poolKeyHashes],
     });
@@ -1590,7 +1575,7 @@ export class Queries {
                       ))) AS order_duration
                   FROM
                       pool_keys pk
-                      RIGHT JOIN twamm_pool_states_materialized tpsm ON tpsm.key_hash = pk.key_hash
+                      RIGHT JOIN twamm_pool_states_materialized tpsm ON tpsm.pool_key_hash = pk.key_hash
                       LEFT JOIN twamm_order_updates tou ON tou.key_hash = pk.key_hash
                           AND start_time <= $1::timestamptz
                           AND end_time > $2::timestamptz
@@ -1602,8 +1587,8 @@ export class Queries {
                   SELECT
                       tousr.key_hash,
                       tousr.fee,
-                      SUM(COALESCE(tousr.token0_sale_rate * tousr.order_duration, 0)) as token0_sold_amount,
-                      SUM(COALESCE(tousr.token1_sale_rate * tousr.order_duration, 0)) as token1_sold_amount
+                      SUM(COALESCE(tousr.token0_sale_rate * tousr.order_duration, 0)) AS token0_sold_amount,
+                      SUM(COALESCE(tousr.token1_sale_rate * tousr.order_duration, 0)) AS token1_sold_amount
                   FROM 
                       twamm_order_updates_sale_rates AS tousr
                   GROUP BY
