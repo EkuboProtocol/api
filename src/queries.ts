@@ -1520,34 +1520,23 @@ export class Queries {
       day: string;
       incentives: string;
     }>({
-      values: [owner, start, end],
       text: `
-        WITH ranked_transfers AS (SELECT token_id,
-                                         to_address,
-                                         ROW_NUMBER() OVER (
-                                           PARTITION BY token_id
-                                           ORDER BY event_id DESC
-                                           ) AS row_no
-                                  FROM position_transfers pt
-                                         JOIN event_keys ek ON pt.event_id = ek.id
-                                         JOIN blocks b ON ek.block_number = b.number
-                                  WHERE to_address != 0
-                                    AND b.time <= $3),
-
-             token_owners AS (SELECT token_id,
-                                     to_address AS owner
-                              FROM ranked_transfers
-                              WHERE row_no = 1)
-
-        SELECT token_id,
-               day,
-               incentives AS incentives
-        FROM strk_defi_spring_incentives
-               JOIN token_owners ON token_id = salt
-        WHERE owner = $1
-          AND day >= $2
-          AND day < $3
+          WITH owned_tokens AS (SELECT token_id
+                                FROM position_transfers pt1
+                                WHERE to_address = $1
+                                  AND NOT EXISTS (SELECT 1
+                                                  FROM position_transfers pt2
+                                                  WHERE pt2.token_id = pt1.token_id
+                                                    AND pt2.event_id > pt1.event_id
+                                                    AND pt2.to_address != 0))
+          SELECT token_id,
+                 day,
+                 incentives
+          FROM owned_tokens
+                   JOIN strk_defi_spring_incentives ON salt = token_id::NUMERIC
+          WHERE day BETWEEN $2 AND $3
       `,
+      values: [owner, start, end],
     });
     return rows;
   }
