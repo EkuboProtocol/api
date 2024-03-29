@@ -38,11 +38,9 @@ export interface BasePoolStateQueryResult {
   tick: number;
   liquidity: string;
   last_event_id: string;
-  last_liquidity_update_event_id: string;
 }
 
-export interface TwammPoolStateQueryResult
-  extends Omit<BasePoolStateQueryResult, "last_liquidity_update_event_id"> {
+export interface TwammPoolStateQueryResult extends BasePoolStateQueryResult {
   token0_sale_rate: string;
   token1_sale_rate: string;
   last_execution_time: Date;
@@ -76,9 +74,7 @@ export class Queries {
   }
 
   public async getAllPoolsWithStates() {
-    return this.client.query<
-      Omit<BasePoolStateQueryResult, "last_liquidity_update_event_id">
-    >(`
+    return this.client.query<BasePoolStateQueryResult>(`
       SELECT pool_key_hash,
              token0,
              token1,
@@ -87,79 +83,30 @@ export class Queries {
              extension,
              sqrt_ratio,
              tick,
-             liquidity,
-             last_event_id
+             liquidity
       FROM pool_states_materialized
              JOIN pool_keys ON pool_key_hash = key_hash
     `);
   }
 
-  // Returns all pools containing either tokenA or tokenB and their states
-  public async getAllRoutablePoolStates({
-    tokenA,
-    tokenB,
-    extension = 0n,
-  }: {
-    tokenA: bigint;
-    tokenB: bigint;
-    extension?: bigint;
-  }) {
-    return this.client.query<BasePoolStateQueryResult>({
-      text: `
-          WITH paired_with_a AS (SELECT (CASE WHEN token0 = $1 THEN token1 ELSE token0 END) AS token
-                                 FROM pool_keys
-                                 WHERE token0 = $1
-                                    OR token1 = $1),
-               paired_with_b AS (SELECT (CASE WHEN token0 = $2 THEN token1 ELSE token0 END) AS token
-                                 FROM pool_keys
-                                 WHERE token0 = $2
-                                    OR token1 = $2),
-               paired_with_both AS (SELECT token
-                                    FROM paired_with_a
-                                    INTERSECT
-                                    SELECT token
-                                    FROM paired_with_b)
-          SELECT pool_key_hash,
-                 token0,
-                 token1,
-                 fee,
-                 tick_spacing,
-                 extension,
-                 sqrt_ratio,
-                 tick,
-                 liquidity,
-                 last_event_id,
-                 last_liquidity_update_event_id
-          FROM pool_states_materialized
-                   JOIN pool_keys ON pool_key_hash = key_hash
-          WHERE ((token0 IN ($1, $2) OR token0 IN (SELECT token FROM paired_with_both)) AND
-                 (token1 IN ($1, $2) OR token1 IN (SELECT token FROM paired_with_both)))
-            AND extension = $3
-      `,
-      values: [tokenA, tokenB, extension],
-    });
-  }
-
-  public async getAllRoutableTwammPoolStates({
+  public async getAllRoutablePoolKeyHashesWithCacheId({
     tokenA,
     tokenB,
   }: {
     tokenA: bigint;
     tokenB: bigint;
   }) {
-    return this.client.query<TwammPoolStateQueryResult>({
+    return this.client.query<{
+      pool_key_hash: string;
+      last_event_id: string;
+      last_twamm_event_id: string | null;
+    }>({
       text: `
-        WITH paired_with_a AS (SELECT (CASE
-                                         WHEN token0 = $1
-                                           THEN token1
-                                         ELSE token0 END) AS token
+        WITH paired_with_a AS (SELECT (CASE WHEN token0 = $1 THEN token1 ELSE token0 END) AS token
                                FROM pool_keys
                                WHERE token0 = $1
                                   OR token1 = $1),
-             paired_with_b AS (SELECT (CASE
-                                         WHEN token0 = $2
-                                           THEN token1
-                                         ELSE token0 END) AS token
+             paired_with_b AS (SELECT (CASE WHEN token0 = $2 THEN token1 ELSE token0 END) AS token
                                FROM pool_keys
                                WHERE token0 = $2
                                   OR token1 = $2),
@@ -168,6 +115,40 @@ export class Queries {
                                   INTERSECT
                                   SELECT token
                                   FROM paired_with_b)
+        SELECT psm.pool_key_hash,
+               psm.last_event_id,
+               GREATEST((SELECT event_id
+                         FROM twamm_virtual_order_executions
+                         WHERE key_hash = psm.pool_key_hash
+                         ORDER BY event_id DESC
+                         LIMIT 1),
+                        (SELECT event_id
+                         FROM twamm_order_updates
+                         WHERE key_hash = psm.pool_key_hash
+                         ORDER BY event_id DESC
+                         LIMIT 1),
+                        (SELECT event_id
+                         FROM twamm_proceeds_withdrawals
+                         WHERE key_hash = psm.pool_key_hash
+                         ORDER BY event_id DESC
+                         LIMIT 1)) as last_twamm_event_id
+        FROM pool_states_materialized psm
+               JOIN pool_keys pk ON psm.pool_key_hash = pk.key_hash
+        WHERE ((pk.token0 IN ($1, $2) OR pk.token0 IN (SELECT token FROM paired_with_both)) AND
+               (pk.token1 IN ($1, $2) OR pk.token1 IN (SELECT token FROM paired_with_both)))
+      `,
+      values: [tokenA, tokenB],
+    });
+  }
+
+  // Returns all pools containing either tokenA or tokenB and their states
+  public async getBasePoolStates({
+    poolKeyHashes,
+  }: {
+    poolKeyHashes: bigint[];
+  }) {
+    return this.client.query<BasePoolStateQueryResult>({
+      text: `
         SELECT pool_key_hash,
                token0,
                token1,
@@ -177,22 +158,56 @@ export class Queries {
                sqrt_ratio,
                tick,
                liquidity,
-               GREATEST(last_event_id,
-                        (SELECT event_id FROM twamm_virtual_order_executions WHERE key_hash = pk.key_hash ORDER BY event_id DESC LIMIT 1),
-                        (SELECT event_id FROM twamm_order_updates WHERE key_hash = pk.key_hash ORDER BY event_id DESC LIMIT 1),
-                        (SELECT event_id FROM twamm_proceeds_withdrawals WHERE key_hash = pk.key_hash ORDER BY event_id DESC LIMIT 1)) AS last_event_id,
-               token0_sale_rate,
-               token1_sale_rate,
-               block_time                                 AS last_execution_time
-        FROM twamm_pool_states_materialized AS tpsm
-               JOIN pool_keys pk ON tpsm.key_hash = pk.key_hash
-               JOIN pool_states_materialized psm ON tpsm.key_hash = psm.pool_key_hash
-        WHERE (token0 IN ($1, $2)
-          OR token0 IN (SELECT token FROM paired_with_both))
-          AND (token1 IN ($1, $2)
-          OR token1 IN (SELECT token FROM paired_with_both));
+               last_event_id
+        FROM pool_states_materialized
+               JOIN pool_keys ON pool_key_hash = key_hash
+        WHERE pool_key_hash = ANY ($1::NUMERIC[])
       `,
-      values: [tokenA, tokenB],
+      values: [poolKeyHashes],
+    });
+  }
+
+  public async getTwammPoolStates({
+    poolKeyHashes,
+  }: {
+    poolKeyHashes: bigint[];
+  }) {
+    return this.client.query<TwammPoolStateQueryResult>({
+      text: `
+          SELECT pool_key_hash,
+                 token0,
+                 token1,
+                 fee,
+                 tick_spacing,
+                 extension,
+                 sqrt_ratio,
+                 tick,
+                 liquidity,
+                 token0_sale_rate,
+                 token1_sale_rate,
+                 block_time          AS last_execution_time,
+                 GREATEST(last_event_id,
+                          (SELECT event_id
+                           FROM twamm_virtual_order_executions
+                           WHERE key_hash = psm.pool_key_hash
+                           ORDER BY event_id DESC
+                           LIMIT 1),
+                          (SELECT event_id
+                           FROM twamm_order_updates
+                           WHERE key_hash = psm.pool_key_hash
+                           ORDER BY event_id DESC
+                           LIMIT 1),
+                          (SELECT event_id
+                           FROM twamm_proceeds_withdrawals
+                           WHERE key_hash = psm.pool_key_hash
+                           ORDER BY event_id DESC
+                           LIMIT 1)) AS last_event_id
+          FROM twamm_pool_states_materialized AS tpsm
+                   JOIN pool_keys pk ON tpsm.key_hash = pk.key_hash
+                   JOIN pool_states_materialized psm ON tpsm.key_hash = psm.pool_key_hash
+          WHERE pool_key_hash = ANY ($1::NUMERIC[])
+      `,
+      values: [poolKeyHashes],
     });
   }
 
@@ -224,41 +239,6 @@ export class Queries {
                               AND lk.last_registration_id = tr.event_id
             ORDER BY address
         `);
-  }
-
-  public async getPoolState({
-    keyHash,
-  }: {
-    keyHash: bigint;
-  }): Promise<BasePoolStateQueryResult> {
-    const { rows } = await this.client.query<
-      Omit<BasePoolStateQueryResult, "pool_key_hash">
-    >({
-      text: `
-                SELECT token0,
-                       token1,
-                       fee,
-                       tick_spacing,
-                       extension,
-                       sqrt_ratio,
-                       tick,
-                       liquidity,
-                       last_event_id,
-                       last_liquidity_update_event_id
-                FROM pool_states_materialized
-                         JOIN pool_keys ON pool_key_hash = key_hash
-                WHERE pool_key_hash = $1
-            `,
-      values: [keyHash],
-    });
-    if (rows.length !== 1) {
-      throw new Error(`Pool with key hash ${keyHash} not found`);
-    }
-
-    return {
-      pool_key_hash: keyHash.toString(),
-      ...rows[0],
-    };
   }
 
   public async getPositionMetadata(

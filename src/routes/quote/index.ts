@@ -7,7 +7,7 @@ import {
   getAllRelevantPoolsAndUpdateCache,
   getCachedNode,
   updateBasePoolCache,
-} from "./quoting";
+} from "./quoteNodeCaching";
 import { findAllRoutes } from "./findAllRoutes";
 import { QuoteMeta, TokenAmount } from "./nodes/quoteNode";
 import { num } from "starknet";
@@ -337,37 +337,46 @@ export class GetQuoteToPrice extends EkuboAPIRoute {
 
     const queries = await createQueries(env);
 
-    const [meta, node, sqrtRatio] = await queries.withinTransaction(
-      async () => {
-        const [block, poolState] = await Promise.all([
-          queries.getLatestBlockMeta(),
-          queries.getPoolState({ keyHash: poolKeyHash }),
-        ]);
+    const state = await queries.withinTransaction(async () => {
+      const [
+        block,
+        {
+          rows: [poolState],
+        },
+      ] = await Promise.all([
+        queries.getLatestBlockMeta(),
+        queries.getBasePoolStates({ poolKeyHashes: [poolKeyHash] }),
+      ]);
 
-        const meta = {
-          block: {
-            number: block.number,
-            time: block.time.getTime() / 1000,
-          },
-        };
+      if (!poolState) {
+        return null;
+      }
 
-        if (BigInt(poolState.extension) === 0n) {
-          await updateBasePoolCache([poolState], queries);
+      if (BigInt(poolState.extension) !== 0n) {
+        return null;
+      }
 
-          return [
-            meta,
-            getCachedNode(poolKeyHash),
-            BigInt(poolState.sqrt_ratio),
-          ];
-        } else {
-          return [meta, null, null];
-        }
-      },
-    );
+      const meta = {
+        block: {
+          number: block.number,
+          time: block.time.getTime() / 1000,
+        },
+      };
 
-    if (node === null || sqrtRatio === null) {
-      return error(501, "Only base pools are implemented for this API");
+      await updateBasePoolCache(queries, [poolKeyHash]);
+
+      return {
+        meta,
+        node: getCachedNode(poolKeyHash),
+        sqrtRatio: BigInt(poolState.sqrt_ratio),
+      };
+    });
+
+    if (state) {
+      return error(501, "Pool not found or not supported");
     }
+
+    const { meta, node, sqrtRatio } = state;
 
     const isToken1 = sqrtRatio >= newSqrtRatio;
     const { consumedAmount, calculatedAmount, executionResources, stateAfter } =
