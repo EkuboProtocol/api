@@ -76,7 +76,7 @@ const SPLITS_BY_DATE_RANGE: {
 }[] = [
   {
     start: new Date("2024-03-21"),
-    end: new Date("2024-04-04"),
+    end: new Date("2024-03-30"),
     splits: [
       {
         pairId: "ZEND/ETH",
@@ -93,6 +93,28 @@ const SPLITS_BY_DATE_RANGE: {
       {
         pairId: "ETH/USDT",
         weight: 3,
+      },
+    ],
+  },
+  {
+    start: new Date("2024-03-30"),
+    end: new Date("2024-04-04"),
+    splits: [
+      {
+        pairId: "ZEND/ETH",
+        weight: 1,
+      },
+      {
+        pairId: "LORDS/ETH",
+        weight: 20,
+      },
+      {
+        pairId: "rETH/ETH",
+        weight: 3,
+      },
+      {
+        pairId: "ETH/USDT",
+        weight: 9,
       },
     ],
   },
