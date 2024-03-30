@@ -226,6 +226,10 @@ export class GetNftMetadata extends EkuboAPIRoute {
               value: (metadata.end_time.getTime() / 1000).toString(),
             },
             {
+              trait_type: `fee_${ix}`,
+              value: num.toHex(BigInt(metadata.fee)),
+            },
+            {
               trait_type: `last_update_time_${ix}`,
               value: (metadata.last_update_time.getTime() / 1000).toString(),
             },

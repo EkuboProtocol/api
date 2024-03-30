@@ -281,6 +281,7 @@ export class Queries {
       sale_rate0: string;
       token1: string;
       sale_rate1: string;
+      fee: string;
     }>({
       text: `
         SELECT event_keys.transaction_hash AS minted_tx_hash,
@@ -291,7 +292,8 @@ export class Queries {
                token0,
                sale_rate0,
                token1,
-               sale_rate1
+               sale_rate1,
+               fee
         FROM position_transfers AS transfer
                LEFT JOIN LATERAL (
           SELECT ou.key_hash           AS pool_key_hash,
