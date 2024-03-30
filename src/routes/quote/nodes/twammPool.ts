@@ -8,6 +8,7 @@ import {
   Quote,
   QuoteNode,
   QuoteParams,
+  Tick,
 } from "./quoteNode";
 import { MAX_U128 } from "../math/constants";
 
@@ -36,6 +37,10 @@ export interface TwammPoolState extends BaseNodeState {
 export class TwammPool implements QuoteNode<TwammResources, TwammPoolState> {
   public get key(): NodeKey {
     return { ...this.basePool.key, extension: this.extension };
+  }
+
+  public get sortedTicks(): Tick[] {
+    return this.basePool.sortedTicks;
   }
 
   private readonly extension: bigint;

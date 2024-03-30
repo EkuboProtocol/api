@@ -1,9 +1,9 @@
 import { Client } from "pg";
 import Decimal from "decimal.js-light";
-import { Tick } from "./routes/quote/nodes/basePool";
 import { Env } from "./env";
 import { TwammExtensionPoolState } from "./routes/twamm/splitOrder";
 import { TwammSaleRateDelta } from "./routes/quote/nodes/twammPool";
+import { Tick } from "./routes/quote/nodes/quoteNode";
 
 interface PositionMetadata {
   lower_bound: string;
@@ -38,6 +38,7 @@ export interface BasePoolStateQueryResult {
   tick: number;
   liquidity: string;
   last_event_id: string;
+  last_liquidity_update_event_id: string | null;
 }
 
 export interface TwammPoolStateQueryResult extends BasePoolStateQueryResult {
@@ -74,7 +75,9 @@ export class Queries {
   }
 
   public async getAllPoolsWithStates() {
-    return this.client.query<BasePoolStateQueryResult>(`
+    return this.client.query<
+      Omit<BasePoolStateQueryResult, "last_liquidity_update_event_id">
+    >(`
       SELECT pool_key_hash,
              token0,
              token1,
@@ -83,7 +86,8 @@ export class Queries {
              extension,
              sqrt_ratio,
              tick,
-             liquidity
+             liquidity,
+             last_event_id
       FROM pool_states_materialized
              JOIN pool_keys ON pool_key_hash = key_hash
     `);
@@ -158,7 +162,8 @@ export class Queries {
                sqrt_ratio,
                tick,
                liquidity,
-               last_event_id
+               last_event_id,
+               last_liquidity_update_event_id
         FROM pool_states_materialized
                JOIN pool_keys ON pool_key_hash = key_hash
         WHERE pool_key_hash = ANY ($1::NUMERIC[])
@@ -186,7 +191,8 @@ export class Queries {
                  token0_sale_rate,
                  token1_sale_rate,
                  tpsm.last_virtual_execution_time AS last_execution_time,
-                 tpsm.last_event_id
+                 tpsm.last_event_id,
+                 psm.last_liquidity_update_event_id
           FROM twamm_pool_states_materialized AS tpsm
                    JOIN pool_states_materialized psm ON psm.pool_key_hash = tpsm.pool_key_hash
                    JOIN pool_keys pk ON tpsm.pool_key_hash = pk.key_hash
@@ -436,32 +442,32 @@ export class Queries {
       net_liquidity_delta_diff: string;
     }>({
       text: `
-                SELECT tick, SUM(net_liquidity_delta_diff) AS net_liquidity_delta_diff
-                FROM per_pool_per_tick_liquidity_materialized
-                         JOIN pool_keys ON pool_key_hash = key_hash
-                WHERE net_liquidity_delta_diff != 0
-                  AND token0 = $1
-                  AND token1 = $2
-                GROUP BY tick
-                ORDER BY tick
-            `,
+          SELECT tick, SUM(net_liquidity_delta_diff) AS net_liquidity_delta_diff
+          FROM per_pool_per_tick_liquidity_materialized
+                   JOIN pool_keys ON pool_key_hash = key_hash
+          WHERE net_liquidity_delta_diff != 0
+            AND token0 = $1
+            AND token1 = $2
+          GROUP BY tick
+          ORDER BY tick
+      `,
       values: [token0, token1],
     });
     return rows;
   }
 
-  public getPoolLiquidityGraph(pool_key_hash: bigint) {
+  public getPoolLiquidityGraph(poolKeyHash: bigint) {
     return this.client.query<{
       tick: string;
       net_liquidity_delta_diff: string;
     }>({
       text: `
-                SELECT tick, net_liquidity_delta_diff
-                FROM per_pool_per_tick_liquidity_materialized
-                WHERE pool_key_hash = $1
-                ORDER BY tick
-            `,
-      values: [pool_key_hash],
+          SELECT tick, net_liquidity_delta_diff
+          FROM per_pool_per_tick_liquidity_materialized
+          WHERE pool_key_hash = $1
+          ORDER BY tick
+      `,
+      values: [poolKeyHash],
     });
   }
 
@@ -1209,28 +1215,31 @@ export class Queries {
       tick: number;
     }>({
       text: `
-          SELECT pool_key_hash, tick, net_liquidity_delta_diff AS liquidity_delta
-          FROM per_pool_per_tick_liquidity_materialized
-          WHERE pool_key_hash = ANY ($1::NUMERIC[])
-          ORDER BY pool_key_hash, tick
+        SELECT pool_key_hash, tick, net_liquidity_delta_diff AS liquidity_delta
+        FROM per_pool_per_tick_liquidity_materialized
+        WHERE pool_key_hash = ANY ($1::NUMERIC[])
+        ORDER BY pool_key_hash, tick
       `,
       values: [poolKeyHashes],
     });
 
-    return rows.reduce<{ [key_hash: string]: Tick[] }>((memo, value) => {
-      if (memo[value.pool_key_hash]) {
-        memo[value.pool_key_hash].push({
-          tick: value.tick,
-          liquidityDelta: BigInt(value.liquidity_delta),
-        });
-      } else {
-        memo[value.pool_key_hash] = [
-          { tick: value.tick, liquidityDelta: BigInt(value.liquidity_delta) },
-        ];
-      }
+    // we first initialize the map so every key passed into the function has a value, even if it's not in the result set
+    const map = poolKeyHashes.reduce<{ [key_hash: string]: Tick[] }>(
+      (memo, value) => {
+        memo[value.toString()] = [];
+        return memo;
+      },
+      {},
+    );
 
-      return memo;
-    }, {});
+    rows.forEach((value) => {
+      map[value.pool_key_hash].push({
+        tick: value.tick,
+        liquidityDelta: BigInt(value.liquidity_delta),
+      });
+    });
+
+    return map;
   }
 
   public async getOrderTimeData({

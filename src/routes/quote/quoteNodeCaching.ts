@@ -10,6 +10,7 @@ import { TwammPool } from "./nodes/twammPool";
 const QUOTE_NODE_CACHE: {
   [key_hash: string]: {
     lastEventId: bigint;
+    lastLiquidityUpdateEventId: bigint;
     node: QuoteNode;
   };
 } = {};
@@ -28,12 +29,21 @@ export async function updateBasePoolCache(
 
   // only get tick data for pools not found in the kv
   const tickData = await queries.getTickData({
-    poolKeyHashes,
+    poolKeyHashes: basePoolStates
+      .filter(
+        ({ pool_key_hash, last_liquidity_update_event_id }) =>
+          QUOTE_NODE_CACHE[pool_key_hash]?.lastLiquidityUpdateEventId !==
+          BigInt(last_liquidity_update_event_id ?? 0),
+      )
+      .map(({ pool_key_hash }) => BigInt(pool_key_hash)),
   });
 
   basePoolStates.forEach((pool) => {
     QUOTE_NODE_CACHE[pool.pool_key_hash] = {
       lastEventId: BigInt(pool.last_event_id),
+      lastLiquidityUpdateEventId: BigInt(
+        pool.last_liquidity_update_event_id ?? 0,
+      ),
       node: new BasePool({
         token0: BigInt(pool.token0),
         token1: BigInt(pool.token1),
@@ -42,7 +52,11 @@ export async function updateBasePoolCache(
         fee: BigInt(pool.fee),
         liquidity: BigInt(pool.liquidity),
         tick: pool.tick,
-        sortedTicks: tickData[pool.pool_key_hash] ?? [],
+        sortedTicks:
+          // if we didn't fetch the tick data for the key hash, it's because we already had it cached
+          tickData[pool.pool_key_hash] ??
+          QUOTE_NODE_CACHE[pool.pool_key_hash]?.node?.sortedTicks ??
+          [],
       }),
     };
   });
@@ -63,6 +77,7 @@ export async function updateTwammPoolCache(
   twammPools.forEach((pool) => {
     QUOTE_NODE_CACHE[pool.pool_key_hash] = {
       lastEventId: BigInt(pool.last_event_id),
+      lastLiquidityUpdateEventId: BigInt(pool.last_liquidity_update_event_id),
       node: new TwammPool({
         token0: BigInt(pool.token0),
         token1: BigInt(pool.token1),

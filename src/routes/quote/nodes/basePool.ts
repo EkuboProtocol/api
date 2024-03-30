@@ -12,12 +12,8 @@ import {
   Quote,
   QuoteNode,
   QuoteParams,
+  Tick,
 } from "./quoteNode";
-
-export interface Tick {
-  readonly liquidityDelta: bigint;
-  readonly tick: number;
-}
 
 /**
  * Returns the index in the sorted tick array that has the greatest value of tick that is not greater than the given tick

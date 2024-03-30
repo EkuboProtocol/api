@@ -49,12 +49,18 @@ export interface QuoteParams<T extends BaseNodeState> {
   meta: QuoteMeta;
 }
 
+export interface Tick {
+  readonly tick: number;
+  readonly liquidityDelta: bigint;
+}
+
 export interface QuoteNode<
   TResources extends BaseResources = BaseResources,
   TSwapState extends BaseNodeState = BaseNodeState,
 > {
   readonly key: NodeKey;
   readonly state: Readonly<TSwapState>;
+  readonly sortedTicks: Tick[];
 
   quote(params: QuoteParams<TSwapState>): Quote<TResources, TSwapState>;
 

@@ -69,11 +69,7 @@ function addIncentivesToData(
   }
 }
 
-const SPLITS_BY_DATE_RANGE: {
-  start: Date;
-  end: Date;
-  splits: { pairId: string; weight: number }[];
-}[] = [
+const SPLITS_BY_DATE_RANGE = [
   {
     start: new Date("2024-03-21"),
     end: new Date("2024-03-30"),
