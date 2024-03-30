@@ -432,14 +432,6 @@ export class GetNftImage extends EkuboAPIRoute {
       return error(400, "Invalid token ID");
     }
 
-    const queries = await createQueries(env);
-
-    const positionMetadata = await queries.getPositionMetadata(id);
-
-    if (positionMetadata === null) {
-      return error(404, `Token ID ${id} not found`);
-    }
-
     return new Response(generateSvg(id, env.STARKNET_CHAIN_ID), {
       status: 200,
       headers: {
