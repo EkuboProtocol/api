@@ -107,6 +107,8 @@ export class GetNftMetadata extends EkuboAPIRoute {
           trait_type: "minted_tx_hash",
           value: num.toHex(positionMetadata.minted_tx_hash),
         },
+        { trait_type: "token0", value: num.toHex(positionMetadata.token0) },
+        { trait_type: "token1", value: num.toHex(positionMetadata.token1) },
         { trait_type: "fee", value: positionMetadata.fee.toString() },
         {
           trait_type: "tick_spacing",
