@@ -94,108 +94,162 @@ export class GetNftMetadata extends EkuboAPIRoute {
 
     const queries = await createQueries(env);
 
+    let metadata: NFTMetadata;
+
     const positionMetadata = await queries.getPositionMetadata(id);
 
-    if (positionMetadata === null) {
-      return error(404, `Token ID ${id} not found`);
-    }
-
-    const attributesStored: NFTMetadata["attributes"] = [
-      {
-        trait_type: "minted_tx_hash",
-        value: num.toHex(positionMetadata.minted_tx_hash),
-      },
-      { trait_type: "token0", value: num.toHex(positionMetadata.token0) },
-      { trait_type: "token1", value: num.toHex(positionMetadata.token1) },
-      { trait_type: "fee", value: positionMetadata.fee.toString() },
-      {
-        trait_type: "tick_spacing",
-        value: positionMetadata.tick_spacing.toString(),
-      },
-      {
-        trait_type: "extension",
-        value: num.toHex(positionMetadata.extension).toString(),
-      },
-      {
-        trait_type: "tick_lower",
-        value: positionMetadata.lower_bound.toString(),
-      },
-      {
-        trait_type: "tick_upper",
-        value: positionMetadata.upper_bound.toString(),
-      },
-      {
-        trait_type: "minted_timestamp",
-        value: positionMetadata.minted_timestamp.getTime().toString(),
-      },
-    ];
-
-    const allTokens = await getAllTokens(env, queries);
-
     const origin = new URL(url).origin;
+    const image = `${origin}/${id}/image.svg`;
 
-    const token0 = getTokenByAddress(allTokens, positionMetadata.token0);
-    const token1 = getTokenByAddress(allTokens, positionMetadata.token1);
+    if (positionMetadata !== null) {
+      const attributesStored: NFTMetadata["attributes"] = [
+        {
+          trait_type: "minted_tx_hash",
+          value: num.toHex(positionMetadata.minted_tx_hash),
+        },
+        { trait_type: "fee", value: positionMetadata.fee.toString() },
+        {
+          trait_type: "tick_spacing",
+          value: positionMetadata.tick_spacing.toString(),
+        },
+        {
+          trait_type: "extension",
+          value: num.toHex(positionMetadata.extension).toString(),
+        },
+        {
+          trait_type: "tick_lower",
+          value: positionMetadata.lower_bound.toString(),
+        },
+        {
+          trait_type: "tick_upper",
+          value: positionMetadata.upper_bound.toString(),
+        },
+        {
+          trait_type: "minted_timestamp",
+          value: positionMetadata.minted_timestamp.getTime().toString(),
+        },
+      ];
 
-    let metadata: NFTMetadata;
-    if (token0 && token1) {
-      const reversed = token0.sort_order >= token1.sort_order;
-      const [numerator, denominator, lowerPrice, upperPrice] = reversed
-        ? [
-            token0,
-            token1,
-            formattedPrice(
-              -BigInt(positionMetadata.upper_bound),
-              token0.decimals,
-              token1.decimals,
-            ),
-            formattedPrice(
-              -BigInt(positionMetadata.lower_bound),
-              token0.decimals,
-              token1.decimals,
-            ),
-          ]
-        : [
-            token1,
-            token0,
-            formattedPrice(
-              BigInt(positionMetadata.lower_bound),
-              token1.decimals,
-              token0.decimals,
-            ),
-            formattedPrice(
-              BigInt(positionMetadata.upper_bound),
-              token1.decimals,
-              token0.decimals,
-            ),
-          ];
+      const allTokens = await getAllTokens(env, queries);
 
-      metadata = {
-        name: `${numerator.symbol} / ${
-          denominator.symbol
-        } : ${lowerPrice} <> ${upperPrice} : ${feeToPercent(
-          positionMetadata.fee,
-        )}% / ${tickSpacingToPercent(positionMetadata.tick_spacing)}%`,
-        description: `A liquidity position in Ekubo consisting of the ${
-          numerator.name
-        } and ${
-          denominator.name
-        } tokens, active between the prices of ${lowerPrice} ${
-          numerator.symbol
-        } / ${denominator.symbol} to ${upperPrice} ${numerator.symbol} / ${
-          denominator.symbol
-        }. This position charges a ${feeToPercent(
-          positionMetadata.fee,
-        )}% fee on swaps.`,
-        image: `${origin}/${id}/image.svg`,
-        attributes: attributesStored,
-      };
+      const token0 = getTokenByAddress(allTokens, positionMetadata.token0);
+      const token1 = getTokenByAddress(allTokens, positionMetadata.token1);
+
+      if (token0 && token1) {
+        const reversed = token0.sort_order >= token1.sort_order;
+        const [numerator, denominator, lowerPrice, upperPrice] = reversed
+          ? [
+              token0,
+              token1,
+              formattedPrice(
+                -BigInt(positionMetadata.upper_bound),
+                token0.decimals,
+                token1.decimals,
+              ),
+              formattedPrice(
+                -BigInt(positionMetadata.lower_bound),
+                token0.decimals,
+                token1.decimals,
+              ),
+            ]
+          : [
+              token1,
+              token0,
+              formattedPrice(
+                BigInt(positionMetadata.lower_bound),
+                token1.decimals,
+                token0.decimals,
+              ),
+              formattedPrice(
+                BigInt(positionMetadata.upper_bound),
+                token1.decimals,
+                token0.decimals,
+              ),
+            ];
+
+        metadata = {
+          name: `${numerator.symbol} / ${
+            denominator.symbol
+          } : ${lowerPrice} <> ${upperPrice} : ${feeToPercent(
+            positionMetadata.fee,
+          )}% / ${tickSpacingToPercent(positionMetadata.tick_spacing)}%`,
+          description: `A liquidity position in Ekubo consisting of the ${
+            numerator.name
+          } and ${
+            denominator.name
+          } tokens, active between the prices of ${lowerPrice} ${
+            numerator.symbol
+          } / ${denominator.symbol} to ${upperPrice} ${numerator.symbol} / ${
+            denominator.symbol
+          }. This position charges a ${feeToPercent(
+            positionMetadata.fee,
+          )}% fee on swaps.`,
+          image,
+          attributes: attributesStored,
+        };
+      } else {
+        metadata = {
+          name: `Ekubo NFT #${id}`,
+          description: "An NFT that represents a position in Ekubo Protocol",
+          image,
+          attributes: attributesStored,
+        };
+      }
     } else {
+      const orderMetadata = await queries.getOrderMetadata(id);
+      if (orderMetadata.length === 0) {
+        return error(404, `Token ID ${id} not found`);
+      }
+
       metadata = {
-        name: `Ekubo NFT #${id}`,
-        description: "An NFT that represents a liquidity position in Ekubo",
-        image: `${origin}/${id}/image.svg`,
-        attributes: attributesStored,
+        name: "TWAP Order",
+        image,
+        attributes: [
+          {
+            trait_type: "minted_tx_hash",
+            value: num.toHex(orderMetadata[0].minted_tx_hash),
+          },
+          {
+            trait_type: "minted_timestamp",
+            value: orderMetadata[0].minted_timestamp.getTime().toString(),
+          },
+        ].concat(
+          orderMetadata.flatMap((metadata, ix) => [
+            {
+              trait_type: `start_time_${ix}`,
+              value: (metadata.start_time.getTime() / 1000).toString(),
+            },
+            {
+              trait_type: `end_time_${ix}`,
+              value: (metadata.end_time.getTime() / 1000).toString(),
+            },
+            ...(BigInt(metadata.sale_rate0) === 0n &&
+            BigInt(metadata.sale_rate1) === 0n
+              ? []
+              : BigInt(metadata.sale_rate0) > 0n
+                ? [
+                    {
+                      trait_type: `sell_token_${ix}`,
+                      value: num.toHex(BigInt(metadata.token0)),
+                    },
+                    {
+                      trait_type: `buy_token_${ix}`,
+                      value: num.toHex(BigInt(metadata.token1)),
+                    },
+                  ]
+                : [
+                    {
+                      trait_type: `sell_token_${ix}`,
+                      value: num.toHex(BigInt(metadata.token1)),
+                    },
+                    {
+                      trait_type: `buy_token_${ix}`,
+                      value: num.toHex(BigInt(metadata.token0)),
+                    },
+                  ]),
+          ]),
+        ),
+        description: "A TWAP order in Ekubo Protocol",
       };
     }
 

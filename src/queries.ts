@@ -270,6 +270,51 @@ export class Queries {
     return rows[0];
   }
 
+  public async getOrderMetadata(id: number) {
+    const { rows, rowCount } = await this.client.query<{
+      minted_tx_hash: string;
+      minted_timestamp: Date;
+      start_time: Date;
+      end_time: Date;
+      token0: string;
+      sale_rate0: string;
+      token1: string;
+      sale_rate1: string;
+    }>({
+      text: `
+        SELECT event_keys.transaction_hash                              AS minted_tx_hash,
+               blocks.time                                              AS minted_timestamp,
+               start_time                                               AS start_time,
+               end_time                                                 AS end_time,
+               token0,
+               sale_rate0,
+               token1,
+               sale_rate1
+        FROM position_transfers AS transfer
+               LEFT JOIN LATERAL (
+          SELECT ou.key_hash                       AS pool_key_hash,
+                 MIN(GREATEST(start_time, b.time)) AS start_time,
+                 MAX(end_time)                     AS end_time,
+                 SUM(sale_rate_delta0)             AS sale_rate0,
+                 SUM(sale_rate_delta1)             AS sale_rate1
+          FROM twamm_order_updates AS ou
+                 JOIN event_keys ek ON event_id = id
+                 JOIN blocks b ON block_number = number
+          WHERE ou.salt = token_id::NUMERIC
+          GROUP BY ou.key_hash
+          ) AS order_data ON TRUE
+               JOIN pool_keys ON order_data.pool_key_hash = key_hash
+               JOIN event_keys ON transfer.event_id = event_keys.id
+               JOIN blocks ON event_keys.block_number = blocks.number
+        WHERE token_id = $1
+          AND from_address = 0
+        LIMIT 1
+      `,
+      values: [id],
+    });
+    return rows;
+  }
+
   public async getPositionState(id: number) {
     const { rows, rowCount } = await this.client.query<{
       points_earned: string;
