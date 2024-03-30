@@ -204,7 +204,7 @@ export class GetNftMetadata extends EkuboAPIRoute {
       }
 
       metadata = {
-        name: "TWAP Order",
+        name: "Ekubo TWAP Order",
         image,
         attributes: [
           {
@@ -224,6 +224,10 @@ export class GetNftMetadata extends EkuboAPIRoute {
             {
               trait_type: `end_time_${ix}`,
               value: (metadata.end_time.getTime() / 1000).toString(),
+            },
+            {
+              trait_type: `last_update_time_${ix}`,
+              value: (metadata.last_update_time.getTime() / 1000).toString(),
             },
             ...(BigInt(metadata.sale_rate0) === 0n &&
             BigInt(metadata.sale_rate1) === 0n
