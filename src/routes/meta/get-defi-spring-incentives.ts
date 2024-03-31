@@ -94,7 +94,7 @@ const SPLITS_BY_DATE_RANGE = [
   },
   {
     start: new Date("2024-03-30"),
-    end: new Date("2024-04-04"),
+    end: new Date("2024-03-31"),
     splits: [
       {
         pairId: "ZEND/ETH",
@@ -111,6 +111,28 @@ const SPLITS_BY_DATE_RANGE = [
       {
         pairId: "ETH/USDT",
         weight: 9,
+      },
+    ],
+  },
+  {
+    start: new Date("2024-03-31"),
+    end: new Date("2024-04-04"),
+    splits: [
+      {
+        pairId: "ZEND/ETH",
+        weight: 1,
+      },
+      {
+        pairId: "LORDS/ETH",
+        weight: 20,
+      },
+      {
+        pairId: "rETH/ETH",
+        weight: 3,
+      },
+      {
+        pairId: "ETH/USDT",
+        weight: 12,
       },
     ],
   },
@@ -364,16 +386,16 @@ export class GetDefiSpringIncentives extends EkuboAPIRoute {
             .plus(usdcValueDepth1)
             .div(new Decimal(10).pow(6));
 
+          const adjustedTvl = totalValueLockedInRange.div(
+            latestDateAllocation?.tvl_usd ?? totalValueLockedInRange,
+          );
+
           const extrapolatedUsdcReward = new Decimal(
             latestDateAllocation?.allocation ?? 0,
           )
             .mul(365)
             .mul(strkPrice)
-            .mul(
-              totalValueLockedInRange.div(
-                latestDateAllocation?.tvl_usd ?? totalValueLockedInRange,
-              ),
-            );
+            .mul(adjustedTvl);
 
           const currentApr = Number(
             extrapolatedUsdcReward
@@ -385,6 +407,7 @@ export class GetDefiSpringIncentives extends EkuboAPIRoute {
           return {
             token0,
             token1,
+            adjustedTvl: adjustedTvl.toFixed(4, Decimal.ROUND_DOWN),
             allocations,
             currentApr,
             volatilityInTicks,
