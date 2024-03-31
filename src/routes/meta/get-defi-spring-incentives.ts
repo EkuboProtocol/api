@@ -382,8 +382,14 @@ export class GetDefiSpringIncentives extends EkuboAPIRoute {
             ? new Decimal(-depth1.toString()).mul(price1.price)
             : new Decimal(0);
 
+          let multiplier: number = 1;
+          if ((price0 && !price1) || (price1 && !price0)) {
+            multiplier = 2;
+          }
+
           const totalValueLockedInRange = usdcValueDepth0
             .plus(usdcValueDepth1)
+            .mul(multiplier)
             .div(new Decimal(10).pow(6));
 
           const adjustedTvl = totalValueLockedInRange.div(
