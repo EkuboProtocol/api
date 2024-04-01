@@ -67,7 +67,7 @@ const GetQuoteResponseType = z.object({
             "A suggested skip_ahead value for gas optimizing the trade",
           example: 123,
         }),
-      })
+      }),
     )
     .openapi({
       description: "The list of pool keys through which to swap",
@@ -93,7 +93,7 @@ export class GetQuote extends EkuboAPIRoute {
           examples: ["1e9", "1000000", "-1e18", "-100000000000000"],
           example: "-1e9",
           description: "The amount of the specified token",
-        })
+        }),
       ),
       maxSplits: Query(z.coerce.number().int().min(0).max(8), {
         description:
@@ -192,15 +192,17 @@ export class GetQuote extends EkuboAPIRoute {
     const block = await queries.getLatestBlockMeta();
 
     const ageLastBlockSeconds = Math.floor(
-      (Date.now() - block.time.getTime()) / 1000
+      (Date.now() - block.time.getTime()) / 1000,
     );
 
-    const estimatedNumberOfBlocksBehind = Math.floor(ageLastBlockSeconds / 60);
+    // the current block sealing deadline is 6 minutes, so we can estimate the current block number based on the age of the latest block in 6 minute intervals
+    // this is a lower bound on the actual pending block timestamp
+    const estimatedNumberOfBlocksBehind = Math.floor(ageLastBlockSeconds / 360);
 
     const meta: QuoteMeta = {
       block: {
         number: block.number + estimatedNumberOfBlocksBehind,
-        time: Math.ceil(Date.now() / 1000),
+        time: block.time.getTime() / 1000 + estimatedNumberOfBlocksBehind * 360,
       },
     };
 
@@ -229,7 +231,7 @@ export class GetQuote extends EkuboAPIRoute {
         if (!quoteB) return -1;
         return Number(
           quoteB.gasAdjustedCalculatedAmount -
-            quoteA.gasAdjustedCalculatedAmount
+            quoteA.gasAdjustedCalculatedAmount,
         );
       })
       .slice(0, Math.pow(2, maxSplits))
@@ -264,8 +266,8 @@ export class GetQuote extends EkuboAPIRoute {
           getSqrtRatioLimit(
             route.quoteRouteResult.quotes[ix].stateAfter.sqrtRatio,
             node.key.tickSpacing,
-            route.quoteRouteResult.quotes[ix].isPriceIncreasing
-          )
+            route.quoteRouteResult.quotes[ix].isPriceIncreasing,
+          ),
         ),
         skip_ahead: num.toHex(
           Math.round(
@@ -274,9 +276,9 @@ export class GetQuote extends EkuboAPIRoute {
               Math.max(
                 route.quoteRouteResult.quotes[ix].executionResources
                   .initializedTicksCrossed,
-                1
-              )
-          )
+                1,
+              ),
+          ),
         ),
       })),
     }));
@@ -287,7 +289,7 @@ export class GetQuote extends EkuboAPIRoute {
             .reduce(
               (sum, route) =>
                 route.quoteRouteResult.calculatedAmount.amount + sum,
-              0n
+              0n,
             )
             .toString(),
           splits: serializedRoutes,
@@ -411,7 +413,7 @@ export class GetQuoteToPrice extends EkuboAPIRoute {
         headers: {
           "cache-control": "no-cache",
         },
-      }
+      },
     );
   }
 }
