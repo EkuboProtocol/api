@@ -14,5 +14,29 @@
     "l2_token_address": "0x04718f5a0fc34cc1af16a1cdee98ffb20c31f5cd61d6ab07201858f4287c938d",
     "sort_order": 1,
     "total_supply": null
+  },
+  {
+    "name": "USD Coin (Fake)",
+    "symbol": "USDC",
+    "decimals": 6,
+    "l2_token_address": "0x07ab0b8855a61f480b4423c46c32fa7c553f0aac3531bbddaa282d86244f7a23",
+    "sort_order": 3,
+    "total_supply": null
+  },
+  {
+    "name": "DAI Stablecoin (Fake)",
+    "symbol": "DAI",
+    "decimals": 18,
+    "l2_token_address": "0x06f2a0dfeff180133de890ad69c6ba294574c5f34a67890fd22464f348c4d03c",
+    "sort_order": 2,
+    "total_supply": null
+  },
+  {
+    "name": "Wrapped Bitcoin (Fake)",
+    "symbol": "WBTC",
+    "decimals": 8,
+    "l2_token_address": "0x020d208b9e57a7f92bfa9f61135446e0961afc340378be97dbd317453c0950ae",
+    "sort_order": 1,
+    "total_supply": null
   }
 ]
