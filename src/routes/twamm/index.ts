@@ -12,12 +12,12 @@ import { z } from "zod";
 import {
   AddressType,
   TokenIdentifierType,
-  DateType,
   DateIdentifierType,
-  NumericType,
 } from "../../shared/validation/address";
-import { splitTWAMMOrder, TwammExtensionPoolState } from "./splitOrder";
+import { splitTwammOrderByPriceImpact } from "./splitOrder";
 import { num } from "starknet";
+import { getCachedNode, updateTwammPoolCache } from "../quote/quoteNodeCaching";
+import { TwammPool } from "../quote/nodes/twammPool";
 
 export const OrderKeyType = z
   .object({
@@ -56,7 +56,7 @@ export class GetSplitTWAPOrderByDate extends EkuboAPIRoute {
         z.string().openapi({
           examples: ["1e9", "1000000"],
           description: "The amount of the token to sell",
-        }),
+        })
       ),
       startTime: Path(DateIdentifierType, {
         example: "2020-01-01T00:00:01Z",
@@ -83,7 +83,7 @@ export class GetSplitTWAPOrderByDate extends EkuboAPIRoute {
                   description: "The amount to sell on this pool",
                 }),
                 order_key: OrderKeyType,
-              }),
+              })
             )
             .openapi({
               description: "The list of TWAP orders to place",
@@ -112,7 +112,7 @@ export class GetSplitTWAPOrderByDate extends EkuboAPIRoute {
     } catch (e) {
       return error(
         400,
-        `Failed to parse path parameters: ${(e as Error).message}`,
+        `Failed to parse path parameters: ${(e as Error).message}`
       );
     }
 
@@ -141,7 +141,7 @@ export class GetSplitTWAPOrderByDate extends EkuboAPIRoute {
       endTime,
       amount,
       maxSplits,
-      queries,
+      queries
     );
 
     if (orders.length == 0) {
@@ -167,148 +167,7 @@ export class GetSplitTWAPOrderByDate extends EkuboAPIRoute {
         headers: {
           "cache-control": "no-cache",
         },
-      },
-    );
-  }
-}
-
-const SellParamsType = z
-  .object({
-    sell_token: AddressType.openapi({
-      example:
-        "0x049d36570d4e46f48e99674bd3fcc84644ddd6b96f7c741b1562b82f9e004dc7",
-    }),
-    buy_token: AddressType.openapi({
-      example:
-        "0x053c91253bc9682c04929ca02ed00b3e423f6710d2ee7e0d5ebb06f3ecf368a8",
-    }),
-    fee: z.string().openapi({
-      example: "1020847100762815411640772995208708096",
-    }),
-    duration: NumericType.openapi({
-      example: "256",
-    }),
-  })
-  .openapi({ description: "The key identifier for a TWAP order in Ekubo" });
-
-export class GetSplitTWAPOrderByDuration extends EkuboAPIRoute {
-  static route =
-    "/split_twap_order_by_duration/:buyToken/:sellToken/:amount/:duration";
-
-  static schema: OpenAPIRouteSchema = {
-    tags: ["TWAP"],
-    summary: "Split TWAP order by duration",
-    description: "Returns a set of orders split across TWAMM pools",
-    parameters: {
-      buyToken: Path(TokenIdentifierType, { example: "USDC" }),
-      sellToken: Path(TokenIdentifierType, { example: "ETH" }),
-      amount: Path(
-        z.string().openapi({
-          examples: ["1e9", "1000000"],
-          description: "The amount of the token to sell",
-        }),
-      ),
-      duration: Path(
-        NumericType.openapi({
-          example: "256",
-        }),
-      ),
-      maxSplits: Query(z.coerce.number().int().min(0).max(8), {
-        description:
-          "The maximum number of orders that the amount can be split across",
-        required: false,
-      }),
-    },
-    responses: {
-      "200": {
-        description: "The split TWAP order",
-        contentType: "application/json",
-        schema: z.object({
-          orders: z
-            .array(
-              z.object({
-                amount: z.string().openapi({
-                  examples: ["1000000", "100000000000000"],
-                  description: "The amount to sell on this pool",
-                }),
-                sell_params: SellParamsType,
-              }),
-            )
-            .openapi({
-              description: "The list of TWAP orders to place",
-            }),
-        }),
-      },
-    },
-  };
-
-  async handle({ params, query }: IRequest, { env }: RequestContext) {
-    const maxSplitsQueryParam = query.maxSplits;
-    const specifiedMaxSplits = typeof maxSplitsQueryParam === "string";
-
-    let maxSplits: number = 2;
-    if (specifiedMaxSplits) {
-      maxSplits = parseInt(maxSplitsQueryParam);
-    }
-
-    const queries = await createQueries(env);
-
-    const allTokens = await getAllTokens(env, queries);
-
-    let amount: bigint;
-    try {
-      amount = BigInt(new Decimal(params.amount).toInteger().toFixed());
-    } catch (e) {
-      return error(
-        400,
-        `Failed to parse path parameters: ${(e as Error).message}`,
-      );
-    }
-
-    const sellToken = getTokenByIdentifier(allTokens, params.sellToken);
-    const buyToken = getTokenByIdentifier(allTokens, params.buyToken);
-
-    if (!sellToken || !buyToken) {
-      return error(400, "Invalid token parameters");
-    }
-
-    const duration: number = Number(params.duration);
-    const startTime: Date = new Date();
-    const endTime = new Date(startTime.getTime() + duration * 1_000);
-
-    const orders = await splitOrder(
-      sellToken,
-      buyToken,
-      startTime,
-      endTime,
-      amount,
-      maxSplits,
-      queries,
-    );
-
-    if (orders.length == 0) {
-      return error(400, "No pools available");
-    }
-
-    return json(
-      {
-        orders: orders.map((order) => {
-          return {
-            amount: order.amount,
-            sell_params: {
-              sell_token: sellToken.l2_token_address,
-              buy_token: buyToken.l2_token_address,
-              fee: order.fee,
-              duration,
-            },
-          };
-        }),
-      },
-      {
-        headers: {
-          "cache-control": "no-cache",
-        },
-      },
+      }
     );
   }
 }
@@ -320,7 +179,7 @@ async function splitOrder(
   endTime: Date,
   amount: bigint,
   maxSplits: number,
-  queries: Queries,
+  queries: Queries
 ) {
   const sellTokenAddress: string = sellToken.l2_token_address;
   const buyTokenAddress: string = buyToken.l2_token_address;
@@ -330,20 +189,29 @@ async function splitOrder(
       ? [buyTokenAddress, sellTokenAddress]
       : [sellTokenAddress, buyTokenAddress];
 
-  const poolStates: TwammExtensionPoolState[] =
-    await queries.getTWAMMSaleRateAt({
-      token0: BigInt(token0),
-      token1: BigInt(token1),
-      startTime,
-      endTime,
-    });
+  const { rows: relevantPools } = await queries.getAllRelevantTwammPoolStates({
+    token0: BigInt(token0),
+    token1: BigInt(token1),
+  });
 
-  const orders = await splitTWAMMOrder(
+  const poolKeyHashes = relevantPools.map((p) => BigInt(p.key_hash));
+
+  await updateTwammPoolCache(queries, poolKeyHashes);
+
+  const twammNodes = poolKeyHashes.reduce<{ [key_hash: string]: TwammPool }>(
+    (memo, value) => {
+      memo[value.toString()] = getCachedNode(value) as TwammPool;
+      return memo;
+    },
+    {}
+  );
+
+  return splitTwammOrderByPriceImpact({
     amount,
     startTime,
     endTime,
-    poolStates,
+    isToken1: sellTokenAddress === token1,
     maxSplits,
-  );
-  return orders;
+    twammNodes,
+  });
 }

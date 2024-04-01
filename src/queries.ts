@@ -1,7 +1,7 @@
 import { Client } from "pg";
 import Decimal from "decimal.js-light";
 import { Env } from "./env";
-import { TwammExtensionPoolState } from "./routes/twamm/splitOrder";
+import { TwammSaleRateDeltaMap } from "./routes/twamm/splitOrder";
 import { TwammSaleRateDelta } from "./routes/quote/nodes/twammPool";
 import { Tick } from "./routes/quote/nodes/quoteNode";
 
@@ -202,6 +202,34 @@ export class Queries {
     });
   }
 
+  public async getAllRelevantTwammPoolStates({
+    token0,
+    token1,
+  }: {
+    token0: bigint;
+    token1: bigint;
+  }) {
+    return this.client.query<{ key_hash: bigint }>({
+      text: `
+          WITH pool_keys AS (
+              SELECT 
+                  key_hash
+              FROM
+                  pool_keys
+              WHERE 
+                  token0 = $1
+                  AND
+                  token1 = $2
+          )
+          SELECT 
+              pk.key_hash
+          FROM pool_keys AS pk
+              INNER JOIN twamm_pool_states_materialized AS tpsm on pk.key_hash = tpsm.pool_key_hash;
+      `,
+      values: [token0, token1],
+    });
+  }
+
   // Returns all pools containing either tokenA or tokenB and their states
   public async getRegisteredTokens() {
     return this.client.query<{
@@ -233,7 +261,7 @@ export class Queries {
   }
 
   public async getPositionMetadata(
-    id: number,
+    id: number
   ): Promise<PositionMetadata | null> {
     const { rows, rowCount } = await this.client.query<PositionMetadata>({
       text: `
@@ -664,7 +692,7 @@ export class Queries {
 
   public getTvlDeltaByTokenByDate(
     after: Date,
-    pair?: { token0: bigint; token1: bigint },
+    pair?: { token0: bigint; token1: bigint }
   ) {
     return this.client.query<{ token: string; date: string; balance: string }>({
       text: `
@@ -908,7 +936,7 @@ export class Queries {
 
   public async getVolumeByTokenByDate(
     after: Date,
-    pair?: { token0: bigint; token1: bigint },
+    pair?: { token0: bigint; token1: bigint }
   ) {
     return this.client.query<{
       token: string;
@@ -973,7 +1001,7 @@ export class Queries {
         ({ k_volume, total, swap_count }) =>
           BigInt(k_volume) > 0n &&
           BigInt(total) > 0n &&
-          swap_count >= minSwapCount,
+          swap_count >= minSwapCount
       )
       .map(({ token0, token1, k_volume, total }) => ({
         token: `0x${(BigInt(token0) === quoteToken
@@ -990,7 +1018,7 @@ export class Queries {
 
   public async withinTransaction<T>(doX: () => Promise<T>): Promise<T> {
     await this.client.query(
-      `BEGIN TRANSACTION ISOLATION LEVEL REPEATABLE READ`,
+      `BEGIN TRANSACTION ISOLATION LEVEL REPEATABLE READ`
     );
     try {
       const result = await doX();
@@ -1011,7 +1039,7 @@ export class Queries {
 
   public async getRevenueByTokenByDate(
     after: Date,
-    pair?: { token0: bigint; token1: bigint },
+    pair?: { token0: bigint; token1: bigint }
   ) {
     return this.client.query<{ token: string; volume: string }>({
       text: `
@@ -1295,7 +1323,7 @@ export class Queries {
     poolKeyHashes,
   }: {
     poolKeyHashes: bigint[];
-  }): Promise<{ [key_hash: string]: TwammSaleRateDelta[] }> {
+  }): Promise<TwammSaleRateDeltaMap> {
     const { rows } = await this.client.query<{
       pool_key_hash: string;
       time: Date;
@@ -1331,7 +1359,7 @@ export class Queries {
 
         return memo;
       },
-      {},
+      {}
     );
   }
 
@@ -1608,68 +1636,9 @@ export class Queries {
     return rows;
   }
 
-  async getTWAMMSaleRateAt({
-    token0,
-    token1,
-    startTime,
-    endTime,
-  }: {
-    token0: bigint;
-    token1: bigint;
-    startTime: Date;
-    endTime: Date;
-  }) {
-    const { rows } = await this.client.query<TwammExtensionPoolState>({
-      values: [endTime, startTime, token0, token1],
-      text: `
-              WITH twamm_order_updates_sale_rates AS (
-                  SELECT
-                      pk.key_hash,
-                      pk.fee,
-                      tou.sale_rate_delta0 AS token0_sale_rate,
-                      tou.sale_rate_delta1 AS token1_sale_rate,
-                      FLOOR(EXTRACT(EPOCH FROM (
-                          LEAST($1::timestamptz, tou.end_time) - GREATEST($2::timestamptz, tou.start_time)
-                      ))) AS order_duration
-                  FROM
-                      pool_keys pk
-                      RIGHT JOIN twamm_pool_states_materialized tpsm ON tpsm.pool_key_hash = pk.key_hash
-                      LEFT JOIN twamm_order_updates tou ON tou.key_hash = pk.key_hash
-                          AND start_time <= $1::timestamptz
-                          AND end_time > $2::timestamptz
-                      WHERE
-                          pk.token0 = $3
-                          AND pk.token1 = $4
-              ),
-              twamm_pool_states AS (
-                  SELECT
-                      tousr.key_hash,
-                      tousr.fee,
-                      SUM(COALESCE(tousr.token0_sale_rate * tousr.order_duration, 0)) AS token0_sold_amount,
-                      SUM(COALESCE(tousr.token1_sale_rate * tousr.order_duration, 0)) AS token1_sold_amount
-                  FROM 
-                      twamm_order_updates_sale_rates AS tousr
-                  GROUP BY
-                      key_hash, fee
-              )
-              SELECT 
-                  tps.key_hash,
-                  tps.fee,
-                  tps.token0_sold_amount,
-                  tps.token1_sold_amount,
-                  psm.liquidity,
-                  psm.sqrt_ratio
-              FROM
-                  twamm_pool_states AS tps
-                  LEFT JOIN pool_states_materialized psm ON psm.pool_key_hash = tps.key_hash;
-            `,
-    });
-    return rows;
-  }
-
   async getLatestBlockMeta() {
     const { rows } = await this.client.query<{ number: number; time: Date }>(
-      `SELECT number, time FROM blocks ORDER BY number DESC LIMIT 1`,
+      `SELECT number, time FROM blocks ORDER BY number DESC LIMIT 1`
     );
     if (!rows.length) throw new Error("No blocks");
     return rows[0];

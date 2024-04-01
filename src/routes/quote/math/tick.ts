@@ -1,5 +1,4 @@
 import { MAX_U256 } from "./constants";
-import Decimal from "decimal.js-light";
 
 export const MIN_TICK = -88722883;
 export const MAX_TICK = 88722883;
@@ -107,7 +106,7 @@ const logBase = Math.log(1.0000005);
 export function approximateNumberOfTickSpacingsCrossed(
   sqrtRatioStart: bigint,
   sqrtRatioEnd: bigint,
-  tickSpacing: number,
+  tickSpacing: number
 ): number {
   const logPriceDiff =
     Math.log(Number(sqrtRatioEnd) / Number(sqrtRatioStart)) / logBase;

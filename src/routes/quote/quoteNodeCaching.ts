@@ -1,8 +1,4 @@
-import {
-  BasePoolStateQueryResult,
-  Queries,
-  TwammPoolStateQueryResult,
-} from "../../queries";
+import { Queries } from "../../queries";
 import { QuoteNode } from "./nodes/quoteNode";
 import { BasePool } from "./nodes/basePool";
 import { TwammPool } from "./nodes/twammPool";
@@ -21,7 +17,7 @@ export function getCachedNode(key_hash: bigint) {
 
 export async function updateBasePoolCache(
   queries: Queries,
-  poolKeyHashes: bigint[],
+  poolKeyHashes: bigint[]
 ): Promise<void> {
   const { rows: basePoolStates } = await queries.getBasePoolStates({
     poolKeyHashes,
@@ -63,7 +59,7 @@ export async function updateBasePoolCache(
 }
 export async function updateTwammPoolCache(
   queries: Queries,
-  poolKeyHashes: bigint[],
+  poolKeyHashes: bigint[]
 ): Promise<void> {
   const { rows: twammPools } = await queries.getTwammPoolStates({
     poolKeyHashes,
@@ -97,7 +93,7 @@ export async function updateTwammPoolCache(
 
 export async function getAllRelevantPoolsAndUpdateCache(
   queries: Queries,
-  { tokenA, tokenB }: { tokenA: bigint; tokenB: bigint },
+  { tokenA, tokenB }: { tokenA: bigint; tokenB: bigint }
 ): Promise<QuoteNode[]> {
   return queries.withinTransaction(async () => {
     const { rows: routablePools } =
@@ -127,7 +123,7 @@ export async function getAllRelevantPoolsAndUpdateCache(
           }
           return memo;
         },
-        { basePools: [], twammPools: [] },
+        { basePools: [], twammPools: [] }
       );
 
     await Promise.all([

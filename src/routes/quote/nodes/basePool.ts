@@ -22,7 +22,7 @@ import {
  */
 export function findNearestInitializedTickIndex(
   sortedTicks: Tick[],
-  tick: number,
+  tick: number
 ): number {
   let l = 0,
     r = sortedTicks.length;
@@ -197,7 +197,7 @@ export class BasePool implements QuoteNode {
         tickSpacingsCrossed: approximateNumberOfTickSpacingsCrossed(
           startingSqrtRatio,
           sqrtRatio,
-          this.key.tickSpacing,
+          this.key.tickSpacing
         ),
       },
       stateAfter: {

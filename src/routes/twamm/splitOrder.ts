@@ -1,65 +1,118 @@
 import Decimal from "decimal.js-light";
-import { sqrt } from "../quote/math/twamm";
+import { TwammPool, TwammSaleRateDelta } from "../quote/nodes/twammPool";
 
-Decimal.set({ precision: 78 });
-
-export type TwammExtensionPoolState = {
-  key_hash: string;
-  fee: number;
-  token0_sold_amount: bigint;
-  token1_sold_amount: bigint;
-  liquidity: bigint;
+export type TwammSaleRateDeltaMap = {
+  [key_hash: string]: TwammSaleRateDelta[];
 };
 
-export async function splitTWAMMOrder(
-  amount: bigint,
-  startTime: Date,
-  endTime: Date,
-  poolStates: TwammExtensionPoolState[],
-  maxSplits: number = 2,
-): Promise<{ amount: string; fee: string }[]> {
-  const nowSec = Math.floor(Date.now() / 1000);
-  const startSec = Math.max(nowSec, Math.floor(startTime.getTime() / 1000));
-  const endSec = Math.floor(endTime.getTime() / 1000);
+export async function splitTwammOrderByPriceImpact({
+  amount,
+  startTime,
+  endTime,
+  isToken1,
+  maxSplits = 2,
+  twammNodes,
+}: {
+  amount: bigint;
+  startTime: Date;
+  endTime: Date;
+  isToken1: boolean;
+  maxSplits: number;
+  twammNodes: { [key_hash: string]: TwammPool };
+}): Promise<{ amount: string; fee: string }[]> {
+  const startTimeSeconds = Math.max(
+    Math.floor(startTime.getTime() / 1000),
+    Math.floor(Date.now() / 1000)
+  );
 
-  const timeWindow = BigInt(endSec - startSec);
+  const endTimeSeconds = Math.floor(endTime.getTime() / 1000);
 
-  let poolStatesWithScores = poolStates
-    .map((poolState) => {
-      const avgToken0SoldAmount = BigInt(poolState.token0_sold_amount) / timeWindow;
-      const avgToken1SoldAmount = BigInt(poolState.token1_sold_amount) / timeWindow;
+  const poolKeyHashes = Object.keys(twammNodes);
 
-      const score = new Decimal(sqrt(avgToken0SoldAmount * avgToken1SoldAmount).toString()).add(
-        poolState.liquidity.toString(),
-      );
+  let orderSaleRate =
+    (amount << 32n) / BigInt(endTimeSeconds - startTimeSeconds);
 
-      return { ...poolState, score };
-    })
-    .sort((a, b) => b.score.minus(a.score).toNumber())
+  let poolsWithPriceImpact = poolKeyHashes.map((keyHash) => {
+    const node = twammNodes[keyHash];
+
+    const { stateAfter: startState } = node.quote({
+      tokenAmount: {
+        amount: 0n,
+        token: node.key.token0,
+      },
+      meta: { block: { number: 0, time: startTimeSeconds } },
+    });
+
+    const { stateAfter: endStateWithoutOrder } = node.quote({
+      tokenAmount: {
+        amount: 0n,
+        token: node.key.token0,
+      },
+      overrideSwapState: startState,
+      meta: { block: { number: 1, time: endTimeSeconds } },
+    });
+
+    const { stateAfter: endStateWithOrder } = node.quote({
+      tokenAmount: {
+        amount: 0n,
+        token: node.key.token0,
+      },
+      overrideSwapState: {
+        ...startState,
+        token0SaleRate: isToken1
+          ? startState.token0SaleRate
+          : startState.token0SaleRate + orderSaleRate,
+        token1SaleRate: isToken1
+          ? startState.token1SaleRate + orderSaleRate
+          : startState.token1SaleRate,
+      },
+      meta: { block: { number: 1, time: endTimeSeconds } },
+    });
+
+    return {
+      keyHash,
+      impact: calculatePriceImpact(
+        endStateWithoutOrder.sqrtRatio,
+        endStateWithOrder.sqrtRatio
+      ),
+    };
+  });
+
+  poolsWithPriceImpact = poolsWithPriceImpact
+    .sort((a, b) => a.impact.minus(b.impact).toNumber())
     .slice(0, maxSplits);
 
-  let totalScore: Decimal = poolStatesWithScores.reduce(
-    (acc, curr) => acc.add(curr.score),
-    new Decimal(0),
+  let totalPriceImpact: Decimal = poolsWithPriceImpact.reduce(
+    (acc, curr) => acc.add(curr.impact),
+    new Decimal(0)
   );
 
   const decimalAmount: Decimal = new Decimal(amount.toString());
   let sumAmount: Decimal = new Decimal(0);
 
-  return poolStatesWithScores.reverse().map((state, index) => {
+  return poolsWithPriceImpact.map((state, index) => {
     let weightedAmount: Decimal = new Decimal(0);
 
-    if (index === poolStatesWithScores.length - 1) {
+    if (index === poolsWithPriceImpact.length - 1) {
       weightedAmount = decimalAmount.sub(sumAmount);
     } else {
-      const weightedScore = state.score.div(totalScore);
+      const weightedScore = new Decimal(1).minus(
+        state.impact.div(totalPriceImpact)
+      );
       weightedAmount = weightedScore.mul(decimalAmount);
       sumAmount = sumAmount.add(weightedAmount.toFixed(0, Decimal.ROUND_FLOOR));
     }
 
     return {
       amount: weightedAmount.toFixed(0, Decimal.ROUND_FLOOR).toString(),
-      fee: state.fee.toString(),
+      fee: twammNodes[state.keyHash].key.fee.toString(),
     };
   });
+}
+
+function calculatePriceImpact(sqrtRatioA: bigint, sqrtRatioB: bigint): Decimal {
+  return new Decimal((sqrtRatioB - sqrtRatioA).toString())
+    .div(sqrtRatioA.toString())
+    .mul(100)
+    .abs();
 }
