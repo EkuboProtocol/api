@@ -179,7 +179,7 @@ const TEST_CASES: {
   },
 ];
 
-describe.only(splitTwammOrderByPriceImpact, () => {
+describe(splitTwammOrderByPriceImpact, () => {
   describe("various pools", async () => {
     const startTime = new Date();
     const endTime = new Date(new Date().getTime() + Number(DURATION * 1_000n));
