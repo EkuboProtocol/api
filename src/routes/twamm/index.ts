@@ -14,10 +14,7 @@ import {
   TokenIdentifierType,
   DateIdentifierType,
 } from "../../shared/validation/address";
-import {
-  splitTwammOrderByAmountSold,
-  splitTwammOrderByPriceImpact,
-} from "./splitOrder";
+import { splitTwammOrderByAmountSold } from "./splitOrder";
 import { num } from "starknet";
 import { getCachedNode, updateTwammPoolCache } from "../quote/quoteNodeCaching";
 import { TwammPool } from "../quote/nodes/twammPool";
