@@ -97,9 +97,9 @@ export class GetSplitTWAPOrderByDate extends EkuboAPIRoute {
     const maxSplitsQueryParam = query.maxSplits;
     const specifiedMaxSplits = typeof maxSplitsQueryParam === "string";
 
-    let maxSplits: number = 2;
+    let maxSplits: number = 1;
     if (specifiedMaxSplits) {
-      maxSplits = parseInt(maxSplitsQueryParam);
+      maxSplits = Math.max(parseInt(maxSplitsQueryParam), 1);
     }
 
     const queries = await createQueries(env);
