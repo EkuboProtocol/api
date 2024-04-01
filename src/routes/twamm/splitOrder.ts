@@ -32,7 +32,7 @@ export async function splitTwammOrderByPriceImpact({
   let orderSaleRate =
     (amount << 32n) / BigInt(endTimeSeconds - startTimeSeconds);
 
-  let poolsWithPriceImpact = poolKeyHashes.map((keyHash) => {
+  let poolsWithInvertedPriceImpact = poolKeyHashes.map((keyHash) => {
     const node = twammNodes[keyHash];
 
     const { stateAfter: startState } = node.quote({
@@ -71,18 +71,20 @@ export async function splitTwammOrderByPriceImpact({
 
     return {
       keyHash,
-      impact: calculatePriceImpact(
-        endStateWithoutOrder.sqrtRatio,
-        endStateWithOrder.sqrtRatio
+      impact: new Decimal(1).div(
+        calculatePriceImpact(
+          endStateWithoutOrder.sqrtRatio,
+          endStateWithOrder.sqrtRatio
+        )
       ),
     };
   });
 
-  poolsWithPriceImpact = poolsWithPriceImpact
+  poolsWithInvertedPriceImpact = poolsWithInvertedPriceImpact
     .sort((a, b) => a.impact.minus(b.impact).toNumber())
     .slice(0, maxSplits);
 
-  let totalPriceImpact: Decimal = poolsWithPriceImpact.reduce(
+  let totalInvertedPriceImpact: Decimal = poolsWithInvertedPriceImpact.reduce(
     (acc, curr) => acc.add(curr.impact),
     new Decimal(0)
   );
@@ -90,15 +92,14 @@ export async function splitTwammOrderByPriceImpact({
   const decimalAmount: Decimal = new Decimal(amount.toString());
   let sumAmount: Decimal = new Decimal(0);
 
-  return poolsWithPriceImpact.map((state, index) => {
+  return poolsWithInvertedPriceImpact.map((state, index) => {
     let weightedAmount: Decimal = new Decimal(0);
 
-    if (index === poolsWithPriceImpact.length - 1) {
+    if (index === poolsWithInvertedPriceImpact.length - 1) {
       weightedAmount = decimalAmount.sub(sumAmount);
     } else {
-      const weightedScore = new Decimal(1).minus(
-        state.impact.div(totalPriceImpact)
-      );
+      const weightedScore = state.impact.div(totalInvertedPriceImpact);
+
       weightedAmount = weightedScore.mul(decimalAmount);
       sumAmount = sumAmount.add(weightedAmount.toFixed(0, Decimal.ROUND_FLOOR));
     }
