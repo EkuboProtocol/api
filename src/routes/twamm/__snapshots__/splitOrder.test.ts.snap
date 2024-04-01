@@ -1,6 +1,6 @@
 // Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
 
-exports[`splitTwammOrderByPriceImpact > various pools > one pool 1`] = `
+exports[`splitTwammOrderByAmountSold > various pools > one pool 1`] = `
 [
   {
     "amount": "1000000000000000000",
@@ -9,33 +9,33 @@ exports[`splitTwammOrderByPriceImpact > various pools > one pool 1`] = `
 ]
 `;
 
-exports[`splitTwammOrderByPriceImpact > various pools > three pools, one with 10x liquidity, maxSplits 2 1`] = `
+exports[`splitTwammOrderByAmountSold > various pools > three pools, one with 10x liquidity, maxSplits 2 1`] = `
 [
   {
-    "amount": "499663812509254998",
-    "fee": "1",
+    "amount": "666666666482356036",
+    "fee": "2",
   },
   {
-    "amount": "500336187490745002",
+    "amount": "333333333517643964",
     "fee": "3",
   },
 ]
 `;
 
-exports[`splitTwammOrderByPriceImpact > various pools > two pools, one with 10x liquidity 1`] = `
+exports[`splitTwammOrderByAmountSold > various pools > two pools, one with 10x liquidity 1`] = `
 [
   {
-    "amount": "490731395773697380",
-    "fee": "1",
+    "amount": "909090909022249733",
+    "fee": "2",
   },
   {
-    "amount": "509268604226302620",
-    "fee": "2",
+    "amount": "90909090977750267",
+    "fee": "1",
   },
 ]
 `;
 
-exports[`splitTwammOrderByPriceImpact > various pools > two pools, same liquidity 1`] = `
+exports[`splitTwammOrderByAmountSold > various pools > two pools, same liquidity 1`] = `
 [
   {
     "amount": "500000000000000000",
@@ -48,11 +48,11 @@ exports[`splitTwammOrderByPriceImpact > various pools > two pools, same liquidit
 ]
 `;
 
-exports[`splitTwammOrderByPriceImpact > various pools > two pools, same liquidity, different rates, maxSplits 1 1`] = `
+exports[`splitTwammOrderByAmountSold > various pools > two pools, same liquidity, different rates, maxSplits 1 1`] = `
 [
   {
     "amount": "1000000000000000000",
-    "fee": "2",
+    "fee": "1",
   },
 ]
 `;

@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import Decimal from "decimal.js-light";
 import {
   TwammSaleRateDeltaMap,
-  splitTwammOrderByPriceImpact,
+  splitTwammOrderByAmountSold,
 } from "./splitOrder";
 import { TwammPoolStateQueryResult } from "../../queries";
 import { MAX_TICK_SPACING, toSqrtRatio } from "../quote/math/tick";
@@ -179,9 +179,8 @@ const TEST_CASES: {
   },
 ];
 
-describe(splitTwammOrderByPriceImpact, () => {
+describe(splitTwammOrderByAmountSold, () => {
   describe("various pools", async () => {
-    const startTime = new Date();
     const endTime = new Date(new Date().getTime() + Number(DURATION * 1_000n));
 
     for (const testCase of TEST_CASES) {
@@ -207,9 +206,8 @@ describe(splitTwammOrderByPriceImpact, () => {
       }
 
       it(description, async () => {
-        const orders = await splitTwammOrderByPriceImpact({
+        const orders = await splitTwammOrderByAmountSold({
           amount,
-          startTime,
           endTime,
           isToken1: false,
           maxSplits,

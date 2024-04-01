@@ -14,7 +14,10 @@ import {
   TokenIdentifierType,
   DateIdentifierType,
 } from "../../shared/validation/address";
-import { splitTwammOrderByPriceImpact } from "./splitOrder";
+import {
+  splitTwammOrderByAmountSold,
+  splitTwammOrderByPriceImpact,
+} from "./splitOrder";
 import { num } from "starknet";
 import { getCachedNode, updateTwammPoolCache } from "../quote/quoteNodeCaching";
 import { TwammPool } from "../quote/nodes/twammPool";
@@ -137,7 +140,6 @@ export class GetSplitTWAPOrderByDate extends EkuboAPIRoute {
     const orders = await splitOrder(
       sellToken,
       buyToken,
-      startTime,
       endTime,
       amount,
       maxSplits,
@@ -175,7 +177,6 @@ export class GetSplitTWAPOrderByDate extends EkuboAPIRoute {
 async function splitOrder(
   sellToken: TokenInfo,
   buyToken: TokenInfo,
-  startTime: Date,
   endTime: Date,
   amount: bigint,
   maxSplits: number,
@@ -206,9 +207,8 @@ async function splitOrder(
     {}
   );
 
-  return splitTwammOrderByPriceImpact({
+  return splitTwammOrderByAmountSold({
     amount,
-    startTime,
     endTime,
     isToken1: sellTokenAddress === token1,
     maxSplits,
