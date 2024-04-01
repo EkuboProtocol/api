@@ -21,7 +21,7 @@ hyperdrive = [
     { binding = "HYPERDRIVE", id = "1ff94d1260d0442895a1ab0ee1f9e79a" }
 ]
 kv_namespaces = [
-    { binding = "TOKEN_LOGOS_KV", id = "8edf0811f4ac443b8ce778bf509899b3" },
+    { binding = "TOKEN_LOGOS_KV", id = "5612d9a16e6d43fea983af957f2ee69c" },
 ]
 vars = { STARKNET_CHAIN_ID = "0x534e5f474f45524c49", ETH_TOKEN_ADDRESS = "0x049d36570d4e46f48e99674bd3fcc84644ddd6b96f7c741b1562b82f9e004dc7" }
 
@@ -30,7 +30,7 @@ hyperdrive = [
     { binding = "HYPERDRIVE", id = "52ce71cbb88e4bfdaa3e73a403890b31" }
 ]
 kv_namespaces = [
-    { binding = "TOKEN_LOGOS_KV", id = "aeb9aca426e34ec49ec409537da95291" },
+    { binding = "TOKEN_LOGOS_KV", id = "5612d9a16e6d43fea983af957f2ee69c" },
 ]
 vars = { STARKNET_CHAIN_ID = "0x534e5f5345504f4c4941", ETH_TOKEN_ADDRESS = "0x049d36570d4e46f48e99674bd3fcc84644ddd6b96f7c741b1562b82f9e004dc7" }
 
