@@ -5,7 +5,6 @@ import { z } from "zod";
 import { EkuboAPIRoute, RequestContext } from "../../shared/context";
 
 import MAINNET_TOKENS from "./defaults/mainnet.json";
-import GOERLI_TOKENS from "./defaults/goerli.json";
 import SEPOLIA_TOKENS from "./defaults/sepolia.json";
 import { constants, num, shortString } from "starknet";
 import { createQueries, Queries } from "../../queries";
@@ -73,10 +72,11 @@ export const TokenType = z
 export type TokenInfo = z.infer<typeof TokenType>;
 
 const DEFAULT_TOKENS_BY_CHAIN_ID: {
-  [chainId in constants.StarknetChainId]: TokenInfo[];
+  [chainId in
+    | typeof constants.StarknetChainId.SN_MAIN
+    | typeof constants.StarknetChainId.SN_SEPOLIA]: TokenInfo[];
 } = {
   [constants.StarknetChainId.SN_MAIN]: MAINNET_TOKENS,
-  [constants.StarknetChainId.SN_GOERLI]: GOERLI_TOKENS,
   [constants.StarknetChainId.SN_SEPOLIA]: SEPOLIA_TOKENS,
 } as const;
 
