@@ -16,7 +16,7 @@ export interface GasEstimator<
     calculatedAmount: bigint,
     route: TQuoteNode[],
     quoteResults: Quote<TResources, TState>[],
-    poolStateOverrides: WeakMap<TQuoteNode, TState>,
+    overrides: WeakMap<TQuoteNode, { state: TState; resources: TResources }>,
   ): bigint;
 }
 
@@ -25,8 +25,8 @@ export interface QuoteRouteResult<
   TState extends BaseNodeState,
 > {
   calculatedAmount: TokenAmount;
-  quotes: Quote<TResources, TState>[];
   gasAdjustedCalculatedAmount: bigint;
+  quotes: Quote<TResources, TState>[];
 }
 
 /**
@@ -44,13 +44,13 @@ export function quoteRoute<
   specifiedAmount,
   route,
   gasEstimator,
-  poolStateOverrides,
+  overrides,
   meta,
 }: {
   specifiedAmount: TokenAmount;
   route: TQuoteNode[];
   gasEstimator: GasEstimator<TResources, TState, TQuoteNode>;
-  poolStateOverrides: WeakMap<TQuoteNode, TState>;
+  overrides: WeakMap<TQuoteNode, { state: TState; resources: TResources }>;
   meta: QuoteMeta;
 }): Readonly<QuoteRouteResult<TResources, TState>> | null {
   const isExactOutput = specifiedAmount.amount < 0n;
@@ -63,7 +63,7 @@ export function quoteRoute<
 
       const quote = node.quote({
         tokenAmount: state.calculatedAmount,
-        overrideSwapState: poolStateOverrides.get(node),
+        overrides: overrides.get(node),
         meta,
       });
 
@@ -99,7 +99,7 @@ export function quoteRoute<
       calculatedAmount.amount,
       route,
       quotes,
-      poolStateOverrides,
+      overrides,
     ),
   };
 }

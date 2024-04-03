@@ -710,7 +710,7 @@ describe("TWAMMPoolNode", () => {
       expect(executionResources.virtualOrderDeltaTimesCrossed).toEqual(1);
     });
 
-    it("quote -- compare to contract output", () => {
+    it("price after no swap", () => {
       const pool = new TwammPool({
         token0: 0n,
         token1: 1n,
@@ -725,18 +725,116 @@ describe("TWAMMPoolNode", () => {
         saleRateDeltas: [],
       });
 
-      const { executionResources, calculatedAmount } = pool.quote({
+      const first = pool.quote({
+        tokenAmount: {
+          amount: 0n,
+          token: 0n,
+        },
+        meta: { block: { number: 1, time: 43200 } },
+      });
+      expect(first).toMatchSnapshot("result of quote after half day");
+
+      expect(
+        pool.quote({
+          tokenAmount: {
+            amount: 0n,
+            token: 0n,
+          },
+          meta: { block: { number: 1, time: 86400 } },
+        }),
+      ).toMatchSnapshot("result of quote after full day");
+
+      expect(
+        pool.quote({
+          tokenAmount: {
+            amount: 0n,
+            token: 0n,
+          },
+          overrides: {
+            state: first.stateAfter,
+            resources: first.executionResources,
+          },
+          meta: { block: { number: 1, time: 86400 } },
+        }),
+      ).toMatchSnapshot("result of quote after full day using overrides");
+    });
+
+    it("compare to contract output", () => {
+      const pool = new TwammPool({
+        token0: 0n,
+        token1: 1n,
+        fee: 0n,
+        sqrtRatio: toSqrtRatio(693147),
+        liquidity: 70710696755630728101718334n,
+        tick: 693147,
+        extension: 1n,
+        token0SaleRate: 10526880627450980392156862745n,
+        token1SaleRate: 10526880627450980392156862745n,
+        lastExecutionTime: 0,
+        saleRateDeltas: [],
+      });
+
+      const quote = pool.quote({
         tokenAmount: {
           amount: 10_000n * 10n ** 18n,
           token: 0n,
         },
         meta: { block: { number: 1, time: 2040 } },
       });
+      expect(quote).toMatchSnapshot("first swap");
 
-      expect(calculatedAmount).toMatchSnapshot();
-      expect(executionResources.initializedTicksCrossed).toEqual(0);
-      expect(executionResources.virtualOrderSecondsExecuted).toEqual(2040);
-      expect(executionResources.virtualOrderDeltaTimesCrossed).toEqual(0);
+      expect(
+        pool.quote({
+          tokenAmount: {
+            amount: 10_000n * 10n ** 18n,
+            token: 0n,
+          },
+          meta: { block: { number: 2, time: 2100 } },
+          overrides: {
+            state: quote.stateAfter,
+            resources: quote.executionResources,
+          },
+        }),
+      ).toMatchSnapshot("second swap from first");
+    });
+
+    it("second swap in opposite direction", () => {
+      const pool = new TwammPool({
+        token0: 0n,
+        token1: 1n,
+        fee: 0n,
+        sqrtRatio: toSqrtRatio(693147),
+        liquidity: 70710696755630728101718334n,
+        tick: 693147,
+        extension: 1n,
+        token0SaleRate: 10526880627450980392156862745n,
+        token1SaleRate: 10526880627450980392156862745n,
+        lastExecutionTime: 0,
+        saleRateDeltas: [],
+      });
+
+      const quote = pool.quote({
+        tokenAmount: {
+          amount: 10_000n * 10n ** 18n,
+          token: 0n,
+        },
+        meta: { block: { number: 1, time: 2040 } },
+      });
+      expect(quote).toMatchSnapshot("first swap");
+
+      expect(
+        pool.quote({
+          tokenAmount: {
+            amount: 10_000n * 10n ** 18n,
+            token: 1n,
+          },
+          meta: { block: { number: 2, time: 2100 } },
+          overrides: {
+            state: quote.stateAfter,
+            resources: quote.executionResources,
+          },
+        }),
+      ).toMatchSnapshot("second swap from first");
     });
   });
 });

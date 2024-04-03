@@ -42,11 +42,14 @@ export interface QuoteMeta {
   readonly block: Block;
 }
 
-export interface QuoteParams<T extends BaseNodeState> {
+export interface QuoteParams<
+  TResources extends BaseResources,
+  TState extends BaseNodeState,
+> {
   tokenAmount: TokenAmount;
   sqrtRatioLimit?: bigint;
-  overrideSwapState?: T;
   meta: QuoteMeta;
+  overrides?: { state: TState; resources: TResources };
 }
 
 export interface Tick {
@@ -62,7 +65,9 @@ export interface QuoteNode<
   readonly state: Readonly<TSwapState>;
   readonly sortedTicks: Tick[];
 
-  quote(params: QuoteParams<TSwapState>): Quote<TResources, TSwapState>;
+  quote(
+    params: QuoteParams<TResources, TSwapState>,
+  ): Quote<TResources, TSwapState>;
 
   hasLiquidity(): boolean;
 }

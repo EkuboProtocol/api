@@ -10,6 +10,7 @@ import {
   getBestSingularRoute,
   GetBestSingularRouteResult,
 } from "./getBestSingularRoute";
+import { isPriceIncreasing } from "./math/swap";
 
 export function findOptimalSplitRoute<
   TResources extends BaseResources,
@@ -20,24 +21,32 @@ export function findOptimalSplitRoute<
   tokenAmount,
   gasEstimator,
   maxSplits,
-  poolStateOverrides,
+  overrides,
   meta,
 }: {
   allRoutes: TQuoteNode[][];
   tokenAmount: TokenAmount;
   gasEstimator: GasEstimator<TResources, TState, TQuoteNode>;
   maxSplits: number;
-  poolStateOverrides: WeakMap<TQuoteNode, TState>;
+  overrides: WeakMap<
+    TQuoteNode,
+    { state: TState; resources: TResources; increasing: boolean }
+  >;
   meta: QuoteMeta;
 }): GetBestSingularRouteResult<TResources, TState, TQuoteNode>[] | null {
   const maxRoutes = maxSplits + 1;
   const numPieces = 2 ** maxSplits;
   const smallestAmount = tokenAmount.amount / BigInt(numPieces);
-  const results: GetBestSingularRouteResult<TResources, TState, TQuoteNode>[] =
-    [];
+  const selectedRoutes: GetBestSingularRouteResult<
+    TResources,
+    TState,
+    TQuoteNode
+  >[] = [];
+
+  let routeOptions = allRoutes;
 
   for (let i = 0; i < numPieces; i++) {
-    const tokenAmountPortion = {
+    const partialTokenAmount = {
       token: tokenAmount.token,
       amount:
         // for the last piece, we need to add the remainder so we always quote the exact amount
@@ -46,53 +55,51 @@ export function findOptimalSplitRoute<
           : smallestAmount,
     };
 
-    if (tokenAmountPortion.amount === 0n) continue;
+    if (partialTokenAmount.amount === 0n) continue;
 
-    const splitResult = getBestSingularRoute({
-      allRoutes:
-        results.length < maxRoutes ? allRoutes : results.map((r) => r.route),
-      tokenAmount: tokenAmountPortion,
+    const partialResult = getBestSingularRoute({
+      allRoutes: routeOptions,
+      tokenAmount: partialTokenAmount,
       gasEstimator,
-      poolStateOverrides,
       meta,
+      overrides,
     });
 
-    if (!splitResult) {
+    if (!partialResult) {
       return null;
     }
 
-    for (let j = 0; j < splitResult.route.length; j++) {
-      poolStateOverrides.set(
-        splitResult.route[j],
-        splitResult.quoteRouteResult.quotes[j].stateAfter,
-      );
+    for (let j = 0; j < partialResult.route.length; j++) {
+      const quote = partialResult.quoteRouteResult.quotes[j];
+      overrides.set(partialResult.route[j], {
+        state: quote.stateAfter,
+        resources: quote.executionResources,
+        increasing: quote.isPriceIncreasing,
+      });
     }
 
     // merge in the new route to the result
-    const existingRouteResultIndex = results.findIndex(
-      (r) => r.route === splitResult.route,
+    const existingRouteResultIndex = selectedRoutes.findIndex(
+      (r) => r.route === partialResult.route,
     );
 
     if (existingRouteResultIndex === -1) {
-      results.push(splitResult);
+      selectedRoutes.push(partialResult);
     } else {
-      const lastRouteExecution = results[existingRouteResultIndex];
-      results[existingRouteResultIndex] = {
-        route: splitResult.route,
-        gasAdjustedCalculatedAmount:
-          lastRouteExecution.gasAdjustedCalculatedAmount +
-          splitResult.gasAdjustedCalculatedAmount,
+      const lastRouteExecution = selectedRoutes[existingRouteResultIndex];
+      selectedRoutes[existingRouteResultIndex] = {
+        route: partialResult.route,
         quoteRouteResult: {
           calculatedAmount: {
             token: lastRouteExecution.quoteRouteResult.calculatedAmount.token,
             amount:
               lastRouteExecution.quoteRouteResult.calculatedAmount.amount +
-              splitResult.quoteRouteResult.calculatedAmount.amount,
+              partialResult.quoteRouteResult.calculatedAmount.amount,
           },
           gasAdjustedCalculatedAmount:
-            lastRouteExecution.gasAdjustedCalculatedAmount +
-            splitResult.gasAdjustedCalculatedAmount,
-          quotes: splitResult.quoteRouteResult.quotes.map(
+            lastRouteExecution.quoteRouteResult.gasAdjustedCalculatedAmount +
+            partialResult.quoteRouteResult.gasAdjustedCalculatedAmount,
+          quotes: partialResult.quoteRouteResult.quotes.map(
             (newQuoteResult, ix) => ({
               isPriceIncreasing: newQuoteResult.isPriceIncreasing,
               // use the latter state, since it is the most updated
@@ -103,25 +110,55 @@ export function findOptimalSplitRoute<
               consumedAmount:
                 newQuoteResult.consumedAmount +
                 lastRouteExecution.quoteRouteResult.quotes[ix].consumedAmount,
-              // todo: these cannot be trivially combined, need a solution where the quote node can handle it, e.g. by
-              //  returning the combined result from quote
-              executionResources: {
-                ...newQuoteResult.executionResources,
-                tickSpacingsCrossed:
-                  newQuoteResult.executionResources.tickSpacingsCrossed +
-                  lastRouteExecution.quoteRouteResult.quotes[ix]
-                    .executionResources.tickSpacingsCrossed,
-                initializedTicksCrossed:
-                  newQuoteResult.executionResources.initializedTicksCrossed +
-                  lastRouteExecution.quoteRouteResult.quotes[ix]
-                    .executionResources.initializedTicksCrossed,
-              },
+              executionResources: newQuoteResult.executionResources,
             }),
           ),
         },
       };
     }
+
+    if (selectedRoutes.length === maxRoutes) {
+      routeOptions = selectedRoutes.map((r) => r.route);
+    } else {
+      // filter out any routes that use the same pool of an existing route in the opposite direction
+      routeOptions = routeOptions.filter((route) => {
+        // either the route is already used so more can be pushed through it...
+        if (selectedRoutes.some((r) => r.route === route)) return true;
+
+        // or it does not use any of the same pools
+        return route.reduce<
+          { allowed: true; token: bigint } | { allowed: false }
+        >(
+          (memo, node) => {
+            if (!memo.allowed) {
+              return {
+                allowed: false,
+              };
+            }
+
+            const key = node.key;
+            const isToken1 = memo.token === key.token1;
+            const token = isToken1 ? key.token0 : key.token1;
+
+            const previousUsage = overrides.get(node);
+            // we know pools with no extension work fine like this...
+            // todo: why doesn't twamm work when we do this
+            if (!previousUsage || key.extension === 0n) {
+              return {
+                allowed: true,
+                token,
+              };
+            }
+
+            const increasing = isPriceIncreasing(tokenAmount.amount, isToken1);
+
+            return { allowed: increasing === previousUsage.increasing, token };
+          },
+          { allowed: true, token: tokenAmount.token },
+        ).allowed;
+      });
+    }
   }
 
-  return results;
+  return selectedRoutes;
 }

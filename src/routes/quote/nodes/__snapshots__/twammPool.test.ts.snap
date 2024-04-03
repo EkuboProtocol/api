@@ -4,11 +4,163 @@ exports[`TWAMMPoolNode > quote > 1e18 sale rates, no sale rate deltas, quote tok
 
 exports[`TWAMMPoolNode > quote > 1e18 sale rates, no sale rate deltas, quote token1 1`] = `990n`;
 
-exports[`TWAMMPoolNode > quote > quote -- compare to contract output 1`] = `19993991114278719145825n`;
+exports[`TWAMMPoolNode > quote > compare to contract output > first swap 1`] = `
+{
+  "calculatedAmount": 19993991114278719145825n,
+  "consumedAmount": 10000000000000000000000n,
+  "executionResources": {
+    "initializedTicksCrossed": 0,
+    "tickSpacingsCrossed": 0,
+    "virtualOrderDeltaTimesCrossed": 0,
+    "virtualOrderSecondsExecuted": 2040,
+  },
+  "isPriceIncreasing": false,
+  "stateAfter": {
+    "activeTickIndex": 0,
+    "lastExecutionTime": 2040,
+    "liquidity": 70710696755630728101718334n,
+    "sqrtRatio": 481111534894473352502987770485010134030n,
+    "token0SaleRate": 10526880627450980392156862745n,
+    "token1SaleRate": 10526880627450980392156862745n,
+  },
+}
+`;
+
+exports[`TWAMMPoolNode > quote > compare to contract output > second swap from first 1`] = `
+{
+  "calculatedAmount": 19985938387207888688304n,
+  "consumedAmount": 10000000000000000000000n,
+  "executionResources": {
+    "initializedTicksCrossed": 0,
+    "tickSpacingsCrossed": 0,
+    "virtualOrderDeltaTimesCrossed": 0,
+    "virtualOrderSecondsExecuted": 2100,
+  },
+  "isPriceIncreasing": false,
+  "stateAfter": {
+    "activeTickIndex": 0,
+    "lastExecutionTime": 2100,
+    "liquidity": 70710696755630728101718334n,
+    "sqrtRatio": 481014649217532599812750432979097102055n,
+    "token0SaleRate": 10526880627450980392156862745n,
+    "token1SaleRate": 10526880627450980392156862745n,
+  },
+}
+`;
+
+exports[`TWAMMPoolNode > quote > price after no swap > result of quote after full day 1`] = `
+{
+  "calculatedAmount": 0n,
+  "consumedAmount": 0n,
+  "executionResources": {
+    "initializedTicksCrossed": 0,
+    "tickSpacingsCrossed": 0,
+    "virtualOrderDeltaTimesCrossed": 0,
+    "virtualOrderSecondsExecuted": 86400,
+  },
+  "isPriceIncreasing": false,
+  "stateAfter": {
+    "activeTickIndex": 0,
+    "lastExecutionTime": 86400,
+    "liquidity": 70710696755630728101718334n,
+    "sqrtRatio": 480217034354703129070759320246988480280n,
+    "token0SaleRate": 10526880627450980392156862745n,
+    "token1SaleRate": 10526880627450980392156862745n,
+  },
+}
+`;
+
+exports[`TWAMMPoolNode > quote > price after no swap > result of quote after full day using overrides 1`] = `
+{
+  "calculatedAmount": 0n,
+  "consumedAmount": 0n,
+  "executionResources": {
+    "initializedTicksCrossed": 0,
+    "tickSpacingsCrossed": 0,
+    "virtualOrderDeltaTimesCrossed": 0,
+    "virtualOrderSecondsExecuted": 86400,
+  },
+  "isPriceIncreasing": false,
+  "stateAfter": {
+    "activeTickIndex": 0,
+    "lastExecutionTime": 86400,
+    "liquidity": 70710696755630728101718334n,
+    "sqrtRatio": 480217034354703129070759320246988480272n,
+    "token0SaleRate": 10526880627450980392156862745n,
+    "token1SaleRate": 10526880627450980392156862745n,
+  },
+}
+`;
+
+exports[`TWAMMPoolNode > quote > price after no swap > result of quote after half day 1`] = `
+{
+  "calculatedAmount": 0n,
+  "consumedAmount": 0n,
+  "executionResources": {
+    "initializedTicksCrossed": 0,
+    "tickSpacingsCrossed": 0,
+    "virtualOrderDeltaTimesCrossed": 0,
+    "virtualOrderSecondsExecuted": 43200,
+  },
+  "isPriceIncreasing": false,
+  "stateAfter": {
+    "activeTickIndex": 0,
+    "lastExecutionTime": 43200,
+    "liquidity": 70710696755630728101718334n,
+    "sqrtRatio": 480723349593747841774961896705100136844n,
+    "token0SaleRate": 10526880627450980392156862745n,
+    "token1SaleRate": 10526880627450980392156862745n,
+  },
+}
+`;
 
 exports[`TWAMMPoolNode > quote > sale rate deltas doubles halfway through execution, quote token0 1`] = `989n`;
 
 exports[`TWAMMPoolNode > quote > sale rate deltas goes to zero halfway through execution, quote token0 1`] = `989n`;
+
+exports[`TWAMMPoolNode > quote > second swap in opposite direction > first swap 1`] = `
+{
+  "calculatedAmount": 19993991114278719145825n,
+  "consumedAmount": 10000000000000000000000n,
+  "executionResources": {
+    "initializedTicksCrossed": 0,
+    "tickSpacingsCrossed": 0,
+    "virtualOrderDeltaTimesCrossed": 0,
+    "virtualOrderSecondsExecuted": 2040,
+  },
+  "isPriceIncreasing": false,
+  "stateAfter": {
+    "activeTickIndex": 0,
+    "lastExecutionTime": 2040,
+    "liquidity": 70710696755630728101718334n,
+    "sqrtRatio": 481111534894473352502987770485010134030n,
+    "token0SaleRate": 10526880627450980392156862745n,
+    "token1SaleRate": 10526880627450980392156862745n,
+  },
+}
+`;
+
+exports[`TWAMMPoolNode > quote > second swap in opposite direction > second swap from first 1`] = `
+{
+  "calculatedAmount": 5002017297567650143567n,
+  "consumedAmount": 10000000000000000000000n,
+  "executionResources": {
+    "initializedTicksCrossed": 0,
+    "tickSpacingsCrossed": 0,
+    "virtualOrderDeltaTimesCrossed": 0,
+    "virtualOrderSecondsExecuted": 2100,
+  },
+  "isPriceIncreasing": true,
+  "stateAfter": {
+    "activeTickIndex": 0,
+    "lastExecutionTime": 2100,
+    "liquidity": 70710696755630728101718334n,
+    "sqrtRatio": 481158951092028441262660757392358917093n,
+    "token0SaleRate": 10526880627450980392156862745n,
+    "token1SaleRate": 10526880627450980392156862745n,
+  },
+}
+`;
 
 exports[`TWAMMPoolNode > quote > token0SaleRate > token1SaleRate, no sale rate deltas, quote token0 1`] = `983n`;
 

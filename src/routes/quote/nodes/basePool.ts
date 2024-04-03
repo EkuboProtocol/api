@@ -22,7 +22,7 @@ import {
  */
 export function findNearestInitializedTickIndex(
   sortedTicks: Tick[],
-  tick: number
+  tick: number,
 ): number {
   let l = 0,
     r = sortedTicks.length;
@@ -91,31 +91,36 @@ export class BasePool implements QuoteNode {
   public quote({
     tokenAmount: { amount, token },
     sqrtRatioLimit,
-    overrideSwapState,
-  }: QuoteParams<BaseNodeState>): Quote<BaseResources, BaseNodeState> {
+    overrides,
+  }: QuoteParams<BaseResources, BaseNodeState>): Quote<
+    BaseResources,
+    BaseNodeState
+  > {
     const isToken1 = token === this.key.token1;
 
     if (!isToken1 && this.key.token0 !== token) {
       throw new Error("Invalid token");
     }
 
+    const state = overrides?.state ?? this.state;
+    const resources = overrides?.resources ?? {
+      initializedTicksCrossed: 0,
+      tickSpacingsCrossed: 0,
+    };
+
     if (amount === 0n) {
       return {
         isPriceIncreasing: isToken1,
         consumedAmount: 0n,
         calculatedAmount: 0n,
-        executionResources: {
-          tickSpacingsCrossed: 0,
-          initializedTicksCrossed: 0,
-        },
-        stateAfter: overrideSwapState ?? this.state,
+        executionResources: resources,
+        stateAfter: state,
       };
     }
 
     const isIncreasing = isPriceIncreasing(amount, isToken1);
 
-    let { sqrtRatio, liquidity, activeTickIndex } =
-      overrideSwapState ?? this.state;
+    let { sqrtRatio, liquidity, activeTickIndex } = state;
 
     // this is used to compute the approximate number of tick spacings crossed by the swap
     const startingSqrtRatio = sqrtRatio;
@@ -193,12 +198,15 @@ export class BasePool implements QuoteNode {
       consumedAmount: amount - amountRemaining,
       calculatedAmount,
       executionResources: {
-        initializedTicksCrossed,
-        tickSpacingsCrossed: approximateNumberOfTickSpacingsCrossed(
-          startingSqrtRatio,
-          sqrtRatio,
-          this.key.tickSpacing
-        ),
+        initializedTicksCrossed:
+          resources.initializedTicksCrossed + initializedTicksCrossed,
+        tickSpacingsCrossed:
+          resources.tickSpacingsCrossed +
+          approximateNumberOfTickSpacingsCrossed(
+            startingSqrtRatio,
+            sqrtRatio,
+            this.key.tickSpacing,
+          ),
       },
       stateAfter: {
         sqrtRatio,

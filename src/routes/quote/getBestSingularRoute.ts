@@ -14,7 +14,6 @@ export interface GetBestSingularRouteResult<
 > {
   route: TQuoteNode[];
   quoteRouteResult: Readonly<QuoteRouteResult<TResources, TState>>;
-  gasAdjustedCalculatedAmount: bigint;
 }
 
 /**
@@ -32,13 +31,13 @@ export function getBestSingularRoute<
   allRoutes,
   tokenAmount,
   gasEstimator,
-  poolStateOverrides,
+  overrides,
   meta,
 }: {
   allRoutes: TQuoteNode[][];
   tokenAmount: TokenAmount;
   gasEstimator: GasEstimator<TResources, TState, TQuoteNode>;
-  poolStateOverrides: WeakMap<TQuoteNode, TState>;
+  overrides: WeakMap<TQuoteNode, { state: TState; resources: TResources }>;
   meta: QuoteMeta;
 }): GetBestSingularRouteResult<TResources, TState, TQuoteNode> | null {
   return allRoutes.reduce<GetBestSingularRouteResult<
@@ -47,23 +46,23 @@ export function getBestSingularRoute<
     TQuoteNode
   > | null>((memo, route) => {
     try {
-      const result = quoteRoute<TResources, TState, TQuoteNode>({
+      const quoteRouteResult = quoteRoute<TResources, TState, TQuoteNode>({
         specifiedAmount: tokenAmount,
         route,
         gasEstimator,
-        poolStateOverrides,
+        overrides,
         meta,
       });
 
-      if (result) {
+      if (quoteRouteResult) {
         if (
           !memo ||
-          result.gasAdjustedCalculatedAmount > memo.gasAdjustedCalculatedAmount
+          quoteRouteResult.gasAdjustedCalculatedAmount >
+            memo.quoteRouteResult.gasAdjustedCalculatedAmount
         ) {
           return {
             route,
-            quoteRouteResult: result,
-            gasAdjustedCalculatedAmount: result.gasAdjustedCalculatedAmount,
+            quoteRouteResult,
           };
         }
       }

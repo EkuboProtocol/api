@@ -105,14 +105,17 @@ export class TwammPool implements QuoteNode<TwammResources, TwammPoolState> {
   public quote({
     tokenAmount,
     sqrtRatioLimit,
-    overrideSwapState,
+    overrides,
     meta,
-  }: QuoteParams<TwammPoolState>): Quote<TwammResources, TwammPoolState> {
+  }: QuoteParams<TwammResources, TwammPoolState>): Quote<
+    TwammResources,
+    TwammPoolState
+  > {
     const {
       block: { time: currentTime },
     } = meta;
 
-    const startingState = overrideSwapState ?? this.state;
+    const initialState = overrides?.state ?? this.state;
 
     let {
       liquidity,
@@ -120,24 +123,26 @@ export class TwammPool implements QuoteNode<TwammResources, TwammPoolState> {
       token0SaleRate,
       token1SaleRate,
       lastExecutionTime,
-    } = startingState;
+    } = initialState;
 
-    const virtualOrderSecondsExecuted = currentTime - lastExecutionTime;
+    const virtualOrderSecondsExecuted =
+      currentTime -
+      lastExecutionTime +
+      (overrides?.resources.virtualOrderSecondsExecuted ?? 0);
     if (virtualOrderSecondsExecuted < 0)
       throw new Error("Last execution time exceeds block time");
 
-    let virtualOrderDeltaTimesCrossed: number = 0;
-
-    const twammSwapResources: BaseResources = {
-      initializedTicksCrossed: 0,
-      tickSpacingsCrossed: 0,
-    };
+    let virtualOrderDeltaTimesCrossed: number =
+      overrides?.resources?.virtualOrderDeltaTimesCrossed ?? 0;
 
     let nextSaleRateDeltaIndex = this.saleRateDeltas.findIndex(
       (srd) => srd.time > lastExecutionTime,
     );
 
-    let poolOverrideSwapState: BaseNodeState = startingState;
+    // this is the current state of the base pool during the iteration
+    let basePoolOverrides:
+      | { state: BaseNodeState; resources: BaseResources }
+      | undefined = overrides;
 
     while (lastExecutionTime !== currentTime) {
       const saleRateDelta = this.saleRateDeltas[nextSaleRateDeltaIndex];
@@ -151,11 +156,6 @@ export class TwammPool implements QuoteNode<TwammResources, TwammPoolState> {
         (token0SaleRate * timeElapsed) >> 32n,
         (token1SaleRate * timeElapsed) >> 32n,
       ];
-
-      let basePoolExecutionResources: BaseResources = {
-        initializedTicksCrossed: 0,
-        tickSpacingsCrossed: 0,
-      };
 
       if (amount0 > 0n && amount1 > 0n) {
         liquidity = max(this.basePool.state.liquidity, liquidity);
@@ -181,13 +181,15 @@ export class TwammPool implements QuoteNode<TwammResources, TwammPoolState> {
                 ? this.basePool.key.token1
                 : this.basePool.key.token0,
           },
-          overrideSwapState: poolOverrideSwapState,
           sqrtRatioLimit: nextSqrtRatio,
           meta,
+          overrides: basePoolOverrides,
         });
 
-        poolOverrideSwapState = quote.stateAfter;
-        basePoolExecutionResources = quote.executionResources;
+        basePoolOverrides = {
+          state: quote.stateAfter,
+          resources: quote.executionResources,
+        };
       } else if (amount0 > 0n || amount1 > 0n) {
         const [amount, isToken1, sqrtRatioLimit] =
           amount0 !== 0n
@@ -201,24 +203,21 @@ export class TwammPool implements QuoteNode<TwammResources, TwammPoolState> {
               ? this.basePool.key.token1
               : this.basePool.key.token0,
           },
-          overrideSwapState: poolOverrideSwapState,
           sqrtRatioLimit,
           meta,
+          overrides: basePoolOverrides,
         });
 
-        poolOverrideSwapState = quote.stateAfter;
-        basePoolExecutionResources = quote.executionResources;
+        basePoolOverrides = {
+          state: quote.stateAfter,
+          resources: quote.executionResources,
+        };
 
-        nextSqrtRatio = poolOverrideSwapState.sqrtRatio;
+        nextSqrtRatio = basePoolOverrides.state.sqrtRatio;
       }
 
       // if the last swap pushes the price out of range, the pool will have no liquidity
-      liquidity = poolOverrideSwapState.liquidity;
-
-      twammSwapResources.initializedTicksCrossed +=
-        basePoolExecutionResources.initializedTicksCrossed;
-      twammSwapResources.tickSpacingsCrossed +=
-        basePoolExecutionResources.tickSpacingsCrossed;
+      liquidity = basePoolOverrides?.state.liquidity;
 
       // if we executed up to the next sale rate delta, we need to apply the delta
       if (nextExecutionTime === saleRateDelta?.time) {
@@ -235,31 +234,33 @@ export class TwammPool implements QuoteNode<TwammResources, TwammPoolState> {
       consumedAmount,
       calculatedAmount,
       executionResources,
-      stateAfter: finalStateAfter,
+      stateAfter,
       isPriceIncreasing,
     } = this.basePool.quote({
       tokenAmount,
       sqrtRatioLimit,
       meta,
-      overrideSwapState: poolOverrideSwapState,
+      overrides: basePoolOverrides,
     });
+
+    basePoolOverrides = {
+      state: stateAfter,
+      resources: executionResources,
+    };
 
     return {
       isPriceIncreasing,
       consumedAmount,
       calculatedAmount,
       executionResources: {
-        initializedTicksCrossed:
-          executionResources.initializedTicksCrossed +
-          twammSwapResources.initializedTicksCrossed,
-        tickSpacingsCrossed:
-          executionResources.tickSpacingsCrossed +
-          twammSwapResources.tickSpacingsCrossed,
+        initializedTicksCrossed: 0,
+        tickSpacingsCrossed: 0,
+        ...basePoolOverrides.resources,
         virtualOrderSecondsExecuted,
         virtualOrderDeltaTimesCrossed,
       },
       stateAfter: {
-        ...finalStateAfter,
+        ...basePoolOverrides.state,
         token0SaleRate,
         token1SaleRate,
         lastExecutionTime: currentTime,

@@ -24,9 +24,9 @@ import {
   NumericType,
   TokenIdentifierType,
 } from "../../shared/validation/address";
-import { MAX_SQRT_RATIO } from "./math/tick";
+import { MAX_SQRT_RATIO, MIN_SQRT_RATIO } from "./math/tick";
 import { getSqrtRatioLimit } from "./getSqrtRatioLimit";
-import { BaseOrTwammResourcesGasEstimator } from "./baseResourcesGasEstimator";
+import { BaseOrTwammResourcesGasEstimator } from "./gasEstimators";
 import { findOptimalSplitRoute } from "./findOptimalSplitRoute";
 import { quoteRoute } from "./quoteRoute";
 
@@ -206,7 +206,8 @@ export class GetQuote extends EkuboAPIRoute {
       },
     };
 
-    const poolStateOverrides = new WeakMap();
+    const overrides = new WeakMap();
+
     // try the smallest split across all the routes first, and only consider the top 2**maxSplits
     const feasibleRoutes = allRoutes
       .map((route) => {
@@ -214,7 +215,7 @@ export class GetQuote extends EkuboAPIRoute {
           const quote = quoteRoute({
             route,
             gasEstimator,
-            poolStateOverrides,
+            overrides,
             specifiedAmount: {
               token,
               amount: smallestSplitAmount,
@@ -240,7 +241,7 @@ export class GetQuote extends EkuboAPIRoute {
     const splitRoutes = findOptimalSplitRoute({
       allRoutes: feasibleRoutes,
       tokenAmount,
-      poolStateOverrides,
+      overrides,
       gasEstimator,
       maxSplits,
       meta,
@@ -250,31 +251,29 @@ export class GetQuote extends EkuboAPIRoute {
       return error(404, "Route not found");
     }
 
-    const serializedRoutes = splitRoutes.map((route) => ({
-      specifiedAmount:
-        route.quoteRouteResult.quotes[0].consumedAmount.toString(),
-      amount: route.quoteRouteResult.calculatedAmount.amount.toString(),
-      route: route.route.map((node, ix) => ({
+    const serializedRoutes = splitRoutes.map(({ route, quoteRouteResult }) => ({
+      specifiedAmount: quoteRouteResult.quotes[0].consumedAmount.toString(),
+      amount: quoteRouteResult.calculatedAmount.amount.toString(),
+      route: route.map(({ key }, ix) => ({
         pool_key: {
-          token0: num.toHex(node.key.token0),
-          token1: num.toHex(node.key.token1),
-          fee: num.toHex(node.key.fee),
-          tick_spacing: node.key.tickSpacing,
-          extension: num.toHex(node.key.extension),
+          token0: num.toHex(key.token0),
+          token1: num.toHex(key.token1),
+          fee: num.toHex(key.fee),
+          tick_spacing: key.tickSpacing,
+          extension: num.toHex(key.extension),
         },
         sqrt_ratio_limit: num.toHex(
           getSqrtRatioLimit(
-            route.quoteRouteResult.quotes[ix].stateAfter.sqrtRatio,
-            node.key.tickSpacing,
-            route.quoteRouteResult.quotes[ix].isPriceIncreasing,
+            quoteRouteResult.quotes[ix].stateAfter.sqrtRatio,
+            key.tickSpacing,
+            quoteRouteResult.quotes[ix].isPriceIncreasing,
           ),
         ),
         skip_ahead: num.toHex(
           Math.round(
-            route.quoteRouteResult.quotes[ix].executionResources
-              .tickSpacingsCrossed /
+            quoteRouteResult.quotes[ix].executionResources.tickSpacingsCrossed /
               Math.max(
-                route.quoteRouteResult.quotes[ix].executionResources
+                quoteRouteResult.quotes[ix].executionResources
                   .initializedTicksCrossed,
                 1,
               ),
@@ -287,8 +286,14 @@ export class GetQuote extends EkuboAPIRoute {
       ? {
           total: splitRoutes
             .reduce(
-              (sum, route) =>
-                route.quoteRouteResult.calculatedAmount.amount + sum,
+              (
+                sum,
+                {
+                  quoteRouteResult: {
+                    calculatedAmount: { amount },
+                  },
+                },
+              ) => amount + sum,
               0n,
             )
             .toString(),

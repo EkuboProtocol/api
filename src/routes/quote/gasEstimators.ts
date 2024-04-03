@@ -29,12 +29,15 @@ export class BaseResourcesGasEstimator
     calculatedAmount: bigint,
     route: QuoteNode[],
     quoteResults: Quote<BaseResources, BaseNodeState>[],
-    poolStateOverrides: WeakMap<QuoteNode, BaseNodeState>,
+    overrides: WeakMap<
+      QuoteNode,
+      { state: BaseNodeState; resources: BaseResources }
+    >,
   ): bigint {
     const totalRouteResources = route.reduce(
       (memo, node, ix) => {
         return {
-          newPoolsSwapped: poolStateOverrides.has(node)
+          newPoolsSwapped: overrides.has(node)
             ? memo.newPoolsSwapped
             : memo.newPoolsSwapped + 1,
           initializedTicksCrossed:
@@ -100,27 +103,25 @@ export class BaseOrTwammResourcesGasEstimator
       BaseResources | TwammResources,
       BaseNodeState | TwammPoolState
     >[],
-    poolStateOverrides: WeakMap<
-      TwammPool | BasePool,
-      BaseNodeState | TwammPoolState
+    overrides: WeakMap<
+      BasePool | TwammPool,
+      {
+        state: BaseNodeState | TwammPoolState;
+        resources: BaseResources | TwammResources;
+      }
     >,
   ): bigint {
     const baseAmount = this.baseGasEstimator.getGasAdjustedAmount(
       calculatedAmount,
       route,
       quoteResults,
-      poolStateOverrides,
+      overrides,
     );
 
     return (
       baseAmount -
       route.reduce<bigint>((memo, node, ix) => {
-        if (!(node instanceof TwammPool)) return memo;
-
-        // no additional cost if the pool has already been touched
-        if (poolStateOverrides.has(node)) {
-          return memo;
-        }
+        if (!(node instanceof TwammPool) || overrides.has(node)) return memo;
 
         const resources = quoteResults[ix].executionResources;
 
