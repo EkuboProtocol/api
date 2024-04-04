@@ -118,7 +118,6 @@ export class TwammPool implements QuoteNode<TwammResources, TwammPoolState> {
     const initialState = overrides?.state ?? this.state;
 
     let {
-      liquidity,
       sqrtRatio: nextSqrtRatio,
       token0SaleRate,
       token1SaleRate,
@@ -158,8 +157,6 @@ export class TwammPool implements QuoteNode<TwammResources, TwammPoolState> {
       ];
 
       if (amount0 > 0n && amount1 > 0n) {
-        liquidity = max(this.basePool.state.liquidity, liquidity);
-
         const currentSqrtRatio = max(
           MAX_BOUNDS_MIN_SQRT_RATIO,
           min(MAX_BOUNDS_MAX_SQRT_RATIO, nextSqrtRatio),
@@ -167,7 +164,7 @@ export class TwammPool implements QuoteNode<TwammResources, TwammPoolState> {
 
         nextSqrtRatio = calculateNextSqrtRatio(
           currentSqrtRatio,
-          liquidity,
+          this.basePool.sortedTicks[0].liquidityDelta,
           token0SaleRate,
           token1SaleRate,
           timeElapsed,
@@ -216,9 +213,6 @@ export class TwammPool implements QuoteNode<TwammResources, TwammPoolState> {
         nextSqrtRatio = basePoolOverrides.state.sqrtRatio;
       }
 
-      // if the last swap pushes the price out of range, the pool will have no liquidity
-      liquidity = basePoolOverrides?.state.liquidity;
-
       // if we executed up to the next sale rate delta, we need to apply the delta
       if (nextExecutionTime === saleRateDelta?.time) {
         token0SaleRate += saleRateDelta.saleRateDelta0;
@@ -243,24 +237,17 @@ export class TwammPool implements QuoteNode<TwammResources, TwammPoolState> {
       overrides: basePoolOverrides,
     });
 
-    basePoolOverrides = {
-      state: stateAfter,
-      resources: executionResources,
-    };
-
     return {
       isPriceIncreasing,
       consumedAmount,
       calculatedAmount,
       executionResources: {
-        initializedTicksCrossed: 0,
-        tickSpacingsCrossed: 0,
-        ...basePoolOverrides.resources,
+        ...executionResources,
         virtualOrderSecondsExecuted,
         virtualOrderDeltaTimesCrossed,
       },
       stateAfter: {
-        ...basePoolOverrides.state,
+        ...stateAfter,
         token0SaleRate,
         token1SaleRate,
         lastExecutionTime: currentTime,

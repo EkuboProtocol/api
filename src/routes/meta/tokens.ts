@@ -71,15 +71,6 @@ export const TokenType = z
 
 export type TokenInfo = z.infer<typeof TokenType>;
 
-const DEFAULT_TOKENS_BY_CHAIN_ID: {
-  [chainId in
-    | typeof constants.StarknetChainId.SN_MAIN
-    | typeof constants.StarknetChainId.SN_SEPOLIA]: TokenInfo[];
-} = {
-  [constants.StarknetChainId.SN_MAIN]: MAINNET_TOKENS,
-  [constants.StarknetChainId.SN_SEPOLIA]: SEPOLIA_TOKENS,
-} as const;
-
 const lastGetAllTokens: {
   [chainId in constants.StarknetChainId]?: {
     timestamp: number;
@@ -88,6 +79,9 @@ const lastGetAllTokens: {
 } = {};
 
 const MEMORY_CACHE_TIME_SECONDS = 300;
+
+const SEPOLIA_CHAIN_ID = BigInt(constants.StarknetChainId.SN_SEPOLIA);
+const MAINNET_CHAIN_ID = BigInt(constants.StarknetChainId.SN_MAIN);
 
 export async function getAllTokens(
   env: Env,
@@ -98,7 +92,12 @@ export async function getAllTokens(
     return last.result;
   }
 
-  const tokens = DEFAULT_TOKENS_BY_CHAIN_ID[env.STARKNET_CHAIN_ID] ?? [];
+  const tokens: TokenInfo[] =
+    BigInt(env.STARKNET_CHAIN_ID) === SEPOLIA_CHAIN_ID
+      ? SEPOLIA_TOKENS
+      : BigInt(env.STARKNET_CHAIN_ID) === MAINNET_CHAIN_ID
+        ? MAINNET_TOKENS
+        : [];
 
   const { rows } = await queries.getRegisteredTokens();
 

@@ -379,7 +379,7 @@ export class GetQuoteToPrice extends EkuboAPIRoute {
       };
     });
 
-    if (state) {
+    if (!state) {
       return error(501, "Pool not found or not supported");
     }
 
