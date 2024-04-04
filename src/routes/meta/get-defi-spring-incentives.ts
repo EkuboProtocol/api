@@ -136,6 +136,28 @@ const SPLITS_BY_DATE_RANGE = [
       },
     ],
   },
+  {
+    start: new Date("2024-04-04"),
+    end: new Date("2024-04-21"),
+    splits: [
+      {
+        pairId: "ETH/USDC",
+        weight: 4,
+      },
+      {
+        pairId: "STRK/ETH",
+        weight: 12,
+      },
+      {
+        pairId: "STRK/USDC",
+        weight: 4,
+      },
+      {
+        pairId: "WBTC/ETH",
+        weight: 2,
+      },
+    ],
+  },
 ];
 
 export class GetDefiSpringIncentives extends EkuboAPIRoute {
