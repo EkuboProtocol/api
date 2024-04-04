@@ -25,6 +25,7 @@ interface TwammOrderMetadata {
   fee: string;
   block_time_at_start: Date;
   last_order_update: Date;
+  last_collect_proceeds: Date | null;
 }
 
 export interface BasePoolStateQueryResult {
@@ -1247,7 +1248,14 @@ export class Queries {
                end_time,
                fee,
                block_time_at_start,
-               last_order_update
+               last_order_update,
+               (SELECT b2.time
+                FROM twamm_proceeds_withdrawals tpw
+                       JOIN event_keys ek2 ON tpw.event_id = ek2.id
+                       JOIN blocks b2 ON ek2.block_number = b2.number
+                WHERE tpw.salt = ot.token_id::NUMERIC
+                ORDER BY tpw.event_id DESC
+                LIMIT 1) AS last_collect_proceeds
         FROM owned_tokens AS ot
                JOIN LATERAL (
           SELECT (CASE WHEN tou.sale_rate_delta0 != 0 THEN token0 ELSE token1 END) AS sell_token,
@@ -1255,12 +1263,12 @@ export class Queries {
                  start_time,
                  end_time,
                  fee,
-                 MIN(b.time) AS block_time_at_start,
-                 MAX(b.time) AS last_order_update
+                 MIN(b.time)                                                       AS block_time_at_start,
+                 MAX(b.time)                                                       AS last_order_update
           FROM twamm_order_updates AS tou
                  JOIN pool_keys ON tou.key_hash = pool_keys.key_hash
-          JOIN event_keys ek ON tou.event_id = ek.id
-          JOIN blocks b ON ek.block_number = b.number
+                 JOIN event_keys ek ON tou.event_id = ek.id
+                 JOIN blocks b ON ek.block_number = b.number
           WHERE tou.salt = token_id::NUMERIC
           GROUP BY 1, 2, 3, 4, 5
           ) AS distinct_orders ON TRUE

@@ -88,6 +88,7 @@ export class ListOrders extends EkuboAPIRoute {
               start_time,
               block_time_at_start,
               last_order_update,
+              last_collect_proceeds,
             },
           ) => {
             const tokenId = Number(token_id);
@@ -103,6 +104,7 @@ export class ListOrders extends EkuboAPIRoute {
               },
               block_time_at_start: block_time_at_start.getTime() / 1000,
               last_order_update: last_order_update.getTime() / 1000,
+              last_collect_proceeds: last_collect_proceeds.getTime() / 1000,
             };
 
             if (!order) {
