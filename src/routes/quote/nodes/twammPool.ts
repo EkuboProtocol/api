@@ -44,7 +44,7 @@ export class TwammPool implements QuoteNode<TwammResources, TwammPoolState> {
   }
 
   private readonly extension: bigint;
-  private readonly basePool: BasePool;
+  readonly basePool: BasePool;
 
   // state
   public readonly token0SaleRate: bigint;
@@ -164,6 +164,7 @@ export class TwammPool implements QuoteNode<TwammResources, TwammPoolState> {
 
         nextSqrtRatio = calculateNextSqrtRatio(
           currentSqrtRatio,
+          // this is what the twamm pool uses for liquidity for its swap calc and it cannot be overridden
           this.basePool.sortedTicks[0].liquidityDelta,
           token0SaleRate,
           token1SaleRate,

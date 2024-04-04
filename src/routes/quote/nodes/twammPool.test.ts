@@ -759,6 +759,92 @@ describe("TWAMMPoolNode", () => {
       ).toMatchSnapshot("result of quote after full day using overrides");
     });
 
+    it("moody testing examples", () => {
+      const pool = new TwammPool({
+        token0: 0n,
+        token1: 1n,
+        fee: 0n,
+        sqrtRatio: toSqrtRatio(693147), // ~=2
+        liquidity: 10n ** 21n, // something like a thousand of each token
+        tick: 693147,
+        extension: 1n,
+        token0SaleRate: (10n ** 18n) << 32n,
+        token1SaleRate: (10n ** 18n) << 32n,
+        lastExecutionTime: 60,
+        saleRateDeltas: [
+          {
+            time: 120,
+            saleRateDelta0: -((10n ** 18n) << 32n),
+            saleRateDelta1: -((10n ** 18n) << 32n),
+          },
+        ],
+      });
+
+      expect(
+        pool.quote({
+          tokenAmount: { token: 0n, amount: 0n },
+          meta: { block: { number: 1, time: 60 } },
+        }),
+      ).toMatchSnapshot("0 seconds pass");
+
+      expect(
+        pool.quote({
+          tokenAmount: { token: 0n, amount: 0n },
+          meta: { block: { number: 1, time: 90 } },
+        }),
+      ).toMatchSnapshot("30 seconds pass");
+
+      const fullyExecutedTwamm = pool.quote({
+        tokenAmount: { token: 0n, amount: 0n },
+        meta: { block: { number: 1, time: 120 } },
+      });
+      expect(fullyExecutedTwamm).toMatchSnapshot("60 seconds pass");
+
+      expect(
+        pool.quote({
+          tokenAmount: {
+            token: 0n,
+            amount: 10n ** 18n,
+          },
+          meta: { block: { number: 1, time: 120 } },
+        }).calculatedAmount,
+      ).toEqual(
+        pool.basePool.quote({
+          tokenAmount: {
+            token: 0n,
+            amount: 10n ** 18n,
+          },
+          meta: { block: { number: 1, time: 120 } },
+          overrides: {
+            state: fullyExecutedTwamm.stateAfter,
+            resources: fullyExecutedTwamm.executionResources,
+          },
+        }).calculatedAmount,
+      );
+
+      expect(
+        pool.quote({
+          tokenAmount: {
+            token: 1n,
+            amount: 10n ** 18n,
+          },
+          meta: { block: { number: 1, time: 120 } },
+        }).calculatedAmount,
+      ).toEqual(
+        pool.basePool.quote({
+          tokenAmount: {
+            token: 1n,
+            amount: 10n ** 18n,
+          },
+          meta: { block: { number: 1, time: 120 } },
+          overrides: {
+            state: fullyExecutedTwamm.stateAfter,
+            resources: fullyExecutedTwamm.executionResources,
+          },
+        }).calculatedAmount,
+      );
+    });
+
     it("compare to contract output", () => {
       const pool = new TwammPool({
         token0: 0n,

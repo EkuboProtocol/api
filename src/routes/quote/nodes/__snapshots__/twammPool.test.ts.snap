@@ -48,6 +48,72 @@ exports[`TWAMMPoolNode > quote > compare to contract output > second swap from f
 }
 `;
 
+exports[`TWAMMPoolNode > quote > moody testing examples > 0 seconds pass 1`] = `
+{
+  "calculatedAmount": 0n,
+  "consumedAmount": 0n,
+  "executionResources": {
+    "initializedTicksCrossed": 0,
+    "tickSpacingsCrossed": 0,
+    "virtualOrderDeltaTimesCrossed": 0,
+    "virtualOrderSecondsExecuted": 0,
+  },
+  "isPriceIncreasing": false,
+  "stateAfter": {
+    "activeTickIndex": 0,
+    "lastExecutionTime": 60,
+    "liquidity": 1000000000000000000000n,
+    "sqrtRatio": 481231811499356508086519009265716982182n,
+    "token0SaleRate": 4294967296000000000000000000n,
+    "token1SaleRate": 4294967296000000000000000000n,
+  },
+}
+`;
+
+exports[`TWAMMPoolNode > quote > moody testing examples > 30 seconds pass 1`] = `
+{
+  "calculatedAmount": 0n,
+  "consumedAmount": 0n,
+  "executionResources": {
+    "initializedTicksCrossed": 0,
+    "tickSpacingsCrossed": 0,
+    "virtualOrderDeltaTimesCrossed": 0,
+    "virtualOrderSecondsExecuted": 30,
+  },
+  "isPriceIncreasing": false,
+  "stateAfter": {
+    "activeTickIndex": 0,
+    "lastExecutionTime": 90,
+    "liquidity": 1000000000000000000000n,
+    "sqrtRatio": 471441649416958073156966148369774588652n,
+    "token0SaleRate": 4294967296000000000000000000n,
+    "token1SaleRate": 4294967296000000000000000000n,
+  },
+}
+`;
+
+exports[`TWAMMPoolNode > quote > moody testing examples > 60 seconds pass 1`] = `
+{
+  "calculatedAmount": 0n,
+  "consumedAmount": 0n,
+  "executionResources": {
+    "initializedTicksCrossed": 0,
+    "tickSpacingsCrossed": 0,
+    "virtualOrderDeltaTimesCrossed": 1,
+    "virtualOrderSecondsExecuted": 60,
+  },
+  "isPriceIncreasing": false,
+  "stateAfter": {
+    "activeTickIndex": 0,
+    "lastExecutionTime": 120,
+    "liquidity": 1000000000000000000000n,
+    "sqrtRatio": 462432609411975157975265359638471888182n,
+    "token0SaleRate": 0n,
+    "token1SaleRate": 0n,
+  },
+}
+`;
+
 exports[`TWAMMPoolNode > quote > price after no swap > result of quote after full day 1`] = `
 {
   "calculatedAmount": 0n,

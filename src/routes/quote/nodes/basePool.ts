@@ -122,9 +122,6 @@ export class BasePool implements QuoteNode {
 
     let { sqrtRatio, liquidity, activeTickIndex } = state;
 
-    // this is used to compute the approximate number of tick spacings crossed by the swap
-    const startingSqrtRatio = sqrtRatio;
-
     if (sqrtRatioLimit) {
       // validate sqrtRatioLimit
       if (isIncreasing && sqrtRatioLimit < sqrtRatio) {
@@ -145,10 +142,11 @@ export class BasePool implements QuoteNode {
 
     // the index of the sorted ticks array of the tick that is <= current tick
     let calculatedAmount = 0n;
-    let initializedTicksCrossed = 0;
+    let initializedTicksCrossed = resources.initializedTicksCrossed;
     let amountRemaining = amount;
 
-    let totalFee: bigint = 0n;
+    // this is used to compute the approximate number of tick spacings crossed by the swap
+    const startingSqrtRatio = sqrtRatio;
 
     while (amountRemaining !== 0n && sqrtRatio !== sqrtRatioLimit) {
       const nextInitializedTick: Tick | null =
@@ -178,7 +176,6 @@ export class BasePool implements QuoteNode {
 
       amountRemaining -= step.consumedAmount;
       calculatedAmount += step.calculatedAmount;
-      totalFee += step.feeAmount;
       sqrtRatio = step.sqrtRatioNext;
 
       // cross the tick if the price moved all the way to the next initialized tick price
@@ -198,8 +195,7 @@ export class BasePool implements QuoteNode {
       consumedAmount: amount - amountRemaining,
       calculatedAmount,
       executionResources: {
-        initializedTicksCrossed:
-          resources.initializedTicksCrossed + initializedTicksCrossed,
+        initializedTicksCrossed,
         tickSpacingsCrossed:
           resources.tickSpacingsCrossed +
           approximateNumberOfTickSpacingsCrossed(

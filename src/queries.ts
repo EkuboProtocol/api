@@ -1640,6 +1640,18 @@ export class Queries {
     if (!rows.length) throw new Error("No blocks");
     return rows[0];
   }
+
+  async getAverageBlockTime() {
+    const { rows } = await this.client.query<{ average_block_time: number }>(`
+        WITH blocks_and_last_time
+                 AS (SELECT time, LAG(time) OVER (ORDER BY number) AS last_time
+                     FROM blocks
+                     WHERE time >= NOW() - INTERVAL '3 hour')
+        SELECT FLOOR(AVG(EXTRACT(EPOCH FROM (time - last_time))))::int4 AS average_block_time
+        FROM blocks_and_last_time
+    `);
+    return rows[0]?.average_block_time ?? 300;
+  }
 }
 
 export async function createQueries(env: Env) {

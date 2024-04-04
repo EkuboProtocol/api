@@ -1,6 +1,6 @@
 import { IRequest, json } from "itty-router";
 import { EkuboAPIRoute, RequestContext } from "../../shared/context";
-import { OpenAPIRouteSchema, Path } from "@cloudflare/itty-router-openapi";
+import { OpenAPIRouteSchema } from "@cloudflare/itty-router-openapi";
 import { z } from "zod";
 import { createQueries } from "../../queries";
 import { getAllTokens, getTokenByIdentifier } from "./tokens";
@@ -35,10 +35,10 @@ export class GetFees extends EkuboAPIRoute {
             { description: "Information about the current fees on L2" },
           )
           .openapi({
-            examples: {
+            example: {
               dollarPrice: 0.054626,
               byToken: { ETH: 0.000014868735341665, STRK: 0.02737695235451298 },
-            } as any,
+            },
           }),
         contentType: "application/json",
       },
