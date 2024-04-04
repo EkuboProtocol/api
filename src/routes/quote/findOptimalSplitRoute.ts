@@ -84,38 +84,60 @@ export function findOptimalSplitRoute<
       if (numUniqueRoutes === maxRoutes) {
         routeOptions = [...uniqueRouteSet.values()];
       }
-    }
 
-    const lastSwap = swaps[swaps.length - 1];
-    // sent more through the same route so add it to the last call
-    if (lastSwap?.route === partialResult.route) {
-      lastSwap.quoteRouteResult = {
-        calculatedAmount: {
-          token: lastSwap.quoteRouteResult.calculatedAmount.token,
-          amount:
-            lastSwap.quoteRouteResult.calculatedAmount.amount +
-            partialResult.quoteRouteResult.calculatedAmount.amount,
-        },
-        gasAdjustedCalculatedAmount:
-          lastSwap.quoteRouteResult.gasAdjustedCalculatedAmount +
-          partialResult.quoteRouteResult.gasAdjustedCalculatedAmount,
-        quotes: partialResult.quoteRouteResult.quotes.map(
-          (newQuoteResult, ix) => ({
-            isPriceIncreasing: newQuoteResult.isPriceIncreasing,
-            // use the latter state, since it is the most updated
-            stateAfter: newQuoteResult.stateAfter,
-            calculatedAmount:
-              newQuoteResult.calculatedAmount +
-              lastSwap.quoteRouteResult.quotes[ix].calculatedAmount,
-            consumedAmount:
-              newQuoteResult.consumedAmount +
-              lastSwap.quoteRouteResult.quotes[ix].consumedAmount,
-            executionResources: newQuoteResult.executionResources,
-          }),
-        ),
-      };
-    } else {
       swaps.push(partialResult);
+    } else {
+      // route is used in the list of swaps, so check that the pools are not touched in any swaps after it
+      const indexLastSwapSameRoute = swaps.findLastIndex(
+        (s) => s.route === partialResult.route,
+      );
+      if (indexLastSwapSameRoute === -1) {
+        throw new Error("Expected to find this route among results");
+      }
+
+      // check that the swaps after this one did not touch the same pools
+      let canMerge = true;
+      for (let i = indexLastSwapSameRoute + 1; i < swaps.length; i++) {
+        if (
+          swaps[i].route.some((node0) =>
+            partialResult.route.some((node1) => node0 === node1),
+          )
+        ) {
+          canMerge = false;
+          break;
+        }
+      }
+
+      if (canMerge) {
+        const lastSwap = swaps[indexLastSwapSameRoute];
+        lastSwap.quoteRouteResult = {
+          calculatedAmount: {
+            token: lastSwap.quoteRouteResult.calculatedAmount.token,
+            amount:
+              lastSwap.quoteRouteResult.calculatedAmount.amount +
+              partialResult.quoteRouteResult.calculatedAmount.amount,
+          },
+          gasAdjustedCalculatedAmount:
+            lastSwap.quoteRouteResult.gasAdjustedCalculatedAmount +
+            partialResult.quoteRouteResult.gasAdjustedCalculatedAmount,
+          quotes: partialResult.quoteRouteResult.quotes.map(
+            (newQuoteResult, ix) => ({
+              isPriceIncreasing: newQuoteResult.isPriceIncreasing,
+              // use the latter state, since it is the most updated
+              stateAfter: newQuoteResult.stateAfter,
+              calculatedAmount:
+                newQuoteResult.calculatedAmount +
+                lastSwap.quoteRouteResult.quotes[ix].calculatedAmount,
+              consumedAmount:
+                newQuoteResult.consumedAmount +
+                lastSwap.quoteRouteResult.quotes[ix].consumedAmount,
+              executionResources: newQuoteResult.executionResources,
+            }),
+          ),
+        };
+      } else {
+        swaps.push(partialResult);
+      }
     }
   }
 
