@@ -1,58 +1,195 @@
 // Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
 
-exports[`splitTwammOrderByAmountSold > various pools > one pool 1`] = `
+exports[`splitTwammOrder > various pools > negative amount edge case, max split 0, filter out pool, token0 1`] = `[]`;
+
+exports[`splitTwammOrder > various pools > negative amount edge case, max split 0, filter out pool, token1 1`] = `[]`;
+
+exports[`splitTwammOrder > various pools > one pool, token0 1`] = `
 [
   {
-    "amount": "1000000000000000000",
-    "fee": "1",
+    "amount": 1000000000000000000n,
+    "fee": 3402823669209384634633746074317682114n,
+    "otherTokenAmount": 29572037879931651n,
   },
 ]
 `;
 
-exports[`splitTwammOrderByAmountSold > various pools > three pools, one with 10x liquidity, maxSplits 2 1`] = `
+exports[`splitTwammOrder > various pools > one pool, token1 1`] = `
 [
   {
-    "amount": "666666666482356036",
-    "fee": "2",
-  },
-  {
-    "amount": "333333333517643964",
-    "fee": "3",
+    "amount": 1000000000000000000n,
+    "fee": 3402823669209384634633746074317682114n,
+    "otherTokenAmount": 29572037879931657n,
   },
 ]
 `;
 
-exports[`splitTwammOrderByAmountSold > various pools > two pools, one with 10x liquidity 1`] = `
+exports[`splitTwammOrder > various pools > three pools, same liquidity, diff sale rate changes, maxSplits 2, token0 1`] = `
 [
   {
-    "amount": "909090909022249733",
-    "fee": "2",
-  },
-  {
-    "amount": "90909090977750267",
-    "fee": "1",
+    "amount": 1000000000000000000n,
+    "fee": 3402823669209384634633746074317682114n,
+    "otherTokenAmount": 41821177036810446n,
   },
 ]
 `;
 
-exports[`splitTwammOrderByAmountSold > various pools > two pools, same liquidity 1`] = `
+exports[`splitTwammOrder > various pools > three pools, same liquidity, diff sale rate changes, maxSplits 2, token1 1`] = `
 [
   {
-    "amount": "500000000000000000",
-    "fee": "1",
-  },
-  {
-    "amount": "500000000000000000",
-    "fee": "2",
+    "amount": 1000000000000000000n,
+    "fee": 6805647338418769269267492148635364229n,
+    "otherTokenAmount": 41417116263934591n,
   },
 ]
 `;
 
-exports[`splitTwammOrderByAmountSold > various pools > two pools, same liquidity, different rates, maxSplits 1 1`] = `
+exports[`splitTwammOrder > various pools > three pools, same liquidity, maxSplits 2, token0 1`] = `
 [
   {
-    "amount": "1000000000000000000",
-    "fee": "1",
+    "amount": 500000000000000000n,
+    "fee": 3402823669209384634633746074317682114n,
+    "otherTokenAmount": 15118836440023420n,
+  },
+  {
+    "amount": 500000000000000000n,
+    "fee": 6805647338418769269267492148635364229n,
+    "otherTokenAmount": 14969532844295689n,
+  },
+]
+`;
+
+exports[`splitTwammOrder > various pools > three pools, same liquidity, maxSplits 2, token1 1`] = `
+[
+  {
+    "amount": 500000000000000000n,
+    "fee": 3402823669209384634633746074317682114n,
+    "otherTokenAmount": 15118836440023424n,
+  },
+  {
+    "amount": 500000000000000000n,
+    "fee": 6805647338418769269267492148635364229n,
+    "otherTokenAmount": 14969532844295692n,
+  },
+]
+`;
+
+exports[`splitTwammOrder > various pools > two pools, one with 10x liquidity, token0 1`] = `
+[
+  {
+    "amount": 1000000000000000000n,
+    "fee": 6805647338418769269267492148635364229n,
+    "otherTokenAmount": 282179317095523925n,
+  },
+]
+`;
+
+exports[`splitTwammOrder > various pools > two pools, one with 10x liquidity, token1 1`] = `
+[
+  {
+    "amount": 1000000000000000000n,
+    "fee": 6805647338418769269267492148635364229n,
+    "otherTokenAmount": 282179315137456691n,
+  },
+]
+`;
+
+exports[`splitTwammOrder > various pools > two pools, same liquidity, different rates, maxSplits 1, token0 1`] = `
+[
+  {
+    "amount": 1000000000000000000n,
+    "fee": 6805647338418769269267492148635364229n,
+    "otherTokenAmount": 29286323767419650n,
+  },
+]
+`;
+
+exports[`splitTwammOrder > various pools > two pools, same liquidity, different rates, maxSplits 1, token1 1`] = `
+[
+  {
+    "amount": 1000000000000000000n,
+    "fee": 3402823669209384634633746074317682114n,
+    "otherTokenAmount": 41821177036810455n,
+  },
+]
+`;
+
+exports[`splitTwammOrder > various pools > two pools, same liquidity, same token1 sale rate change for both pools, token0 1`] = `
+[
+  {
+    "amount": 500000000000000000n,
+    "fee": 3402823669209384634633746074317682114n,
+    "otherTokenAmount": 21381263540781848n,
+  },
+  {
+    "amount": 500000000000000000n,
+    "fee": 6805647338418769269267492148635364229n,
+    "otherTokenAmount": 21170116370792619n,
+  },
+]
+`;
+
+exports[`splitTwammOrder > various pools > two pools, same liquidity, same token1 sale rate change for both pools, token1 1`] = `
+[
+  {
+    "amount": 500000000000000000n,
+    "fee": 3402823669209384634633746074317682114n,
+    "otherTokenAmount": 5406386711306600n,
+  },
+  {
+    "amount": 500000000000000000n,
+    "fee": 6805647338418769269267492148635364229n,
+    "otherTokenAmount": 5352395221635244n,
+  },
+]
+`;
+
+exports[`splitTwammOrder > various pools > two pools, same liquidity, token0 1`] = `
+[
+  {
+    "amount": 500000000000000000n,
+    "fee": 3402823669209384634633746074317682114n,
+    "otherTokenAmount": 15118836440023420n,
+  },
+  {
+    "amount": 500000000000000000n,
+    "fee": 6805647338418769269267492148635364229n,
+    "otherTokenAmount": 14969532844295689n,
+  },
+]
+`;
+
+exports[`splitTwammOrder > various pools > two pools, same liquidity, token1 1`] = `
+[
+  {
+    "amount": 500000000000000000n,
+    "fee": 3402823669209384634633746074317682114n,
+    "otherTokenAmount": 15118836440023424n,
+  },
+  {
+    "amount": 500000000000000000n,
+    "fee": 6805647338418769269267492148635364229n,
+    "otherTokenAmount": 14969532844295692n,
+  },
+]
+`;
+
+exports[`splitTwammOrder > various pools > two pools, same liquidity, token1 sale rate change for one pool, token0 1`] = `
+[
+  {
+    "amount": 1000000000000000000n,
+    "fee": 6805647338418769269267492148635364229n,
+    "otherTokenAmount": 41417116263934581n,
+  },
+]
+`;
+
+exports[`splitTwammOrder > various pools > two pools, same liquidity, token1 sale rate change for one pool, token1 1`] = `
+[
+  {
+    "amount": 1000000000000000000n,
+    "fee": 3402823669209384634633746074317682114n,
+    "otherTokenAmount": 29572037879931658n,
   },
 ]
 `;

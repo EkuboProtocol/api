@@ -10,7 +10,6 @@ import {
   QuoteParams,
   Tick,
 } from "./quoteNode";
-import { MAX_U128 } from "../math/constants";
 
 export const MAX_BOUND_USABLE_TICK_MAGNITUDE = 88368108;
 const MAX_BOUNDS_MIN_SQRT_RATIO: bigint = 22027144413679976675n;

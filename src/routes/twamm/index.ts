@@ -14,10 +14,11 @@ import {
   TokenIdentifierType,
   DateIdentifierType,
 } from "../../shared/validation/address";
-import { splitTwammOrderByAmountSold } from "./splitOrder";
+import { splitTwammOrder, TwammOrderSplitResult } from "./splitOrder";
 import { num } from "starknet";
 import { getCachedNode, updateTwammPoolCache } from "../quote/quoteNodeCaching";
 import { TwammPool } from "../quote/nodes/twammPool";
+import { getBlockMeta } from "../quote";
 
 export const OrderKeyType = z
   .object({
@@ -97,9 +98,9 @@ export class GetSplitTWAPOrderByDate extends EkuboAPIRoute {
     const maxSplitsQueryParam = query.maxSplits;
     const specifiedMaxSplits = typeof maxSplitsQueryParam === "string";
 
-    let maxSplits: number = 1;
+    let maxSplits: number = 0;
     if (specifiedMaxSplits) {
-      maxSplits = Math.max(parseInt(maxSplitsQueryParam), 1);
+      maxSplits = parseInt(maxSplitsQueryParam);
     }
 
     const queries = await createQueries(env);
@@ -114,6 +115,10 @@ export class GetSplitTWAPOrderByDate extends EkuboAPIRoute {
         400,
         `Failed to parse path parameters: ${(e as Error).message}`
       );
+    }
+
+    if (amount < 0n) {
+      return error(400, "Invalid amount parameters");
     }
 
     const sellToken = getTokenByIdentifier(allTokens, params.sellToken);
@@ -137,6 +142,7 @@ export class GetSplitTWAPOrderByDate extends EkuboAPIRoute {
     const orders = await splitOrder(
       sellToken,
       buyToken,
+      startTime,
       endTime,
       amount,
       maxSplits,
@@ -151,11 +157,11 @@ export class GetSplitTWAPOrderByDate extends EkuboAPIRoute {
       {
         orders: orders.map((order) => {
           return {
-            amount: order.amount,
+            amount: order.amount.toString(),
             order_key: {
               sell_token: sellToken.l2_token_address,
               buy_token: buyToken.l2_token_address,
-              fee: num.toHex(BigInt(order.fee)),
+              fee: num.toHex(BigInt(order.node.key.fee)),
               start_time: startTime.getTime() / 1000,
               end_time: endTime.getTime() / 1000,
             },
@@ -174,11 +180,12 @@ export class GetSplitTWAPOrderByDate extends EkuboAPIRoute {
 async function splitOrder(
   sellToken: TokenInfo,
   buyToken: TokenInfo,
+  startTime: Date,
   endTime: Date,
   amount: bigint,
   maxSplits: number,
   queries: Queries
-) {
+): Promise<TwammOrderSplitResult[]> {
   const sellTokenAddress: string = sellToken.l2_token_address;
   const buyTokenAddress: string = buyToken.l2_token_address;
 
@@ -196,19 +203,25 @@ async function splitOrder(
 
   await updateTwammPoolCache(queries, poolKeyHashes);
 
-  const twammNodes = poolKeyHashes.reduce<{ [key_hash: string]: TwammPool }>(
-    (memo, value) => {
-      memo[value.toString()] = getCachedNode(value) as TwammPool;
-      return memo;
-    },
-    {}
+  const twammNodes = poolKeyHashes.map(
+    (keyHash) => getCachedNode(keyHash) as TwammPool
   );
 
-  return splitTwammOrderByAmountSold({
+  const meta = await getBlockMeta(queries);
+
+  const startTimeSeconds = Math.max(
+    Math.floor(startTime.getTime() / 1000),
+    meta?.block?.time
+  );
+
+  const endTimeSeconds = Math.floor(endTime.getTime() / 1000);
+
+  return splitTwammOrder(
     amount,
-    endTime,
-    isToken1: sellTokenAddress === token1,
-    maxSplits,
+    startTimeSeconds,
+    endTimeSeconds,
+    sellTokenAddress === token1,
     twammNodes,
-  });
+    maxSplits
+  );
 }

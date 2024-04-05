@@ -11,7 +11,7 @@ import {
 import { findAllRoutes } from "./findAllRoutes";
 import { QuoteMeta, TokenAmount } from "./nodes/quoteNode";
 import { num } from "starknet";
-import { createQueries } from "../../queries";
+import { createQueries, Queries } from "../../queries";
 import {
   OpenAPIRouteSchema,
   Path,
@@ -189,22 +189,7 @@ export class GetQuote extends EkuboAPIRoute {
 
     const gasEstimator = new BaseOrTwammResourcesGasEstimator(otherTokenPrice);
 
-    const block = await queries.getLatestBlockMeta();
-
-    const ageLastBlockSeconds = Math.floor(
-      (Date.now() - block.time.getTime()) / 1000,
-    );
-
-    // the current block sealing deadline is 6 minutes, so we can estimate the current block number based on the age of the latest block in 6 minute intervals
-    // this is a lower bound on the actual pending block timestamp
-    const estimatedNumberOfBlocksBehind = Math.floor(ageLastBlockSeconds / 360);
-
-    const meta: QuoteMeta = {
-      block: {
-        number: block.number + estimatedNumberOfBlocksBehind,
-        time: block.time.getTime() / 1000 + estimatedNumberOfBlocksBehind * 360,
-      },
-    };
+    const meta: QuoteMeta = await getBlockMeta(queries);
 
     const overrides = new WeakMap();
 
@@ -418,7 +403,27 @@ export class GetQuoteToPrice extends EkuboAPIRoute {
         headers: {
           "cache-control": "no-cache",
         },
-      },
+      }
     );
   }
+}
+
+export async function getBlockMeta(queries: Queries) {
+  const block = await queries.getLatestBlockMeta();
+
+  const ageLastBlockSeconds = Math.floor(
+    (Date.now() - block.time.getTime()) / 1000
+  );
+
+  // the current block ceiling deadline is 6 minutes, so we can estimate the current block number based on the age of the latest block in 6 minute intervals
+  // this is a lower bound on the actual pending block timestamp
+  const estimatedNumberOfBlocksBehind = Math.floor(ageLastBlockSeconds / 360);
+
+  const meta: QuoteMeta = {
+    block: {
+      number: block.number + estimatedNumberOfBlocksBehind,
+      time: block.time.getTime() / 1000 + estimatedNumberOfBlocksBehind * 360,
+    },
+  };
+  return meta;
 }
