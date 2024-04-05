@@ -1188,7 +1188,12 @@ export class Queries {
                                                 FROM position_transfers pt2
                                                 WHERE pt2.token_id = pt1.token_id
                                                   AND pt2.event_id > pt1.event_id
-                                                  AND (CASE WHEN $2 THEN pt2.to_address != 0 ELSE TRUE END)))
+                                                  AND (CASE WHEN $2 THEN pt2.to_address != 0 ELSE TRUE END))),
+             filtered_owned_tokens AS (SELECT token_id, SUM(liquidity_delta) AS liquidity
+                                       FROM owned_tokens
+                                              JOIN position_updates
+                                                   ON token_id::NUMERIC = salt
+                                       GROUP BY token_id)
         SELECT token_id,
                event_keys.transaction_hash      AS minted_tx_hash,
                token0,
@@ -1203,7 +1208,7 @@ export class Queries {
                 FROM leaderboard AS l
                 WHERE l.collector = $1
                   AND l.token_id = ot.token_id) AS points_earned
-        FROM owned_tokens AS ot
+        FROM filtered_owned_tokens AS ot
                LEFT JOIN LATERAL (
           SELECT lower_bound, upper_bound, pool_key_hash
           FROM position_updates AS pu
@@ -1220,6 +1225,7 @@ export class Queries {
                JOIN event_keys ON mint_tx.event_id = event_keys.id
                JOIN pool_keys ON mint_position_update.pool_key_hash = pool_keys.key_hash
                JOIN blocks ON event_keys.block_number = blocks.number
+        WHERE ($2 OR ot.liquidity > 0)
         ORDER BY token_id DESC
       `,
       values: [address, showClosed],

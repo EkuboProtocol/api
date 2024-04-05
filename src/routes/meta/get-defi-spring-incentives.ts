@@ -181,6 +181,18 @@ export class GetDefiSpringIncentives extends EkuboAPIRoute {
 
     const incentiveData = await getOBLIncentiveDataForEkubo();
 
+    const latestDateInIncentiveData = Object.values(incentiveData).reduce<
+      string | null
+    >(
+      (memo, dayData) =>
+        !memo
+          ? dayData[dayData.length - 1].date
+          : dayData[dayData.length - 1].date > memo
+            ? dayData[dayData.length - 1].date
+            : memo,
+      null,
+    );
+
     {
       // manipulate the response object, replacing discretionary with our own allocations
       const discretionary = incentiveData.Discretionary;
@@ -270,70 +282,12 @@ export class GetDefiSpringIncentives extends EkuboAPIRoute {
 
     const pairData = await Promise.all(
       filteredPairs.map(async ({ token0, token1, dailyAllocations }) => {
-        let volatilityInTicks = currentVolatilityData.find(
-          (vd) =>
-            BigInt(vd.token0) === BigInt(token0.l2_token_address) &&
-            BigInt(vd.token1) === BigInt(token1.l2_token_address),
-        )?.volatility_in_ticks;
-
-        if (!volatilityInTicks) {
-          volatilityInTicks = Math.round(
-            new Decimal(
-              dailyAllocations[dailyAllocations.length - 1]
-                ?.thirty_day_realized_volatility ?? 1,
-            )
-              .exp()
-              .log("1.000001")
-              .toNumber(),
-          );
-        }
-
-        const [pairLiquidityGraph, pairPrice, price0, price1] =
-          await Promise.all([
-            // liquidity graph
-            queries.getPairLiquidityGraph({
-              token0: BigInt(token0.l2_token_address),
-              token1: BigInt(token1.l2_token_address),
-            }),
-            // the pair price
-            queries.getVolumeWeightedPriceOverPeriod({
-              baseToken: BigInt(token0.l2_token_address),
-              quoteToken: BigInt(token1.l2_token_address),
-              minSwapCount: 1,
-            }),
-            // the usdc price of token0
-            usdcToken
-              ? queries.getVolumeWeightedPriceOverPeriod({
-                  baseToken: BigInt(token0.l2_token_address),
-                  quoteToken: BigInt(usdcToken.l2_token_address),
-                  minSwapCount: 1,
-                })
-              : null,
-            // the usdc price of token1
-            usdcToken
-              ? queries.getVolumeWeightedPriceOverPeriod({
-                  baseToken: BigInt(token1.l2_token_address),
-                  quoteToken: BigInt(usdcToken.l2_token_address),
-                  minSwapCount: 1,
-                })
-              : null,
-          ]);
-
-        const latestDateAllocation = dailyAllocations.reduce<
-          (typeof dailyAllocations)[number] | null
-        >((memo, value) => {
-          if (!memo) return value;
-          return new Date(value.date).getTime() > new Date(memo.date).getTime()
-            ? value
-            : memo;
-        }, null);
-
-        const sqrtRatio = BigInt(
-          pairPrice?.price
-            .sqrt()
-            .mul((2n ** 128n).toString())
-            .toFixed(0) ?? 0n,
-        );
+        const lastAllocation = dailyAllocations[dailyAllocations.length - 1];
+        const latestDateAllocation =
+          lastAllocation?.date === latestDateInIncentiveData &&
+          lastAllocation.allocation > 0
+            ? lastAllocation
+            : null;
 
         const allocations = dailyAllocations.map(
           ({ allocation, date, thirty_day_realized_volatility }) => ({
@@ -343,103 +297,159 @@ export class GetDefiSpringIncentives extends EkuboAPIRoute {
           }),
         );
 
-        if (sqrtRatio) {
-          const sortedTicks = pairLiquidityGraph.map((p) => ({
-            tick: Number(p.tick),
-            liquidityDelta: BigInt(p.net_liquidity_delta_diff),
-          }));
-          // find the tick of first index that is greater than current price
-          const currentTickIndex =
-            sortedTicks.findIndex(
-              (p) => toSqrtRatio(Number(p.tick)) > sqrtRatio,
-            ) - 1;
+        if (latestDateAllocation) {
+          let volatilityInTicks = currentVolatilityData.find(
+            (vd) =>
+              BigInt(vd.token0) === BigInt(token0.l2_token_address) &&
+              BigInt(vd.token1) === BigInt(token1.l2_token_address),
+          )?.volatility_in_ticks;
 
-          const liquidityAtTick = pairLiquidityGraph.reduce(
-            (memo, value, ix) =>
-              ix <= currentTickIndex
-                ? memo + BigInt(value.net_liquidity_delta_diff)
-                : memo,
-            0n,
+          if (!volatilityInTicks) {
+            volatilityInTicks = Math.round(
+              new Decimal(
+                dailyAllocations[dailyAllocations.length - 1]
+                  ?.thirty_day_realized_volatility ?? 1,
+              )
+                .exp()
+                .log("1.000001")
+                .toNumber(),
+            );
+          }
+          const [pairLiquidityGraph, pairPrice, price0, price1] =
+            await Promise.all([
+              // liquidity graph
+              queries.getPairLiquidityGraph({
+                token0: BigInt(token0.l2_token_address),
+                token1: BigInt(token1.l2_token_address),
+              }),
+              // the pair price
+              queries.getVolumeWeightedPriceOverPeriod({
+                baseToken: BigInt(token0.l2_token_address),
+                quoteToken: BigInt(token1.l2_token_address),
+                minSwapCount: 1,
+              }),
+              // the usdc price of token0
+              usdcToken
+                ? queries.getVolumeWeightedPriceOverPeriod({
+                    baseToken: BigInt(token0.l2_token_address),
+                    quoteToken: BigInt(usdcToken.l2_token_address),
+                    minSwapCount: 1,
+                  })
+                : null,
+              // the usdc price of token1
+              usdcToken
+                ? queries.getVolumeWeightedPriceOverPeriod({
+                    baseToken: BigInt(token1.l2_token_address),
+                    quoteToken: BigInt(usdcToken.l2_token_address),
+                    minSwapCount: 1,
+                  })
+                : null,
+            ]);
+
+          const sqrtRatio = BigInt(
+            pairPrice?.price
+              .sqrt()
+              .mul((2n ** 128n).toString())
+              .toFixed(0) ?? 0n,
           );
 
-          const tick = Number(
-            pairLiquidityGraph[currentTickIndex]?.tick ?? MIN_TICK,
-          );
-          const pool = new BasePool({
-            token0: BigInt(token0.l2_token_address),
-            token1: BigInt(token1.l2_token_address),
-            fee: 0n,
-            tickSpacing: 1,
-            sqrtRatio: sqrtRatio,
-            liquidity: liquidityAtTick,
-            tick,
-            sortedTicks: pairLiquidityGraph.map((p) => ({
+          if (sqrtRatio) {
+            const sortedTicks = pairLiquidityGraph.map((p) => ({
               tick: Number(p.tick),
               liquidityDelta: BigInt(p.net_liquidity_delta_diff),
-            })),
-          });
+            }));
+            // find the tick of first index that is greater than current price
+            const currentTickIndex =
+              sortedTicks.findIndex(
+                (p) => toSqrtRatio(Number(p.tick)) > sqrtRatio,
+              ) - 1;
 
-          const { consumedAmount: depth0 } = pool.quote({
-            tokenAmount: {
-              amount: -0xffffffffffffffffffffffffffffffffn,
-              token: BigInt(token0.l2_token_address),
-            },
-            sqrtRatioLimit: toSqrtRatio(tick + volatilityInTicks * 2),
-            meta: { block: { number: 1, time: 2 } },
-          });
+            const liquidityAtTick = pairLiquidityGraph.reduce(
+              (memo, value, ix) =>
+                ix <= currentTickIndex
+                  ? memo + BigInt(value.net_liquidity_delta_diff)
+                  : memo,
+              0n,
+            );
 
-          const { consumedAmount: depth1 } = pool.quote({
-            tokenAmount: {
-              amount: -0xffffffffffffffffffffffffffffffffn,
-              token: BigInt(token1.l2_token_address),
-            },
-            sqrtRatioLimit: toSqrtRatio(tick - volatilityInTicks * 2),
-            meta: { block: { number: 1, time: 2 } },
-          });
+            const tick = Number(
+              pairLiquidityGraph[currentTickIndex]?.tick ?? MIN_TICK,
+            );
+            const pool = new BasePool({
+              token0: BigInt(token0.l2_token_address),
+              token1: BigInt(token1.l2_token_address),
+              fee: 0n,
+              tickSpacing: 1,
+              sqrtRatio: sqrtRatio,
+              liquidity: liquidityAtTick,
+              tick,
+              sortedTicks: pairLiquidityGraph.map((p) => ({
+                tick: Number(p.tick),
+                liquidityDelta: BigInt(p.net_liquidity_delta_diff),
+              })),
+            });
 
-          const usdcValueDepth0 = price0?.price
-            ? new Decimal(-depth0.toString()).mul(price0.price)
-            : new Decimal(0);
-          const usdcValueDepth1 = price1?.price
-            ? new Decimal(-depth1.toString()).mul(price1.price)
-            : new Decimal(0);
+            const { consumedAmount: depth0 } = pool.quote({
+              tokenAmount: {
+                amount: -0xffffffffffffffffffffffffffffffffn,
+                token: BigInt(token0.l2_token_address),
+              },
+              sqrtRatioLimit: toSqrtRatio(tick + volatilityInTicks * 2),
+              meta: { block: { number: 1, time: 2 } },
+            });
 
-          let multiplier: number = 1;
-          if ((price0 && !price1) || (price1 && !price0)) {
-            multiplier = 2;
+            const { consumedAmount: depth1 } = pool.quote({
+              tokenAmount: {
+                amount: -0xffffffffffffffffffffffffffffffffn,
+                token: BigInt(token1.l2_token_address),
+              },
+              sqrtRatioLimit: toSqrtRatio(tick - volatilityInTicks * 2),
+              meta: { block: { number: 1, time: 2 } },
+            });
+
+            const usdcValueDepth0 = price0?.price
+              ? new Decimal(-depth0.toString()).mul(price0.price)
+              : new Decimal(0);
+            const usdcValueDepth1 = price1?.price
+              ? new Decimal(-depth1.toString()).mul(price1.price)
+              : new Decimal(0);
+
+            let multiplier: number = 1;
+            if ((price0 && !price1) || (price1 && !price0)) {
+              multiplier = 2;
+            }
+
+            const totalValueLockedInRange = usdcValueDepth0
+              .plus(usdcValueDepth1)
+              .mul(multiplier)
+              .div(new Decimal(10).pow(6));
+
+            const adjustedTvl = totalValueLockedInRange.div(
+              latestDateAllocation?.tvl_usd ?? totalValueLockedInRange,
+            );
+
+            const extrapolatedUsdcReward = new Decimal(
+              latestDateAllocation?.allocation ?? 0,
+            )
+              .mul(365)
+              .mul(strkPrice)
+              .mul(adjustedTvl);
+
+            const currentApr = Number(
+              extrapolatedUsdcReward
+                .div(totalValueLockedInRange)
+                .toSignificantDigits(6)
+                .toString(),
+            );
+
+            return {
+              token0,
+              token1,
+              allocations,
+              currentApr,
+              volatilityInTicks,
+            };
           }
-
-          const totalValueLockedInRange = usdcValueDepth0
-            .plus(usdcValueDepth1)
-            .mul(multiplier)
-            .div(new Decimal(10).pow(6));
-
-          const adjustedTvl = totalValueLockedInRange.div(
-            latestDateAllocation?.tvl_usd ?? totalValueLockedInRange,
-          );
-
-          const extrapolatedUsdcReward = new Decimal(
-            latestDateAllocation?.allocation ?? 0,
-          )
-            .mul(365)
-            .mul(strkPrice)
-            .mul(adjustedTvl);
-
-          const currentApr = Number(
-            extrapolatedUsdcReward
-              .div(totalValueLockedInRange)
-              .toSignificantDigits(6)
-              .toString(),
-          );
-
-          return {
-            token0,
-            token1,
-            adjustedTvl: adjustedTvl.toFixed(4, Decimal.ROUND_DOWN),
-            allocations,
-            currentApr,
-            volatilityInTicks,
-          };
         }
 
         return {
