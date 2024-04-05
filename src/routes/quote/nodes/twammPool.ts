@@ -135,7 +135,7 @@ export class TwammPool implements QuoteNode<TwammResources, TwammPoolState> {
       overrides?.resources?.virtualOrderDeltaTimesCrossed ?? 0;
 
     let nextSaleRateDeltaIndex = this.saleRateDeltas.findIndex(
-      (srd) => srd.time > lastExecutionTime,
+      (srd) => srd.time > lastExecutionTime
     );
 
     // this is the current state of the base pool during the iteration
@@ -159,7 +159,7 @@ export class TwammPool implements QuoteNode<TwammResources, TwammPoolState> {
       if (amount0 > 0n && amount1 > 0n) {
         const currentSqrtRatio = max(
           MAX_BOUNDS_MIN_SQRT_RATIO,
-          min(MAX_BOUNDS_MAX_SQRT_RATIO, nextSqrtRatio),
+          min(MAX_BOUNDS_MAX_SQRT_RATIO, nextSqrtRatio)
         );
 
         nextSqrtRatio = calculateNextSqrtRatio(
@@ -168,16 +168,18 @@ export class TwammPool implements QuoteNode<TwammResources, TwammPoolState> {
           this.basePool.sortedTicks[0].liquidityDelta,
           token0SaleRate,
           token1SaleRate,
-          timeElapsed,
+          timeElapsed
         );
+
+        const [token, amount] =
+          currentSqrtRatio < nextSqrtRatio
+            ? [this.basePool.key.token1, amount1]
+            : [this.basePool.key.token0, amount0];
 
         const quote = this.basePool.quote({
           tokenAmount: {
-            amount: -MAX_U128,
-            token:
-              currentSqrtRatio >= nextSqrtRatio
-                ? this.basePool.key.token1
-                : this.basePool.key.token0,
+            amount,
+            token,
           },
           sqrtRatioLimit: nextSqrtRatio,
           meta,
