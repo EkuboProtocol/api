@@ -26,6 +26,7 @@ interface TwammOrderMetadata {
   block_time_at_start: Date;
   last_order_update: Date;
   last_collect_proceeds: Date | null;
+  points: number;
 }
 
 export interface BasePoolStateQueryResult {
@@ -1261,7 +1262,8 @@ export class Queries {
                        JOIN blocks b2 ON ek2.block_number = b2.number
                 WHERE tpw.salt = ot.token_id::NUMERIC
                 ORDER BY tpw.event_id DESC
-                LIMIT 1) AS last_collect_proceeds
+                LIMIT 1) AS last_collect_proceeds,
+                (SELECT SUM(points) FROM leaderboard l WHERE l.token_id = ot.token_id AND category = 3) AS points
         FROM owned_tokens AS ot
                JOIN LATERAL (
           SELECT (CASE WHEN tou.sale_rate_delta0 != 0 THEN token0 ELSE token1 END) AS sell_token,

@@ -40,9 +40,9 @@ export class ListOrders extends EkuboAPIRoute {
                     key: OrderKeyType,
                     block_time_at_start: z.number().int().min(0),
                     last_order_update: z.number().int().min(0),
-                  })
+                  }),
                 ),
-              })
+              }),
             )
             .openapi({
               description:
@@ -66,6 +66,7 @@ export class ListOrders extends EkuboAPIRoute {
         orders: rows.reduce<
           {
             token_id: number;
+            points: number;
             orders: {
               key: {
                 sell_token: string;
@@ -89,7 +90,8 @@ export class ListOrders extends EkuboAPIRoute {
               block_time_at_start,
               last_order_update,
               last_collect_proceeds,
-            }
+              points,
+            },
           ) => {
             const tokenId = Number(token_id);
             const order = memo.find((m) => m.token_id === tokenId);
@@ -112,6 +114,7 @@ export class ListOrders extends EkuboAPIRoute {
             if (!order) {
               memo.push({
                 token_id: tokenId,
+                points: points,
                 orders: [additionalOrder],
               });
             } else {
@@ -120,14 +123,14 @@ export class ListOrders extends EkuboAPIRoute {
 
             return memo;
           },
-          []
+          [],
         ),
       },
       {
         headers: {
           "cache-control": "public,max-age=10,must-revalidate",
         },
-      }
+      },
     );
   }
 }
