@@ -1,6 +1,12 @@
 name: Tests
 
-on: push
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
 
 jobs:
   deploy:
@@ -21,3 +27,6 @@ jobs:
 
       - name: Test
         run: npm test
+
+      - name: Check typescript
+        run: npm run check-ts
