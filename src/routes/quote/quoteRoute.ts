@@ -1,6 +1,6 @@
 import {
-  BaseNodeState,
-  BaseResources,
+  BasePoolState,
+  BasePoolResources,
   Quote,
   QuoteMeta,
   QuoteNode,
@@ -8,21 +8,21 @@ import {
 } from "./nodes/quoteNode";
 
 export interface GasEstimator<
-  TResources extends BaseResources,
-  TState extends BaseNodeState,
+  TResources extends BasePoolResources,
+  TState extends BasePoolState,
   TQuoteNode extends QuoteNode<TResources, TState>,
 > {
   getGasAdjustedAmount(
     calculatedAmount: bigint,
     route: TQuoteNode[],
     quoteResults: Quote<TResources, TState>[],
-    overrides: WeakMap<TQuoteNode, { state: TState; resources: TResources }>,
+    overrides: WeakMap<TQuoteNode, TState>
   ): bigint;
 }
 
 export interface QuoteRouteResult<
-  TResources extends BaseResources,
-  TState extends BaseNodeState,
+  TResources extends BasePoolResources,
+  TState extends BasePoolState,
 > {
   calculatedAmount: TokenAmount;
   gasAdjustedCalculatedAmount: bigint;
@@ -37,8 +37,8 @@ export interface QuoteRouteResult<
  * @param poolStateOverrides
  */
 export function quoteRoute<
-  TResources extends BaseResources,
-  TState extends BaseNodeState,
+  TResources extends BasePoolResources,
+  TState extends BasePoolState,
   TQuoteNode extends QuoteNode<TResources, TState>,
 >({
   specifiedAmount,
@@ -50,7 +50,7 @@ export function quoteRoute<
   specifiedAmount: TokenAmount;
   route: TQuoteNode[];
   gasEstimator: GasEstimator<TResources, TState, TQuoteNode>;
-  overrides: WeakMap<TQuoteNode, { state: TState; resources: TResources }>;
+  overrides: WeakMap<TQuoteNode, TState>;
   meta: QuoteMeta;
 }): Readonly<QuoteRouteResult<TResources, TState>> | null {
   const isExactOutput = specifiedAmount.amount < 0n;
@@ -63,7 +63,7 @@ export function quoteRoute<
 
       const quote = node.quote({
         tokenAmount: state.calculatedAmount,
-        overrides: overrides.get(node),
+        overrideState: overrides.get(node),
         meta,
       });
 
@@ -89,7 +89,7 @@ export function quoteRoute<
     {
       calculatedAmount: specifiedAmount,
       quotes: [],
-    },
+    }
   );
 
   return {
@@ -99,7 +99,7 @@ export function quoteRoute<
       calculatedAmount.amount,
       route,
       quotes,
-      overrides,
+      overrides
     ),
   };
 }

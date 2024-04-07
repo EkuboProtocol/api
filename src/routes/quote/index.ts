@@ -9,7 +9,7 @@ import {
   updateBasePoolCache,
 } from "./quoteNodeCaching";
 import { findAllRoutes } from "./findAllRoutes";
-import { TokenAmount } from "./nodes/quoteNode";
+import { BasePoolState, TokenAmount } from "./nodes/quoteNode";
 import { num } from "starknet";
 import { createQueries } from "../../queries";
 import {
@@ -30,6 +30,8 @@ import { BaseOrTwammResourcesGasEstimator } from "./gasEstimators";
 import { findOptimalSplitRoute } from "./findOptimalSplitRoute";
 import { quoteRoute } from "./quoteRoute";
 import { getBlockMeta } from "./getBlockMeta";
+import { BasePool } from "./nodes/basePool";
+import { TwammPool, TwammPoolState } from "./nodes/twammPool";
 
 const PoolKeyType = z
   .object({
@@ -193,7 +195,10 @@ export class GetQuote extends EkuboAPIRoute {
 
     const gasEstimator = new BaseOrTwammResourcesGasEstimator(otherTokenPrice);
 
-    const overrides = new WeakMap();
+    const overrides = new WeakMap<
+      BasePool | TwammPool,
+      BasePoolState | TwammPoolState
+    >();
 
     // try the smallest split across all the routes first, and only consider the top 2**maxSplits
     const feasibleRoutes = allRoutes
@@ -284,6 +289,7 @@ export class GetQuote extends EkuboAPIRoute {
               0n
             )
             .toString(),
+
           splits: serializedRoutes,
         }
       : serializedRoutes[0];

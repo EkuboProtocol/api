@@ -2,8 +2,8 @@ import { MAX_SQRT_RATIO, MAX_TICK_SPACING, MIN_SQRT_RATIO } from "../math/tick";
 import { calculateNextSqrtRatio } from "../math/twamm";
 import { BasePool } from "./basePool";
 import {
-  BaseNodeState,
-  BaseResources,
+  BasePoolState,
+  BasePoolResources,
   NodeKey,
   Quote,
   QuoteNode,
@@ -16,7 +16,7 @@ const MAX_BOUNDS_MIN_SQRT_RATIO: bigint = 22027144413679976675n;
 const MAX_BOUNDS_MAX_SQRT_RATIO: bigint =
   5256790760649093508123362461711849782692726119655358142129n;
 
-export interface TwammResources extends BaseResources {
+export interface TwammResources extends BasePoolResources {
   virtualOrderSecondsExecuted: number;
   virtualOrderDeltaTimesCrossed: number;
 }
@@ -27,7 +27,7 @@ export interface TwammSaleRateDelta {
   time: number;
 }
 
-export interface TwammPoolState extends BaseNodeState {
+export interface TwammPoolState extends BasePoolState {
   readonly token0SaleRate: bigint;
   readonly token1SaleRate: bigint;
   readonly lastExecutionTime: number;
@@ -101,20 +101,40 @@ export class TwammPool implements QuoteNode<TwammResources, TwammPoolState> {
     this.saleRateDeltas = saleRateDeltas;
   }
 
+  initialResources(): TwammResources {
+    return {
+      ...this.basePool.initialResources(),
+      virtualOrderSecondsExecuted: 0,
+      virtualOrderDeltaTimesCrossed: 0,
+    };
+  }
+
+  combineResources(
+    resource: TwammResources,
+    additionalResources: TwammResources
+  ): TwammResources {
+    return {
+      ...this.basePool.combineResources(resource, additionalResources),
+      virtualOrderDeltaTimesCrossed:
+        resource.virtualOrderDeltaTimesCrossed +
+        additionalResources.virtualOrderDeltaTimesCrossed,
+      virtualOrderSecondsExecuted:
+        resource.virtualOrderSecondsExecuted +
+        additionalResources.virtualOrderSecondsExecuted,
+    };
+  }
+
   public quote({
     tokenAmount,
     sqrtRatioLimit,
-    overrides,
+    overrideState,
     meta,
-  }: QuoteParams<TwammResources, TwammPoolState>): Quote<
-    TwammResources,
-    TwammPoolState
-  > {
+  }: QuoteParams<TwammPoolState>): Quote<TwammResources, TwammPoolState> {
     const {
       block: { time: currentTime },
     } = meta;
 
-    const initialState = overrides?.state ?? this.state;
+    const initialState = overrideState ?? this.state;
 
     let {
       sqrtRatio: nextSqrtRatio,
@@ -123,24 +143,20 @@ export class TwammPool implements QuoteNode<TwammResources, TwammPoolState> {
       lastExecutionTime,
     } = initialState;
 
-    const virtualOrderSecondsExecuted =
-      currentTime -
-      lastExecutionTime +
-      (overrides?.resources.virtualOrderSecondsExecuted ?? 0);
+    const virtualOrderSecondsExecuted = currentTime - lastExecutionTime;
     if (virtualOrderSecondsExecuted < 0)
       throw new Error("Last execution time exceeds block time");
 
-    let virtualOrderDeltaTimesCrossed: number =
-      overrides?.resources?.virtualOrderDeltaTimesCrossed ?? 0;
+    let virtualOrderDeltaTimesCrossed: number = 0;
 
     let nextSaleRateDeltaIndex = this.saleRateDeltas.findIndex(
       (srd) => srd.time > lastExecutionTime
     );
 
     // this is the current state of the base pool during the iteration
-    let basePoolOverrides:
-      | { state: BaseNodeState; resources: BaseResources }
-      | undefined = overrides;
+    let basePoolStateOverride: BasePoolState | undefined = overrideState;
+    let basePoolExecutionResources: BasePoolResources =
+      this.basePool.initialResources();
 
     while (lastExecutionTime !== currentTime) {
       const saleRateDelta = this.saleRateDeltas[nextSaleRateDeltaIndex];
@@ -182,13 +198,14 @@ export class TwammPool implements QuoteNode<TwammResources, TwammPoolState> {
           },
           sqrtRatioLimit: nextSqrtRatio,
           meta,
-          overrides: basePoolOverrides,
+          overrideState: basePoolStateOverride,
         });
 
-        basePoolOverrides = {
-          state: quote.stateAfter,
-          resources: quote.executionResources,
-        };
+        basePoolStateOverride = quote.stateAfter;
+        basePoolExecutionResources = this.basePool.combineResources(
+          basePoolExecutionResources,
+          quote.executionResources
+        );
       } else if (amount0 > 0n || amount1 > 0n) {
         const [amount, isToken1, sqrtRatioLimit] =
           amount0 !== 0n
@@ -204,15 +221,16 @@ export class TwammPool implements QuoteNode<TwammResources, TwammPoolState> {
           },
           sqrtRatioLimit,
           meta,
-          overrides: basePoolOverrides,
+          overrideState: basePoolStateOverride,
         });
 
-        basePoolOverrides = {
-          state: quote.stateAfter,
-          resources: quote.executionResources,
-        };
+        basePoolStateOverride = quote.stateAfter;
+        basePoolExecutionResources = this.basePool.combineResources(
+          basePoolExecutionResources,
+          quote.executionResources
+        );
 
-        nextSqrtRatio = basePoolOverrides.state.sqrtRatio;
+        nextSqrtRatio = basePoolStateOverride.sqrtRatio;
       }
 
       // if we executed up to the next sale rate delta, we need to apply the delta
@@ -236,7 +254,7 @@ export class TwammPool implements QuoteNode<TwammResources, TwammPoolState> {
       tokenAmount,
       sqrtRatioLimit,
       meta,
-      overrides: basePoolOverrides,
+      overrideState: basePoolStateOverride,
     });
 
     return {
@@ -244,7 +262,10 @@ export class TwammPool implements QuoteNode<TwammResources, TwammPoolState> {
       consumedAmount,
       calculatedAmount,
       executionResources: {
-        ...executionResources,
+        ...this.basePool.combineResources(
+          basePoolExecutionResources,
+          executionResources
+        ),
         virtualOrderSecondsExecuted,
         virtualOrderDeltaTimesCrossed,
       },

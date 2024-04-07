@@ -1,23 +1,23 @@
-export interface BaseNodeState {
+export interface BasePoolState {
   sqrtRatio: bigint;
   liquidity: bigint;
   activeTickIndex: number;
 }
 
-export interface BaseResources {
+export interface BasePoolResources {
   initializedTicksCrossed: number;
   tickSpacingsCrossed: number;
 }
 
 export interface Quote<
-  TResources extends BaseResources,
-  TState extends BaseNodeState,
+  TResources extends BasePoolResources,
+  TState extends BasePoolState,
 > {
   consumedAmount: bigint;
   calculatedAmount: bigint;
-  executionResources: TResources;
-  stateAfter: TState;
   isPriceIncreasing: boolean;
+  stateAfter: TState;
+  executionResources: TResources;
 }
 
 export interface NodeKey {
@@ -42,14 +42,11 @@ export interface QuoteMeta {
   readonly block: Block;
 }
 
-export interface QuoteParams<
-  TResources extends BaseResources,
-  TState extends BaseNodeState,
-> {
+export interface QuoteParams<TState extends BasePoolState> {
   tokenAmount: TokenAmount;
-  sqrtRatioLimit?: bigint;
   meta: QuoteMeta;
-  overrides?: { state: TState; resources: TResources };
+  sqrtRatioLimit?: bigint;
+  overrideState?: TState;
 }
 
 export interface Tick {
@@ -58,16 +55,32 @@ export interface Tick {
 }
 
 export interface QuoteNode<
-  TResources extends BaseResources = BaseResources,
-  TSwapState extends BaseNodeState = BaseNodeState,
+  TResources extends BasePoolResources = BasePoolResources,
+  TSwapState extends BasePoolState = BasePoolState,
 > {
   readonly key: NodeKey;
   readonly state: Readonly<TSwapState>;
   readonly sortedTicks: Tick[];
 
-  quote(
-    params: QuoteParams<TResources, TSwapState>,
-  ): Quote<TResources, TSwapState>;
+  quote(params: QuoteParams<TSwapState>): Quote<TResources, TSwapState>;
 
+  /**
+   * Given resources from two different swaps on the same pool, compute the total resources
+   * @param resource the initial resources consumed
+   * @param additionalResources the additional resources consumed
+   */
+  combineResources(
+    resource: TResources,
+    additionalResources: TResources
+  ): TResources;
+
+  /**
+   * Returns the resources consumed by a no-op swap
+   */
+  initialResources(): TResources;
+
+  /**
+   * Returns whether the pool has any useful liquidity at all. Should be a fast check for eliminating empty pools.
+   */
   hasLiquidity(): boolean;
 }

@@ -1,6 +1,6 @@
 import {
-  BaseNodeState,
-  BaseResources,
+  BasePoolState,
+  BasePoolResources,
   QuoteMeta,
   QuoteNode,
   TokenAmount,
@@ -12,8 +12,8 @@ import {
 } from "./getBestSingularRoute";
 
 export function findOptimalSplitRoute<
-  TResources extends BaseResources,
-  TState extends BaseNodeState,
+  TResources extends BasePoolResources,
+  TState extends BasePoolState,
   TQuoteNode extends QuoteNode<TResources, TState>,
 >({
   allRoutes,
@@ -27,10 +27,7 @@ export function findOptimalSplitRoute<
   tokenAmount: TokenAmount;
   gasEstimator: GasEstimator<TResources, TState, TQuoteNode>;
   maxSplits: number;
-  overrides: WeakMap<
-    TQuoteNode,
-    { state: TState; resources: TResources; increasing: boolean }
-  >;
+  overrides: WeakMap<TQuoteNode, TState>;
   meta: QuoteMeta;
 }): GetBestSingularRouteResult<TResources, TState, TQuoteNode>[] | null {
   const maxRoutes = maxSplits + 1;
@@ -70,11 +67,7 @@ export function findOptimalSplitRoute<
 
     for (let j = 0; j < partialResult.route.length; j++) {
       const quote = partialResult.quoteRouteResult.quotes[j];
-      overrides.set(partialResult.route[j], {
-        state: quote.stateAfter,
-        resources: quote.executionResources,
-        increasing: quote.isPriceIncreasing,
-      });
+      overrides.set(partialResult.route[j], quote.stateAfter);
     }
 
     if (!uniqueRouteSet.has(partialResult.route)) {
@@ -89,7 +82,7 @@ export function findOptimalSplitRoute<
     } else {
       // route is used in the list of swaps, so check that the pools are not touched in any swaps after it
       const indexLastSwapSameRoute = swaps.findLastIndex(
-        (s) => s.route === partialResult.route,
+        (s) => s.route === partialResult.route
       );
       if (indexLastSwapSameRoute === -1) {
         throw new Error("Expected to find this route among results");
@@ -100,7 +93,7 @@ export function findOptimalSplitRoute<
       for (let i = indexLastSwapSameRoute + 1; i < swaps.length; i++) {
         if (
           swaps[i].route.some((node0) =>
-            partialResult.route.some((node1) => node0 === node1),
+            partialResult.route.some((node1) => node0 === node1)
           )
         ) {
           canMerge = false;
@@ -131,8 +124,11 @@ export function findOptimalSplitRoute<
               consumedAmount:
                 newQuoteResult.consumedAmount +
                 lastSwap.quoteRouteResult.quotes[ix].consumedAmount,
-              executionResources: newQuoteResult.executionResources,
-            }),
+              executionResources: lastSwap.route[ix].combineResources(
+                lastSwap.quoteRouteResult.quotes[ix].executionResources,
+                newQuoteResult.executionResources
+              ),
+            })
           ),
         };
       } else {

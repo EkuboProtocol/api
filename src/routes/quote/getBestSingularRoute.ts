@@ -1,6 +1,6 @@
 import {
-  BaseNodeState,
-  BaseResources,
+  BasePoolState,
+  BasePoolResources,
   QuoteMeta,
   QuoteNode,
   TokenAmount,
@@ -8,8 +8,8 @@ import {
 import { GasEstimator, quoteRoute, QuoteRouteResult } from "./quoteRoute";
 
 export interface GetBestSingularRouteResult<
-  TResources extends BaseResources,
-  TState extends BaseNodeState,
+  TResources extends BasePoolResources,
+  TState extends BasePoolState,
   TQuoteNode extends QuoteNode<TResources, TState>,
 > {
   route: TQuoteNode[];
@@ -24,8 +24,8 @@ export interface GetBestSingularRouteResult<
  * @param poolStates optionally override the states on the quoting
  */
 export function getBestSingularRoute<
-  TResources extends BaseResources,
-  TState extends BaseNodeState,
+  TResources extends BasePoolResources,
+  TState extends BasePoolState,
   TQuoteNode extends QuoteNode<TResources, TState>,
 >({
   allRoutes,
@@ -37,7 +37,7 @@ export function getBestSingularRoute<
   allRoutes: TQuoteNode[][];
   tokenAmount: TokenAmount;
   gasEstimator: GasEstimator<TResources, TState, TQuoteNode>;
-  overrides: WeakMap<TQuoteNode, { state: TState; resources: TResources }>;
+  overrides: WeakMap<TQuoteNode, TState>;
   meta: QuoteMeta;
 }): GetBestSingularRouteResult<TResources, TState, TQuoteNode> | null {
   return allRoutes.reduce<GetBestSingularRouteResult<

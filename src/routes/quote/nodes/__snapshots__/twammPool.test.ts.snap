@@ -34,7 +34,7 @@ exports[`TWAMMPoolNode > quote > compare to contract output > second swap from f
     "initializedTicksCrossed": 0,
     "tickSpacingsCrossed": 0,
     "virtualOrderDeltaTimesCrossed": 0,
-    "virtualOrderSecondsExecuted": 2100,
+    "virtualOrderSecondsExecuted": 60,
   },
   "isPriceIncreasing": false,
   "stateAfter": {
@@ -144,7 +144,7 @@ exports[`TWAMMPoolNode > quote > price after no swap > result of quote after ful
     "initializedTicksCrossed": 0,
     "tickSpacingsCrossed": 0,
     "virtualOrderDeltaTimesCrossed": 0,
-    "virtualOrderSecondsExecuted": 86400,
+    "virtualOrderSecondsExecuted": 43200,
   },
   "isPriceIncreasing": false,
   "stateAfter": {
@@ -214,7 +214,7 @@ exports[`TWAMMPoolNode > quote > second swap in opposite direction > second swap
     "initializedTicksCrossed": 0,
     "tickSpacingsCrossed": 0,
     "virtualOrderDeltaTimesCrossed": 0,
-    "virtualOrderSecondsExecuted": 2100,
+    "virtualOrderSecondsExecuted": 60,
   },
   "isPriceIncreasing": true,
   "stateAfter": {

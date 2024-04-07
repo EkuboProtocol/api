@@ -6,8 +6,8 @@ import {
   toSqrtRatio,
 } from "../math/tick";
 import {
-  BaseNodeState,
-  BaseResources,
+  BasePoolState,
+  BasePoolResources,
   NodeKey,
   Quote,
   QuoteNode,
@@ -22,7 +22,7 @@ import {
  */
 export function findNearestInitializedTickIndex(
   sortedTicks: Tick[],
-  tick: number,
+  tick: number
 ): number {
   let l = 0,
     r = sortedTicks.length;
@@ -51,7 +51,7 @@ export class BasePool implements QuoteNode {
   public readonly key: NodeKey;
 
   // state
-  public readonly state: Readonly<BaseNodeState>;
+  public readonly state: Readonly<BasePoolState>;
   public readonly sortedTicks: Tick[];
 
   constructor({
@@ -88,25 +88,39 @@ export class BasePool implements QuoteNode {
     };
   }
 
+  combineResources(
+    resource: BasePoolResources,
+    additionalResources: BasePoolResources
+  ): BasePoolResources {
+    return {
+      initializedTicksCrossed:
+        resource.initializedTicksCrossed +
+        additionalResources.initializedTicksCrossed,
+      tickSpacingsCrossed:
+        resource.tickSpacingsCrossed + additionalResources.tickSpacingsCrossed,
+    };
+  }
+
+  initialResources(): BasePoolResources {
+    return {
+      initializedTicksCrossed: 0,
+      tickSpacingsCrossed: 0,
+    };
+  }
+
   public quote({
     tokenAmount: { amount, token },
     sqrtRatioLimit,
-    overrides,
-  }: QuoteParams<BaseResources, BaseNodeState>): Quote<
-    BaseResources,
-    BaseNodeState
-  > {
+    overrideState,
+  }: QuoteParams<BasePoolState>): Quote<BasePoolResources, BasePoolState> {
     const isToken1 = token === this.key.token1;
 
     if (!isToken1 && this.key.token0 !== token) {
       throw new Error("Invalid token");
     }
 
-    const state = overrides?.state ?? this.state;
-    const resources = overrides?.resources ?? {
-      initializedTicksCrossed: 0,
-      tickSpacingsCrossed: 0,
-    };
+    const state = overrideState ?? this.state;
+    const resources = this.initialResources();
 
     if (amount === 0n) {
       return {
@@ -201,7 +215,7 @@ export class BasePool implements QuoteNode {
           approximateNumberOfTickSpacingsCrossed(
             startingSqrtRatio,
             sqrtRatio,
-            this.key.tickSpacing,
+            this.key.tickSpacing
           ),
       },
       stateAfter: {

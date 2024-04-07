@@ -2,7 +2,6 @@ import Decimal from "decimal.js-light";
 import {
   TwammPool,
   TwammPoolState,
-  TwammResources,
   TwammSaleRateDelta,
 } from "../quote/nodes/twammPool";
 import { computeFee } from "../quote/math/swap";
@@ -37,7 +36,7 @@ export function splitTwammOrder(
 
       const orderSaleRate = (amountMinusFee << 32n) / timeWindow;
 
-      const { executionResources, stateAfter } = node.quote({
+      const { stateAfter } = node.quote({
         tokenAmount: {
           amount: 0n,
           token: node.key.token0,
@@ -49,10 +48,7 @@ export function splitTwammOrder(
         node,
         endTime,
         isToken1,
-        {
-          resources: executionResources,
-          state: stateAfter,
-        },
+        stateAfter,
         orderSaleRate
       );
 
@@ -95,7 +91,7 @@ export function splitTwammOrder(
 
       const partialOrderSaleRate = (amountMinusFee << 32n) / timeWindow;
 
-      const { executionResources, stateAfter } = node.quote({
+      const { stateAfter } = node.quote({
         tokenAmount: {
           amount: 0n,
           token: node.key.token0,
@@ -111,16 +107,13 @@ export function splitTwammOrder(
         endTime,
         isToken1,
         {
-          resources: executionResources,
-          state: {
-            ...stateAfter,
-            token0SaleRate: isToken1
-              ? stateAfter.token0SaleRate
-              : stateAfter.token0SaleRate + saleRateOverride,
-            token1SaleRate: isToken1
-              ? stateAfter.token1SaleRate + saleRateOverride
-              : stateAfter.token1SaleRate,
-          },
+          ...stateAfter,
+          token0SaleRate: isToken1
+            ? stateAfter.token0SaleRate
+            : stateAfter.token0SaleRate + saleRateOverride,
+          token1SaleRate: isToken1
+            ? stateAfter.token1SaleRate + saleRateOverride
+            : stateAfter.token1SaleRate,
         },
         partialOrderSaleRate
       );
@@ -154,7 +147,7 @@ export function splitTwammOrder(
     }
   }
 
-  const results = topPools
+  return topPools
     .map((node) => {
       const nodeAmount = nodeWithAmounts.get(node);
 
@@ -165,25 +158,20 @@ export function splitTwammOrder(
       };
     })
     .filter((pool) => pool.amount !== 0n && pool.otherTokenAmount > 0n);
-
-  return results;
 }
 
 function quoteOtherTokenAmount(
   node: TwammPool,
   endTime: number,
   isToken1: boolean,
-  overrides: {
-    resources: TwammResources;
-    state: TwammPoolState;
-  },
+  overrideState: TwammPoolState,
   orderSaleRate: bigint
 ): Decimal {
   const otherTokenAmountWithoutOrder = getOtherTokenAmount(
     node,
     endTime,
     isToken1,
-    overrides
+    overrideState
   );
 
   const otherTokenAmountWithOrder = getOtherTokenAmount(
@@ -191,16 +179,13 @@ function quoteOtherTokenAmount(
     endTime,
     isToken1,
     {
-      resources: overrides.resources,
-      state: {
-        ...overrides.state,
-        token0SaleRate: isToken1
-          ? overrides.state.token0SaleRate
-          : overrides.state.token0SaleRate + orderSaleRate,
-        token1SaleRate: isToken1
-          ? overrides.state.token1SaleRate + orderSaleRate
-          : overrides.state.token1SaleRate,
-      },
+      ...overrideState,
+      token0SaleRate: isToken1
+        ? overrideState.token0SaleRate
+        : overrideState.token0SaleRate + orderSaleRate,
+      token1SaleRate: isToken1
+        ? overrideState.token1SaleRate + orderSaleRate
+        : overrideState.token1SaleRate,
     }
   );
 
@@ -212,14 +197,14 @@ function getOtherTokenAmount(
   node: TwammPool,
   endTime: number,
   isToken1: boolean,
-  overrides: { resources: TwammResources; state: TwammPoolState }
+  overrideState: TwammPoolState
 ): Decimal {
   const { stateAfter } = node.quote({
     tokenAmount: {
       amount: 0n,
       token: node.key.token0,
     },
-    overrides,
+    overrideState,
     meta: { block: { number: 1, time: endTime } },
   });
 

@@ -1,7 +1,7 @@
 import { GasEstimator } from "./quoteRoute";
 import {
-  BaseNodeState,
-  BaseResources,
+  BasePoolState,
+  BasePoolResources,
   Quote,
   QuoteNode,
 } from "./nodes/quoteNode";
@@ -10,7 +10,7 @@ import { TwammPool, TwammPoolState, TwammResources } from "./nodes/twammPool";
 import { BasePool } from "./nodes/basePool";
 
 export class BaseResourcesGasEstimator
-  implements GasEstimator<BaseResources, BaseNodeState, QuoteNode>
+  implements GasEstimator<BasePoolResources, BasePoolState, QuoteNode>
 {
   // These parameters are used for optimizing when we should use multi-hop routes
   public static ETH_PER_POOL_SWAPPED = new Decimal("1e13");
@@ -28,11 +28,8 @@ export class BaseResourcesGasEstimator
   getGasAdjustedAmount(
     calculatedAmount: bigint,
     route: QuoteNode[],
-    quoteResults: Quote<BaseResources, BaseNodeState>[],
-    overrides: WeakMap<
-      QuoteNode,
-      { state: BaseNodeState; resources: BaseResources }
-    >,
+    quoteResults: Quote<BasePoolResources, BasePoolState>[],
+    overrides: WeakMap<QuoteNode, BasePoolState>
   ): bigint {
     const totalRouteResources = route.reduce(
       (memo, node, ix) => {
@@ -52,25 +49,25 @@ export class BaseResourcesGasEstimator
         newPoolsSwapped: 0,
         initializedTicksCrossed: 0,
         tickSpacingsCrossed: 0,
-      },
+      }
     );
 
     const gasInOtherToken = BigInt(
       BaseResourcesGasEstimator.ETH_PER_POOL_SWAPPED.mul(
-        totalRouteResources.newPoolsSwapped,
+        totalRouteResources.newPoolsSwapped
       )
         .add(
           BaseResourcesGasEstimator.ETH_PER_INITIALIZED_TICK_CROSS.mul(
-            totalRouteResources.initializedTicksCrossed,
-          ),
+            totalRouteResources.initializedTicksCrossed
+          )
         )
         .add(
           BaseResourcesGasEstimator.ETH_PER_TICK_SPACING_CROSSED.mul(
-            totalRouteResources.tickSpacingsCrossed,
-          ),
+            totalRouteResources.tickSpacingsCrossed
+          )
         )
         .mul(this.calculatedTokenPrice)
-        .toFixed(0, Decimal.ROUND_DOWN),
+        .toFixed(0, Decimal.ROUND_DOWN)
     );
 
     return calculatedAmount - gasInOtherToken;
@@ -80,8 +77,8 @@ export class BaseResourcesGasEstimator
 export class BaseOrTwammResourcesGasEstimator
   implements
     GasEstimator<
-      BaseResources | TwammResources,
-      BaseNodeState | TwammPoolState,
+      BasePoolResources | TwammResources,
+      BasePoolState | TwammPoolState,
       BasePool | TwammPool
     >
 {
@@ -93,29 +90,23 @@ export class BaseOrTwammResourcesGasEstimator
 
   public static EXECUTION_COST_EXECUTE_VIRTUAL_ORDERS = new Decimal("1e13");
   public static EXECUTION_COST_EXECUTE_VIRTUAL_ORDERS_CROSS_DELTA = new Decimal(
-    "1e14",
+    "1e14"
   );
 
   getGasAdjustedAmount(
     calculatedAmount: bigint,
     route: (TwammPool | BasePool)[],
     quoteResults: Quote<
-      BaseResources | TwammResources,
-      BaseNodeState | TwammPoolState
+      BasePoolResources | TwammResources,
+      BasePoolState | TwammPoolState
     >[],
-    overrides: WeakMap<
-      BasePool | TwammPool,
-      {
-        state: BaseNodeState | TwammPoolState;
-        resources: BaseResources | TwammResources;
-      }
-    >,
+    overrides: WeakMap<BasePool | TwammPool, BasePoolState | TwammPoolState>
   ): bigint {
     const baseAmount = this.baseGasEstimator.getGasAdjustedAmount(
       calculatedAmount,
       route,
       quoteResults,
-      overrides,
+      overrides
     );
 
     return (
@@ -134,11 +125,11 @@ export class BaseOrTwammResourcesGasEstimator
           BigInt(
             BaseOrTwammResourcesGasEstimator.EXECUTION_COST_EXECUTE_VIRTUAL_ORDERS.add(
               BaseOrTwammResourcesGasEstimator.EXECUTION_COST_EXECUTE_VIRTUAL_ORDERS_CROSS_DELTA.mul(
-                resources.virtualOrderDeltaTimesCrossed,
-              ),
+                resources.virtualOrderDeltaTimesCrossed
+              )
             )
               .mul(this.baseGasEstimator.calculatedTokenPrice)
-              .toFixed(0, Decimal.ROUND_DOWN),
+              .toFixed(0, Decimal.ROUND_DOWN)
           )
         );
       }, 0n)
