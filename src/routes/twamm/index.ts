@@ -42,9 +42,23 @@ export const OrderKeyType = z
   })
   .openapi({ description: "The key identifier for a TWAP order in Ekubo" });
 
+/**
+ * Parses the date path parameter, which can be either an ISO 8601 timestamp or an epoch seconds
+ * @param str the parameter to parse
+ */
+function parseDatePathParameter(str: string): Date {
+  if (/^\d+$/.test(str)) {
+    return new Date(parseInt(str) * 1000);
+  }
+  return new Date(str);
+}
+
+const DatePathParameterType = DateIdentifierType.or(
+  z.coerce.number().min(0).max(Number.MAX_SAFE_INTEGER).int()
+);
+
 export class GetSplitTWAPOrderByDate extends EkuboAPIRoute {
-  static route =
-    "/split_twap_order_by_date/:buyToken/:sellToken/:amount/:startTime/:endTime";
+  static route = "/twap/quote/:buyToken/:sellToken/:amount/:startTime/:endTime";
 
   static schema: OpenAPIRouteSchema = {
     tags: ["TWAP"],
@@ -59,10 +73,10 @@ export class GetSplitTWAPOrderByDate extends EkuboAPIRoute {
           description: "The amount of the token to sell",
         })
       ),
-      startTime: Path(DateIdentifierType, {
+      startTime: Path(DatePathParameterType, {
         example: "2020-01-01T00:00:01Z",
       }),
-      endTime: Path(DateIdentifierType, {
+      endTime: Path(DatePathParameterType, {
         example: "2020-01-02T00:00:01Z",
       }),
       maxSplits: Query(z.coerce.number().int().min(0).max(8), {
@@ -128,8 +142,8 @@ export class GetSplitTWAPOrderByDate extends EkuboAPIRoute {
       return error(400, "Invalid token parameters");
     }
 
-    const startTime = new Date(params.startTime);
-    const endTime = new Date(params.endTime);
+    const startTime = parseDatePathParameter(params.startTime);
+    const endTime = parseDatePathParameter(params.endTime);
 
     const now = new Date();
 
