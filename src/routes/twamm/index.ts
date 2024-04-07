@@ -18,7 +18,7 @@ import { splitTwammOrder, TwammOrderSplitResult } from "./splitOrder";
 import { num } from "starknet";
 import { getCachedNode, updateTwammPoolCache } from "../quote/quoteNodeCaching";
 import { TwammPool } from "../quote/nodes/twammPool";
-import { getBlockMeta } from "../quote";
+import { getBlockMeta } from "../quote/getBlockMeta";
 
 export const OrderKeyType = z
   .object({
@@ -194,10 +194,15 @@ async function splitOrder(
       ? [buyTokenAddress, sellTokenAddress]
       : [sellTokenAddress, buyTokenAddress];
 
-  const { rows: relevantPools } = await queries.getAllRelevantTwammPoolStates({
-    token0: BigInt(token0),
-    token1: BigInt(token1),
-  });
+  const [{ rows: relevantPools }, meta] = await queries.withinTransaction(() =>
+    Promise.all([
+      queries.getAllRelevantTwammPoolStates({
+        token0: BigInt(token0),
+        token1: BigInt(token1),
+      }),
+      getBlockMeta(queries),
+    ])
+  );
 
   const poolKeyHashes = relevantPools.map((p) => BigInt(p.key_hash));
 
@@ -206,8 +211,6 @@ async function splitOrder(
   const twammNodes = poolKeyHashes.map(
     (keyHash) => getCachedNode(keyHash) as TwammPool
   );
-
-  const meta = await getBlockMeta(queries);
 
   const startTimeSeconds = Math.max(
     Math.floor(startTime.getTime() / 1000),

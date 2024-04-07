@@ -9,9 +9,9 @@ import {
   updateBasePoolCache,
 } from "./quoteNodeCaching";
 import { findAllRoutes } from "./findAllRoutes";
-import { QuoteMeta, TokenAmount } from "./nodes/quoteNode";
+import { TokenAmount } from "./nodes/quoteNode";
 import { num } from "starknet";
-import { createQueries, Queries } from "../../queries";
+import { createQueries } from "../../queries";
 import {
   OpenAPIRouteSchema,
   Path,
@@ -24,11 +24,12 @@ import {
   NumericType,
   TokenIdentifierType,
 } from "../../shared/validation/address";
-import { MAX_SQRT_RATIO, MIN_SQRT_RATIO } from "./math/tick";
+import { MAX_SQRT_RATIO } from "./math/tick";
 import { getSqrtRatioLimit } from "./getSqrtRatioLimit";
 import { BaseOrTwammResourcesGasEstimator } from "./gasEstimators";
 import { findOptimalSplitRoute } from "./findOptimalSplitRoute";
 import { quoteRoute } from "./quoteRoute";
+import { getBlockMeta } from "./getBlockMeta";
 
 const PoolKeyType = z
   .object({
@@ -67,7 +68,7 @@ const GetQuoteResponseType = z.object({
             "A suggested skip_ahead value for gas optimizing the trade",
           example: 123,
         }),
-      }),
+      })
     )
     .openapi({
       description: "The list of pool keys through which to swap",
@@ -93,7 +94,7 @@ export class GetQuote extends EkuboAPIRoute {
           examples: ["1e9", "1000000", "-1e18", "-100000000000000"],
           example: "-1e9",
           description: "The amount of the specified token",
-        }),
+        })
       ),
       maxSplits: Query(z.coerce.number().int().min(0).max(8), {
         description:
@@ -158,10 +159,13 @@ export class GetQuote extends EkuboAPIRoute {
       return error(400, "Amount is too large");
     }
 
-    const relevantPools = await getAllRelevantPoolsAndUpdateCache(queries, {
-      tokenA: token,
-      tokenB: otherToken,
-    });
+    const { meta, relevantPools } = await getAllRelevantPoolsAndUpdateCache(
+      queries,
+      {
+        tokenA: token,
+        tokenB: otherToken,
+      }
+    );
 
     if (!relevantPools.length) {
       return error(404, "No pools connect the two tokens");
@@ -189,8 +193,6 @@ export class GetQuote extends EkuboAPIRoute {
 
     const gasEstimator = new BaseOrTwammResourcesGasEstimator(otherTokenPrice);
 
-    const meta: QuoteMeta = await getBlockMeta(queries);
-
     const overrides = new WeakMap();
 
     // try the smallest split across all the routes first, and only consider the top 2**maxSplits
@@ -217,7 +219,7 @@ export class GetQuote extends EkuboAPIRoute {
         if (!quoteB) return -1;
         return Number(
           quoteB.gasAdjustedCalculatedAmount -
-            quoteA.gasAdjustedCalculatedAmount,
+            quoteA.gasAdjustedCalculatedAmount
         );
       })
       .slice(0, Math.pow(2, maxSplits))
@@ -251,8 +253,8 @@ export class GetQuote extends EkuboAPIRoute {
           getSqrtRatioLimit(
             quoteRouteResult.quotes[ix].stateAfter.sqrtRatio,
             key.tickSpacing,
-            quoteRouteResult.quotes[ix].isPriceIncreasing,
-          ),
+            quoteRouteResult.quotes[ix].isPriceIncreasing
+          )
         ),
         skip_ahead: num.toHex(
           Math.round(
@@ -260,9 +262,9 @@ export class GetQuote extends EkuboAPIRoute {
               Math.max(
                 quoteRouteResult.quotes[ix].executionResources
                   .initializedTicksCrossed,
-                1,
-              ),
-          ),
+                1
+              )
+          )
         ),
       })),
     }));
@@ -277,9 +279,9 @@ export class GetQuote extends EkuboAPIRoute {
                   quoteRouteResult: {
                     calculatedAmount: { amount },
                   },
-                },
+                }
               ) => amount + sum,
-              0n,
+              0n
             )
             .toString(),
           splits: serializedRoutes,
@@ -331,12 +333,12 @@ export class GetQuoteToPrice extends EkuboAPIRoute {
 
     const state = await queries.withinTransaction(async () => {
       const [
-        block,
+        meta,
         {
           rows: [poolState],
         },
       ] = await Promise.all([
-        queries.getLatestBlockMeta(),
+        getBlockMeta(queries),
         queries.getBasePoolStates({ poolKeyHashes: [poolKeyHash] }),
       ]);
 
@@ -347,13 +349,6 @@ export class GetQuoteToPrice extends EkuboAPIRoute {
       if (BigInt(poolState.extension) !== 0n) {
         return null;
       }
-
-      const meta = {
-        block: {
-          number: block.number,
-          time: block.time.getTime() / 1000,
-        },
-      };
 
       await updateBasePoolCache(queries, [poolKeyHash]);
 
@@ -406,24 +401,4 @@ export class GetQuoteToPrice extends EkuboAPIRoute {
       }
     );
   }
-}
-
-export async function getBlockMeta(queries: Queries) {
-  const block = await queries.getLatestBlockMeta();
-
-  const ageLastBlockSeconds = Math.floor(
-    (Date.now() - block.time.getTime()) / 1000
-  );
-
-  // the current block ceiling deadline is 6 minutes, so we can estimate the current block number based on the age of the latest block in 6 minute intervals
-  // this is a lower bound on the actual pending block timestamp
-  const estimatedNumberOfBlocksBehind = Math.floor(ageLastBlockSeconds / 360);
-
-  const meta: QuoteMeta = {
-    block: {
-      number: block.number + estimatedNumberOfBlocksBehind,
-      time: block.time.getTime() / 1000 + estimatedNumberOfBlocksBehind * 360,
-    },
-  };
-  return meta;
 }

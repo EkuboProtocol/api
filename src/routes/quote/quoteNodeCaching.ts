@@ -1,7 +1,8 @@
 import { Queries } from "../../queries";
-import { QuoteNode } from "./nodes/quoteNode";
+import { QuoteMeta, QuoteNode } from "./nodes/quoteNode";
 import { BasePool } from "./nodes/basePool";
 import { TwammPool } from "./nodes/twammPool";
+import { getBlockMeta } from "./getBlockMeta";
 
 const QUOTE_NODE_CACHE: {
   [key_hash: string]: {
@@ -17,7 +18,7 @@ export function getCachedNode(key_hash: bigint) {
 
 export async function updateBasePoolCache(
   queries: Queries,
-  poolKeyHashes: bigint[],
+  poolKeyHashes: bigint[]
 ): Promise<void> {
   const { rows: basePoolStates } = await queries.getBasePoolStates({
     poolKeyHashes,
@@ -29,7 +30,7 @@ export async function updateBasePoolCache(
       .filter(
         ({ pool_key_hash, last_liquidity_update_event_id }) =>
           QUOTE_NODE_CACHE[pool_key_hash]?.lastLiquidityUpdateEventId !==
-          BigInt(last_liquidity_update_event_id ?? 0),
+          BigInt(last_liquidity_update_event_id ?? 0)
       )
       .map(({ pool_key_hash }) => BigInt(pool_key_hash)),
   });
@@ -38,7 +39,7 @@ export async function updateBasePoolCache(
     QUOTE_NODE_CACHE[pool.pool_key_hash] = {
       lastEventId: BigInt(pool.last_event_id),
       lastLiquidityUpdateEventId: BigInt(
-        pool.last_liquidity_update_event_id ?? 0,
+        pool.last_liquidity_update_event_id ?? 0
       ),
       node: new BasePool({
         token0: BigInt(pool.token0),
@@ -59,7 +60,7 @@ export async function updateBasePoolCache(
 }
 export async function updateTwammPoolCache(
   queries: Queries,
-  poolKeyHashes: bigint[],
+  poolKeyHashes: bigint[]
 ): Promise<void> {
   const { rows: twammPools } = await queries.getTwammPoolStates({
     poolKeyHashes,
@@ -74,7 +75,7 @@ export async function updateTwammPoolCache(
     QUOTE_NODE_CACHE[pool.pool_key_hash] = {
       lastEventId: BigInt(pool.last_event_id),
       lastLiquidityUpdateEventId: BigInt(
-        pool.last_liquidity_update_event_id ?? 0,
+        pool.last_liquidity_update_event_id ?? 0
       ),
       node: new TwammPool({
         token0: BigInt(pool.token0),
@@ -95,14 +96,16 @@ export async function updateTwammPoolCache(
 
 export async function getAllRelevantPoolsAndUpdateCache(
   queries: Queries,
-  { tokenA, tokenB }: { tokenA: bigint; tokenB: bigint },
-): Promise<QuoteNode[]> {
+  { tokenA, tokenB }: { tokenA: bigint; tokenB: bigint }
+): Promise<{ meta: QuoteMeta; relevantPools: QuoteNode[] }> {
   return queries.withinTransaction(async () => {
-    const { rows: routablePools } =
-      await queries.getAllRoutablePoolKeyHashesWithCacheId({
+    const [meta, { rows: routablePools }] = await Promise.all([
+      getBlockMeta(queries),
+      queries.getAllRoutablePoolKeyHashesWithCacheId({
         tokenA,
         tokenB,
-      });
+      }),
+    ]);
 
     const { twammPools, basePools } = routablePools
       .filter(({ pool_key_hash, last_event_id, last_twamm_event_id }) => {
@@ -125,7 +128,7 @@ export async function getAllRelevantPoolsAndUpdateCache(
           }
           return memo;
         },
-        { basePools: [], twammPools: [] },
+        { basePools: [], twammPools: [] }
       );
 
     await Promise.all([
@@ -133,8 +136,11 @@ export async function getAllRelevantPoolsAndUpdateCache(
       updateTwammPoolCache(queries, twammPools),
     ]);
 
-    return routablePools
-      .map((r) => QUOTE_NODE_CACHE[r.pool_key_hash]?.node)
-      .filter((n): n is QuoteNode => n?.hasLiquidity());
+    return {
+      meta,
+      relevantPools: routablePools
+        .map((r) => QUOTE_NODE_CACHE[r.pool_key_hash]?.node)
+        .filter((n): n is QuoteNode => n?.hasLiquidity()),
+    };
   });
 }
