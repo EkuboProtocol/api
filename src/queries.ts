@@ -193,6 +193,66 @@ export class Queries {
     });
   }
 
+  public async getTwammPoolStateByStateKey({
+    token0,
+    token1,
+    fee,
+  }: {
+    token0: bigint;
+    token1: bigint;
+    fee: bigint;
+  }) {
+    return this.client.query<TwammPoolStateQueryResult>({
+      text: `
+          SELECT tpsm.pool_key_hash,
+                 token0,
+                 token1,
+                 fee,
+                 tick_spacing,
+                 extension,
+                 sqrt_ratio,
+                 tick,
+                 liquidity,
+                 token0_sale_rate,
+                 token1_sale_rate,
+                 tpsm.last_virtual_execution_time AS last_execution_time,
+                 tpsm.last_event_id,
+                 psm.last_liquidity_update_event_id
+          FROM twamm_pool_states_materialized AS tpsm
+                   JOIN pool_states_materialized psm ON psm.pool_key_hash = tpsm.pool_key_hash
+                   JOIN pool_keys pk ON tpsm.pool_key_hash = pk.key_hash
+          WHERE pk.token0 = $1 and pk.token1 = $2 and pk.fee = $3
+      `,
+      values: [token0, token1, fee],
+    });
+  }
+
+  public async getSaleRateDeltasByPoolKey({
+    token0,
+    token1,
+    fee,
+  }: {
+    token0: bigint;
+    token1: bigint;
+    fee: bigint;
+  }) {
+    return this.client.query<{
+      time: Date;
+      net_sale_rate_delta0: string;
+      net_sale_rate_delta1: string;
+    }>({
+      text: `
+          SELECT time, net_sale_rate_delta0, net_sale_rate_delta1
+          FROM twamm_sale_rate_deltas_materialized AS tsrdm
+                   JOIN pool_keys pk ON tsrdm.pool_key_hash = pk.key_hash
+          WHERE pk.token0 = $1
+            AND pk.token1 = $2
+            AND pk.fee = $3
+      `,
+      values: [token0, token1, fee],
+    });
+  }
+
   public async getAllRelevantTwammPoolStates({
     token0,
     token1,

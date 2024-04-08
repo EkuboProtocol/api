@@ -50,6 +50,7 @@ import { GetFees } from "./routes/meta/fees";
 import { GetSplitTWAPOrderByDate } from "./routes/twamm";
 import { ListOrders } from "./routes/twamm/orders";
 import { GetNetworkStats } from "./routes/meta/stats";
+import { GetTwammPoolState } from "./routes/twamm/getTwammPoolState";
 
 Decimal.set({ precision: 39 });
 
@@ -79,11 +80,11 @@ const router = OpenAPIRouter({
   .get(GetDefiSpringIncentives.route, GetDefiSpringIncentives)
   .get(
     GetDefiSpringIncentivesForTokenId.route,
-    GetDefiSpringIncentivesForTokenId,
+    GetDefiSpringIncentivesForTokenId
   )
   .get(
     GetDefiSpringIncentivesForAddressAndDates.route,
-    GetDefiSpringIncentivesForAddressAndDates,
+    GetDefiSpringIncentivesForAddressAndDates
   )
   .get(ListTokens.route, ListTokens)
   .get(GetTokenLogo.route, GetTokenLogo)
@@ -111,6 +112,7 @@ const router = OpenAPIRouter({
   .get(ListNftEvents.route, ListNftEvents)
   .get(GetNftImage.route, GetNftImage)
   .get(GetSplitTWAPOrderByDate.route, GetSplitTWAPOrderByDate)
+  .get(GetTwammPoolState.route, GetTwammPoolState)
   .get(ListOrders.route, ListOrders)
   .post(IntractApiRoute.route, IntractApiRoute)
   // catch missed routes
@@ -146,7 +148,7 @@ export default {
     let response: Response;
     try {
       response = json(
-        await router.handle(request, { env } satisfies RequestContext),
+        await router.handle(request, { env } satisfies RequestContext)
       );
     } catch (e) {
       console.error(e);
