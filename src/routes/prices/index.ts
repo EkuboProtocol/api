@@ -34,7 +34,7 @@ export class GetPairPrice extends EkuboAPIRoute {
         z.coerce.date().openapi({
           description: "The time from which the VWAP should be measured",
         }),
-        { example: "2024-01-01T00:00:00", required: false },
+        { example: "2024-01-01T00:00:00", required: false }
       ),
       period: Query(z.coerce.number().int().min(300).max(86_400), {
         description: "The amount of time over which the VWAP is measured",
@@ -74,16 +74,17 @@ export class GetPairPrice extends EkuboAPIRoute {
         : new Date(timestamp.getTime() - period * 1_000);
 
     const ethTokenAddress = BigInt(env.ETH_TOKEN_ADDRESS);
+    const strkTokenAddress = BigInt(env.STRK_TOKEN_ADDRESS);
 
-    if (!ethTokenAddress) {
-      return error(500, "Fee token not defined for chain");
+    if (!ethTokenAddress || !strkTokenAddress) {
+      return error(500, "Fee tokens not defined for chain");
     }
 
     // e.g. if period is 5 minutes == 300 seconds, must have swapped at least 1 time in that period
     const minSwapCount = Math.floor(period / 7200);
 
-    const [direct, quoteToEth, baseToEth] = await queries.withinTransaction(
-      () =>
+    const [direct, quoteToEth, baseToEth, quoteToStrk, baseToStrk] =
+      await queries.withinTransaction(() =>
         Promise.all([
           queries.getVolumeWeightedPriceOverPeriod({
             quoteToken,
@@ -106,27 +107,42 @@ export class GetPairPrice extends EkuboAPIRoute {
             minSwapCount,
             end: timestamp,
           }),
-        ]),
-    );
+          queries.getVolumeWeightedPriceOverPeriod({
+            quoteToken,
+            baseToken: strkTokenAddress,
+            start: startTimestamp,
+            minSwapCount,
+            end: timestamp,
+          }),
+          queries.getVolumeWeightedPriceOverPeriod({
+            quoteToken: strkTokenAddress,
+            baseToken,
+            start: startTimestamp,
+            minSwapCount,
+            end: timestamp,
+          }),
+        ])
+      );
 
     let price: Decimal;
-    if (direct) {
-      if (!quoteToEth || !baseToEth) {
-        price = direct.price;
-      } else if (
-        quoteToEth.k_volume * baseToEth.k_volume >
-        direct.k_volume ** 2n
-      ) {
-        price = quoteToEth.price.mul(baseToEth.price);
-      } else {
-        price = direct.price;
-      }
-    } else {
-      if (!quoteToEth || !baseToEth) {
-        return error(404, "No volume for this pair");
-      }
-
+    if (
+      quoteToEth &&
+      baseToEth &&
+      (!direct ||
+        quoteToEth.k_volume * baseToEth.k_volume > direct.k_volume ** 2n)
+    ) {
       price = quoteToEth.price.mul(baseToEth.price);
+    } else if (
+      quoteToStrk &&
+      baseToStrk &&
+      (!direct ||
+        quoteToStrk.k_volume * baseToStrk.k_volume > direct.k_volume ** 2n)
+    ) {
+      price = quoteToStrk.price.mul(baseToStrk.price);
+    } else if (direct) {
+      price = direct.price;
+    } else {
+      return error(404, "No volume for this pair");
     }
 
     const scaled = price.mul(new Decimal(10).pow(bt.decimals - qt.decimals));
@@ -139,10 +155,10 @@ export class GetPairPrice extends EkuboAPIRoute {
       {
         headers: {
           "cache-control": `public, max-age=${Math.floor(
-            period / 10,
+            period
           )}, must-revalidate`,
         },
-      },
+      }
     );
   }
 }
@@ -161,7 +177,7 @@ export class GetPairVolatility extends EkuboAPIRoute {
         z.coerce.date().openapi({
           description: "The time from which the volatility should be measured",
         }),
-        { example: "2024-01-01T00:00:00", required: true },
+        { example: "2024-01-01T00:00:00", required: true }
       ),
       numDays: Query(z.coerce.number().int().min(7).max(90), {
         description: "The number of days over which the volatility is measured",
@@ -235,7 +251,7 @@ export class GetPairVolatility extends EkuboAPIRoute {
         headers: {
           "cache-control": `public,max-age=86400,immutable`,
         },
-      },
+      }
     );
   }
 }
@@ -305,7 +321,7 @@ export class GetPairPriceHistory extends EkuboAPIRoute {
     if (durationMilliseconds > 30 * 86_400 * 1_000) {
       return error(
         400,
-        "Start time cannot be more than 30 days before end time",
+        "Start time cannot be more than 30 days before end time"
       );
     }
 
@@ -381,10 +397,10 @@ export class GetPairPriceHistory extends EkuboAPIRoute {
       {
         headers: {
           "cache-control": `public, max-age=${Math.ceil(
-            intervalSeconds / 4,
+            intervalSeconds / 4
           )}, must-revalidate`,
         },
-      },
+      }
     );
   }
 }
@@ -430,7 +446,7 @@ export class GetTokenPrices extends EkuboAPIRoute {
 
     const timestamp = Date.now();
     const sixHoursAgo = new Date(
-      timestamp - Number(query.period ?? 21_600) * 1000,
+      timestamp - Number(query.period ?? 21_600) * 1000
     );
 
     const prices = await queries.getAllVolumeWeightedPrices({
@@ -445,7 +461,7 @@ export class GetTokenPrices extends EkuboAPIRoute {
         if (!base) return null;
 
         const scaled = price.mul(
-          new Decimal(10).pow(base.decimals - qt.decimals),
+          new Decimal(10).pow(base.decimals - qt.decimals)
         );
 
         return {
@@ -465,7 +481,7 @@ export class GetTokenPrices extends EkuboAPIRoute {
         headers: {
           "cache-control": "public, max-age=600, must-revalidate",
         },
-      },
+      }
     );
   }
 }

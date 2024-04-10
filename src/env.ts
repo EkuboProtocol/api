@@ -5,6 +5,7 @@ export interface Env {
   readonly STARKNET_CHAIN_ID: constants.StarknetChainId;
 
   readonly ETH_TOKEN_ADDRESS: string;
+  readonly STRK_TOKEN_ADDRESS: string;
 
   readonly PG_CONNECTION_STRING?: string;
 
