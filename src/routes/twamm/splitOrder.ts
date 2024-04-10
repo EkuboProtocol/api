@@ -177,17 +177,27 @@ export function splitTwammOrder(
     (memo, { node, amount }) => {
       const perSecondAmount = amount / timeWindow;
 
-      const { calculatedAmount: executionOutput } = node.quote({
+      // first catch up the twamm orders to get current price
+      const { stateAfter } = node.quote({
         tokenAmount: {
-          token: isToken1 ? node.key.token1 : node.key.token0,
-          amount: perSecondAmount,
+          token: node.key.token1,
+          amount: 0n,
         },
         meta: { block: { number: 0, time: startTime } },
       });
 
       const currentPrice = isToken1
-        ? 1 / (Number(node.state.sqrtRatio) / 2 ** 128) ** 2
-        : (Number(node.state.sqrtRatio) / 2 ** 128) ** 2;
+        ? 1 / (Number(stateAfter.sqrtRatio) / 2 ** 128) ** 2
+        : (Number(stateAfter.sqrtRatio) / 2 ** 128) ** 2;
+
+      const { calculatedAmount: executionOutput } = node.quote({
+        tokenAmount: {
+          token: isToken1 ? node.key.token1 : node.key.token0,
+          amount: perSecondAmount,
+        },
+        overrideState: stateAfter,
+        meta: { block: { number: 0, time: startTime } },
+      });
 
       return {
         executionInput: memo.executionInput + Number(perSecondAmount),
@@ -200,7 +210,6 @@ export function splitTwammOrder(
 
   const executionPrice = executionOutput / executionInput;
   const currentPrice = output / Number(amount);
-
   const priceImpact = Math.abs((executionPrice - currentPrice) / currentPrice);
 
   return { orders, priceImpact };

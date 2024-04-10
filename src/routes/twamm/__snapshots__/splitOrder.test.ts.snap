@@ -1,6 +1,6 @@
 // Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
 
-exports[`splitTwammOrder > various pools > one pool, token0 - priceImpact 1`] = `0.06768780694432981`;
+exports[`splitTwammOrder > various pools > one pool, token0 - priceImpact 1`] = `0.06768687463213663`;
 
 exports[`splitTwammOrder > various pools > one pool, token0 1`] = `
 [
@@ -12,7 +12,7 @@ exports[`splitTwammOrder > various pools > one pool, token0 1`] = `
 ]
 `;
 
-exports[`splitTwammOrder > various pools > one pool, token1 - priceImpact 1`] = `0.06768594231901111`;
+exports[`splitTwammOrder > various pools > one pool, token1 - priceImpact 1`] = `0.06768687463213663`;
 
 exports[`splitTwammOrder > various pools > one pool, token1 1`] = `
 [
@@ -24,7 +24,7 @@ exports[`splitTwammOrder > various pools > one pool, token1 1`] = `
 ]
 `;
 
-exports[`splitTwammOrder > various pools > three pools, same liquidity, diff sale rate changes, maxSplits 2, token0 - priceImpact 1`] = `0.8206803604392978`;
+exports[`splitTwammOrder > various pools > three pools, same liquidity, diff sale rate changes, maxSplits 2, token0 - priceImpact 1`] = `0.08965890934711354`;
 
 exports[`splitTwammOrder > various pools > three pools, same liquidity, diff sale rate changes, maxSplits 2, token0 1`] = `
 [
@@ -36,7 +36,7 @@ exports[`splitTwammOrder > various pools > three pools, same liquidity, diff sal
 ]
 `;
 
-exports[`splitTwammOrder > various pools > three pools, same liquidity, diff sale rate changes, maxSplits 2, token1 - priceImpact 1`] = `0.8037592832572547`;
+exports[`splitTwammOrder > various pools > three pools, same liquidity, diff sale rate changes, maxSplits 2, token1 - priceImpact 1`] = `0.09812126015792012`;
 
 exports[`splitTwammOrder > various pools > three pools, same liquidity, diff sale rate changes, maxSplits 2, token1 1`] = `
 [
@@ -48,7 +48,7 @@ exports[`splitTwammOrder > various pools > three pools, same liquidity, diff sal
 ]
 `;
 
-exports[`splitTwammOrder > various pools > three pools, same liquidity, maxSplits 2, token0 - priceImpact 1`] = `0.0444157965480108`;
+exports[`splitTwammOrder > various pools > three pools, same liquidity, maxSplits 2, token0 - priceImpact 1`] = `0.04441484096380721`;
 
 exports[`splitTwammOrder > various pools > three pools, same liquidity, maxSplits 2, token0 1`] = `
 [
@@ -65,7 +65,7 @@ exports[`splitTwammOrder > various pools > three pools, same liquidity, maxSplit
 ]
 `;
 
-exports[`splitTwammOrder > various pools > three pools, same liquidity, maxSplits 2, token1 - priceImpact 1`] = `0.04441388537864802`;
+exports[`splitTwammOrder > various pools > three pools, same liquidity, maxSplits 2, token1 - priceImpact 1`] = `0.04441484096380721`;
 
 exports[`splitTwammOrder > various pools > three pools, same liquidity, maxSplits 2, token1 1`] = `
 [
@@ -82,7 +82,7 @@ exports[`splitTwammOrder > various pools > three pools, same liquidity, maxSplit
 ]
 `;
 
-exports[`splitTwammOrder > various pools > two pools, one with 10x liquidity, token0 - priceImpact 1`] = `0.025966892954366393`;
+exports[`splitTwammOrder > various pools > two pools, one with 10x liquidity, token0 - priceImpact 1`] = `0.025965958625014315`;
 
 exports[`splitTwammOrder > various pools > two pools, one with 10x liquidity, token0 1`] = `
 [
@@ -94,7 +94,7 @@ exports[`splitTwammOrder > various pools > two pools, one with 10x liquidity, to
 ]
 `;
 
-exports[`splitTwammOrder > various pools > two pools, one with 10x liquidity, token1 - priceImpact 1`] = `0.025965024053061055`;
+exports[`splitTwammOrder > various pools > two pools, one with 10x liquidity, token1 - priceImpact 1`] = `0.025965958383309635`;
 
 exports[`splitTwammOrder > various pools > two pools, one with 10x liquidity, token1 1`] = `
 [
@@ -106,7 +106,7 @@ exports[`splitTwammOrder > various pools > two pools, one with 10x liquidity, to
 ]
 `;
 
-exports[`splitTwammOrder > various pools > two pools, same liquidity, different rates, maxSplits 1, token0 - priceImpact 1`] = `0.07656158303794594`;
+exports[`splitTwammOrder > various pools > two pools, same liquidity, different rates, maxSplits 1, token0 - priceImpact 1`] = `0.07656065959952885`;
 
 exports[`splitTwammOrder > various pools > two pools, same liquidity, different rates, maxSplits 1, token0 1`] = `
 [
@@ -118,7 +118,7 @@ exports[`splitTwammOrder > various pools > two pools, same liquidity, different 
 ]
 `;
 
-exports[`splitTwammOrder > various pools > two pools, same liquidity, different rates, maxSplits 1, token1 - priceImpact 1`] = `0.820684001980467`;
+exports[`splitTwammOrder > various pools > two pools, same liquidity, different rates, maxSplits 1, token1 - priceImpact 1`] = `0.08965890935085709`;
 
 exports[`splitTwammOrder > various pools > two pools, same liquidity, different rates, maxSplits 1, token1 1`] = `
 [
@@ -130,7 +130,7 @@ exports[`splitTwammOrder > various pools > two pools, same liquidity, different 
 ]
 `;
 
-exports[`splitTwammOrder > various pools > two pools, same liquidity, same token1 sale rate change for both pools, token0 - priceImpact 1`] = `0.8878169479208314`;
+exports[`splitTwammOrder > various pools > two pools, same liquidity, same token1 sale rate change for both pools, token0 - priceImpact 1`] = `0.05609058203462155`;
 
 exports[`splitTwammOrder > various pools > two pools, same liquidity, same token1 sale rate change for both pools, token0 1`] = `
 [
@@ -147,7 +147,7 @@ exports[`splitTwammOrder > various pools > two pools, same liquidity, same token
 ]
 `;
 
-exports[`splitTwammOrder > various pools > two pools, same liquidity, same token1 sale rate change for both pools, token1 - priceImpact 1`] = `0.5179910018257763`;
+exports[`splitTwammOrder > various pools > two pools, same liquidity, same token1 sale rate change for both pools, token1 - priceImpact 1`] = `0.035982967767129184`;
 
 exports[`splitTwammOrder > various pools > two pools, same liquidity, same token1 sale rate change for both pools, token1 1`] = `
 [
@@ -164,7 +164,7 @@ exports[`splitTwammOrder > various pools > two pools, same liquidity, same token
 ]
 `;
 
-exports[`splitTwammOrder > various pools > two pools, same liquidity, token0 - priceImpact 1`] = `0.0444157965480108`;
+exports[`splitTwammOrder > various pools > two pools, same liquidity, token0 - priceImpact 1`] = `0.04441484096380721`;
 
 exports[`splitTwammOrder > various pools > two pools, same liquidity, token0 1`] = `
 [
@@ -181,7 +181,7 @@ exports[`splitTwammOrder > various pools > two pools, same liquidity, token0 1`]
 ]
 `;
 
-exports[`splitTwammOrder > various pools > two pools, same liquidity, token1 - priceImpact 1`] = `0.04441388537864802`;
+exports[`splitTwammOrder > various pools > two pools, same liquidity, token1 - priceImpact 1`] = `0.04441484096380721`;
 
 exports[`splitTwammOrder > various pools > two pools, same liquidity, token1 1`] = `
 [
@@ -198,7 +198,7 @@ exports[`splitTwammOrder > various pools > two pools, same liquidity, token1 1`]
 ]
 `;
 
-exports[`splitTwammOrder > various pools > two pools, same liquidity, token1 sale rate change for one pool, token0 - priceImpact 1`] = `0.8037556757440988`;
+exports[`splitTwammOrder > various pools > two pools, same liquidity, token1 sale rate change for one pool, token0 - priceImpact 1`] = `0.09812126015792043`;
 
 exports[`splitTwammOrder > various pools > two pools, same liquidity, token1 sale rate change for one pool, token0 1`] = `
 [
@@ -210,7 +210,7 @@ exports[`splitTwammOrder > various pools > two pools, same liquidity, token1 sal
 ]
 `;
 
-exports[`splitTwammOrder > various pools > two pools, same liquidity, token1 sale rate change for one pool, token1 - priceImpact 1`] = `0.06768594231901111`;
+exports[`splitTwammOrder > various pools > two pools, same liquidity, token1 sale rate change for one pool, token1 - priceImpact 1`] = `0.06768687463213663`;
 
 exports[`splitTwammOrder > various pools > two pools, same liquidity, token1 sale rate change for one pool, token1 1`] = `
 [
