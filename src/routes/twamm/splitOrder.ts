@@ -11,9 +11,12 @@ export type TwammSaleRateDeltaMap = {
 };
 
 export type TwammOrderSplitResult = {
-  node: TwammPool;
-  amount: bigint;
-  otherTokenAmount: bigint;
+  orders: {
+    node: TwammPool;
+    amount: bigint;
+    otherTokenAmount: bigint;
+  }[];
+  priceImpact: number;
 };
 
 export function splitTwammOrder(
@@ -23,7 +26,7 @@ export function splitTwammOrder(
   isToken1: boolean,
   pools: TwammPool[],
   maxSplits: number
-): TwammOrderSplitResult[] {
+): TwammOrderSplitResult {
   const smallestSplitAmount = amount / 2n ** BigInt(maxSplits);
   const timeWindow = BigInt(endTime - startTime);
   const numPieces = Math.pow(2, maxSplits);
@@ -147,17 +150,60 @@ export function splitTwammOrder(
     }
   }
 
-  return topPools
+  const orders = topPools
     .map((node) => {
-      const nodeAmount = nodeWithAmounts.get(node);
+      const { amount, otherTokenAmount } = nodeWithAmounts.get(node) ?? {
+        amount: 0n,
+        otherTokenAmount: 0n,
+      };
 
       return {
         node,
-        amount: nodeAmount?.amount ?? 0n,
-        otherTokenAmount: nodeAmount?.otherTokenAmount ?? 0n,
+        amount,
+        otherTokenAmount,
       };
     })
     .filter((pool) => pool.amount !== 0n && pool.otherTokenAmount > 0n);
+
+  if (orders.length == 0) {
+    throw new Error("Invalid order split");
+  }
+
+  const { executionInput, executionOutput, output } = orders.reduce<{
+    executionInput: number;
+    executionOutput: number;
+    output: number;
+  }>(
+    (memo, { node, amount }) => {
+      const perSecondAmount = amount / timeWindow;
+
+      const { calculatedAmount: executionOutput } = node.quote({
+        tokenAmount: {
+          token: isToken1 ? node.key.token1 : node.key.token0,
+          amount: perSecondAmount,
+        },
+        meta: { block: { number: 0, time: startTime } },
+      });
+
+      const currentPrice = isToken1
+        ? 1 / (Number(node.state.sqrtRatio) / 2 ** 128) ** 2
+        : (Number(node.state.sqrtRatio) / 2 ** 128) ** 2;
+
+      return {
+        executionInput: memo.executionInput + Number(perSecondAmount),
+        executionOutput: memo.executionOutput + Number(executionOutput),
+        output: memo.output + Number(amount) * currentPrice,
+      };
+    },
+    { executionInput: 0, executionOutput: 0, output: 0 }
+  );
+
+  const executionPrice = executionOutput / executionInput;
+  const currentPrice = output / Number(amount);
+
+  const priceImpact = Math.abs((executionPrice - currentPrice) / currentPrice);
+
+  return { orders, priceImpact };
 }
 
 function quoteOtherTokenAmount(

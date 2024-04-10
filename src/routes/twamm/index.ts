@@ -90,6 +90,9 @@ export class GetSplitTWAPOrderByDate extends EkuboAPIRoute {
         description: "The split TWAP order",
         contentType: "application/json",
         schema: z.object({
+          priceImpact: z.number().min(0).openapi({
+            description: "The price impact of the order on the pool",
+          }),
           orders: z
             .array(
               z.object({
@@ -153,23 +156,25 @@ export class GetSplitTWAPOrderByDate extends EkuboAPIRoute {
       return error(400, "Invalid startTime parameters");
     }
 
-    const orders = await splitOrder(
-      sellToken,
-      buyToken,
-      startTime,
-      endTime,
-      amount,
-      maxSplits,
-      queries
-    );
-
-    if (orders.length == 0) {
+    let splitResult: TwammOrderSplitResult;
+    try {
+      splitResult = await splitOrder(
+        sellToken,
+        buyToken,
+        startTime,
+        endTime,
+        amount,
+        maxSplits,
+        queries
+      );
+    } catch (e) {
       return error(400, "No pools available");
     }
 
     return json(
       {
-        orders: orders.map((order) => {
+        priceImpact: splitResult.priceImpact,
+        orders: splitResult.orders.map((order) => {
           return {
             amount: order.amount.toString(),
             order_key: {
@@ -199,7 +204,7 @@ async function splitOrder(
   amount: bigint,
   maxSplits: number,
   queries: Queries
-): Promise<TwammOrderSplitResult[]> {
+): Promise<TwammOrderSplitResult> {
   const sellTokenAddress: string = sellToken.l2_token_address;
   const buyTokenAddress: string = buyToken.l2_token_address;
 
