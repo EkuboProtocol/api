@@ -7,9 +7,14 @@ import { IRequest, json } from "itty-router";
 import { EkuboAPIRoute, RequestContext } from "../../shared/context";
 import { num } from "starknet";
 import { createQueries } from "../../queries";
-import { NumericType } from "../../shared/validation/address";
+import {
+  DecimalStringType,
+  NumericType,
+} from "../../shared/validation/address";
 import { getAllTokens, getTokenByAddress } from "../meta/tokens";
 import Decimal from "decimal.js-light";
+import { getCachedNode } from "../quote/quoteNodeCaching";
+import { z } from "zod";
 
 export class GetPoolStates extends OpenAPIRoute {
   static route = "/pools";
@@ -32,7 +37,7 @@ export class GetPoolStates extends OpenAPIRoute {
     const queries = await createQueries(env);
 
     const { rows } = await queries.withinTransaction(() =>
-      queries.getAllPoolsWithStates(),
+      queries.getAllPoolsWithStates()
     );
 
     return json(
@@ -54,7 +59,7 @@ export class GetPoolStates extends OpenAPIRoute {
         headers: {
           "cache-control": "public, max-age=180, must-revalidate",
         },
-      },
+      }
     );
   }
 }
@@ -119,10 +124,19 @@ export class GetPoolKeyHash extends OpenAPIRoute {
         headers: {
           "cache-control": "public, immutable, max-age=86400",
         },
-      },
+      }
     );
   }
 }
+
+const LiquidityResponseSchema = z.array(
+  z.object({
+    tick: DecimalStringType,
+    net_liquidity_delta_diff: DecimalStringType,
+  })
+);
+
+type LiquidityResponseType = z.infer<typeof LiquidityResponseSchema>;
 
 export class GetPoolLiquidity extends EkuboAPIRoute {
   static route = "/pools/:keyHash/liquidity";
@@ -137,6 +151,7 @@ export class GetPoolLiquidity extends EkuboAPIRoute {
     },
     responses: {
       "200": {
+        schema: z.array(z.object({})),
         description: "The current liquidity chart for the given pool key hash",
         contentType: "application/json",
       },
@@ -148,9 +163,18 @@ export class GetPoolLiquidity extends EkuboAPIRoute {
 
     const queries = await createQueries(env);
 
-    const { rows } = await queries.withinTransaction(() =>
-      queries.getPoolLiquidityGraph(poolKeyHash),
-    );
+    const node = getCachedNode(poolKeyHash);
+
+    const rows: LiquidityResponseType = node
+      ? node.sortedTicks.map((st) => ({
+          tick: st.tick.toString(),
+          net_liquidity_delta_diff: st.liquidityDelta.toString(),
+        }))
+      : (
+          await queries.withinTransaction(() =>
+            queries.getPoolLiquidityGraph(poolKeyHash)
+          )
+        ).rows;
 
     return json(
       {
@@ -158,9 +182,9 @@ export class GetPoolLiquidity extends EkuboAPIRoute {
       },
       {
         headers: {
-          "cache-control": "public, max-age=600, must-revalidate",
+          "cache-control": "public, max-age=1800, must-revalidate",
         },
-      },
+      }
     );
   }
 }

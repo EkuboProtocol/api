@@ -773,7 +773,7 @@ export class Queries {
       volatility_in_ticks: number;
     }>({
       text: `
-          WITH times AS (SELECT $1::timestamptz                      AS end,
+          WITH times AS (SELECT $1::timestamptz                      AS "end",
                                 $1::timestamptz - ($2 * INTERVAL '1 days') AS start),
 
                prices AS (SELECT pk.token0,
