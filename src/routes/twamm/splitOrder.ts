@@ -25,7 +25,8 @@ export function splitTwammOrder(
   endTime: number,
   isToken1: boolean,
   pools: TwammPool[],
-  maxSplits: number
+  maxSplits: number,
+  averageBlockTime: bigint
 ): TwammOrderSplitResult {
   const smallestSplitAmount = amount / 2n ** BigInt(maxSplits);
   const timeWindow = BigInt(endTime - startTime);
@@ -169,13 +170,33 @@ export function splitTwammOrder(
     throw new Error("Invalid order split");
   }
 
+  const priceImpact = getPriceImpact(
+    orders,
+    timeWindow,
+    startTime,
+    isToken1,
+    amount,
+    averageBlockTime
+  );
+
+  return { orders, priceImpact };
+}
+
+export function getPriceImpact(
+  orders: { node: TwammPool; amount: bigint; otherTokenAmount: bigint }[],
+  timeWindow: bigint,
+  startTime: number,
+  isToken1: boolean,
+  amount: bigint,
+  averageBlockTime: bigint
+) {
   const { executionInput, executionOutput, output } = orders.reduce<{
     executionInput: number;
     executionOutput: number;
     output: number;
   }>(
     (memo, { node, amount }) => {
-      const perSecondAmount = amount / timeWindow;
+      const perBlockAmount = (amount * averageBlockTime) / timeWindow;
 
       // first catch up the twamm orders to get current price
       const { stateAfter } = node.quote({
@@ -193,14 +214,14 @@ export function splitTwammOrder(
       const { calculatedAmount: executionOutput } = node.quote({
         tokenAmount: {
           token: isToken1 ? node.key.token1 : node.key.token0,
-          amount: perSecondAmount,
+          amount: perBlockAmount,
         },
         overrideState: stateAfter,
         meta: { block: { number: 0, time: startTime } },
       });
 
       return {
-        executionInput: memo.executionInput + Number(perSecondAmount),
+        executionInput: memo.executionInput + Number(perBlockAmount),
         executionOutput: memo.executionOutput + Number(executionOutput),
         output: memo.output + Number(amount) * currentPrice,
       };
@@ -211,8 +232,7 @@ export function splitTwammOrder(
   const executionPrice = executionOutput / executionInput;
   const currentPrice = output / Number(amount);
   const priceImpact = Math.abs((executionPrice - currentPrice) / currentPrice);
-
-  return { orders, priceImpact };
+  return priceImpact;
 }
 
 function quoteOtherTokenAmount(

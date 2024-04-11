@@ -156,9 +156,9 @@ export class GetSplitTWAPOrderByDate extends EkuboAPIRoute {
       return error(400, "Invalid startTime parameters");
     }
 
-    let splitResult: TwammOrderSplitResult;
+    let splitOrderResult;
     try {
-      splitResult = await splitOrder(
+      splitOrderResult = await splitOrder(
         sellToken,
         buyToken,
         startTime,
@@ -171,8 +171,11 @@ export class GetSplitTWAPOrderByDate extends EkuboAPIRoute {
       return error(400, "No pools available");
     }
 
+    const { splitResult, averageBlockTime } = splitOrderResult;
+
     return json(
       {
+        averageBlockTime,
         priceImpact: splitResult.priceImpact,
         orders: splitResult.orders.map((order) => {
           return {
@@ -204,7 +207,10 @@ async function splitOrder(
   amount: bigint,
   maxSplits: number,
   queries: Queries
-): Promise<TwammOrderSplitResult> {
+): Promise<{
+  splitResult: TwammOrderSplitResult;
+  averageBlockTime: number;
+}> {
   const sellTokenAddress: string = sellToken.l2_token_address;
   const buyTokenAddress: string = buyToken.l2_token_address;
 
@@ -213,15 +219,17 @@ async function splitOrder(
       ? [buyTokenAddress, sellTokenAddress]
       : [sellTokenAddress, buyTokenAddress];
 
-  const [{ rows: relevantPools }, meta] = await queries.withinTransaction(() =>
-    Promise.all([
-      queries.getAllRelevantTwammPoolStates({
-        token0: BigInt(token0),
-        token1: BigInt(token1),
-      }),
-      getBlockMeta(queries),
-    ])
-  );
+  const [{ rows: relevantPools }, averageBlockTime, meta] =
+    await queries.withinTransaction(() =>
+      Promise.all([
+        queries.getAllRelevantTwammPoolStates({
+          token0: BigInt(token0),
+          token1: BigInt(token1),
+        }),
+        queries.getAverageBlockTime(),
+        getBlockMeta(queries),
+      ])
+    );
 
   const poolKeyHashes = relevantPools.map((p) => BigInt(p.key_hash));
 
@@ -238,12 +246,16 @@ async function splitOrder(
 
   const endTimeSeconds = Math.floor(endTime.getTime() / 1000);
 
-  return splitTwammOrder(
-    amount,
-    startTimeSeconds,
-    endTimeSeconds,
-    sellTokenAddress === token1,
-    twammNodes,
-    maxSplits
-  );
+  return {
+    splitResult: splitTwammOrder(
+      amount,
+      startTimeSeconds,
+      endTimeSeconds,
+      sellTokenAddress === token1,
+      twammNodes,
+      maxSplits,
+      BigInt(averageBlockTime)
+    ),
+    averageBlockTime,
+  };
 }

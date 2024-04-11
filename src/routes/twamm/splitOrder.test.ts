@@ -4,8 +4,6 @@ import { TwammPoolStateQueryResult } from "../../queries";
 import { MAX_TICK_SPACING, toSqrtRatio } from "../quote/math/tick";
 import { TwammPool } from "../quote/nodes/twammPool";
 
-const DURATION = 16n;
-
 const BASE_POOL_STATE = {
   token0: "0",
   token1: "1",
@@ -372,7 +370,7 @@ const TEST_CASES: TwammOrderSplitTestCase[] = [
 describe(splitTwammOrder, () => {
   describe("failure cases", async () => {
     const defaultStartTime = Math.floor(Date.now() / 1000);
-    const defaultEndTime = defaultStartTime + Number(DURATION);
+    const defaultEndTime = defaultStartTime + Number(16);
 
     for (const testCase of FAIL_TEST_CASES) {
       const { description, amount, poolStates, orderData, maxSplits } =
@@ -410,7 +408,8 @@ describe(splitTwammOrder, () => {
               endTime,
               isToken1,
               pools,
-              maxSplits
+              maxSplits,
+              1n
             )
           ).toThrowError("Invalid order split");
         });
@@ -420,7 +419,7 @@ describe(splitTwammOrder, () => {
 
   describe("various pools", async () => {
     const defaultStartTime = Math.floor(Date.now() / 1000);
-    const defaultEndTime = defaultStartTime + Number(DURATION);
+    const defaultEndTime = defaultStartTime + Number(16);
 
     for (const testCase of TEST_CASES) {
       const { description, amount, poolStates, orderData, maxSplits } =
@@ -456,7 +455,8 @@ describe(splitTwammOrder, () => {
           endTime,
           isToken1,
           pools,
-          maxSplits
+          maxSplits,
+          1n
         );
         it(`${description}, token${isToken1 ? "1" : "0"}`, () => {
           expect(
