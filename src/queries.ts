@@ -193,48 +193,42 @@ export class Queries {
     });
   }
 
-  public async getTwammPoolStateByStateKey({
+  public async getTwammPoolStateByKey({
     token0,
     token1,
     fee,
   }: {
     token0: bigint;
     token1: bigint;
-    fee: bigint;
+    fee?: bigint;
   }) {
-    return this.client.query<TwammPoolStateQueryResult>({
+    return this.client.query<
+      Pick<
+        TwammPoolStateQueryResult,
+        "token0_sale_rate" | "token1_sale_rate" | "last_execution_time"
+      >
+    >({
       text: `
-          SELECT tpsm.pool_key_hash,
-                 token0,
-                 token1,
-                 fee,
-                 tick_spacing,
-                 extension,
-                 sqrt_ratio,
-                 tick,
-                 liquidity,
-                 token0_sale_rate,
+          SELECT token0_sale_rate,
                  token1_sale_rate,
-                 tpsm.last_virtual_execution_time AS last_execution_time,
-                 tpsm.last_event_id,
-                 psm.last_liquidity_update_event_id
+                 tpsm.last_virtual_execution_time AS last_execution_time
           FROM twamm_pool_states_materialized AS tpsm
                    JOIN pool_states_materialized psm ON psm.pool_key_hash = tpsm.pool_key_hash
                    JOIN pool_keys pk ON tpsm.pool_key_hash = pk.key_hash
-          WHERE pk.token0 = $1 and pk.token1 = $2 and pk.fee = $3
+          WHERE pk.token0 = $1 and pk.token1 = $2 and pk.fee = COALESCE($3, pk.fee)
       `,
-      values: [token0, token1, fee],
+      values: [token0, token1, fee ?? null],
     });
   }
 
-  public async getSaleRateDeltasByPoolKey({
+  public async getSaleRateDeltasByKey({
     token0,
     token1,
     fee,
   }: {
     token0: bigint;
     token1: bigint;
-    fee: bigint;
+    fee?: bigint;
   }) {
     return this.client.query<{
       time: Date;
@@ -247,9 +241,10 @@ export class Queries {
                    JOIN pool_keys pk ON tsrdm.pool_key_hash = pk.key_hash
           WHERE pk.token0 = $1
             AND pk.token1 = $2
-            AND pk.fee = $3
+            AND pk.fee = COALESCE($3, pk.fee)
+          ORDER BY time
       `,
-      values: [token0, token1, fee],
+      values: [token0, token1, fee ?? null],
     });
   }
 

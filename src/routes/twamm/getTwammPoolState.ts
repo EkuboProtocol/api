@@ -7,12 +7,28 @@ import { error, IRequest, json } from "itty-router";
 import { RequestContext } from "../../shared/context";
 import { createQueries } from "../../queries";
 import {
+  DecimalStringType,
   NumericType,
   TokenIdentifierType,
 } from "../../shared/validation/address";
 import { z } from "zod";
 import { getAllTokens, getTokenByIdentifier } from "../meta/tokens";
 import { MAX_U128 } from "../quote/math/constants";
+
+const SaleRateDelta = z.object({
+  time: z.number().int().min(0),
+  token0SaleRateDelta: DecimalStringType,
+  token1SaleRateDelta: DecimalStringType,
+});
+
+const GetTwammStateResponseType = z.object({
+  saleRateDeltas: z.array(SaleRateDelta),
+});
+
+const SharedGetPairStateParameters = {
+  tokenA: Path(TokenIdentifierType, { required: true, example: "ETH" }),
+  tokenB: Path(TokenIdentifierType, { required: true, example: "USDC" }),
+};
 
 export class GetTwammPoolState extends OpenAPIRoute {
   static route = "/twap/pools/:tokenA/:tokenB/:fee";
@@ -23,15 +39,14 @@ export class GetTwammPoolState extends OpenAPIRoute {
     description:
       "Returns the current state of the given TWAMM pool, including the future order expirations",
     parameters: {
-      tokenA: Path(TokenIdentifierType, { required: true, example: "ETH" }),
-      tokenB: Path(TokenIdentifierType, { required: true, example: "USDC" }),
+      ...SharedGetPairStateParameters,
       fee: Path(NumericType, { required: true, example: "" }),
     },
     responses: {
       "200": {
         description: "The current state of the given TWAMM pool",
         contentType: "application/json",
-        schema: z.object({}),
+        schema: GetTwammStateResponseType,
       },
     },
   };
@@ -68,12 +83,12 @@ export class GetTwammPoolState extends OpenAPIRoute {
     const [{ rows: stateResults }, { rows: saleRateDeltas }] =
       await queries.withinTransaction(() =>
         Promise.all([
-          queries.getTwammPoolStateByStateKey({
+          queries.getTwammPoolStateByKey({
             token0,
             token1,
             fee,
           }),
-          queries.getSaleRateDeltasByPoolKey({
+          queries.getSaleRateDeltasByKey({
             token0,
             token1,
             fee,
@@ -88,20 +103,106 @@ export class GetTwammPoolState extends OpenAPIRoute {
     const state = stateResults[0];
 
     return json(
-      {
-        token0SaleRate: state.token0_sale_rate.toString(),
-        token1SaleRate: state.token1_sale_rate.toString(),
-        lastVirtualOrderExecutionTime:
-          state.last_execution_time.getTime() / 1000,
-        saleRateDeltas: saleRateDeltas.map((srd) => ({
-          time: srd.time.getTime() / 1000,
-          token0SaleRateDelta: srd.net_sale_rate_delta0.toString(),
-          token1SaleRateDelta: srd.net_sale_rate_delta1.toString(),
-        })),
+      <z.infer<typeof GetTwammStateResponseType>>{
+        saleRateDeltas: [
+          {
+            time: state.last_execution_time.getTime() / 1000,
+            token0SaleRateDelta: state.token0_sale_rate.toString(),
+            token1SaleRateDelta: state.token1_sale_rate.toString(),
+          },
+        ].concat(
+          saleRateDeltas.map((srd) => ({
+            time: srd.time.getTime() / 1000,
+            token0SaleRateDelta: srd.net_sale_rate_delta0.toString(),
+            token1SaleRateDelta: srd.net_sale_rate_delta1.toString(),
+          }))
+        ),
       },
       {
         headers: {
-          "cache-control": "public, max-age=60, must-revalidate",
+          "cache-control": "public, max-age=600, must-revalidate",
+        },
+      }
+    );
+  }
+}
+
+export class GetTwammPairState extends OpenAPIRoute {
+  static route = "/twap/pair/:tokenA/:tokenB";
+
+  static schema: OpenAPIRouteSchema = {
+    tags: ["TWAP"],
+    summary: "Get TWAP pair",
+    description:
+      "Returns the current state of the given TWAMM pair, including the future order expirations",
+    parameters: SharedGetPairStateParameters,
+    responses: {
+      "200": {
+        description: "The current state of the given TWAMM pair",
+        contentType: "application/json",
+        schema: GetTwammStateResponseType,
+      },
+    },
+  };
+
+  async handle({ params }: IRequest, { env }: RequestContext) {
+    const queries = await createQueries(env);
+
+    const tokens = await getAllTokens(env, queries);
+
+    const tokenA = getTokenByIdentifier(tokens, params.tokenA);
+    if (!tokenA) {
+      return error(404, "`tokenA` not found");
+    }
+    const tokenB = getTokenByIdentifier(tokens, params.tokenB);
+    if (!tokenB) {
+      return error(404, "`tokenB` not found");
+    }
+
+    const [token0, token1] =
+      BigInt(tokenA.l2_token_address) < BigInt(tokenB.l2_token_address)
+        ? [BigInt(tokenA.l2_token_address), BigInt(tokenB.l2_token_address)]
+        : [BigInt(tokenB.l2_token_address), BigInt(tokenA.l2_token_address)];
+
+    if (token0 === token1) {
+      return error(400, "`tokenA` cannot be same as `tokenB`");
+    }
+
+    const [{ rows: stateResults }, { rows: saleRateDeltas }] =
+      await queries.withinTransaction(() =>
+        Promise.all([
+          queries.getTwammPoolStateByKey({
+            token0,
+            token1,
+          }),
+          queries.getSaleRateDeltasByKey({
+            token0,
+            token1,
+          }),
+        ])
+      );
+
+    return json(
+      <z.infer<typeof GetTwammStateResponseType>>{
+        saleRateDeltas: stateResults
+          .map((s) => ({
+            time: s.last_execution_time.getTime() / 1000,
+            token0SaleRateDelta: s.token0_sale_rate.toString(),
+            token1SaleRateDelta: s.token1_sale_rate.toString(),
+          }))
+          .concat(
+            saleRateDeltas.map((srd) => ({
+              time: srd.time.getTime() / 1000,
+              token0SaleRateDelta: srd.net_sale_rate_delta0.toString(),
+              token1SaleRateDelta: srd.net_sale_rate_delta1.toString(),
+            }))
+          )
+          // sort is necessary here because we have state across many pools concatenated to sale rate delta across many pools
+          .sort(({ time: t0 }, { time: t1 }) => t0 - t1),
+      },
+      {
+        headers: {
+          "cache-control": "public, max-age=600, must-revalidate",
         },
       }
     );
