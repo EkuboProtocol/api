@@ -1348,15 +1348,14 @@ export class Queries {
   }): Promise<{ [key_hash: string]: Tick[] }> {
     const { rows } = await this.client.query<{
       pool_key_hash: string;
-      ticks: { tick: number; net_liquidity_delta_diff: string }[];
+      liquidity_delta: string;
+      tick: number;
     }>({
       text: `
-        SELECT pool_key_hash,
-               JSONB_AGG(JSONB_BUILD_OBJECT('tick', tick, 'net_liquidity_delta_diff',
-                                            net_liquidity_delta_diff)) AS ticks
+        SELECT pool_key_hash, tick, net_liquidity_delta_diff AS liquidity_delta
         FROM per_pool_per_tick_liquidity_materialized
         WHERE pool_key_hash = ANY ($1::NUMERIC[])
-        GROUP BY pool_key_hash
+        ORDER BY pool_key_hash, tick
       `,
       values: [poolKeyHashes],
     });
@@ -1371,12 +1370,10 @@ export class Queries {
     );
 
     rows.forEach((value) => {
-      map[value.pool_key_hash] = value.ticks
-        .sort(({ tick: t0 }, { tick: t1 }) => t0 - t1)
-        .map(({ tick, net_liquidity_delta_diff }) => ({
-          tick,
-          liquidityDelta: BigInt(net_liquidity_delta_diff),
-        }));
+      map[value.pool_key_hash].push({
+        tick: value.tick,
+        liquidityDelta: BigInt(value.liquidity_delta),
+      });
     });
 
     return map;
