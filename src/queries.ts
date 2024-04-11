@@ -63,16 +63,16 @@ export class Queries {
       timestamp: string;
     }>({
       text: `
-                SELECT number, hash, time AS timestamp
-                FROM blocks
-                WHERE number = $1
-                   OR $1 IS NULL
-                ORDER BY number DESC
-                LIMIT 1
-            `,
+        SELECT number, hash, time AS timestamp
+        FROM blocks
+        WHERE number = $1
+           OR $1 IS NULL
+        ORDER BY number DESC
+        LIMIT 1
+      `,
       values: [blockTag === "latest" ? null : blockTag],
     });
-    if (rows.length !== 1) throw new Error("No blocks");
+    if (rows.length !== 1) return null;
     return rows[0];
   }
 

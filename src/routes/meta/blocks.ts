@@ -1,4 +1,4 @@
-import { IRequest, json } from "itty-router";
+import { error, IRequest, json } from "itty-router";
 import { EkuboAPIRoute, RequestContext } from "../../shared/context";
 import { OpenAPIRouteSchema, Path } from "@cloudflare/itty-router-openapi";
 import { z } from "zod";
@@ -16,7 +16,7 @@ export class GetBlock extends EkuboAPIRoute {
         {
           description:
             "The tag of the block to get or the number of a block containing events",
-        },
+        }
       ),
     },
     responses: {
@@ -27,7 +27,7 @@ export class GetBlock extends EkuboAPIRoute {
             number: z.number({ description: "The number of the block" }).int(),
             timestamp: z.date({ description: "The timestamp of the block" }),
           },
-          { description: "Description of the latest block" },
+          { description: "Description of the latest block" }
         ),
         contentType: "application/json",
       },
@@ -37,11 +37,15 @@ export class GetBlock extends EkuboAPIRoute {
   public async handle(request: IRequest, { env }: RequestContext) {
     const queries = await createQueries(env);
 
-    const block = await queries.getBlock(
+    const blockTag =
       request.params.blockTag === "latest"
         ? "latest"
-        : Number(request.params.blockTag),
-    );
+        : Number(request.params.blockTag);
+    const block = await queries.getBlock(blockTag);
+
+    if (block === null) {
+      return error(404, `Block "${blockTag}" not found`);
+    }
 
     return json(
       {
@@ -50,9 +54,9 @@ export class GetBlock extends EkuboAPIRoute {
       },
       {
         headers: {
-          "cache-control": "public, max-age=10, must-revalidate",
+          "cache-control": "public, max-age=180, must-revalidate",
         },
-      },
+      }
     );
   }
 }
