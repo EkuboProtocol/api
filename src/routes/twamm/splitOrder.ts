@@ -10,12 +10,16 @@ export type TwammSaleRateDeltaMap = {
   [key_hash: string]: TwammSaleRateDelta[];
 };
 
+type TwammOrderSplit = {
+  node: TwammPool;
+  amount: bigint;
+  otherTokenAmount: bigint;
+  startTime: number;
+  endTime: number;
+};
+
 export type TwammOrderSplitResult = {
-  orders: {
-    node: TwammPool;
-    amount: bigint;
-    otherTokenAmount: bigint;
-  }[];
+  orders: TwammOrderSplit[];
   priceImpact: number;
 };
 
@@ -162,6 +166,8 @@ export function splitTwammOrder(
         node,
         amount,
         otherTokenAmount,
+        startTime,
+        endTime,
       };
     })
     .filter((pool) => pool.amount !== 0n && pool.otherTokenAmount > 0n);
@@ -170,21 +176,13 @@ export function splitTwammOrder(
     throw new Error("Invalid order split");
   }
 
-  const priceImpact = getPriceImpact(
-    orders,
-    timeWindow,
-    startTime,
-    isToken1,
-    averageBlockTime
-  );
+  const priceImpact = getPriceImpact(orders, isToken1, averageBlockTime);
 
   return { orders, priceImpact };
 }
 
 function getPriceImpact(
-  orders: { node: TwammPool; amount: bigint; otherTokenAmount: bigint }[],
-  timeWindow: bigint,
-  startTime: number,
+  orders: TwammOrderSplit[],
   isToken1: boolean,
   averageBlockTime: bigint
 ) {
@@ -193,7 +191,7 @@ function getPriceImpact(
     output: number;
     executionOutput: number;
   }>(
-    (memo, { node, amount }) => {
+    (memo, { node, amount, startTime, endTime }) => {
       // first catch up the twamm orders to get current price
       const { stateAfter } = node.quote({
         tokenAmount: {
@@ -203,7 +201,8 @@ function getPriceImpact(
         meta: { block: { number: 0, time: startTime } },
       });
 
-      const perBlockAmount = (amount * averageBlockTime) / timeWindow;
+      const perBlockAmount =
+        (amount * averageBlockTime) / BigInt(endTime - startTime);
 
       // output amount with no fees and infinite liquidity
       const poolCurrentPrice = isToken1

@@ -184,6 +184,7 @@ export class GetSplitTWAPOrderByDate extends EkuboAPIRoute {
               sell_token: sellToken.l2_token_address,
               buy_token: buyToken.l2_token_address,
               fee: num.toHex(BigInt(order.node.key.fee)),
+              // todo: when implementing time splitting, we should use the order start/end time
               start_time: startTime.getTime() / 1000,
               end_time: endTime.getTime() / 1000,
             },

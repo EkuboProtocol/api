@@ -124,6 +124,36 @@ const TEST_CASES: TwammOrderSplitTestCase[] = [
     maxSplits: 1,
   },
   {
+    description: "two pools, one with no liquidity",
+    amount: 10n ** 18n,
+    poolStates: [
+      {
+        ...BASE_POOL_STATE,
+        pool_key_hash: "1",
+        fee: ((1n << 128n) / 100n).toString(),
+        token0_sale_rate: ((10n * 10n ** 18n) << 32n).toString(),
+        token1_sale_rate: ((10n * 10n ** 18n) << 32n).toString(),
+        liquidity: "0",
+        last_execution_time: new Date(
+          (Math.floor(new Date().getTime() / 1000) - 16) * 1000
+        ),
+      } as TwammPoolStateQueryResult,
+      {
+        ...BASE_POOL_STATE,
+        pool_key_hash: "2",
+        fee: ((2n * (1n << 128n)) / 100n).toString(),
+        token0_sale_rate: ((10n ** 18n) << 32n).toString(),
+        token1_sale_rate: ((10n ** 18n) << 32n).toString(),
+        liquidity: (10n ** 18n).toString(),
+        last_execution_time: new Date(
+          (Math.floor(new Date().getTime() / 1000) - 16) * 1000
+        ),
+      } as TwammPoolStateQueryResult,
+    ],
+    orderData: {},
+    maxSplits: 1,
+  },
+  {
     description: "two pools, one with 10x liquidity",
     amount: 10n ** 18n,
     poolStates: [

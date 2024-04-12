@@ -140,6 +140,30 @@ exports[`splitTwammOrder > various pools > two pools, one with 10x liquidity, to
 ]
 `;
 
+exports[`splitTwammOrder > various pools > two pools, one with no liquidity, token0 - priceImpact 1`] = `0.07656065959952885`;
+
+exports[`splitTwammOrder > various pools > two pools, one with no liquidity, token0 1`] = `
+[
+  {
+    "amount": 1000000000000000000n,
+    "fee": 6805647338418769269267492148635364229n,
+    "otherTokenAmount": 29286323767419650n,
+  },
+]
+`;
+
+exports[`splitTwammOrder > various pools > two pools, one with no liquidity, token1 - priceImpact 1`] = `0.07656065959952885`;
+
+exports[`splitTwammOrder > various pools > two pools, one with no liquidity, token1 1`] = `
+[
+  {
+    "amount": 1000000000000000000n,
+    "fee": 6805647338418769269267492148635364229n,
+    "otherTokenAmount": 29286323767419656n,
+  },
+]
+`;
+
 exports[`splitTwammOrder > various pools > two pools, same liquidity, different rates, maxSplits 1, token0 - priceImpact 1`] = `0.07656065959952885`;
 
 exports[`splitTwammOrder > various pools > two pools, same liquidity, different rates, maxSplits 1, token0 1`] = `
