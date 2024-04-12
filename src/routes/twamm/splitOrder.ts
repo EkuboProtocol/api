@@ -188,10 +188,10 @@ function getPriceImpact(
   isToken1: boolean,
   averageBlockTime: bigint
 ) {
-  const { executionInput, executionOutput, output } = orders.reduce<{
-    executionInput: number;
-    executionOutput: number;
+  const { input, output, executionOutput } = orders.reduce<{
+    input: number;
     output: number;
+    executionOutput: number;
   }>(
     (memo, { node, amount }) => {
       // first catch up the twamm orders to get current price
@@ -205,6 +205,12 @@ function getPriceImpact(
 
       const perBlockAmount = (amount * averageBlockTime) / timeWindow;
 
+      // output amount with no fees and infinite liquidity
+      const poolCurrentPrice = isToken1
+        ? 1 / (Number(stateAfter.sqrtRatio) / 2 ** 128) ** 2
+        : (Number(stateAfter.sqrtRatio) / 2 ** 128) ** 2;
+      const output = Number(perBlockAmount) * poolCurrentPrice;
+
       const { calculatedAmount: executionOutput } = node.quote({
         tokenAmount: {
           token: isToken1 ? node.key.token1 : node.key.token0,
@@ -214,23 +220,17 @@ function getPriceImpact(
         meta: { block: { number: 0, time: startTime } },
       });
 
-      // output amount with no fees and infinite liquidity
-      const currentPrice = isToken1
-        ? 1 / (Number(stateAfter.sqrtRatio) / 2 ** 128) ** 2
-        : (Number(stateAfter.sqrtRatio) / 2 ** 128) ** 2;
-      const output = Number(perBlockAmount) * currentPrice;
-
       return {
-        executionInput: memo.executionInput + Number(perBlockAmount),
-        executionOutput: memo.executionOutput + Number(executionOutput),
+        input: memo.input + Number(perBlockAmount),
         output: memo.output + output,
+        executionOutput: memo.executionOutput + Number(executionOutput),
       };
     },
-    { executionInput: 0, executionOutput: 0, output: 0 }
+    { input: 0, executionOutput: 0, output: 0 }
   );
 
-  const executionPrice = executionOutput / executionInput;
-  const currentPrice = output / executionInput;
+  const currentPrice = output / input;
+  const executionPrice = executionOutput / input;
   const priceImpact = Math.abs((executionPrice - currentPrice) / currentPrice);
   return priceImpact;
 }
