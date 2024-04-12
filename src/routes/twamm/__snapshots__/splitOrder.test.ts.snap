@@ -1,5 +1,39 @@
 // Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
 
+exports[`splitTwammOrder > various pools > large order, low liquidity, token0 - priceImpact 1`] = `0.02180608803307695`;
+
+exports[`splitTwammOrder > various pools > large order, low liquidity, token0 1`] = `
+[
+  {
+    "amount": 492187500000000000000n,
+    "fee": 170141183460469235273462165868118016n,
+    "otherTokenAmount": 11384049556n,
+  },
+  {
+    "amount": 7812500000000000000n,
+    "fee": 170141183460469235273462165868118016n,
+    "otherTokenAmount": 172732652n,
+  },
+]
+`;
+
+exports[`splitTwammOrder > various pools > large order, low liquidity, token1 - priceImpact 1`] = `0.9999998380684424`;
+
+exports[`splitTwammOrder > various pools > large order, low liquidity, token1 1`] = `
+[
+  {
+    "amount": 492187500000000000000n,
+    "fee": 170141183460469235273462165868118016n,
+    "otherTokenAmount": 18471870380972850042n,
+  },
+  {
+    "amount": 7812500000000000000n,
+    "fee": 170141183460469235273462165868118016n,
+    "otherTokenAmount": 58273705957287653n,
+  },
+]
+`;
+
 exports[`splitTwammOrder > various pools > one pool, token0 - priceImpact 1`] = `0.06768687463213663`;
 
 exports[`splitTwammOrder > various pools > one pool, token0 1`] = `
