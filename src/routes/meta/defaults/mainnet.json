@@ -53,8 +53,7 @@
     "decimals": 18,
     "l2_token_address": "0x05574eb6b8789a91466f902c380d978e472db68170ff82a5b650b95a58ddf4ad",
     "sort_order": 3,
-    "total_supply": null,
-    "hidden": true
+    "total_supply": null
   },
   {
     "name": "Wrapped liquid staked Ether 2.0",
