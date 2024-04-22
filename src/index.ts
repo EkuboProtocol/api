@@ -10,7 +10,13 @@ import {
 } from "./routes/leaderboard";
 import { GetBlock } from "./routes/meta/blocks";
 import { GetQuote, GetQuoteToPrice } from "./routes/quote";
-import { GetOverview } from "./routes/stats/overview";
+import {
+  GetOverview,
+  GetOverviewPairs,
+  GetOverviewRevenue,
+  GetOverviewTvl,
+  GetOverviewVolume,
+} from "./routes/stats/overview";
 import {
   GetPairInfo,
   GetPairLiquidity,
@@ -98,6 +104,10 @@ const router = OpenAPIRouter({
   .get(GetLeaderboardForCollector.route, GetLeaderboardForCollector)
   .get(GetQuote.route, GetQuote)
   .get(GetOverview.route, GetOverview)
+  .get(GetOverviewPairs.route, GetOverviewPairs)
+  .get(GetOverviewRevenue.route, GetOverviewRevenue)
+  .get(GetOverviewTvl.route, GetOverviewTvl)
+  .get(GetOverviewVolume.route, GetOverviewVolume)
   .get(GetPairInfo.route, GetPairInfo)
   .get(GetPairPrice.route, GetPairPrice)
   .get(GetPairVolatility.route, GetPairVolatility)
