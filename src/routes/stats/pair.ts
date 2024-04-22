@@ -52,7 +52,7 @@ export class GetPairInfo extends EkuboAPIRoute {
         queries.getVolumeByTokenByDate(thirtyDaysAgo, pair),
         queries.getRevenueByTokenByDate(thirtyDaysAgo, pair),
         queries.getTopPools(pair),
-      ]),
+      ])
     );
 
     return json(
@@ -70,7 +70,156 @@ export class GetPairInfo extends EkuboAPIRoute {
         headers: {
           "cache-control": "public, max-age=600",
         },
+      }
+    );
+  }
+}
+
+export class GetPairInfoTvl extends EkuboAPIRoute {
+  static route = "/pair/:tokenA/:tokenB/tvl";
+
+  static schema: OpenAPIRouteSchema = {
+    tags: ["Stats"],
+    summary: "Get pair TVL",
+    description: "Returns TVL stats for the pair",
+    parameters: {
+      tokenA: Path(AddressType),
+      tokenB: Path(AddressType),
+    },
+    responses: {
+      "200": {
+        description: "Information about the token pair TVL",
+        contentType: "application/json",
       },
+    },
+  };
+
+  async handle({ params }: IRequest, { env }: RequestContext) {
+    const [token0, token1] =
+      BigInt(params.tokenA) < BigInt(params.tokenB)
+        ? [BigInt(params.tokenA), BigInt(params.tokenB)]
+        : [BigInt(params.tokenB), BigInt(params.tokenA)];
+
+    const queries = await createQueries(env);
+    const pair = { token0, token1 };
+
+    const timestamp = Date.now();
+    const thirtyDaysAgo = new Date(timestamp - 1000 * 60 * 60 * 24 * 30);
+
+    const [{ rows: tvlByToken }, { rows: tvlDeltaByTokenByDate }] =
+      await queries.withinTransaction(() =>
+        Promise.all([
+          queries.getTvlByToken(pair),
+          queries.getTvlDeltaByTokenByDate(thirtyDaysAgo, pair),
+        ])
+      );
+
+    return json(
+      {
+        tvlByToken,
+        tvlDeltaByTokenByDate,
+      },
+      {
+        headers: {
+          "cache-control": "public, max-age=600",
+        },
+      }
+    );
+  }
+}
+
+export class GetPairInfoVolume extends EkuboAPIRoute {
+  static route = "/pair/:tokenA/:tokenB/volume";
+
+  static schema: OpenAPIRouteSchema = {
+    tags: ["Stats"],
+    summary: "Get pair volume",
+    description: "Returns volume stats for a given trading pair",
+    parameters: {
+      tokenA: Path(AddressType),
+      tokenB: Path(AddressType),
+    },
+    responses: {
+      "200": {
+        description: "Information about the token pair volume",
+        contentType: "application/json",
+      },
+    },
+  };
+
+  async handle({ params }: IRequest, { env }: RequestContext) {
+    const [token0, token1] =
+      BigInt(params.tokenA) < BigInt(params.tokenB)
+        ? [BigInt(params.tokenA), BigInt(params.tokenB)]
+        : [BigInt(params.tokenB), BigInt(params.tokenA)];
+
+    const queries = await createQueries(env);
+    const pair = { token0, token1 };
+
+    const timestamp = Date.now();
+    const thirtyDaysAgo = new Date(timestamp - 1000 * 60 * 60 * 24 * 30);
+
+    const [{ rows: volumeByToken }, { rows: volumeByTokenByDate }] =
+      await queries.withinTransaction(() =>
+        Promise.all([
+          queries.getTotalVolumeByToken({ pair }),
+          queries.getVolumeByTokenByDate(thirtyDaysAgo, pair),
+        ])
+      );
+
+    return json(
+      {
+        volumeByToken,
+        volumeByTokenByDate,
+      },
+      {
+        headers: {
+          "cache-control": "public, max-age=600",
+        },
+      }
+    );
+  }
+}
+
+export class GetPairInfoPools extends EkuboAPIRoute {
+  static route = "/pair/:tokenA/:tokenB/pools";
+
+  static schema: OpenAPIRouteSchema = {
+    tags: ["Stats"],
+    summary: "Get pools of pair",
+    description: "Returns pool info for a pair",
+    parameters: {
+      tokenA: Path(AddressType),
+      tokenB: Path(AddressType),
+    },
+    responses: {
+      "200": {
+        description: "Information about the pools of a token pair",
+        contentType: "application/json",
+      },
+    },
+  };
+
+  async handle({ params }: IRequest, { env }: RequestContext) {
+    const [token0, token1] =
+      BigInt(params.tokenA) < BigInt(params.tokenB)
+        ? [BigInt(params.tokenA), BigInt(params.tokenB)]
+        : [BigInt(params.tokenB), BigInt(params.tokenA)];
+
+    const queries = await createQueries(env);
+    const pair = { token0, token1 };
+
+    const { rows: topPools } = await queries.getTopPools(pair);
+
+    return json(
+      {
+        topPools,
+      },
+      {
+        headers: {
+          "cache-control": "public, max-age=600",
+        },
+      }
     );
   }
 }
@@ -96,7 +245,7 @@ export class GetPairLiquidity extends EkuboAPIRoute {
 
   async handle(
     { params: { tokenA: tokenAStr, tokenB: tokenBStr } }: IRequest,
-    { env }: RequestContext,
+    { env }: RequestContext
   ) {
     let tokenA: bigint, tokenB: bigint;
     try {
@@ -119,7 +268,7 @@ export class GetPairLiquidity extends EkuboAPIRoute {
       queries.getPairLiquidityGraph({
         token0,
         token1,
-      }),
+      })
     );
 
     return json(
@@ -130,7 +279,7 @@ export class GetPairLiquidity extends EkuboAPIRoute {
         headers: {
           "cache-control": "public, max-age=600, must-revalidate",
         },
-      },
+      }
     );
   }
 }
@@ -155,7 +304,7 @@ export class ListPairEvents extends EkuboAPIRoute {
 
   async handle(
     { params: { tokenA: tokenAStr, tokenB: tokenBStr } }: IRequest,
-    { env }: RequestContext,
+    { env }: RequestContext
   ) {
     let tokenA: bigint, tokenB: bigint;
     try {
@@ -188,7 +337,7 @@ export class ListPairEvents extends EkuboAPIRoute {
         headers: {
           "cache-control": "public, max-age=180, must-revalidate",
         },
-      },
+      }
     );
   }
 }

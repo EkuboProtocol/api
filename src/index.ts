@@ -19,6 +19,9 @@ import {
 } from "./routes/stats/overview";
 import {
   GetPairInfo,
+  GetPairInfoPools,
+  GetPairInfoTvl,
+  GetPairInfoVolume,
   GetPairLiquidity,
   ListPairEvents,
 } from "./routes/stats/pair";
@@ -109,6 +112,9 @@ const router = OpenAPIRouter({
   .get(GetOverviewTvl.route, GetOverviewTvl)
   .get(GetOverviewVolume.route, GetOverviewVolume)
   .get(GetPairInfo.route, GetPairInfo)
+  .get(GetPairInfoTvl.route, GetPairInfoTvl)
+  .get(GetPairInfoVolume.route, GetPairInfoVolume)
+  .get(GetPairInfoPools.route, GetPairInfoPools)
   .get(GetPairPrice.route, GetPairPrice)
   .get(GetPairVolatility.route, GetPairVolatility)
   .get(GetPairPriceHistory.route, GetPairPriceHistory)
