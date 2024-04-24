@@ -357,43 +357,42 @@ export class GetDefiSpringIncentives extends EkuboAPIRoute {
               tick: Number(p.tick),
               liquidityDelta: BigInt(p.net_liquidity_delta_diff),
             }));
-            // find the tick of first index that is greater than current price
-            const currentTickIndex =
-              sortedTicks.findIndex(
-                (p) => toSqrtRatio(Number(p.tick)) > sqrtRatio
-              ) - 1;
 
-            const liquidityAtTick = pairLiquidityGraph.reduce(
-              (memo, value, ix) =>
-                ix <= currentTickIndex
-                  ? memo + BigInt(value.net_liquidity_delta_diff)
-                  : memo,
-              0n
+            // find the tick of first index that is greater than current price
+            const currentTickIndex = sortedTicks.findLastIndex(
+              (p) => toSqrtRatio(p.tick) <= sqrtRatio
             );
+
+            const liquidity = pairLiquidityGraph
+              .slice(0, currentTickIndex + 1)
+              .reduce(
+                (memo, value) => memo + BigInt(value.net_liquidity_delta_diff),
+                0n
+              );
 
             const tick = Number(
               pairLiquidityGraph[currentTickIndex]?.tick ?? MIN_TICK
             );
+
             const pool = new BasePool({
               token0: BigInt(token0.l2_token_address),
               token1: BigInt(token1.l2_token_address),
               fee: 0n,
               tickSpacing: 1,
-              sqrtRatio: sqrtRatio,
-              liquidity: liquidityAtTick,
+              sqrtRatio,
+              liquidity,
               tick,
-              sortedTicks: pairLiquidityGraph.map((p) => ({
-                tick: Number(p.tick),
-                liquidityDelta: BigInt(p.net_liquidity_delta_diff),
-              })),
+              sortedTicks,
             });
+
+            const maxDepthForRewards = volatilityInTicks * 3;
 
             const { consumedAmount: depth0 } = pool.quote({
               tokenAmount: {
                 amount: -0xffffffffffffffffffffffffffffffffn,
                 token: BigInt(token0.l2_token_address),
               },
-              sqrtRatioLimit: toSqrtRatio(tick + volatilityInTicks * 3),
+              sqrtRatioLimit: toSqrtRatio(tick + maxDepthForRewards),
               meta: { block: { number: 1, time: 2 } },
             });
 
@@ -402,25 +401,27 @@ export class GetDefiSpringIncentives extends EkuboAPIRoute {
                 amount: -0xffffffffffffffffffffffffffffffffn,
                 token: BigInt(token1.l2_token_address),
               },
-              sqrtRatioLimit: toSqrtRatio(tick - volatilityInTicks * 3),
+              sqrtRatioLimit: toSqrtRatio(tick - maxDepthForRewards),
               meta: { block: { number: 1, time: 2 } },
             });
 
             const usdcValueDepth0 = price0?.price
               ? new Decimal(-depth0.toString()).mul(price0.price)
-              : new Decimal(0);
+              : pairPrice?.price && price1?.price
+                ? new Decimal(-depth0.toString())
+                    .mul(pairPrice.price)
+                    .mul(price1.price)
+                : new Decimal(0);
             const usdcValueDepth1 = price1?.price
               ? new Decimal(-depth1.toString()).mul(price1.price)
-              : new Decimal(0);
-
-            let multiplier: number = 1;
-            if ((price0 && !price1) || (price1 && !price0)) {
-              multiplier = 2;
-            }
+              : pairPrice?.price && price0?.price
+                ? new Decimal(-depth1.toString())
+                    .div(pairPrice.price)
+                    .mul(price0.price)
+                : new Decimal(0);
 
             const totalValueLockedInRange = usdcValueDepth0
               .plus(usdcValueDepth1)
-              .mul(multiplier)
               .div(new Decimal(10).pow(6));
 
             const adjustmentByTvlMeasure = new Decimal(
