@@ -6,8 +6,6 @@ on:
       - main
   workflow_dispatch:
 
-concurrency: deploy-2
-
 jobs:
   deploy:
     strategy:
