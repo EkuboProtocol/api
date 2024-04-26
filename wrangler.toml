@@ -19,7 +19,7 @@ PG_CONNECTION_STRING = "postgresql://postgres:postgres@localhost:5432"
 
 [env.sepolia]
 hyperdrive = [
-    { binding = "HYPERDRIVE", id = "7cd62512e88e41d689e6b8587aeeeb15" }
+    { binding = "HYPERDRIVE", id = "c12069dcd06847d0acfe22a686cd8540" }
 ]
 kv_namespaces = [
     { binding = "TOKEN_LOGOS_KV", id = "5612d9a16e6d43fea983af957f2ee69c" },
@@ -28,7 +28,7 @@ vars = { STARKNET_CHAIN_ID = "0x534e5f5345504f4c4941", ETH_TOKEN_ADDRESS = "0x04
 
 [env.mainnet]
 hyperdrive = [
-    { binding = "HYPERDRIVE", id = "b6719d5a05984e5080e8a89ffee4c88c" }
+    { binding = "HYPERDRIVE", id = "b8e8dbd6a4b642afbed28edd892c0ad8" }
 ]
 kv_namespaces = [
     { binding = "TOKEN_LOGOS_KV", id = "5612d9a16e6d43fea983af957f2ee69c" },
