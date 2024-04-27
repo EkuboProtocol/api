@@ -34,7 +34,7 @@ export class GetNetworkStats extends EkuboAPIRoute {
         headers: {
           "cache-control": "public, max-age=3600, must-revalidate",
         },
-      },
+      }
     );
   }
 }

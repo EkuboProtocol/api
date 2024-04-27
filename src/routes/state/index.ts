@@ -37,7 +37,7 @@ export class GetPoolStates extends OpenAPIRoute {
     const queries = await createQueries(env);
 
     const { rows } = await queries.withinTransaction(() =>
-      queries.getAllPoolsWithStates(),
+      queries.getAllPoolsWithStates()
     );
 
     return json(
@@ -59,7 +59,7 @@ export class GetPoolStates extends OpenAPIRoute {
         headers: {
           "cache-control": "public, max-age=180, must-revalidate",
         },
-      },
+      }
     );
   }
 }
@@ -124,7 +124,7 @@ export class GetPoolKeyHash extends OpenAPIRoute {
         headers: {
           "cache-control": "public, immutable, max-age=86400",
         },
-      },
+      }
     );
   }
 }
@@ -133,7 +133,7 @@ const LiquidityResponseSchema = z.array(
   z.object({
     tick: DecimalStringType,
     net_liquidity_delta_diff: DecimalStringType,
-  }),
+  })
 );
 
 type LiquidityResponseType = z.infer<typeof LiquidityResponseSchema>;
@@ -172,7 +172,7 @@ export class GetPoolLiquidity extends EkuboAPIRoute {
         }))
       : (
           await queries.withinTransaction(() =>
-            queries.getPoolLiquidityGraph(poolKeyHash),
+            queries.getPoolLiquidityGraph(poolKeyHash)
           )
         ).rows;
 
@@ -184,7 +184,7 @@ export class GetPoolLiquidity extends EkuboAPIRoute {
         headers: {
           "cache-control": "public, max-age=1800, must-revalidate",
         },
-      },
+      }
     );
   }
 }

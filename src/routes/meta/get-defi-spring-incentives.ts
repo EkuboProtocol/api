@@ -28,7 +28,7 @@ async function getOBLIncentiveDataForEkubo(): Promise<
   OBLIncentiveResponse["Ekubo"]
 > {
   const response = await fetch(
-    "https://kx58j6x5me.execute-api.us-east-1.amazonaws.com/starknet/fetchFile?file=strk_grant.json",
+    "https://kx58j6x5me.execute-api.us-east-1.amazonaws.com/starknet/fetchFile?file=strk_grant.json"
   );
 
   const responseText = await response.text();
@@ -40,7 +40,7 @@ async function getOBLIncentiveDataForEkubo(): Promise<
 
 function addIncentivesToData(
   map: OBLIncentiveResponse["Ekubo"],
-  { pairId, date, amount }: { pairId: string; date: string; amount: number },
+  { pairId, date, amount }: { pairId: string; date: string; amount: number }
 ) {
   const [tokenA, tokenB] = pairId.split("/");
   const pairDailyData =
@@ -189,7 +189,7 @@ export class GetDefiSpringIncentives extends EkuboAPIRoute {
           : dayData[dayData.length - 1].date > memo
             ? dayData[dayData.length - 1].date
             : memo,
-      null,
+      null
     );
 
     {
@@ -201,7 +201,7 @@ export class GetDefiSpringIncentives extends EkuboAPIRoute {
         discretionary.forEach(({ date, allocation }) => {
           const d = new Date(date);
           const matching = SPLITS_BY_DATE_RANGE.find(
-            (s) => d >= s.start && (!s.end || d < s.end),
+            (s) => d >= s.start && (!s.end || d < s.end)
           );
 
           if (!matching) return;
@@ -225,7 +225,7 @@ export class GetDefiSpringIncentives extends EkuboAPIRoute {
     const totalStrk = pairs.reduce(
       (memo, [key, value]) =>
         memo + value.reduce((memo, { allocation }) => allocation + memo, 0),
-      0,
+      0
     );
 
     const strkToken = getTokenByIdentifier(tokens, "STRK");
@@ -240,7 +240,7 @@ export class GetDefiSpringIncentives extends EkuboAPIRoute {
               minSwapCount: 1,
             })
           )?.price?.mul(
-            new Decimal(10).pow(strkToken.decimals - usdcToken.decimals),
+            new Decimal(10).pow(strkToken.decimals - usdcToken.decimals)
           ) ?? DEFAULT_STRK_PRICE
         : DEFAULT_STRK_PRICE;
 
@@ -293,25 +293,25 @@ export class GetDefiSpringIncentives extends EkuboAPIRoute {
             date,
             allocation,
             thirty_day_realized_volatility,
-          }),
+          })
         );
 
         if (latestDateAllocation) {
           let volatilityInTicks = currentVolatilityData.find(
             (vd) =>
               BigInt(vd.token0) === BigInt(token0.l2_token_address) &&
-              BigInt(vd.token1) === BigInt(token1.l2_token_address),
+              BigInt(vd.token1) === BigInt(token1.l2_token_address)
           )?.volatility_in_ticks;
 
           if (!volatilityInTicks) {
             volatilityInTicks = Math.round(
               new Decimal(
                 dailyAllocations[dailyAllocations.length - 1]
-                  ?.thirty_day_realized_volatility ?? 1,
+                  ?.thirty_day_realized_volatility ?? 1
               )
                 .exp()
                 .log("1.000001")
-                .toNumber(),
+                .toNumber()
             );
           }
           const [pairLiquidityGraph, pairPrice, price0, price1] =
@@ -349,7 +349,7 @@ export class GetDefiSpringIncentives extends EkuboAPIRoute {
             pairPrice?.price
               .sqrt()
               .mul((2n ** 128n).toString())
-              .toFixed(0) ?? 0n,
+              .toFixed(0) ?? 0n
           );
 
           if (sqrtRatio) {
@@ -360,18 +360,18 @@ export class GetDefiSpringIncentives extends EkuboAPIRoute {
 
             // find the tick of first index that is greater than current price
             const currentTickIndex = sortedTicks.findLastIndex(
-              (p) => toSqrtRatio(p.tick) <= sqrtRatio,
+              (p) => toSqrtRatio(p.tick) <= sqrtRatio
             );
 
             const liquidity = pairLiquidityGraph
               .slice(0, currentTickIndex + 1)
               .reduce(
                 (memo, value) => memo + BigInt(value.net_liquidity_delta_diff),
-                0n,
+                0n
               );
 
             const tick = Number(
-              pairLiquidityGraph[currentTickIndex]?.tick ?? MIN_TICK,
+              pairLiquidityGraph[currentTickIndex]?.tick ?? MIN_TICK
             );
 
             const pool = new BasePool({
@@ -425,11 +425,11 @@ export class GetDefiSpringIncentives extends EkuboAPIRoute {
               .div(new Decimal(10).pow(6));
 
             const adjustmentByTvlMeasure = new Decimal(
-              latestDateAllocation?.tvl_usd ?? totalValueLockedInRange,
+              latestDateAllocation?.tvl_usd ?? totalValueLockedInRange
             ).div(totalValueLockedInRange);
 
             const extrapolatedUsdcReward = new Decimal(
-              latestDateAllocation?.allocation ?? 0,
+              latestDateAllocation?.allocation ?? 0
             )
               .mul(365)
               .mul(strkPrice);
@@ -439,7 +439,7 @@ export class GetDefiSpringIncentives extends EkuboAPIRoute {
                 .div(totalValueLockedInRange)
                 .mul(adjustmentByTvlMeasure)
                 .toSignificantDigits(6)
-                .toString(),
+                .toString()
             );
 
             return {
@@ -457,7 +457,7 @@ export class GetDefiSpringIncentives extends EkuboAPIRoute {
           token1,
           allocations,
         };
-      }),
+      })
     );
 
     return json(
@@ -470,7 +470,7 @@ export class GetDefiSpringIncentives extends EkuboAPIRoute {
         headers: {
           "cache-control": "public, max-age=3600, must-revalidate",
         },
-      },
+      }
     );
   }
 }
@@ -503,12 +503,12 @@ export class GetDefiSpringIncentivesForAddressAndDates extends EkuboAPIRoute {
             z.object({
               total: z.number(),
               per_day: z.array(
-                z.object({ date: DateType, amount: z.number().min(0) }),
+                z.object({ date: DateType, amount: z.number().min(0) })
               ),
             }),
             {
               description: "Describes the allocation for a particular token",
-            },
+            }
           )
           .openapi({
             type: "object",
@@ -557,7 +557,7 @@ export class GetDefiSpringIncentivesForAddressAndDates extends EkuboAPIRoute {
         headers: {
           "cache-control": "public, max-age=600, must-revalidate",
         },
-      },
+      }
     );
   }
 }
@@ -582,12 +582,12 @@ export class GetDefiSpringIncentivesForTokenId extends EkuboAPIRoute {
           {
             total: z.number(),
             per_day: z.array(
-              z.object({ date: DateType, amount: z.number().min(0) }),
+              z.object({ date: DateType, amount: z.number().min(0) })
             ),
           },
           {
             description: "Describes the allocation for a particular token",
-          },
+          }
         ),
         contentType: "application/json",
       },
@@ -620,13 +620,13 @@ export class GetDefiSpringIncentivesForTokenId extends EkuboAPIRoute {
         {
           total: 0,
           per_day: [],
-        },
+        }
       ),
       {
         headers: {
           "cache-control": "public, max-age=600, must-revalidate",
         },
-      },
+      }
     );
   }
 }

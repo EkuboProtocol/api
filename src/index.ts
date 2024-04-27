@@ -91,11 +91,11 @@ const router = OpenAPIRouter({
   .get(GetDefiSpringIncentives.route, GetDefiSpringIncentives)
   .get(
     GetDefiSpringIncentivesForTokenId.route,
-    GetDefiSpringIncentivesForTokenId,
+    GetDefiSpringIncentivesForTokenId
   )
   .get(
     GetDefiSpringIncentivesForAddressAndDates.route,
-    GetDefiSpringIncentivesForAddressAndDates,
+    GetDefiSpringIncentivesForAddressAndDates
   )
   .get(ListTokens.route, ListTokens)
   .get(GetTokenLogo.route, GetTokenLogo)
@@ -165,7 +165,7 @@ export default {
     let response: Response;
     try {
       response = json(
-        await router.handle(request, { env } satisfies RequestContext),
+        await router.handle(request, { env } satisfies RequestContext)
       );
     } catch (e) {
       console.error(e);

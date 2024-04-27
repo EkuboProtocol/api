@@ -1,6 +1,6 @@
 import {
-  BasePoolResources,
   BasePoolState,
+  BasePoolResources,
   QuoteMeta,
   QuoteNode,
   TokenAmount,

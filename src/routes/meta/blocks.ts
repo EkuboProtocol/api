@@ -16,7 +16,7 @@ export class GetBlock extends EkuboAPIRoute {
         {
           description:
             "The tag of the block to get or the number of a block containing events",
-        },
+        }
       ),
     },
     responses: {
@@ -27,7 +27,7 @@ export class GetBlock extends EkuboAPIRoute {
             number: z.number({ description: "The number of the block" }).int(),
             timestamp: z.date({ description: "The timestamp of the block" }),
           },
-          { description: "Description of the latest block" },
+          { description: "Description of the latest block" }
         ),
         contentType: "application/json",
       },
@@ -56,7 +56,7 @@ export class GetBlock extends EkuboAPIRoute {
         headers: {
           "cache-control": "public, max-age=180, must-revalidate",
         },
-      },
+      }
     );
   }
 }

@@ -1,6 +1,6 @@
 import {
-  BasePoolResources,
   BasePoolState,
+  BasePoolResources,
   QuoteMeta,
   QuoteNode,
   TokenAmount,
@@ -82,7 +82,7 @@ export function findOptimalSplitRoute<
     } else {
       // route is used in the list of swaps, so check that the pools are not touched in any swaps after it
       const indexLastSwapSameRoute = swaps.findLastIndex(
-        (s) => s.route === partialResult.route,
+        (s) => s.route === partialResult.route
       );
       if (indexLastSwapSameRoute === -1) {
         throw new Error("Expected to find this route among results");
@@ -93,7 +93,7 @@ export function findOptimalSplitRoute<
       for (let i = indexLastSwapSameRoute + 1; i < swaps.length; i++) {
         if (
           swaps[i].route.some((node0) =>
-            partialResult.route.some((node1) => node0 === node1),
+            partialResult.route.some((node1) => node0 === node1)
           )
         ) {
           canMerge = false;
@@ -126,9 +126,9 @@ export function findOptimalSplitRoute<
                 lastSwap.quoteRouteResult.quotes[ix].consumedAmount,
               executionResources: lastSwap.route[ix].combineResources(
                 lastSwap.quoteRouteResult.quotes[ix].executionResources,
-                newQuoteResult.executionResources,
+                newQuoteResult.executionResources
               ),
-            }),
+            })
           ),
         };
       } else {

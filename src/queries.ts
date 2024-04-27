@@ -63,13 +63,13 @@ export class Queries {
       timestamp: string;
     }>({
       text: `
-                SELECT number, hash, time AS timestamp
-                FROM blocks
-                WHERE number = $1
-                   OR $1 IS NULL
-                ORDER BY number DESC
-                LIMIT 1
-            `,
+        SELECT number, hash, time AS timestamp
+        FROM blocks
+        WHERE number = $1
+           OR $1 IS NULL
+        ORDER BY number DESC
+        LIMIT 1
+      `,
       values: [blockTag === "latest" ? null : blockTag],
     });
     if (rows.length !== 1) return null;
@@ -80,19 +80,19 @@ export class Queries {
     return this.client.query<
       Omit<BasePoolStateQueryResult, "last_liquidity_update_event_id">
     >(`
-            SELECT pool_key_hash,
-                   token0,
-                   token1,
-                   fee,
-                   tick_spacing,
-                   extension,
-                   sqrt_ratio,
-                   tick,
-                   liquidity,
-                   last_event_id
-            FROM pool_states_materialized
-                     JOIN pool_keys ON pool_key_hash = key_hash
-        `);
+      SELECT pool_key_hash,
+             token0,
+             token1,
+             fee,
+             tick_spacing,
+             extension,
+             sqrt_ratio,
+             tick,
+             liquidity,
+             last_event_id
+      FROM pool_states_materialized
+             JOIN pool_keys ON pool_key_hash = key_hash
+    `);
   }
 
   public async getAllRoutablePoolKeyHashesWithCacheId({
@@ -108,30 +108,30 @@ export class Queries {
       last_twamm_event_id: string | null;
     }>({
       text: `
-                WITH paired_with_a AS (SELECT (CASE WHEN token0 = $1 THEN token1 ELSE token0 END) AS token
-                                       FROM pool_keys
-                                       WHERE token0 = $1
-                                          OR token1 = $1),
-                     paired_with_b AS (SELECT (CASE WHEN token0 = $2 THEN token1 ELSE token0 END) AS token
-                                       FROM pool_keys
-                                       WHERE token0 = $2
-                                          OR token1 = $2),
-                     paired_with_both AS (SELECT token
-                                          FROM paired_with_a
-                                          INTERSECT
-                                          SELECT token
-                                          FROM paired_with_b)
-                SELECT psm.pool_key_hash,
-                       psm.last_event_id,
-                       tpsm.last_event_id AS last_twamm_event_id
-                FROM pool_states_materialized psm
-                         JOIN pool_keys pk ON psm.pool_key_hash = pk.key_hash
-                         LEFT JOIN twamm_pool_states_materialized tpsm ON psm.pool_key_hash = tpsm.pool_key_hash
-                WHERE ((pk.token0 IN ($1, $2) OR pk.token0 IN (SELECT token FROM paired_with_both)) AND
-                       (pk.token1 IN ($1, $2) OR pk.token1 IN (SELECT token FROM paired_with_both)))
-                  -- only return base pools or twamm pools
-                  AND (extension = 0 OR tpsm.last_event_id IS NOT NULL)
-            `,
+        WITH paired_with_a AS (SELECT (CASE WHEN token0 = $1 THEN token1 ELSE token0 END) AS token
+                               FROM pool_keys
+                               WHERE token0 = $1
+                                  OR token1 = $1),
+             paired_with_b AS (SELECT (CASE WHEN token0 = $2 THEN token1 ELSE token0 END) AS token
+                               FROM pool_keys
+                               WHERE token0 = $2
+                                  OR token1 = $2),
+             paired_with_both AS (SELECT token
+                                  FROM paired_with_a
+                                  INTERSECT
+                                  SELECT token
+                                  FROM paired_with_b)
+        SELECT psm.pool_key_hash,
+               psm.last_event_id,
+               tpsm.last_event_id AS last_twamm_event_id
+        FROM pool_states_materialized psm
+               JOIN pool_keys pk ON psm.pool_key_hash = pk.key_hash
+               LEFT JOIN twamm_pool_states_materialized tpsm ON psm.pool_key_hash = tpsm.pool_key_hash
+        WHERE ((pk.token0 IN ($1, $2) OR pk.token0 IN (SELECT token FROM paired_with_both)) AND
+               (pk.token1 IN ($1, $2) OR pk.token1 IN (SELECT token FROM paired_with_both)))
+          -- only return base pools or twamm pools
+          AND (extension = 0 OR tpsm.last_event_id IS NOT NULL)
+      `,
       values: [tokenA, tokenB],
     });
   }
@@ -144,21 +144,21 @@ export class Queries {
   }) {
     return this.client.query<BasePoolStateQueryResult>({
       text: `
-                SELECT pool_key_hash,
-                       token0,
-                       token1,
-                       fee,
-                       tick_spacing,
-                       extension,
-                       sqrt_ratio,
-                       tick,
-                       liquidity,
-                       last_event_id,
-                       last_liquidity_update_event_id
-                FROM pool_states_materialized
-                         JOIN pool_keys ON pool_key_hash = key_hash
-                WHERE pool_key_hash = ANY ($1::NUMERIC[])
-            `,
+        SELECT pool_key_hash,
+               token0,
+               token1,
+               fee,
+               tick_spacing,
+               extension,
+               sqrt_ratio,
+               tick,
+               liquidity,
+               last_event_id,
+               last_liquidity_update_event_id
+        FROM pool_states_materialized
+               JOIN pool_keys ON pool_key_hash = key_hash
+        WHERE pool_key_hash = ANY ($1::NUMERIC[])
+      `,
       values: [poolKeyHashes],
     });
   }
@@ -170,25 +170,25 @@ export class Queries {
   }) {
     return this.client.query<TwammPoolStateQueryResult>({
       text: `
-                SELECT tpsm.pool_key_hash,
-                       token0,
-                       token1,
-                       fee,
-                       tick_spacing,
-                       extension,
-                       sqrt_ratio,
-                       tick,
-                       liquidity,
-                       token0_sale_rate,
-                       token1_sale_rate,
-                       tpsm.last_virtual_execution_time AS last_execution_time,
-                       tpsm.last_event_id,
-                       psm.last_liquidity_update_event_id
-                FROM twamm_pool_states_materialized AS tpsm
-                         JOIN pool_states_materialized psm ON psm.pool_key_hash = tpsm.pool_key_hash
-                         JOIN pool_keys pk ON tpsm.pool_key_hash = pk.key_hash
-                WHERE tpsm.pool_key_hash = ANY ($1::NUMERIC[])
-            `,
+          SELECT tpsm.pool_key_hash,
+                 token0,
+                 token1,
+                 fee,
+                 tick_spacing,
+                 extension,
+                 sqrt_ratio,
+                 tick,
+                 liquidity,
+                 token0_sale_rate,
+                 token1_sale_rate,
+                 tpsm.last_virtual_execution_time AS last_execution_time,
+                 tpsm.last_event_id,
+                 psm.last_liquidity_update_event_id
+          FROM twamm_pool_states_materialized AS tpsm
+                   JOIN pool_states_materialized psm ON psm.pool_key_hash = tpsm.pool_key_hash
+                   JOIN pool_keys pk ON tpsm.pool_key_hash = pk.key_hash
+          WHERE tpsm.pool_key_hash = ANY ($1::NUMERIC[])
+      `,
       values: [poolKeyHashes],
     });
   }
@@ -209,16 +209,14 @@ export class Queries {
       >
     >({
       text: `
-                SELECT token0_sale_rate,
-                       token1_sale_rate,
-                       tpsm.last_virtual_execution_time AS last_execution_time
-                FROM twamm_pool_states_materialized AS tpsm
-                         JOIN pool_states_materialized psm ON psm.pool_key_hash = tpsm.pool_key_hash
-                         JOIN pool_keys pk ON tpsm.pool_key_hash = pk.key_hash
-                WHERE pk.token0 = $1
-                  AND pk.token1 = $2
-                  AND pk.fee = COALESCE($3, pk.fee)
-            `,
+          SELECT token0_sale_rate,
+                 token1_sale_rate,
+                 tpsm.last_virtual_execution_time AS last_execution_time
+          FROM twamm_pool_states_materialized AS tpsm
+                   JOIN pool_states_materialized psm ON psm.pool_key_hash = tpsm.pool_key_hash
+                   JOIN pool_keys pk ON tpsm.pool_key_hash = pk.key_hash
+          WHERE pk.token0 = $1 and pk.token1 = $2 and pk.fee = COALESCE($3, pk.fee)
+      `,
       values: [token0, token1, fee ?? null],
     });
   }
@@ -238,14 +236,14 @@ export class Queries {
       net_sale_rate_delta1: string;
     }>({
       text: `
-                SELECT time, net_sale_rate_delta0, net_sale_rate_delta1
-                FROM twamm_sale_rate_deltas_materialized AS tsrdm
-                         JOIN pool_keys pk ON tsrdm.pool_key_hash = pk.key_hash
-                WHERE pk.token0 = $1
-                  AND pk.token1 = $2
-                  AND pk.fee = COALESCE($3, pk.fee)
-                ORDER BY time
-            `,
+          SELECT time, net_sale_rate_delta0, net_sale_rate_delta1
+          FROM twamm_sale_rate_deltas_materialized AS tsrdm
+                   JOIN pool_keys pk ON tsrdm.pool_key_hash = pk.key_hash
+          WHERE pk.token0 = $1
+            AND pk.token1 = $2
+            AND pk.fee = COALESCE($3, pk.fee)
+          ORDER BY time
+      `,
       values: [token0, token1, fee ?? null],
     });
   }
@@ -259,14 +257,21 @@ export class Queries {
   }) {
     return this.client.query<{ key_hash: bigint }>({
       text: `
-                WITH pool_keys AS (SELECT key_hash
-                                   FROM pool_keys
-                                   WHERE token0 = $1
-                                     AND token1 = $2)
-                SELECT pk.key_hash
-                FROM pool_keys AS pk
-                         INNER JOIN twamm_pool_states_materialized AS tpsm ON pk.key_hash = tpsm.pool_key_hash;
-            `,
+          WITH pool_keys AS (
+              SELECT 
+                  key_hash
+              FROM
+                  pool_keys
+              WHERE 
+                  token0 = $1
+                  AND
+                  token1 = $2
+          )
+          SELECT 
+              pk.key_hash
+          FROM pool_keys AS pk
+              INNER JOIN twamm_pool_states_materialized AS tpsm on pk.key_hash = tpsm.pool_key_hash;
+      `,
       values: [token0, token1],
     });
   }
@@ -302,7 +307,7 @@ export class Queries {
   }
 
   public async getPositionMetadata(
-    id: number,
+    id: number
   ): Promise<PositionMetadata | null> {
     const { rows, rowCount } = await this.client.query<PositionMetadata>({
       text: `
@@ -353,36 +358,36 @@ export class Queries {
       fee: string;
     }>({
       text: `
-                SELECT event_keys.transaction_hash AS minted_tx_hash,
-                       blocks.time                 AS minted_timestamp,
-                       start_time,
-                       end_time,
-                       last_update_time,
-                       token0,
-                       sale_rate0,
-                       token1,
-                       sale_rate1,
-                       fee
-                FROM position_transfers AS transfer
-                         LEFT JOIN LATERAL (
-                    SELECT ou.key_hash           AS pool_key_hash,
-                           ou.start_time         AS start_time,
-                           ou.end_time           AS end_time,
-                           MAX(b.time)           AS last_update_time,
-                           SUM(sale_rate_delta0) AS sale_rate0,
-                           SUM(sale_rate_delta1) AS sale_rate1
-                    FROM twamm_order_updates AS ou
-                             JOIN event_keys ek ON event_id = id
-                             JOIN blocks b ON block_number = number
-                    WHERE ou.salt = token_id::NUMERIC
-                    GROUP BY ou.key_hash, ou.start_time, ou.end_time
-                    ) AS order_data ON TRUE
-                         JOIN pool_keys ON order_data.pool_key_hash = key_hash
-                         JOIN event_keys ON transfer.event_id = event_keys.id
-                         JOIN blocks ON event_keys.block_number = blocks.number
-                WHERE token_id = $1
-                  AND from_address = 0
-            `,
+        SELECT event_keys.transaction_hash AS minted_tx_hash,
+               blocks.time                 AS minted_timestamp,
+               start_time       ,
+               end_time         ,
+               last_update_time,
+               token0,
+               sale_rate0,
+               token1,
+               sale_rate1,
+               fee
+        FROM position_transfers AS transfer
+               LEFT JOIN LATERAL (
+          SELECT ou.key_hash           AS pool_key_hash,
+                 ou.start_time         AS start_time,
+                 ou.end_time           AS end_time,
+                 MAX(b.time)           AS last_update_time,
+                 SUM(sale_rate_delta0) AS sale_rate0,
+                 SUM(sale_rate_delta1) AS sale_rate1
+          FROM twamm_order_updates AS ou
+                 JOIN event_keys ek ON event_id = id
+                 JOIN blocks b ON block_number = number
+          WHERE ou.salt = token_id::NUMERIC
+          GROUP BY ou.key_hash, ou.start_time, ou.end_time
+          ) AS order_data ON TRUE
+               JOIN pool_keys ON order_data.pool_key_hash = key_hash
+               JOIN event_keys ON transfer.event_id = event_keys.id
+               JOIN blocks ON event_keys.block_number = blocks.number
+        WHERE token_id = $1
+          AND from_address = 0
+      `,
       values: [id],
     });
     return rows;
@@ -394,17 +399,17 @@ export class Queries {
       last_owner: string;
     }>({
       text: `
-                SELECT (SELECT SUM(points)
-                        FROM leaderboard AS l
-                        WHERE l.collector = pt.to_address
-                          AND l.token_id = pt.token_id) AS points_earned,
-                       to_address                       AS last_owner
-                FROM position_transfers pt
-                WHERE token_id = $1
-                  AND to_address != 0
-                ORDER BY event_id DESC
-                LIMIT 1;
-            `,
+        SELECT (SELECT SUM(points)
+                FROM leaderboard AS l
+                WHERE l.collector = pt.to_address
+                  AND l.token_id = pt.token_id) AS points_earned,
+               to_address                       AS last_owner
+        FROM position_transfers pt
+        WHERE token_id = $1
+          AND to_address != 0
+        ORDER BY event_id DESC
+        LIMIT 1;
+      `,
       values: [id],
     });
 
@@ -560,15 +565,15 @@ export class Queries {
       net_liquidity_delta_diff: string;
     }>({
       text: `
-                SELECT tick, SUM(net_liquidity_delta_diff) AS net_liquidity_delta_diff
-                FROM per_pool_per_tick_liquidity_materialized
-                         JOIN pool_keys ON pool_key_hash = key_hash
-                WHERE net_liquidity_delta_diff != 0
-                  AND token0 = $1
-                  AND token1 = $2
-                GROUP BY tick
-                ORDER BY tick
-            `,
+          SELECT tick, SUM(net_liquidity_delta_diff) AS net_liquidity_delta_diff
+          FROM per_pool_per_tick_liquidity_materialized
+                   JOIN pool_keys ON pool_key_hash = key_hash
+          WHERE net_liquidity_delta_diff != 0
+            AND token0 = $1
+            AND token1 = $2
+          GROUP BY tick
+          ORDER BY tick
+      `,
       values: [token0, token1],
     });
     return rows;
@@ -580,11 +585,11 @@ export class Queries {
       net_liquidity_delta_diff: string;
     }>({
       text: `
-                SELECT tick, net_liquidity_delta_diff
-                FROM per_pool_per_tick_liquidity_materialized
-                WHERE pool_key_hash = $1
-                ORDER BY tick
-            `,
+          SELECT tick, net_liquidity_delta_diff
+          FROM per_pool_per_tick_liquidity_materialized
+          WHERE pool_key_hash = $1
+          ORDER BY tick
+      `,
       values: [poolKeyHash],
     });
   }
@@ -733,7 +738,7 @@ export class Queries {
 
   public getTvlDeltaByTokenByDate(
     after: Date,
-    pair?: { token0: bigint; token1: bigint },
+    pair?: { token0: bigint; token1: bigint }
   ) {
     return this.client.query<{ token: string; date: string; balance: string }>({
       text: `
@@ -768,56 +773,54 @@ export class Queries {
       volatility_in_ticks: number;
     }>({
       text: `
-                WITH times AS (SELECT $1::timestamptz                            AS "end",
-                                      $1::timestamptz - ($2 * INTERVAL '1 days') AS start),
+          WITH times AS (SELECT $1::timestamptz                      AS "end",
+                                $1::timestamptz - ($2 * INTERVAL '1 days') AS start),
 
-                     prices AS (SELECT pk.token0,
-                                       pk.token1,
-                                       date_bin(INTERVAL '1 hour', b.time,
-                                                '2000-01-01 00:00:00'::TIMESTAMP WITHOUT TIME ZONE) AS period_start,
-                                       SUM(delta1 * delta1) / SUM(ABS(delta1 * delta0))             AS price
-                                FROM swaps s
-                                         JOIN event_keys ek ON s.event_id = ek.id
-                                         JOIN blocks b ON ek.block_number = b.number
-                                         JOIN pool_keys pk ON s.pool_key_hash = pk.key_hash,
-                                     times t
-                                WHERE b.time >= t.start
-                                  AND b.time < t.end
-                                  AND delta1 != 0
-                                  AND delta0 != 0
-                                GROUP BY pk.token0, pk.token1, period_start),
+               prices AS (SELECT pk.token0,
+                                 pk.token1,
+                                 date_bin(INTERVAL '1 hour', b.time,
+                                          '2000-01-01 00:00:00'::TIMESTAMP WITHOUT TIME ZONE) AS period_start,
+                                 SUM(delta1 * delta1) / SUM(ABS(delta1 * delta0))             AS price
+                          FROM swaps s
+                                   JOIN event_keys ek ON s.event_id = ek.id
+                                   JOIN blocks b ON ek.block_number = b.number
+                                   JOIN pool_keys pk ON s.pool_key_hash = pk.key_hash,
+                               times t
+                          WHERE b.time >= t.start
+                            AND b.time < t.end
+                            AND delta1 != 0
+                            AND delta0 != 0
+                          GROUP BY pk.token0, pk.token1, period_start),
 
-                     log_price_changes AS (SELECT token0,
-                                                  token1,
-                                                  LN(price) -
-                                                  LN(COALESCE(
-                                                                  LAG(price) OVER (PARTITION BY token0, token1 ORDER BY period_start),
-                                                                  price))                                   AS price_change,
-                                                  EXTRACT(HOURS FROM period_start - COALESCE(LAG(period_start)
-                                                                                             OVER (PARTITION BY token0, token1 ORDER BY period_start),
-                                                                                             period_start)) AS hours_since_last
-                                           FROM prices p,
-                                                times t
-                                           ORDER BY period_start),
+               log_price_changes AS (SELECT token0,
+                                            token1,
+                                            LN(price) -
+                                            LN(COALESCE(
+                                                            LAG(price) OVER (PARTITION BY token0, token1 ORDER BY period_start),
+                                                            price))                                   AS price_change,
+                                            EXTRACT(HOURS FROM period_start - COALESCE(LAG(period_start)
+                                                                                       OVER (PARTITION BY token0, token1 ORDER BY period_start),
+                                                                                       period_start)) AS hours_since_last
+                                     FROM prices p,
+                                          times t
+                                     ORDER BY period_start),
 
-                     realized_volatility_by_pair AS (SELECT token0,
-                                                            token1,
-                                                            STDDEV(lpc.price_change) * SQRT(SUM(hours_since_last)) AS realized_volatility
-                                                     FROM log_price_changes lpc
-                                                     GROUP BY token0, token1)
+               realized_volatility_by_pair AS (SELECT token0,
+                                                      token1,
+                                                      STDDEV(lpc.price_change) * SQRT(SUM(hours_since_last)) AS realized_volatility
+                                               FROM log_price_changes lpc
+                                               GROUP BY token0, token1)
 
-                SELECT token0,
-                       token1,
-                       int4(FLOOR(LOG(EXP(realized_volatility)) / LOG(1.000001::NUMERIC))) AS volatility_in_ticks
-                FROM realized_volatility_by_pair
-                WHERE (token0, token1) IN (
-                    ${pairs
-                      .map(
-                        (p) => `(${p.token0}::numeric, ${p.token1}::numeric)`,
-                      )
-                      .join(", ")}
-                    );
-            `,
+          SELECT token0,
+                 token1,
+                 int4(FLOOR(LOG(EXP(realized_volatility)) / LOG(1.000001::NUMERIC))) AS volatility_in_ticks
+          FROM realized_volatility_by_pair
+          WHERE (token0, token1) IN (
+              ${pairs
+                .map((p) => `(${p.token0}::numeric, ${p.token1}::numeric)`)
+                .join(", ")}
+              );
+      `,
       values: [fromDate, numDays],
     });
     return volatilityData;
@@ -850,17 +853,17 @@ export class Queries {
       swap_count: number;
     }>({
       text: `
-                SELECT SUM(delta1 * delta1) AS total, SUM(ABS(delta1 * delta0)) AS k_volume, COUNT(1) AS swap_count
-                FROM swaps
-                         JOIN pool_keys AS pk ON swaps.pool_key_hash = pk.key_hash
-                         JOIN event_keys AS ek ON swaps.event_id = ek.id
-                         JOIN blocks AS b ON ek.block_number = b.number
-                WHERE token0 = $1
-                  AND token1 = $2
-                  AND delta1 != 0
-                  AND delta0 != 0
-                  AND b.time BETWEEN COALESCE($3, NOW() - INTERVAL '6 hours') AND COALESCE($4, NOW())
-            `,
+        SELECT SUM(delta1 * delta1) AS total, SUM(ABS(delta1 * delta0)) AS k_volume, COUNT(1) AS swap_count
+        FROM swaps
+               JOIN pool_keys AS pk ON swaps.pool_key_hash = pk.key_hash
+               JOIN event_keys AS ek ON swaps.event_id = ek.id
+               JOIN blocks AS b ON ek.block_number = b.number
+        WHERE token0 = $1
+          AND token1 = $2
+          AND delta1 != 0
+          AND delta0 != 0
+          AND b.time BETWEEN COALESCE($3, NOW() - INTERVAL '6 hours') AND COALESCE($4, NOW())
+      `,
       values: [token0, token1, start, end],
     });
 
@@ -937,31 +940,31 @@ export class Queries {
       k_volume: string;
     }>({
       text: `
-                SELECT date_bin($5 * INTERVAL '1 sec', blocks.time,
-                                '2000-01-01 00:00:00'::TIMESTAMP WITHOUT TIME ZONE)         AS start,
-                       SUM(swaps.delta1 * swaps.delta1) / SUM(ABS(swaps.delta0 * swaps.delta1)) *
-                       pow(10, $6)                                                          AS vwap,
-                       MIN(CASE
-                               WHEN ABS(swaps.delta0) > $7 AND ABS(swaps.delta1) > $8
-                                   THEN ABS(swaps.delta1 / swaps.delta0) END) *
-                       pow(10, $6)                                                          AS min,
-                       MAX(CASE
-                               WHEN ABS(swaps.delta0) > $7 AND ABS(swaps.delta1) > $8
-                                   THEN ABS(swaps.delta1 / swaps.delta0) END) * pow(10, $6) AS max,
-                       SUM(ABS(swaps.delta1 * swaps.delta0))                                AS k_volume
-                FROM swaps
-                         JOIN pool_keys
-                              ON swaps.pool_key_hash = pool_keys.key_hash
-                         JOIN event_keys ON swaps.event_id = event_keys.id
-                         JOIN blocks ON event_keys.block_number = blocks.number
-                WHERE pool_keys.token0 = $1
-                  AND pool_keys.token1 = $2
-                  AND blocks.time BETWEEN $3 AND $4
-                  AND swaps.delta0 != 0
-                  AND swaps.delta1 != 0
-                GROUP BY start
-                ORDER BY start
-            `,
+        SELECT date_bin($5 * INTERVAL '1 sec', blocks.time,
+                        '2000-01-01 00:00:00'::TIMESTAMP WITHOUT TIME ZONE)     AS start,
+               SUM(swaps.delta1 * swaps.delta1) / SUM(ABS(swaps.delta0 * swaps.delta1)) *
+               pow(10, $6)                                                      AS vwap,
+               MIN(CASE
+                     WHEN ABS(swaps.delta0) > $7 AND ABS(swaps.delta1) > $8
+                       THEN ABS(swaps.delta1 / swaps.delta0) END) *
+               pow(10, $6)                                                      AS min,
+               MAX(CASE
+                     WHEN ABS(swaps.delta0) > $7 AND ABS(swaps.delta1) > $8
+                       THEN ABS(swaps.delta1 / swaps.delta0) END) * pow(10, $6) AS max,
+               SUM(ABS(swaps.delta1 * swaps.delta0))                            AS k_volume
+        FROM swaps
+               JOIN pool_keys
+                    ON swaps.pool_key_hash = pool_keys.key_hash
+               JOIN event_keys ON swaps.event_id = event_keys.id
+               JOIN blocks ON event_keys.block_number = blocks.number
+        WHERE pool_keys.token0 = $1
+          AND pool_keys.token1 = $2
+          AND blocks.time BETWEEN $3 AND $4
+          AND swaps.delta0 != 0
+          AND swaps.delta1 != 0
+        GROUP BY start
+        ORDER BY start
+      `,
       values: [
         token0,
         token1,
@@ -979,7 +982,7 @@ export class Queries {
 
   public async getVolumeByTokenByDate(
     after: Date,
-    pair?: { token0: bigint; token1: bigint },
+    pair?: { token0: bigint; token1: bigint }
   ) {
     return this.client.query<{
       token: string;
@@ -1044,7 +1047,7 @@ export class Queries {
         ({ k_volume, total, swap_count }) =>
           BigInt(k_volume) > 0n &&
           BigInt(total) > 0n &&
-          swap_count >= minSwapCount,
+          swap_count >= minSwapCount
       )
       .map(({ token0, token1, k_volume, total }) => ({
         token: `0x${(BigInt(token0) === quoteToken
@@ -1061,7 +1064,7 @@ export class Queries {
 
   public async withinTransaction<T>(doX: () => Promise<T>): Promise<T> {
     await this.client.query(
-      `BEGIN TRANSACTION ISOLATION LEVEL REPEATABLE READ`,
+      `BEGIN TRANSACTION ISOLATION LEVEL REPEATABLE READ`
     );
     try {
       const result = await doX();
@@ -1082,7 +1085,7 @@ export class Queries {
 
   public async getRevenueByTokenByDate(
     after: Date,
-    pair?: { token0: bigint; token1: bigint },
+    pair?: { token0: bigint; token1: bigint }
   ) {
     return this.client.query<{ token: string; volume: string }>({
       text: `
@@ -1234,53 +1237,53 @@ export class Queries {
       }
     >({
       text: `
-                WITH owned_tokens AS (SELECT token_id
-                                      FROM position_transfers pt1
-                                      WHERE to_address = $1
-                                        AND NOT EXISTS (SELECT 1
-                                                        FROM position_transfers pt2
-                                                        WHERE pt2.token_id = pt1.token_id
-                                                          AND pt2.event_id > pt1.event_id
-                                                          AND (CASE WHEN $2 THEN pt2.to_address != 0 ELSE TRUE END))),
-                     filtered_owned_tokens AS (SELECT token_id, SUM(liquidity_delta) AS liquidity
-                                               FROM owned_tokens
-                                                        JOIN position_updates
-                                                             ON token_id::NUMERIC = salt
-                                               GROUP BY token_id)
-                SELECT token_id,
-                       event_keys.transaction_hash      AS minted_tx_hash,
-                       token0,
-                       token1,
-                       fee,
-                       tick_spacing,
-                       extension,
-                       lower_bound,
-                       upper_bound,
-                       blocks.time                      AS minted_timestamp,
-                       (SELECT SUM(points)
-                        FROM leaderboard AS l
-                        WHERE l.collector = $1
-                          AND l.token_id = ot.token_id) AS points_earned
-                FROM filtered_owned_tokens AS ot
-                         LEFT JOIN LATERAL (
-                    SELECT lower_bound, upper_bound, pool_key_hash
-                    FROM position_updates AS pu
-                    WHERE pu.salt = token_id::NUMERIC
-                    LIMIT 1
-                    ) AS mint_position_update ON TRUE
-                         LEFT JOIN LATERAL (
-                    SELECT event_id
-                    FROM position_transfers AS pt
-                    WHERE pt.token_id = ot.token_id
-                    ORDER BY event_id ASC
-                    LIMIT 1
-                    ) AS mint_tx ON TRUE
-                         JOIN event_keys ON mint_tx.event_id = event_keys.id
-                         JOIN pool_keys ON mint_position_update.pool_key_hash = pool_keys.key_hash
-                         JOIN blocks ON event_keys.block_number = blocks.number
-                WHERE ($2 OR ot.liquidity > 0)
-                ORDER BY token_id DESC
-            `,
+        WITH owned_tokens AS (SELECT token_id
+                              FROM position_transfers pt1
+                              WHERE to_address = $1
+                                AND NOT EXISTS (SELECT 1
+                                                FROM position_transfers pt2
+                                                WHERE pt2.token_id = pt1.token_id
+                                                  AND pt2.event_id > pt1.event_id
+                                                  AND (CASE WHEN $2 THEN pt2.to_address != 0 ELSE TRUE END))),
+             filtered_owned_tokens AS (SELECT token_id, SUM(liquidity_delta) AS liquidity
+                                       FROM owned_tokens
+                                              JOIN position_updates
+                                                   ON token_id::NUMERIC = salt
+                                       GROUP BY token_id)
+        SELECT token_id,
+               event_keys.transaction_hash      AS minted_tx_hash,
+               token0,
+               token1,
+               fee,
+               tick_spacing,
+               extension,
+               lower_bound,
+               upper_bound,
+               blocks.time                      AS minted_timestamp,
+               (SELECT SUM(points)
+                FROM leaderboard AS l
+                WHERE l.collector = $1
+                  AND l.token_id = ot.token_id) AS points_earned
+        FROM filtered_owned_tokens AS ot
+               LEFT JOIN LATERAL (
+          SELECT lower_bound, upper_bound, pool_key_hash
+          FROM position_updates AS pu
+          WHERE pu.salt = token_id::NUMERIC
+          LIMIT 1
+          ) AS mint_position_update ON TRUE
+               LEFT JOIN LATERAL (
+          SELECT event_id
+          FROM position_transfers AS pt
+          WHERE pt.token_id = ot.token_id
+          ORDER BY event_id ASC
+          LIMIT 1
+          ) AS mint_tx ON TRUE
+               JOIN event_keys ON mint_tx.event_id = event_keys.id
+               JOIN pool_keys ON mint_position_update.pool_key_hash = pool_keys.key_hash
+               JOIN blocks ON event_keys.block_number = blocks.number
+        WHERE ($2 OR ot.liquidity > 0)
+        ORDER BY token_id DESC
+      `,
       values: [address, showClosed],
     });
   }
@@ -1292,49 +1295,48 @@ export class Queries {
       }
     >({
       text: `
-                WITH owned_tokens AS (SELECT token_id
-                                      FROM position_transfers pt1
-                                      WHERE to_address = $1
-                                        AND NOT EXISTS (SELECT 1
-                                                        FROM position_transfers pt2
-                                                        WHERE pt2.token_id = pt1.token_id
-                                                          AND pt2.event_id > pt1.event_id
-                                                          AND (CASE WHEN $2 THEN pt2.to_address != 0 ELSE TRUE END)))
-                SELECT token_id,
-                       sell_token,
-                       buy_token,
-                       start_time,
-                       end_time,
-                       fee,
-                       block_time_at_start,
-                       last_order_update,
-                       (SELECT b2.time
-                        FROM twamm_proceeds_withdrawals tpw
-                                 JOIN event_keys ek2 ON tpw.event_id = ek2.id
-                                 JOIN blocks b2 ON ek2.block_number = b2.number
-                        WHERE tpw.salt = ot.token_id::NUMERIC
-                        ORDER BY tpw.event_id DESC
-                        LIMIT 1)   AS last_collect_proceeds,
-                       COALESCE((SELECT SUM(points) FROM leaderboard l WHERE l.token_id = ot.token_id AND category = 3),
-                                0) AS points
-                FROM owned_tokens AS ot
-                         JOIN LATERAL (
-                    SELECT (CASE WHEN tou.sale_rate_delta0 != 0 THEN token0 ELSE token1 END) AS sell_token,
-                           (CASE WHEN tou.sale_rate_delta0 != 0 THEN token1 ELSE token0 END) AS buy_token,
-                           start_time,
-                           end_time,
-                           fee,
-                           MIN(b.time)                                                       AS block_time_at_start,
-                           MAX(b.time)                                                       AS last_order_update
-                    FROM twamm_order_updates AS tou
-                             JOIN pool_keys ON tou.key_hash = pool_keys.key_hash
-                             JOIN event_keys ek ON tou.event_id = ek.id
-                             JOIN blocks b ON ek.block_number = b.number
-                    WHERE tou.salt = token_id::NUMERIC
-                    GROUP BY 1, 2, 3, 4, 5
-                    ) AS distinct_orders ON TRUE
-                ORDER BY token_id DESC
-            `,
+        WITH owned_tokens AS (SELECT token_id
+                              FROM position_transfers pt1
+                              WHERE to_address = $1
+                                AND NOT EXISTS (SELECT 1
+                                                FROM position_transfers pt2
+                                                WHERE pt2.token_id = pt1.token_id
+                                                  AND pt2.event_id > pt1.event_id
+                                                  AND (CASE WHEN $2 THEN pt2.to_address != 0 ELSE TRUE END)))
+        SELECT token_id,
+               sell_token,
+               buy_token,
+               start_time,
+               end_time,
+               fee,
+               block_time_at_start,
+               last_order_update,
+               (SELECT b2.time
+                FROM twamm_proceeds_withdrawals tpw
+                       JOIN event_keys ek2 ON tpw.event_id = ek2.id
+                       JOIN blocks b2 ON ek2.block_number = b2.number
+                WHERE tpw.salt = ot.token_id::NUMERIC
+                ORDER BY tpw.event_id DESC
+                LIMIT 1) AS last_collect_proceeds,
+                COALESCE((SELECT SUM(points) FROM leaderboard l WHERE l.token_id = ot.token_id AND category = 3), 0) AS points
+        FROM owned_tokens AS ot
+               JOIN LATERAL (
+          SELECT (CASE WHEN tou.sale_rate_delta0 != 0 THEN token0 ELSE token1 END) AS sell_token,
+                 (CASE WHEN tou.sale_rate_delta0 != 0 THEN token1 ELSE token0 END) AS buy_token,
+                 start_time,
+                 end_time,
+                 fee,
+                 MIN(b.time)                                                       AS block_time_at_start,
+                 MAX(b.time)                                                       AS last_order_update
+          FROM twamm_order_updates AS tou
+                 JOIN pool_keys ON tou.key_hash = pool_keys.key_hash
+                 JOIN event_keys ek ON tou.event_id = ek.id
+                 JOIN blocks b ON ek.block_number = b.number
+          WHERE tou.salt = token_id::NUMERIC
+          GROUP BY 1, 2, 3, 4, 5
+          ) AS distinct_orders ON TRUE
+        ORDER BY token_id DESC
+      `,
       values: [address, showClosed],
     });
   }
@@ -1351,12 +1353,12 @@ export class Queries {
       ticks: { t: number; l: string }[];
     }>({
       text: `
-                SELECT pool_key_hash,
-                       JSONB_AGG(JSONB_BUILD_OBJECT('t', tick, 'l', net_liquidity_delta_diff::TEXT)) AS ticks
-                FROM per_pool_per_tick_liquidity_materialized
-                WHERE pool_key_hash = ANY ($1::NUMERIC[])
-                GROUP BY pool_key_hash
-            `,
+        SELECT pool_key_hash,
+               JSONB_AGG(JSONB_BUILD_OBJECT('t', tick, 'l', net_liquidity_delta_diff::TEXT)) AS ticks
+        FROM per_pool_per_tick_liquidity_materialized
+        WHERE pool_key_hash = ANY ($1::NUMERIC[])
+        GROUP BY pool_key_hash
+      `,
       values: [poolKeyHashes],
     });
 
@@ -1366,7 +1368,7 @@ export class Queries {
         memo[value.toString()] = [];
         return memo;
       },
-      {},
+      {}
     );
 
     rows.forEach((value) => {
@@ -1393,11 +1395,11 @@ export class Queries {
       net_sale_rate_delta1: string;
     }>({
       text: `
-                SELECT pool_key_hash, time, net_sale_rate_delta0, net_sale_rate_delta1
-                FROM twamm_sale_rate_deltas_materialized
-                WHERE pool_key_hash = ANY ($1::NUMERIC[])
-                ORDER BY pool_key_hash, time
-            `,
+          SELECT pool_key_hash, time, net_sale_rate_delta0, net_sale_rate_delta1
+          FROM twamm_sale_rate_deltas_materialized
+          WHERE pool_key_hash = ANY ($1::NUMERIC[])
+          ORDER BY pool_key_hash, time
+      `,
       values: [poolKeyHashes],
     });
 
@@ -1421,7 +1423,7 @@ export class Queries {
 
         return memo;
       },
-      {},
+      {}
     );
   }
 
@@ -1442,12 +1444,12 @@ export class Queries {
       total_points: string;
     }>({
       text: `
-                SELECT rank, collector, earned_points, referral_points, total_points
-                FROM leaderboard_materialized_view
-                WHERE (collector = $1 OR $1 IS NULL)
-                ORDER BY rank
-                LIMIT $2 OFFSET $3
-            `,
+        SELECT rank, collector, earned_points, referral_points, total_points
+        FROM leaderboard_materialized_view
+        WHERE (collector = $1 OR $1 IS NULL)
+        ORDER BY rank
+        LIMIT $2 OFFSET $3
+      `,
       values: [collector ?? null, pageSize, start],
     });
   }
@@ -1456,9 +1458,9 @@ export class Queries {
     const { rows } = await this.client.query<{
       count: string;
     }>(`
-            SELECT COUNT(1) AS count
-            FROM leaderboard_materialized_view
-        `);
+      SELECT COUNT(1) AS count
+      FROM leaderboard_materialized_view
+    `);
     return Number(rows[0].count);
   }
 
@@ -1540,14 +1542,14 @@ export class Queries {
       token: string;
     }>({
       text: `
-                SELECT address AS contract_address,
-                       gd.start_date,
-                       gd.end_date,
-                       token
-                FROM deployed_airdrop_contracts da
-                         JOIN generated_drop gd ON da.drop_id = gd.id
-                WHERE da.token = COALESCE($1, da.token)
-            `,
+          SELECT address AS contract_address,
+                 gd.start_date,
+                 gd.end_date,
+                 token
+          FROM deployed_airdrop_contracts da
+                   JOIN generated_drop gd ON da.drop_id = gd.id
+          WHERE da.token = COALESCE($1, da.token)
+      `,
       values: [token ?? null],
     });
     return rows;
@@ -1570,19 +1572,19 @@ export class Queries {
       proof: string[];
     }>({
       text: `
-                SELECT address           AS contract_address,
-                       gd.start_date,
-                       gd.end_date,
-                       token,
-                       gdp.id            AS claim_id,
-                       gdp.amount        AS amount,
-                       gdp.proof::TEXT[] AS proof
-                FROM deployed_airdrop_contracts da
-                         JOIN generated_drop gd ON da.drop_id = gd.id
-                         JOIN generated_drop_proof gdp ON gd.id = gdp.drop_id
-                WHERE gdp.claimee = $1
-                  AND da.token = COALESCE($2, token)
-            `,
+          SELECT address    AS contract_address,
+                 gd.start_date,
+                 gd.end_date,
+                 token,
+                 gdp.id     AS claim_id,
+                 gdp.amount AS amount,
+                 gdp.proof::text[] AS proof
+          FROM deployed_airdrop_contracts da
+                   JOIN generated_drop gd ON da.drop_id = gd.id
+                   JOIN generated_drop_proof gdp ON gd.id = gdp.drop_id
+          WHERE gdp.claimee = $1
+            AND da.token = COALESCE($2, token)
+      `,
       values: [forAddress, token],
     });
     return rows;
@@ -1604,16 +1606,16 @@ export class Queries {
       proof: string[];
     }>({
       text: `
-                SELECT gdp.id            AS claim_id,
-                       gdp.claimee       AS claimee,
-                       gdp.amount        AS amount,
-                       gdp.proof::TEXT[] AS proof
-                FROM deployed_airdrop_contracts da
-                         JOIN generated_drop gd ON da.drop_id = gd.id
-                         JOIN generated_drop_proof gdp ON gd.id = gdp.drop_id
-                WHERE da.address = $1
-                  AND gdp.id BETWEEN $2 AND $3
-            `,
+          SELECT gdp.id            AS claim_id,
+                 gdp.claimee       AS claimee,
+                 gdp.amount        AS amount,
+                 gdp.proof::TEXT[] AS proof
+          FROM deployed_airdrop_contracts da
+                   JOIN generated_drop gd ON da.drop_id = gd.id
+                   JOIN generated_drop_proof gdp ON gd.id = gdp.drop_id
+          WHERE da.address = $1
+            AND gdp.id BETWEEN $2 AND $3
+      `,
       values: [claimContract, startingId, endingId],
     });
     return rows;
@@ -1634,21 +1636,21 @@ export class Queries {
       incentives: string;
     }>({
       text: `
-                WITH owned_tokens AS (SELECT token_id
-                                      FROM position_transfers pt1
-                                      WHERE to_address = $1
-                                        AND NOT EXISTS (SELECT 1
-                                                        FROM position_transfers pt2
-                                                        WHERE pt2.token_id = pt1.token_id
-                                                          AND pt2.event_id > pt1.event_id
-                                                          AND pt2.to_address != 0))
-                SELECT token_id,
-                       day,
-                       incentives
-                FROM owned_tokens
-                         JOIN strk_defi_spring_incentives ON salt = token_id::NUMERIC
-                WHERE day BETWEEN $2 AND $3
-            `,
+          WITH owned_tokens AS (SELECT token_id
+                                FROM position_transfers pt1
+                                WHERE to_address = $1
+                                  AND NOT EXISTS (SELECT 1
+                                                  FROM position_transfers pt2
+                                                  WHERE pt2.token_id = pt1.token_id
+                                                    AND pt2.event_id > pt1.event_id
+                                                    AND pt2.to_address != 0))
+          SELECT token_id,
+                 day,
+                 incentives
+          FROM owned_tokens
+                   JOIN strk_defi_spring_incentives ON salt = token_id::NUMERIC
+          WHERE day BETWEEN $2 AND $3
+      `,
       values: [owner, start, end],
     });
     return rows;
@@ -1677,22 +1679,22 @@ export class Queries {
       avg_fee_paid: string;
     }>({
       text: `
-                SELECT COUNT(1) AS count, tr.fee_paid_unit, AVG(tr.fee_paid) AS avg_fee_paid
-                FROM event_keys ek
-                         JOIN transaction_receipts tr ON ek.transaction_hash = tr.transaction_hash
-                WHERE id >= (SELECT id
-                             FROM event_keys
-                             WHERE block_number <=
-                                   (SELECT number
-                                    FROM blocks
-                                    WHERE time < $1
-                                    ORDER BY number DESC
-                                    LIMIT 1)
-                             ORDER BY id DESC
-                             LIMIT 1)
-                  AND id IN (SELECT event_id FROM swaps)
-                GROUP BY tr.fee_paid_unit
-            `,
+        SELECT COUNT(1) AS count, tr.fee_paid_unit, AVG(tr.fee_paid) AS avg_fee_paid
+        FROM event_keys ek
+               JOIN transaction_receipts tr ON ek.transaction_hash = tr.transaction_hash
+        WHERE id >= (SELECT id
+                     FROM event_keys
+                     WHERE block_number <=
+                           (SELECT number
+                            FROM blocks
+                            WHERE time < $1
+                            ORDER BY number DESC
+                            LIMIT 1)
+                     ORDER BY id DESC
+                     LIMIT 1)
+          AND id IN (SELECT event_id FROM swaps)
+        GROUP BY tr.fee_paid_unit
+      `,
       values: [since],
     });
     return rows;
@@ -1700,10 +1702,7 @@ export class Queries {
 
   async getLatestBlockMeta() {
     const { rows } = await this.client.query<{ number: number; time: Date }>(
-      `SELECT number, time
-             FROM blocks
-             ORDER BY number DESC
-             LIMIT 1`,
+      `SELECT number, time FROM blocks ORDER BY number DESC LIMIT 1`
     );
     if (!rows.length) throw new Error("No blocks");
     return rows[0];
@@ -1711,13 +1710,13 @@ export class Queries {
 
   async getAverageBlockTime() {
     const { rows } = await this.client.query<{ average_block_time: number }>(`
-            WITH blocks_and_last_time
-                     AS (SELECT time, LAG(time) OVER (ORDER BY number) AS last_time
-                         FROM blocks
-                         WHERE time >= NOW() - INTERVAL '3 hour')
-            SELECT FLOOR(AVG(EXTRACT(EPOCH FROM (time - last_time))))::int4 AS average_block_time
-            FROM blocks_and_last_time
-        `);
+        WITH blocks_and_last_time
+                 AS (SELECT time, LAG(time) OVER (ORDER BY number) AS last_time
+                     FROM blocks
+                     WHERE time >= NOW() - INTERVAL '3 hour')
+        SELECT FLOOR(AVG(EXTRACT(EPOCH FROM (time - last_time))))::int4 AS average_block_time
+        FROM blocks_and_last_time
+    `);
     return rows[0]?.average_block_time ?? 360;
   }
 }

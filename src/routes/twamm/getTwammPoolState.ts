@@ -95,7 +95,7 @@ export class GetTwammPoolState extends OpenAPIRoute {
             token1,
             fee,
           }),
-        ]),
+        ])
       );
 
     if (stateResults.length !== 1) {
@@ -117,14 +117,14 @@ export class GetTwammPoolState extends OpenAPIRoute {
             time: srd.time.getTime() / 1000,
             token0SaleRateDelta: srd.net_sale_rate_delta0.toString(),
             token1SaleRateDelta: srd.net_sale_rate_delta1.toString(),
-          })),
+          }))
         ),
       },
       {
         headers: {
           "cache-control": "public, max-age=600, must-revalidate",
         },
-      },
+      }
     );
   }
 }
@@ -181,7 +181,7 @@ export class GetTwammPairState extends OpenAPIRoute {
             token0,
             token1,
           }),
-        ]),
+        ])
       );
 
     return json(
@@ -197,7 +197,7 @@ export class GetTwammPairState extends OpenAPIRoute {
               time: srd.time.getTime() / 1000,
               token0SaleRateDelta: srd.net_sale_rate_delta0.toString(),
               token1SaleRateDelta: srd.net_sale_rate_delta1.toString(),
-            })),
+            }))
           )
           // sort is necessary here because we have state across many pools concatenated to sale rate delta across many pools
           .sort(({ time: t0 }, { time: t1 }) => t0 - t1)
@@ -225,7 +225,7 @@ export class GetTwammPairState extends OpenAPIRoute {
         headers: {
           "cache-control": "public, max-age=600, must-revalidate",
         },
-      },
+      }
     );
   }
 }

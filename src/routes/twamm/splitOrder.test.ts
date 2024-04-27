@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { splitTwammOrder, TwammSaleRateDeltaMap } from "./splitOrder";
+import { TwammSaleRateDeltaMap, splitTwammOrder } from "./splitOrder";
 import { TwammPoolStateQueryResult } from "../../queries";
 import { MAX_TICK_SPACING, toSqrtRatio } from "../quote/math/tick";
 import { TwammPool } from "../quote/nodes/twammPool";
@@ -86,7 +86,7 @@ const TEST_CASES: TwammOrderSplitTestCase[] = [
         token1_sale_rate: ((10n ** 18n) << 32n).toString(),
         liquidity: (10n ** 18n).toString(),
         last_execution_time: new Date(
-          (Math.floor(new Date().getTime() / 1000) - 16) * 1000,
+          (Math.floor(new Date().getTime() / 1000) - 16) * 1000
         ),
       } as TwammPoolStateQueryResult,
     ],
@@ -105,7 +105,7 @@ const TEST_CASES: TwammOrderSplitTestCase[] = [
         token1_sale_rate: ((10n ** 18n) << 32n).toString(),
         liquidity: (10n ** 18n).toString(),
         last_execution_time: new Date(
-          (Math.floor(new Date().getTime() / 1000) - 16) * 1000,
+          (Math.floor(new Date().getTime() / 1000) - 16) * 1000
         ),
       } as TwammPoolStateQueryResult,
       {
@@ -116,7 +116,7 @@ const TEST_CASES: TwammOrderSplitTestCase[] = [
         token1_sale_rate: ((10n ** 18n) << 32n).toString(),
         liquidity: (10n ** 18n).toString(),
         last_execution_time: new Date(
-          (Math.floor(new Date().getTime() / 1000) - 16) * 1000,
+          (Math.floor(new Date().getTime() / 1000) - 16) * 1000
         ),
       } as TwammPoolStateQueryResult,
     ],
@@ -135,7 +135,7 @@ const TEST_CASES: TwammOrderSplitTestCase[] = [
         token1_sale_rate: ((10n * 10n ** 18n) << 32n).toString(),
         liquidity: "0",
         last_execution_time: new Date(
-          (Math.floor(new Date().getTime() / 1000) - 16) * 1000,
+          (Math.floor(new Date().getTime() / 1000) - 16) * 1000
         ),
       } as TwammPoolStateQueryResult,
       {
@@ -146,7 +146,7 @@ const TEST_CASES: TwammOrderSplitTestCase[] = [
         token1_sale_rate: ((10n ** 18n) << 32n).toString(),
         liquidity: (10n ** 18n).toString(),
         last_execution_time: new Date(
-          (Math.floor(new Date().getTime() / 1000) - 16) * 1000,
+          (Math.floor(new Date().getTime() / 1000) - 16) * 1000
         ),
       } as TwammPoolStateQueryResult,
     ],
@@ -165,7 +165,7 @@ const TEST_CASES: TwammOrderSplitTestCase[] = [
         token1_sale_rate: ((10n ** 18n) << 32n).toString(),
         liquidity: (10n ** 18n).toString(),
         last_execution_time: new Date(
-          (Math.floor(new Date().getTime() / 1000) - 16) * 1000,
+          (Math.floor(new Date().getTime() / 1000) - 16) * 1000
         ),
       } as TwammPoolStateQueryResult,
       {
@@ -176,7 +176,7 @@ const TEST_CASES: TwammOrderSplitTestCase[] = [
         token1_sale_rate: ((10n ** 18n) << 32n).toString(),
         liquidity: (10n * 10n ** 18n).toString(),
         last_execution_time: new Date(
-          (Math.floor(new Date().getTime() / 1000) - 16) * 1000,
+          (Math.floor(new Date().getTime() / 1000) - 16) * 1000
         ),
       } as TwammPoolStateQueryResult,
     ],
@@ -195,7 +195,7 @@ const TEST_CASES: TwammOrderSplitTestCase[] = [
         token1_sale_rate: ((10n ** 18n) << 32n).toString(),
         liquidity: (10n ** 18n).toString(),
         last_execution_time: new Date(
-          (Math.floor(new Date().getTime() / 1000) - 16) * 1000,
+          (Math.floor(new Date().getTime() / 1000) - 16) * 1000
         ),
       } as TwammPoolStateQueryResult,
       {
@@ -206,7 +206,7 @@ const TEST_CASES: TwammOrderSplitTestCase[] = [
         token1_sale_rate: ((10n ** 18n) << 32n).toString(),
         liquidity: (10n ** 18n).toString(),
         last_execution_time: new Date(
-          (Math.floor(new Date().getTime() / 1000) - 16) * 1000,
+          (Math.floor(new Date().getTime() / 1000) - 16) * 1000
         ),
       } as TwammPoolStateQueryResult,
     ],
@@ -225,7 +225,7 @@ const TEST_CASES: TwammOrderSplitTestCase[] = [
         token1_sale_rate: ((10n ** 18n) << 32n).toString(),
         liquidity: (10n ** 18n).toString(),
         last_execution_time: new Date(
-          (Math.floor(new Date().getTime() / 1000) - 16) * 1000,
+          (Math.floor(new Date().getTime() / 1000) - 16) * 1000
         ),
       } as TwammPoolStateQueryResult,
       {
@@ -236,7 +236,7 @@ const TEST_CASES: TwammOrderSplitTestCase[] = [
         token1_sale_rate: ((10n ** 18n) << 32n).toString(),
         liquidity: (10n ** 18n).toString(),
         last_execution_time: new Date(
-          (Math.floor(new Date().getTime() / 1000) - 16) * 1000,
+          (Math.floor(new Date().getTime() / 1000) - 16) * 1000
         ),
       } as TwammPoolStateQueryResult,
       {
@@ -247,7 +247,7 @@ const TEST_CASES: TwammOrderSplitTestCase[] = [
         token1_sale_rate: ((10n ** 18n) << 32n).toString(),
         liquidity: (10n ** 18n).toString(),
         last_execution_time: new Date(
-          (Math.floor(new Date().getTime() / 1000) - 16) * 1000,
+          (Math.floor(new Date().getTime() / 1000) - 16) * 1000
         ),
       } as TwammPoolStateQueryResult,
     ],
@@ -267,7 +267,7 @@ const TEST_CASES: TwammOrderSplitTestCase[] = [
         token1_sale_rate: ((10n ** 18n) << 32n).toString(),
         liquidity: (10n ** 18n).toString(),
         last_execution_time: new Date(
-          (Math.floor(new Date().getTime() / 1000) - 16) * 1000,
+          (Math.floor(new Date().getTime() / 1000) - 16) * 1000
         ),
       } as TwammPoolStateQueryResult,
       {
@@ -278,7 +278,7 @@ const TEST_CASES: TwammOrderSplitTestCase[] = [
         token1_sale_rate: ((10n ** 18n) << 32n).toString(),
         liquidity: (10n ** 18n).toString(),
         last_execution_time: new Date(
-          (Math.floor(new Date().getTime() / 1000) - 16) * 1000,
+          (Math.floor(new Date().getTime() / 1000) - 16) * 1000
         ),
       } as TwammPoolStateQueryResult,
       {
@@ -289,7 +289,7 @@ const TEST_CASES: TwammOrderSplitTestCase[] = [
         token1_sale_rate: ((10n ** 18n) << 32n).toString(),
         liquidity: (10n ** 18n).toString(),
         last_execution_time: new Date(
-          (Math.floor(new Date().getTime() / 1000) - 16) * 1000,
+          (Math.floor(new Date().getTime() / 1000) - 16) * 1000
         ),
       } as TwammPoolStateQueryResult,
     ],
@@ -324,7 +324,7 @@ const TEST_CASES: TwammOrderSplitTestCase[] = [
         token1_sale_rate: ((10n ** 18n) << 32n).toString(),
         liquidity: (10n ** 18n).toString(),
         last_execution_time: new Date(
-          (Math.floor(new Date().getTime() / 1000) - 16) * 1000,
+          (Math.floor(new Date().getTime() / 1000) - 16) * 1000
         ),
       } as TwammPoolStateQueryResult,
       {
@@ -335,7 +335,7 @@ const TEST_CASES: TwammOrderSplitTestCase[] = [
         token1_sale_rate: ((10n ** 18n) << 32n).toString(),
         liquidity: (10n ** 18n).toString(),
         last_execution_time: new Date(
-          (Math.floor(new Date().getTime() / 1000) - 16) * 1000,
+          (Math.floor(new Date().getTime() / 1000) - 16) * 1000
         ),
       } as TwammPoolStateQueryResult,
     ],
@@ -363,7 +363,7 @@ const TEST_CASES: TwammOrderSplitTestCase[] = [
         token1_sale_rate: ((10n ** 18n) << 32n).toString(),
         liquidity: (10n ** 18n).toString(),
         last_execution_time: new Date(
-          (Math.floor(new Date().getTime() / 1000) - 16) * 1000,
+          (Math.floor(new Date().getTime() / 1000) - 16) * 1000
         ),
       } as TwammPoolStateQueryResult,
       {
@@ -374,7 +374,7 @@ const TEST_CASES: TwammOrderSplitTestCase[] = [
         token1_sale_rate: ((10n ** 18n) << 32n).toString(),
         liquidity: (10n ** 18n).toString(),
         last_execution_time: new Date(
-          (Math.floor(new Date().getTime() / 1000) - 16) * 1000,
+          (Math.floor(new Date().getTime() / 1000) - 16) * 1000
         ),
       } as TwammPoolStateQueryResult,
     ],
@@ -460,7 +460,7 @@ describe(splitTwammOrder, () => {
             saleRateDeltas: orderData[pool.pool_key_hash] ?? [],
             token0SaleRate: BigInt(pool.token0_sale_rate),
             token1SaleRate: BigInt(pool.token1_sale_rate),
-          }),
+          })
         );
       }
 
@@ -474,8 +474,8 @@ describe(splitTwammOrder, () => {
               isToken1,
               pools,
               maxSplits,
-              averageBlockTime,
-            ),
+              averageBlockTime
+            )
           ).toThrowError("Invalid order split");
         });
       }
@@ -512,7 +512,7 @@ describe(splitTwammOrder, () => {
             saleRateDeltas: orderData[pool.pool_key_hash] ?? [],
             token0SaleRate: BigInt(pool.token0_sale_rate),
             token1SaleRate: BigInt(pool.token1_sale_rate),
-          }),
+          })
         );
       }
 
@@ -524,7 +524,7 @@ describe(splitTwammOrder, () => {
           isToken1,
           pools,
           maxSplits,
-          averageBlockTime,
+          averageBlockTime
         );
         it(`${description}, token${isToken1 ? "1" : "0"}`, () => {
           expect(
@@ -534,13 +534,13 @@ describe(splitTwammOrder, () => {
                 otherTokenAmount,
                 fee: node.key.fee,
               };
-            }),
+            })
           ).toMatchSnapshot();
 
           if (orders.length > 0) {
             const ordersAmount = orders.reduce(
               (acc, curr) => acc + curr.amount,
-              0n,
+              0n
             );
             expect(ordersAmount === amount).toBeTruthy();
           }

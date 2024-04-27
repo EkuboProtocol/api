@@ -741,7 +741,7 @@ describe("TWAMMPoolNode", () => {
             token: 0n,
           },
           meta: { block: { number: 1, time: 86400 } },
-        }),
+        })
       ).toMatchSnapshot("result of quote after full day");
 
       expect(
@@ -752,7 +752,7 @@ describe("TWAMMPoolNode", () => {
           },
           overrideState: first.stateAfter,
           meta: { block: { number: 1, time: 86400 } },
-        }),
+        })
       ).toMatchSnapshot("result of quote after full day using overrides");
     });
 
@@ -781,14 +781,14 @@ describe("TWAMMPoolNode", () => {
         pool.quote({
           tokenAmount: { token: 0n, amount: 0n },
           meta: { block: { number: 1, time: 60 } },
-        }),
+        })
       ).toMatchSnapshot("0 seconds pass");
 
       expect(
         pool.quote({
           tokenAmount: { token: 0n, amount: 0n },
           meta: { block: { number: 1, time: 90 } },
-        }),
+        })
       ).toMatchSnapshot("30 seconds pass");
 
       const fullyExecutedTwamm = pool.quote({
@@ -804,7 +804,7 @@ describe("TWAMMPoolNode", () => {
             amount: 10n ** 18n,
           },
           meta: { block: { number: 1, time: 120 } },
-        }).calculatedAmount,
+        }).calculatedAmount
       ).toEqual(
         pool.basePool.quote({
           tokenAmount: {
@@ -813,7 +813,7 @@ describe("TWAMMPoolNode", () => {
           },
           meta: { block: { number: 1, time: 120 } },
           overrideState: fullyExecutedTwamm.stateAfter,
-        }).calculatedAmount,
+        }).calculatedAmount
       );
 
       expect(
@@ -823,7 +823,7 @@ describe("TWAMMPoolNode", () => {
             amount: 10n ** 18n,
           },
           meta: { block: { number: 1, time: 120 } },
-        }).calculatedAmount,
+        }).calculatedAmount
       ).toEqual(
         pool.basePool.quote({
           tokenAmount: {
@@ -832,7 +832,7 @@ describe("TWAMMPoolNode", () => {
           },
           meta: { block: { number: 1, time: 120 } },
           overrideState: fullyExecutedTwamm.stateAfter,
-        }).calculatedAmount,
+        }).calculatedAmount
       );
     });
 
@@ -868,7 +868,7 @@ describe("TWAMMPoolNode", () => {
           },
           meta: { block: { number: 2, time: 2100 } },
           overrideState: quote.stateAfter,
-        }),
+        })
       ).toMatchSnapshot("second swap from first");
     });
 
@@ -904,7 +904,7 @@ describe("TWAMMPoolNode", () => {
           },
           meta: { block: { number: 2, time: 2100 } },
           overrideState: quote.stateAfter,
-        }),
+        })
       ).toMatchSnapshot("second swap from first");
     });
   });
