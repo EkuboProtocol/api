@@ -44,6 +44,7 @@ import {
   ListPositions,
 } from "./routes/nft";
 import { RequestContext } from "./shared/context";
+import { IntractApiRoute } from "./routes/intract";
 import {
   GetDefiSpringIncentives,
   GetDefiSpringIncentivesForAddressAndDates,
@@ -133,6 +134,7 @@ const router = OpenAPIRouter({
   .get(GetTwammPoolState.route, GetTwammPoolState)
   .get(GetTwammPairState.route, GetTwammPairState)
   .get(ListOrders.route, ListOrders)
+  .post(IntractApiRoute.route, IntractApiRoute)
   // catch missed routes
   .all("*", () => error(404));
 
@@ -140,8 +142,8 @@ const cache = caches.default;
 
 const { preflight, corsify } = cors({
   maxAge: 86400,
-  origin: true,
-  allowMethods: ["GET", "OPTIONS"],
+  origin: ["*"],
+  allowMethods: ["GET", "OPTIONS", "POST"],
 });
 
 export default {
@@ -156,7 +158,8 @@ export default {
     if (cacheable) {
       const cached = await cache.match(request);
       if (cached) {
-        const corsified = corsify(cached, request);
+        const corsified = corsify(cached);
+
         corsified.headers.set("Vary", "Origin");
         return corsified;
       }
@@ -176,7 +179,7 @@ export default {
       await cache.put(request, response.clone());
     }
 
-    const corsified = corsify(response, request);
+    const corsified = corsify(response);
     corsified.headers.set("Vary", "Origin");
     return corsified;
   },
