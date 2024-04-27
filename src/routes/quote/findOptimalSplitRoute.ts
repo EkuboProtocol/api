@@ -38,7 +38,6 @@ export function findOptimalSplitRoute<
 
   let routeOptions = allRoutes;
 
-  let numUniqueRoutes = 0;
   const uniqueRouteSet: Set<TQuoteNode[]> = new Set();
 
   for (let i = 0; i < numPieces; i++) {
@@ -72,9 +71,8 @@ export function findOptimalSplitRoute<
 
     if (!uniqueRouteSet.has(partialResult.route)) {
       uniqueRouteSet.add(partialResult.route);
-      numUniqueRoutes++;
 
-      if (numUniqueRoutes === maxRoutes) {
+      if (uniqueRouteSet.size === maxRoutes) {
         routeOptions = [...uniqueRouteSet.values()];
       }
 

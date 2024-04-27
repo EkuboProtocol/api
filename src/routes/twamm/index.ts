@@ -16,9 +16,9 @@ import {
 } from "../../shared/validation/address";
 import { splitTwammOrder, TwammOrderSplitResult } from "./splitOrder";
 import { num } from "starknet";
-import { getCachedNode, updateTwammPoolCache } from "../quote/quoteNodeCaching";
 import { TwammPool } from "../quote/nodes/twammPool";
 import { getBlockMeta } from "../quote/getBlockMeta";
+import { getRelevantPools } from "../quote/quoteNodeFetching";
 
 export const OrderKeyType = z
   .object({
@@ -168,6 +168,7 @@ export class GetSplitTWAPOrderByDate extends EkuboAPIRoute {
         queries,
       );
     } catch (e) {
+      console.error(e);
       return error(400, "No pools available");
     }
 
@@ -212,33 +213,29 @@ async function splitOrder(
   splitResult: TwammOrderSplitResult;
   averageBlockTime: number;
 }> {
-  const sellTokenAddress: string = sellToken.l2_token_address;
-  const buyTokenAddress: string = buyToken.l2_token_address;
+  const sellTokenAddress = BigInt(sellToken.l2_token_address);
+  const buyTokenAddress = BigInt(buyToken.l2_token_address);
 
-  const [token0, token1]: [string, string] =
-    BigInt(sellToken.l2_token_address) > BigInt(buyToken.l2_token_address)
+  const [token0, token1] =
+    sellTokenAddress > buyTokenAddress
       ? [buyTokenAddress, sellTokenAddress]
       : [sellTokenAddress, buyTokenAddress];
 
-  const [{ rows: relevantPools }, averageBlockTime, meta] =
-    await queries.withinTransaction(() =>
-      Promise.all([
-        queries.getAllRelevantTwammPoolStates({
-          token0: BigInt(token0),
-          token1: BigInt(token1),
-        }),
-        queries.getAverageBlockTime(),
-        getBlockMeta(queries),
-      ]),
+  const [meta, averageBlockTime, pools] = await Promise.all([
+    getBlockMeta(queries),
+    queries.getAverageBlockTime(),
+    getRelevantPools(queries, {
+      tokenA: BigInt(token0),
+      tokenB: BigInt(token1),
+    }),
+  ]);
+
+  const twammPools = pools
+    .filter((p): p is TwammPool => p instanceof TwammPool)
+    .filter(
+      (t) =>
+        t.hasLiquidity() && t.key.token0 === token0 && t.key.token1 === token1,
     );
-
-  const poolKeyHashes = relevantPools.map((p) => BigInt(p.key_hash));
-
-  await updateTwammPoolCache(queries, poolKeyHashes);
-
-  const twammNodes = poolKeyHashes.map(
-    (keyHash) => getCachedNode(keyHash) as TwammPool,
-  );
 
   const startTimeSeconds = Math.max(
     Math.floor(startTime.getTime() / 1000),
@@ -253,7 +250,7 @@ async function splitOrder(
       startTimeSeconds,
       endTimeSeconds,
       sellTokenAddress === token1,
-      twammNodes,
+      twammPools,
       maxSplits,
       BigInt(averageBlockTime),
     ),

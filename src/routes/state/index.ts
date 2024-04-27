@@ -13,7 +13,6 @@ import {
 } from "../../shared/validation/address";
 import { getAllTokens, getTokenByAddress } from "../meta/tokens";
 import Decimal from "decimal.js-light";
-import { getCachedNode } from "../quote/quoteNodeCaching";
 import { z } from "zod";
 
 export class GetPoolStates extends OpenAPIRoute {
@@ -163,18 +162,11 @@ export class GetPoolLiquidity extends EkuboAPIRoute {
 
     const queries = await createQueries(env);
 
-    const node = getCachedNode(poolKeyHash);
-
-    const rows: LiquidityResponseType = node
-      ? node.sortedTicks.map((st) => ({
-          tick: st.tick.toString(),
-          net_liquidity_delta_diff: st.liquidityDelta.toString(),
-        }))
-      : (
-          await queries.withinTransaction(() =>
-            queries.getPoolLiquidityGraph(poolKeyHash),
-          )
-        ).rows;
+    const rows: LiquidityResponseType = (
+      await queries.withinTransaction(() =>
+        queries.getPoolLiquidityGraph(poolKeyHash),
+      )
+    ).rows;
 
     return json(
       {

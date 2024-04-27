@@ -3,11 +3,7 @@ import { EkuboAPIRoute, RequestContext } from "../../shared/context";
 import { getAllTokens, getTokenByIdentifier } from "../meta/tokens";
 import Decimal from "decimal.js-light";
 import { MAX_U128 } from "./math/constants";
-import {
-  getAllRelevantPoolsAndUpdateCache,
-  getCachedNode,
-  updateBasePoolCache,
-} from "./quoteNodeCaching";
+import { getRelevantPools } from "./quoteNodeFetching";
 import { findAllRoutes } from "./findAllRoutes";
 import { BasePoolState, TokenAmount } from "./nodes/quoteNode";
 import { num } from "starknet";
@@ -21,7 +17,6 @@ import { z } from "zod";
 import {
   AddressType,
   HexStringType,
-  NumericType,
   TokenIdentifierType,
 } from "../../shared/validation/address";
 import { MAX_SQRT_RATIO } from "./math/tick";
@@ -29,9 +24,9 @@ import { getSqrtRatioLimit } from "./getSqrtRatioLimit";
 import { BaseOrTwammResourcesGasEstimator } from "./gasEstimators";
 import { findOptimalSplitRoute } from "./findOptimalSplitRoute";
 import { quoteRoute } from "./quoteRoute";
-import { getBlockMeta } from "./getBlockMeta";
 import { BasePool } from "./nodes/basePool";
 import { TwammPool, TwammPoolState } from "./nodes/twammPool";
+import { getBlockMeta } from "./getBlockMeta";
 import { ETH_TOKEN_ADDRESS } from "../../shared/constants";
 
 const PoolKeyType = z
@@ -162,13 +157,18 @@ export class GetQuote extends EkuboAPIRoute {
       return error(400, "Amount is too large");
     }
 
-    const { meta, relevantPools } = await getAllRelevantPoolsAndUpdateCache(
-      queries,
-      {
+    const [meta, otherTokenPriceResult, relevantPools] = await Promise.all([
+      getBlockMeta(queries),
+      queries.getVolumeWeightedPriceOverPeriod({
+        baseToken: ETH_TOKEN_ADDRESS,
+        quoteToken: otherToken,
+        minSwapCount: 0,
+      }),
+      getRelevantPools(queries, {
         tokenA: token,
         tokenB: otherToken,
-      },
-    );
+      }),
+    ]);
 
     if (!relevantPools.length) {
       return error(404, "No pools connect the two tokens");
@@ -183,14 +183,7 @@ export class GetQuote extends EkuboAPIRoute {
     };
 
     // get the ETH price of the other token
-    const otherTokenPrice =
-      (
-        await queries.getVolumeWeightedPriceOverPeriod({
-          baseToken: ETH_TOKEN_ADDRESS,
-          quoteToken: otherToken,
-          minSwapCount: 0,
-        })
-      )?.price ?? new Decimal(0);
+    const otherTokenPrice = otherTokenPriceResult?.price ?? new Decimal(0);
 
     const smallestSplitAmount = amount / 2n ** BigInt(maxSplits);
 
@@ -300,112 +293,5 @@ export class GetQuote extends EkuboAPIRoute {
         "cache-control": "no-cache",
       },
     });
-  }
-}
-
-export class GetQuoteToPrice extends EkuboAPIRoute {
-  static route = "/pools/:keyHash/delta_to_sqrt_ratio/:newSqrtRatio";
-
-  static schema: OpenAPIRouteSchema = {
-    tags: ["Swap"],
-    summary: "Quote to price",
-    description:
-      "Returns the token deltas for swapping a specific pool to the given square root ratio.",
-    parameters: {
-      keyHash: Path(NumericType, { example: "0xabcd" }),
-      nextSqrtRatio: Path(z.coerce.string(), {
-        description:
-          "The next square root ratio to quote the pool being swapped to",
-        required: true,
-      }),
-    },
-    responses: {
-      "200": {
-        description: "The amount to swap to a price for a pool",
-        contentType: "application/json",
-      },
-    },
-  };
-
-  async handle({ params }: IRequest, { env }: RequestContext) {
-    let poolKeyHash: bigint, newSqrtRatio: bigint;
-    try {
-      poolKeyHash = BigInt(params.keyHash);
-      newSqrtRatio = BigInt(params.newSqrtRatio);
-    } catch (e) {
-      return error(400, "Invalid path parameters");
-    }
-
-    const queries = await createQueries(env);
-
-    const state = await queries.withinTransaction(async () => {
-      const [
-        meta,
-        {
-          rows: [poolState],
-        },
-      ] = await Promise.all([
-        getBlockMeta(queries),
-        queries.getBasePoolStates({ poolKeyHashes: [poolKeyHash] }),
-      ]);
-
-      if (!poolState) {
-        return null;
-      }
-
-      if (BigInt(poolState.extension) !== 0n) {
-        return null;
-      }
-
-      await updateBasePoolCache(queries, [poolKeyHash]);
-
-      return {
-        meta,
-        node: getCachedNode(poolKeyHash),
-        sqrtRatio: BigInt(poolState.sqrt_ratio),
-      };
-    });
-
-    if (!state) {
-      return error(501, "Pool not found or not supported");
-    }
-
-    const { meta, node, sqrtRatio } = state;
-
-    const isToken1 = sqrtRatio >= newSqrtRatio;
-    const { consumedAmount, calculatedAmount, executionResources, stateAfter } =
-      node.quote({
-        tokenAmount: {
-          amount: -0xffffffffffffffffffffffffffffffffn,
-          token: sqrtRatio >= newSqrtRatio ? node.key.token1 : node.key.token0,
-        },
-        sqrtRatioLimit: newSqrtRatio,
-        meta,
-      });
-
-    const delta = isToken1
-      ? {
-          delta0: calculatedAmount.toString(),
-          delta1: consumedAmount.toString(),
-        }
-      : {
-          delta0: consumedAmount.toString(),
-          delta1: calculatedAmount.toString(),
-        };
-
-    return json(
-      {
-        ...delta,
-        sqrtRatio: num.toHex(node.state.sqrtRatio),
-        tickSpacingsCrossed: executionResources.tickSpacingsCrossed,
-        initializedTicksCrossed: executionResources.initializedTicksCrossed,
-        sqrtRatioAfter: num.toHex(stateAfter.sqrtRatio),
-      },
-      {
-        headers: {
-          "cache-control": "no-cache",
-        },
-      },
-    );
   }
 }

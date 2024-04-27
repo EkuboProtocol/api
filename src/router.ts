@@ -18,7 +18,7 @@ import {
   GetLeaderboard,
   GetLeaderboardForCollector,
 } from "./routes/leaderboard";
-import { GetQuote, GetQuoteToPrice } from "./routes/quote";
+import { GetQuote } from "./routes/quote";
 import {
   GetOverview,
   GetOverviewPairs,
@@ -116,7 +116,6 @@ export const router = OpenAPIRouter({
   .get(GetPoolStates.route, GetPoolStates)
   .get(GetPoolKeyHash.route, GetPoolKeyHash)
   .get(GetPoolLiquidity.route, GetPoolLiquidity)
-  .get(GetQuoteToPrice.route, GetQuoteToPrice)
   .get(ListPositions.route, ListPositions)
   .get(GetPairLiquidity.route, GetPairLiquidity)
   .get(ListPairEvents.route, ListPairEvents)

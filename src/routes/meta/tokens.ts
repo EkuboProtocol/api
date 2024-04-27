@@ -71,15 +71,6 @@ export const TokenType = z
 
 export type TokenInfo = z.infer<typeof TokenType>;
 
-const lastGetAllTokens: {
-  [chainId in constants.StarknetChainId]?: {
-    timestamp: number;
-    result: TokenInfo[];
-  };
-} = {};
-
-const MEMORY_CACHE_TIME_SECONDS = 300;
-
 const SEPOLIA_CHAIN_ID = BigInt(constants.StarknetChainId.SN_SEPOLIA);
 const MAINNET_CHAIN_ID = BigInt(constants.StarknetChainId.SN_MAIN);
 
@@ -87,11 +78,6 @@ export async function getAllTokens(
   env: Env,
   queries: Queries,
 ): Promise<TokenInfo[]> {
-  const last = lastGetAllTokens[env.STARKNET_CHAIN_ID];
-  if (last && last.timestamp >= Date.now() - MEMORY_CACHE_TIME_SECONDS * 1000) {
-    return last.result;
-  }
-
   const tokens: TokenInfo[] =
     BigInt(env.STARKNET_CHAIN_ID) === SEPOLIA_CHAIN_ID
       ? SEPOLIA_TOKENS
@@ -139,11 +125,6 @@ export async function getAllTokens(
     } catch (error) {}
   });
 
-  lastGetAllTokens[env.STARKNET_CHAIN_ID] = {
-    timestamp: Date.now(),
-    result: tokens,
-  };
-
   return tokens;
 }
 
@@ -187,7 +168,7 @@ export class ListTokens extends EkuboAPIRoute {
 
     return json(tokens, {
       headers: {
-        "cache-control": `public,max-age=${MEMORY_CACHE_TIME_SECONDS * 2}`,
+        "cache-control": `public,max-age=600`,
       },
     });
   }
