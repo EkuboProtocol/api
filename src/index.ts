@@ -1,4 +1,4 @@
-import { cors, error, IRequest, json } from "itty-router";
+import { createCors, error, IRequest, json } from "itty-router";
 import { Env } from "./env";
 import Decimal from "decimal.js-light";
 import { version } from "../package.json";
@@ -140,10 +140,10 @@ const router = OpenAPIRouter({
 
 const cache = caches.default;
 
-const { preflight, corsify } = cors({
+const { preflight, corsify } = createCors({
   maxAge: 86400,
-  origin: ["*"],
-  allowMethods: ["GET", "OPTIONS", "POST"],
+  origins: ["*"],
+  methods: ["GET", "OPTIONS", "POST"],
 });
 
 export default {
