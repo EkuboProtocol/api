@@ -185,7 +185,7 @@ export class GetQuote extends EkuboAPIRoute {
     const otherTokenPrice =
       (
         await queries.getVolumeWeightedPriceOverPeriod({
-          baseToken: BigInt(env.ETH_TOKEN_ADDRESS),
+          baseToken: ETH_TOKEN_ADDRESS,
           quoteToken: otherToken,
           minSwapCount: 0,
         })
