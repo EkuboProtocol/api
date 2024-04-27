@@ -11,8 +11,8 @@ import {
 import { z } from "zod";
 import {
   AddressType,
-  TokenIdentifierType,
   DateIdentifierType,
+  TokenIdentifierType,
 } from "../../shared/validation/address";
 import { splitTwammOrder, TwammOrderSplitResult } from "./splitOrder";
 import { num } from "starknet";
@@ -54,7 +54,7 @@ function parseDatePathParameter(str: string): Date {
 }
 
 const DatePathParameterType = DateIdentifierType.or(
-  z.coerce.number().min(0).max(Number.MAX_SAFE_INTEGER).int()
+  z.coerce.number().min(0).max(Number.MAX_SAFE_INTEGER).int(),
 );
 
 export class GetSplitTWAPOrderByDate extends EkuboAPIRoute {
@@ -71,7 +71,7 @@ export class GetSplitTWAPOrderByDate extends EkuboAPIRoute {
         z.string().openapi({
           examples: ["1e9", "1000000"],
           description: "The amount of the token to sell",
-        })
+        }),
       ),
       startTime: Path(DatePathParameterType, {
         example: "2020-01-01T00:00:01Z",
@@ -101,7 +101,7 @@ export class GetSplitTWAPOrderByDate extends EkuboAPIRoute {
                   description: "The amount to sell on this pool",
                 }),
                 order_key: OrderKeyType,
-              })
+              }),
             )
             .openapi({
               description: "The list of TWAP orders to place",
@@ -130,7 +130,7 @@ export class GetSplitTWAPOrderByDate extends EkuboAPIRoute {
     } catch (e) {
       return error(
         400,
-        `Failed to parse path parameters: ${(e as Error).message}`
+        `Failed to parse path parameters: ${(e as Error).message}`,
       );
     }
 
@@ -165,7 +165,7 @@ export class GetSplitTWAPOrderByDate extends EkuboAPIRoute {
         endTime,
         amount,
         maxSplits,
-        queries
+        queries,
       );
     } catch (e) {
       return error(400, "No pools available");
@@ -195,7 +195,7 @@ export class GetSplitTWAPOrderByDate extends EkuboAPIRoute {
         headers: {
           "cache-control": "no-cache",
         },
-      }
+      },
     );
   }
 }
@@ -207,7 +207,7 @@ async function splitOrder(
   endTime: Date,
   amount: bigint,
   maxSplits: number,
-  queries: Queries
+  queries: Queries,
 ): Promise<{
   splitResult: TwammOrderSplitResult;
   averageBlockTime: number;
@@ -229,7 +229,7 @@ async function splitOrder(
         }),
         queries.getAverageBlockTime(),
         getBlockMeta(queries),
-      ])
+      ]),
     );
 
   const poolKeyHashes = relevantPools.map((p) => BigInt(p.key_hash));
@@ -237,12 +237,12 @@ async function splitOrder(
   await updateTwammPoolCache(queries, poolKeyHashes);
 
   const twammNodes = poolKeyHashes.map(
-    (keyHash) => getCachedNode(keyHash) as TwammPool
+    (keyHash) => getCachedNode(keyHash) as TwammPool,
   );
 
   const startTimeSeconds = Math.max(
     Math.floor(startTime.getTime() / 1000),
-    meta?.block?.time
+    meta?.block?.time,
   );
 
   const endTimeSeconds = Math.floor(endTime.getTime() / 1000);
@@ -255,7 +255,7 @@ async function splitOrder(
       sellTokenAddress === token1,
       twammNodes,
       maxSplits,
-      BigInt(averageBlockTime)
+      BigInt(averageBlockTime),
     ),
     averageBlockTime,
   };

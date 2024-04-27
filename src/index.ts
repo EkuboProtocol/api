@@ -44,7 +44,6 @@ import {
   ListPositions,
 } from "./routes/nft";
 import { RequestContext } from "./shared/context";
-import { IntractApiRoute } from "./routes/intract";
 import {
   GetDefiSpringIncentives,
   GetDefiSpringIncentivesForAddressAndDates,
@@ -92,11 +91,11 @@ const router = OpenAPIRouter({
   .get(GetDefiSpringIncentives.route, GetDefiSpringIncentives)
   .get(
     GetDefiSpringIncentivesForTokenId.route,
-    GetDefiSpringIncentivesForTokenId
+    GetDefiSpringIncentivesForTokenId,
   )
   .get(
     GetDefiSpringIncentivesForAddressAndDates.route,
-    GetDefiSpringIncentivesForAddressAndDates
+    GetDefiSpringIncentivesForAddressAndDates,
   )
   .get(ListTokens.route, ListTokens)
   .get(GetTokenLogo.route, GetTokenLogo)
@@ -134,7 +133,6 @@ const router = OpenAPIRouter({
   .get(GetTwammPoolState.route, GetTwammPoolState)
   .get(GetTwammPairState.route, GetTwammPairState)
   .get(ListOrders.route, ListOrders)
-  .post(IntractApiRoute.route, IntractApiRoute)
   // catch missed routes
   .all("*", () => error(404));
 
@@ -143,7 +141,7 @@ const cache = caches.default;
 const { preflight, corsify } = createCors({
   maxAge: 86400,
   origins: ["*"],
-  methods: ["GET", "OPTIONS", "POST"],
+  methods: ["GET", "OPTIONS"],
 });
 
 export default {
@@ -168,7 +166,7 @@ export default {
     let response: Response;
     try {
       response = json(
-        await router.handle(request, { env } satisfies RequestContext)
+        await router.handle(request, { env } satisfies RequestContext),
       );
     } catch (e) {
       console.error(e);

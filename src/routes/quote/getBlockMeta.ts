@@ -5,7 +5,7 @@ export async function getBlockMeta(queries: Queries): Promise<QuoteMeta> {
   const block = await queries.getLatestBlockMeta();
 
   const ageLastBlockSeconds = Math.floor(
-    (Date.now() - block.time.getTime()) / 1000
+    (Date.now() - block.time.getTime()) / 1000,
   );
 
   // the current block ceiling deadline is 6 minutes, so we can estimate the current block number,

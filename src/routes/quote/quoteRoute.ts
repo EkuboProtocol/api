@@ -1,6 +1,6 @@
 import {
-  BasePoolState,
   BasePoolResources,
+  BasePoolState,
   Quote,
   QuoteMeta,
   QuoteNode,
@@ -16,7 +16,7 @@ export interface GasEstimator<
     calculatedAmount: bigint,
     route: TQuoteNode[],
     quoteResults: Quote<TResources, TState>[],
-    overrides: WeakMap<TQuoteNode, TState>
+    overrides: WeakMap<TQuoteNode, TState>,
   ): bigint;
 }
 
@@ -89,7 +89,7 @@ export function quoteRoute<
     {
       calculatedAmount: specifiedAmount,
       quotes: [],
-    }
+    },
   );
 
   return {
@@ -99,7 +99,7 @@ export function quoteRoute<
       calculatedAmount.amount,
       route,
       quotes,
-      overrides
+      overrides,
     ),
   };
 }

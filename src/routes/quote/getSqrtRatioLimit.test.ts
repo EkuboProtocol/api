@@ -5,10 +5,10 @@ import { MAX_SQRT_RATIO, MAX_TICK_SPACING, MIN_SQRT_RATIO } from "./math/tick";
 describe(getSqrtRatioLimit, () => {
   it("increases/decreases amount based on direction", () => {
     expect(getSqrtRatioLimit(1n << 128n, 200, true)).toMatchInlineSnapshot(
-      `349036238196997812930660241101487815190n`
+      `349036238196997812930660241101487815190n`,
     );
     expect(getSqrtRatioLimit(1n << 128n, 200, false)).toMatchInlineSnapshot(
-      `331748043800433570885727608789418076840n`
+      `331748043800433570885727608789418076840n`,
     );
   });
 
@@ -22,21 +22,21 @@ describe(getSqrtRatioLimit, () => {
   });
   it("min sqrt ratio", () => {
     expect(
-      getSqrtRatioLimit(MIN_SQRT_RATIO, MAX_TICK_SPACING, true)
+      getSqrtRatioLimit(MIN_SQRT_RATIO, MAX_TICK_SPACING, true),
     ).toMatchInlineSnapshot(`692022112070556512811692140356186315659n`);
     expect(
-      getSqrtRatioLimit(MIN_SQRT_RATIO, MAX_TICK_SPACING, false)
+      getSqrtRatioLimit(MIN_SQRT_RATIO, MAX_TICK_SPACING, false),
     ).toMatchInlineSnapshot(`18446748437148339062n`);
   });
   it("max sqrt ratio", () => {
     expect(getSqrtRatioLimit(MAX_SQRT_RATIO, MAX_TICK_SPACING, true)).toEqual(
-      MAX_SQRT_RATIO - 1n
+      MAX_SQRT_RATIO - 1n,
     );
     expect(
-      getSqrtRatioLimit(MAX_SQRT_RATIO, MAX_TICK_SPACING, false)
+      getSqrtRatioLimit(MAX_SQRT_RATIO, MAX_TICK_SPACING, false),
     ).toMatchInlineSnapshot(`167324262068536877884077394263793884480n`);
     expect(
-      getSqrtRatioLimit(MAX_SQRT_RATIO, MAX_TICK_SPACING * 2, false)
+      getSqrtRatioLimit(MAX_SQRT_RATIO, MAX_TICK_SPACING * 2, false),
     ).toMatchInlineSnapshot(`18446748437148339061n`);
   });
 });

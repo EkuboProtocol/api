@@ -30,7 +30,7 @@ export function splitTwammOrder(
   isToken1: boolean,
   pools: TwammPool[],
   maxSplits: number,
-  averageBlockTime: bigint
+  averageBlockTime: bigint,
 ): TwammOrderSplitResult {
   const smallestSplitAmount = amount / 2n ** BigInt(maxSplits);
   const timeWindow = BigInt(endTime - startTime);
@@ -57,7 +57,7 @@ export function splitTwammOrder(
         endTime,
         isToken1,
         stateAfter,
-        orderSaleRate
+        orderSaleRate,
       );
 
       return {
@@ -68,8 +68,8 @@ export function splitTwammOrder(
     .sort(
       (
         { otherTokenAmount: otherTokenAmountA },
-        { otherTokenAmount: otherTokenAmountB }
-      ) => otherTokenAmountB.minus(otherTokenAmountA).toNumber()
+        { otherTokenAmount: otherTokenAmountB },
+      ) => otherTokenAmountB.minus(otherTokenAmountA).toNumber(),
     )
     .slice(0, numPieces)
     .map(({ node }) => node);
@@ -123,7 +123,7 @@ export function splitTwammOrder(
             ? stateAfter.token1SaleRate + saleRateOverride
             : stateAfter.token1SaleRate,
         },
-        partialOrderSaleRate
+        partialOrderSaleRate,
       );
 
       if (!memo || memo.otherTokenAmount.lessThan(otherTokenAmount)) {
@@ -184,7 +184,7 @@ export function splitTwammOrder(
 function getPriceImpact(
   orders: TwammOrderSplit[],
   isToken1: boolean,
-  averageBlockTime: bigint
+  averageBlockTime: bigint,
 ) {
   const { input, output, executionOutput } = orders.reduce<{
     input: number;
@@ -225,7 +225,7 @@ function getPriceImpact(
         executionOutput: memo.executionOutput + Number(executionOutput),
       };
     },
-    { input: 0, executionOutput: 0, output: 0 }
+    { input: 0, executionOutput: 0, output: 0 },
   );
 
   const currentPrice = output / input;
@@ -239,13 +239,13 @@ function quoteOtherTokenAmount(
   endTime: number,
   isToken1: boolean,
   overrideState: TwammPoolState,
-  orderSaleRate: bigint
+  orderSaleRate: bigint,
 ): Decimal {
   const otherTokenAmountWithoutOrder = getOtherTokenAmount(
     node,
     endTime,
     isToken1,
-    overrideState
+    overrideState,
   );
 
   const otherTokenAmountWithOrder = getOtherTokenAmount(
@@ -260,7 +260,7 @@ function quoteOtherTokenAmount(
       token1SaleRate: isToken1
         ? overrideState.token1SaleRate + orderSaleRate
         : overrideState.token1SaleRate,
-    }
+    },
   );
 
   // adding token1 results in less of token0 in the AMM at the end of execution and vice versa
@@ -271,7 +271,7 @@ function getOtherTokenAmount(
   node: TwammPool,
   endTime: number,
   isToken1: boolean,
-  overrideState: TwammPoolState
+  overrideState: TwammPoolState,
 ): Decimal {
   const { stateAfter } = node.quote({
     tokenAmount: {

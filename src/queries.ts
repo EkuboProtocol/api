@@ -307,7 +307,7 @@ export class Queries {
   }
 
   public async getPositionMetadata(
-    id: number
+    id: number,
   ): Promise<PositionMetadata | null> {
     const { rows, rowCount } = await this.client.query<PositionMetadata>({
       text: `
@@ -738,7 +738,7 @@ export class Queries {
 
   public getTvlDeltaByTokenByDate(
     after: Date,
-    pair?: { token0: bigint; token1: bigint }
+    pair?: { token0: bigint; token1: bigint },
   ) {
     return this.client.query<{ token: string; date: string; balance: string }>({
       text: `
@@ -982,7 +982,7 @@ export class Queries {
 
   public async getVolumeByTokenByDate(
     after: Date,
-    pair?: { token0: bigint; token1: bigint }
+    pair?: { token0: bigint; token1: bigint },
   ) {
     return this.client.query<{
       token: string;
@@ -1047,7 +1047,7 @@ export class Queries {
         ({ k_volume, total, swap_count }) =>
           BigInt(k_volume) > 0n &&
           BigInt(total) > 0n &&
-          swap_count >= minSwapCount
+          swap_count >= minSwapCount,
       )
       .map(({ token0, token1, k_volume, total }) => ({
         token: `0x${(BigInt(token0) === quoteToken
@@ -1064,7 +1064,7 @@ export class Queries {
 
   public async withinTransaction<T>(doX: () => Promise<T>): Promise<T> {
     await this.client.query(
-      `BEGIN TRANSACTION ISOLATION LEVEL REPEATABLE READ`
+      `BEGIN TRANSACTION ISOLATION LEVEL REPEATABLE READ`,
     );
     try {
       const result = await doX();
@@ -1085,7 +1085,7 @@ export class Queries {
 
   public async getRevenueByTokenByDate(
     after: Date,
-    pair?: { token0: bigint; token1: bigint }
+    pair?: { token0: bigint; token1: bigint },
   ) {
     return this.client.query<{ token: string; volume: string }>({
       text: `
@@ -1368,7 +1368,7 @@ export class Queries {
         memo[value.toString()] = [];
         return memo;
       },
-      {}
+      {},
     );
 
     rows.forEach((value) => {
@@ -1423,7 +1423,7 @@ export class Queries {
 
         return memo;
       },
-      {}
+      {},
     );
   }
 
@@ -1702,7 +1702,7 @@ export class Queries {
 
   async getLatestBlockMeta() {
     const { rows } = await this.client.query<{ number: number; time: Date }>(
-      `SELECT number, time FROM blocks ORDER BY number DESC LIMIT 1`
+      `SELECT number, time FROM blocks ORDER BY number DESC LIMIT 1`,
     );
     if (!rows.length) throw new Error("No blocks");
     return rows[0];

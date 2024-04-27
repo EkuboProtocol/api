@@ -8,7 +8,7 @@ import { EkuboAPIRoute, RequestContext } from "../../shared/context";
 import { z } from "zod";
 import { num } from "starknet";
 import { createQueries } from "../../queries";
-import { AddressType, NumericType } from "../../shared/validation/address";
+import { AddressType } from "../../shared/validation/address";
 
 export class GetLeaderboard extends EkuboAPIRoute {
   public static route = "/leaderboard";

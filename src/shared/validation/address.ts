@@ -33,14 +33,11 @@ export const TokenSymbolType = z
     description: "The symbol for a token",
   });
 
-export const DateType = z
-  .string()
-  .datetime();
+export const DateType = z.string().datetime();
 
 export const TokenIdentifierType = AddressType.or(TokenSymbolType);
 
-export const DateIdentifierType = DateType
-  .openapi({
-      title: "Date",
-      description: "An ISO 8601 date timestamp"
-  });
+export const DateIdentifierType = DateType.openapi({
+  title: "Date",
+  description: "An ISO 8601 date timestamp",
+});
