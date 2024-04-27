@@ -1,4 +1,4 @@
-import { NodeKey, QuoteNode } from "./nodes/quoteNode";
+import { NodeKey } from "./nodes/quoteNode";
 
 export interface HasKey {
   key: NodeKey;

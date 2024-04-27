@@ -103,10 +103,11 @@ export function toSqrtRatio(tick: number): bigint {
 }
 
 const logBase = Math.log(1.0000005);
+
 export function approximateNumberOfTickSpacingsCrossed(
   sqrtRatioStart: bigint,
   sqrtRatioEnd: bigint,
-  tickSpacing: number
+  tickSpacing: number,
 ): number {
   const logPriceDiff =
     Math.log(Number(sqrtRatioEnd) / Number(sqrtRatioStart)) / logBase;

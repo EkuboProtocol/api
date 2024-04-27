@@ -71,7 +71,7 @@ export interface QuoteNode<
    */
   combineResources(
     resource: TResources,
-    additionalResources: TResources
+    additionalResources: TResources,
   ): TResources;
 
   /**

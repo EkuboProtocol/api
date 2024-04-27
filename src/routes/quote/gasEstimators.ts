@@ -1,7 +1,7 @@
 import { GasEstimator } from "./quoteRoute";
 import {
-  BasePoolState,
   BasePoolResources,
+  BasePoolState,
   Quote,
   QuoteNode,
 } from "./nodes/quoteNode";
@@ -29,7 +29,7 @@ export class BaseResourcesGasEstimator
     calculatedAmount: bigint,
     route: QuoteNode[],
     quoteResults: Quote<BasePoolResources, BasePoolState>[],
-    overrides: WeakMap<QuoteNode, BasePoolState>
+    overrides: WeakMap<QuoteNode, BasePoolState>,
   ): bigint {
     const totalRouteResources = route.reduce(
       (memo, node, ix) => {
@@ -49,25 +49,25 @@ export class BaseResourcesGasEstimator
         newPoolsSwapped: 0,
         initializedTicksCrossed: 0,
         tickSpacingsCrossed: 0,
-      }
+      },
     );
 
     const gasInOtherToken = BigInt(
       BaseResourcesGasEstimator.ETH_PER_POOL_SWAPPED.mul(
-        totalRouteResources.newPoolsSwapped
+        totalRouteResources.newPoolsSwapped,
       )
         .add(
           BaseResourcesGasEstimator.ETH_PER_INITIALIZED_TICK_CROSS.mul(
-            totalRouteResources.initializedTicksCrossed
-          )
+            totalRouteResources.initializedTicksCrossed,
+          ),
         )
         .add(
           BaseResourcesGasEstimator.ETH_PER_TICK_SPACING_CROSSED.mul(
-            totalRouteResources.tickSpacingsCrossed
-          )
+            totalRouteResources.tickSpacingsCrossed,
+          ),
         )
         .mul(this.calculatedTokenPrice)
-        .toFixed(0, Decimal.ROUND_DOWN)
+        .toFixed(0, Decimal.ROUND_DOWN),
     );
 
     return calculatedAmount - gasInOtherToken;
@@ -90,7 +90,7 @@ export class BaseOrTwammResourcesGasEstimator
 
   public static EXECUTION_COST_EXECUTE_VIRTUAL_ORDERS = new Decimal("1e13");
   public static EXECUTION_COST_EXECUTE_VIRTUAL_ORDERS_CROSS_DELTA = new Decimal(
-    "1e14"
+    "1e14",
   );
 
   getGasAdjustedAmount(
@@ -100,13 +100,13 @@ export class BaseOrTwammResourcesGasEstimator
       BasePoolResources | TwammResources,
       BasePoolState | TwammPoolState
     >[],
-    overrides: WeakMap<BasePool | TwammPool, BasePoolState | TwammPoolState>
+    overrides: WeakMap<BasePool | TwammPool, BasePoolState | TwammPoolState>,
   ): bigint {
     const baseAmount = this.baseGasEstimator.getGasAdjustedAmount(
       calculatedAmount,
       route,
       quoteResults,
-      overrides
+      overrides,
     );
 
     return (
@@ -125,11 +125,11 @@ export class BaseOrTwammResourcesGasEstimator
           BigInt(
             BaseOrTwammResourcesGasEstimator.EXECUTION_COST_EXECUTE_VIRTUAL_ORDERS.add(
               BaseOrTwammResourcesGasEstimator.EXECUTION_COST_EXECUTE_VIRTUAL_ORDERS_CROSS_DELTA.mul(
-                resources.virtualOrderDeltaTimesCrossed
-              )
+                resources.virtualOrderDeltaTimesCrossed,
+              ),
             )
               .mul(this.baseGasEstimator.calculatedTokenPrice)
-              .toFixed(0, Decimal.ROUND_DOWN)
+              .toFixed(0, Decimal.ROUND_DOWN),
           )
         );
       }, 0n)

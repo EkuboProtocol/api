@@ -36,6 +36,7 @@ export function amount0Delta(
 }
 
 const TWO_POW_128 = 0x100000000000000000000000000000000n;
+
 export function amount1Delta(
   sqrtRatioA: bigint,
   sqrtRatioB: bigint,

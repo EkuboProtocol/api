@@ -1,4 +1,4 @@
-import { KVNamespace, Hyperdrive } from "@cloudflare/workers-types";
+import { Hyperdrive, KVNamespace } from "@cloudflare/workers-types";
 import { constants } from "starknet";
 
 export interface Env {

@@ -70,7 +70,7 @@ const GetQuoteResponseType = z.object({
             "A suggested skip_ahead value for gas optimizing the trade",
           example: 123,
         }),
-      })
+      }),
     )
     .openapi({
       description: "The list of pool keys through which to swap",
@@ -96,7 +96,7 @@ export class GetQuote extends EkuboAPIRoute {
           examples: ["1e9", "1000000", "-1e18", "-100000000000000"],
           example: "-1e9",
           description: "The amount of the specified token",
-        })
+        }),
       ),
       maxSplits: Query(z.coerce.number().int().min(0).max(8), {
         description:
@@ -166,7 +166,7 @@ export class GetQuote extends EkuboAPIRoute {
       {
         tokenA: token,
         tokenB: otherToken,
-      }
+      },
     );
 
     if (!relevantPools.length) {
@@ -224,7 +224,7 @@ export class GetQuote extends EkuboAPIRoute {
         if (!quoteB) return -1;
         return Number(
           quoteB.gasAdjustedCalculatedAmount -
-            quoteA.gasAdjustedCalculatedAmount
+            quoteA.gasAdjustedCalculatedAmount,
         );
       })
       .slice(0, Math.pow(2, maxSplits))
@@ -258,8 +258,8 @@ export class GetQuote extends EkuboAPIRoute {
           getSqrtRatioLimit(
             quoteRouteResult.quotes[ix].stateAfter.sqrtRatio,
             key.tickSpacing,
-            quoteRouteResult.quotes[ix].isPriceIncreasing
-          )
+            quoteRouteResult.quotes[ix].isPriceIncreasing,
+          ),
         ),
         skip_ahead: num.toHex(
           Math.round(
@@ -267,9 +267,9 @@ export class GetQuote extends EkuboAPIRoute {
               Math.max(
                 quoteRouteResult.quotes[ix].executionResources
                   .initializedTicksCrossed,
-                1
-              )
-          )
+                1,
+              ),
+          ),
         ),
       })),
     }));
@@ -284,9 +284,9 @@ export class GetQuote extends EkuboAPIRoute {
                   quoteRouteResult: {
                     calculatedAmount: { amount },
                   },
-                }
+                },
               ) => amount + sum,
-              0n
+              0n,
             )
             .toString(),
 
@@ -404,7 +404,7 @@ export class GetQuoteToPrice extends EkuboAPIRoute {
         headers: {
           "cache-control": "no-cache",
         },
-      }
+      },
     );
   }
 }

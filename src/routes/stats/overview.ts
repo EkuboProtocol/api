@@ -45,7 +45,7 @@ export class GetOverview extends EkuboAPIRoute {
         queries.getTotalVolumeByToken({ since: twentyFourHoursAgo }),
         queries.getRevenueByToken({ since: twentyFourHoursAgo }),
         queries.getTopPairs(),
-      ])
+      ]),
     );
 
     return json(
@@ -65,7 +65,7 @@ export class GetOverview extends EkuboAPIRoute {
         headers: {
           "cache-control": "public, max-age=21600",
         },
-      }
+      },
     );
   }
 }
@@ -97,7 +97,7 @@ export class GetOverviewPairs extends EkuboAPIRoute {
         headers: {
           "cache-control": "public, max-age=21600",
         },
-      }
+      },
     );
   }
 }
@@ -132,7 +132,7 @@ export class GetOverviewRevenue extends EkuboAPIRoute {
         queries.getRevenueByToken({}),
         queries.getRevenueByTokenByDate(thirtyDaysAgo),
         queries.getRevenueByToken({ since: twentyFourHoursAgo }),
-      ])
+      ]),
     );
 
     return json(
@@ -145,7 +145,7 @@ export class GetOverviewRevenue extends EkuboAPIRoute {
         headers: {
           "cache-control": "public, max-age=21600",
         },
-      }
+      },
     );
   }
 }
@@ -180,7 +180,7 @@ export class GetOverviewVolume extends EkuboAPIRoute {
         queries.getTotalVolumeByToken({}),
         queries.getVolumeByTokenByDate(thirtyDaysAgo),
         queries.getTotalVolumeByToken({ since: twentyFourHoursAgo }),
-      ])
+      ]),
     );
 
     return json(
@@ -193,7 +193,7 @@ export class GetOverviewVolume extends EkuboAPIRoute {
         headers: {
           "cache-control": "public, max-age=21600",
         },
-      }
+      },
     );
   }
 }
@@ -223,7 +223,7 @@ export class GetOverviewTvl extends EkuboAPIRoute {
         Promise.all([
           queries.getTvlByToken(),
           queries.getTvlDeltaByTokenByDate(thirtyDaysAgo),
-        ])
+        ]),
       );
 
     return json(
@@ -235,7 +235,7 @@ export class GetOverviewTvl extends EkuboAPIRoute {
         headers: {
           "cache-control": "public, max-age=21600",
         },
-      }
+      },
     );
   }
 }

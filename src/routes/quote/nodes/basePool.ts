@@ -6,8 +6,8 @@ import {
   toSqrtRatio,
 } from "../math/tick";
 import {
-  BasePoolState,
   BasePoolResources,
+  BasePoolState,
   NodeKey,
   Quote,
   QuoteNode,
@@ -22,7 +22,7 @@ import {
  */
 export function findNearestInitializedTickIndex(
   sortedTicks: Tick[],
-  tick: number
+  tick: number,
 ): number {
   let l = 0,
     r = sortedTicks.length;
@@ -90,7 +90,7 @@ export class BasePool implements QuoteNode {
 
   combineResources(
     resource: BasePoolResources,
-    additionalResources: BasePoolResources
+    additionalResources: BasePoolResources,
   ): BasePoolResources {
     return {
       initializedTicksCrossed:
@@ -215,7 +215,7 @@ export class BasePool implements QuoteNode {
           approximateNumberOfTickSpacingsCrossed(
             startingSqrtRatio,
             sqrtRatio,
-            this.key.tickSpacing
+            this.key.tickSpacing,
           ),
       },
       stateAfter: {
