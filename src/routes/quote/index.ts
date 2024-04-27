@@ -1,4 +1,4 @@
-import { error, IRequest, json } from "itty-router";
+import { IRequest, json, StatusError } from "itty-router";
 import { EkuboAPIRoute, RequestContext } from "../../shared/context";
 import { getAllTokens, getTokenByIdentifier } from "../meta/tokens";
 import Decimal from "decimal.js-light";
@@ -138,14 +138,17 @@ export class GetQuote extends EkuboAPIRoute {
     try {
       amount = BigInt(new Decimal(params.amount).toInteger().toFixed());
     } catch (e) {
-      return error(400, `Failed to parse amount: ${(e as Error).message}`);
+      throw new StatusError(
+        400,
+        `Failed to parse amount: ${(e as Error).message}`,
+      );
     }
 
     const tokenInfo = getTokenByIdentifier(allTokens, params.token);
     const otherTokenInfo = getTokenByIdentifier(allTokens, params.otherToken);
 
     if (!tokenInfo || !otherTokenInfo) {
-      return error(400, "Invalid token parameters");
+      throw new StatusError(400, "Invalid token parameters");
     }
 
     const token = BigInt(tokenInfo.l2_token_address);
@@ -154,7 +157,7 @@ export class GetQuote extends EkuboAPIRoute {
     const isExactOutput = amount < 0n;
 
     if ((isExactOutput ? amount * -1n : amount) > MAX_U128) {
-      return error(400, "Amount is too large");
+      throw new StatusError(400, "Amount is too large");
     }
 
     const [meta, otherTokenPriceResult, relevantPools] = await Promise.all([
@@ -171,7 +174,7 @@ export class GetQuote extends EkuboAPIRoute {
     ]);
 
     if (!relevantPools.length) {
-      return error(404, "No pools connect the two tokens");
+      throw new StatusError(404, "No pools connect the two tokens");
     }
 
     // routes are executed in reverse for exact output
@@ -234,7 +237,7 @@ export class GetQuote extends EkuboAPIRoute {
     });
 
     if (splitRoutes === null) {
-      return error(404, "Route not found");
+      throw new StatusError(404, "Route not found");
     }
 
     const serializedRoutes = splitRoutes.map(({ route, quoteRouteResult }) => ({

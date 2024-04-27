@@ -1,10 +1,6 @@
-import {
-  OpenAPIRoute,
-  OpenAPIRouteSchema,
-  Path,
-} from "@cloudflare/itty-router-openapi";
-import { error, IRequest, json } from "itty-router";
-import { RequestContext } from "../../shared/context";
+import { OpenAPIRouteSchema, Path } from "@cloudflare/itty-router-openapi";
+import { IRequest, json, StatusError } from "itty-router";
+import { EkuboAPIRoute, RequestContext } from "../../shared/context";
 import { createQueries } from "../../queries";
 import {
   DecimalStringType,
@@ -32,7 +28,7 @@ const SharedGetPairStateParameters = {
   tokenB: Path(TokenIdentifierType, { required: true, example: "USDC" }),
 };
 
-export class GetTwammPoolState extends OpenAPIRoute {
+export class GetTwammPoolState extends EkuboAPIRoute {
   static route = "/twap/pools/:tokenA/:tokenB/:fee";
 
   static schema: OpenAPIRouteSchema = {
@@ -60,17 +56,17 @@ export class GetTwammPoolState extends OpenAPIRoute {
 
     const tokenA = getTokenByIdentifier(tokens, params.tokenA);
     if (!tokenA) {
-      return error(404, "`tokenA` not found");
+      throw new StatusError(404, "`tokenA` not found");
     }
     const tokenB = getTokenByIdentifier(tokens, params.tokenB);
     if (!tokenB) {
-      return error(404, "`tokenB` not found");
+      throw new StatusError(404, "`tokenB` not found");
     }
 
     const fee = BigInt(params.fee);
 
     if (fee > MAX_U128) {
-      return error(400, "Invalid `fee`");
+      throw new StatusError(400, "Invalid `fee`");
     }
 
     const [token0, token1] =
@@ -79,7 +75,7 @@ export class GetTwammPoolState extends OpenAPIRoute {
         : [BigInt(tokenB.l2_token_address), BigInt(tokenA.l2_token_address)];
 
     if (token0 === token1) {
-      return error(400, "`tokenA` cannot be same as `tokenB`");
+      throw new StatusError(400, "`tokenA` cannot be same as `tokenB`");
     }
 
     const [{ rows: stateResults }, { rows: saleRateDeltas }] =
@@ -99,7 +95,7 @@ export class GetTwammPoolState extends OpenAPIRoute {
       );
 
     if (stateResults.length !== 1) {
-      return error(404, "Pool not found");
+      throw new StatusError(404, "Pool not found");
     }
 
     const state = stateResults[0];
@@ -129,7 +125,7 @@ export class GetTwammPoolState extends OpenAPIRoute {
   }
 }
 
-export class GetTwammPairState extends OpenAPIRoute {
+export class GetTwammPairState extends EkuboAPIRoute {
   static route = "/twap/pair/:tokenA/:tokenB";
 
   static schema: OpenAPIRouteSchema = {
@@ -154,11 +150,11 @@ export class GetTwammPairState extends OpenAPIRoute {
 
     const tokenA = getTokenByIdentifier(tokens, params.tokenA);
     if (!tokenA) {
-      return error(404, "`tokenA` not found");
+      throw new StatusError(404, "`tokenA` not found");
     }
     const tokenB = getTokenByIdentifier(tokens, params.tokenB);
     if (!tokenB) {
-      return error(404, "`tokenB` not found");
+      throw new StatusError(404, "`tokenB` not found");
     }
 
     const [token0, token1] =
@@ -167,7 +163,7 @@ export class GetTwammPairState extends OpenAPIRoute {
         : [BigInt(tokenB.l2_token_address), BigInt(tokenA.l2_token_address)];
 
     if (token0 === token1) {
-      return error(400, "`tokenA` cannot be same as `tokenB`");
+      throw new StatusError(400, "`tokenA` cannot be same as `tokenB`");
     }
 
     const [{ rows: stateResults }, { rows: saleRateDeltas }] =

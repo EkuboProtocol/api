@@ -10,28 +10,29 @@ export type TwammSaleRateDeltaMap = {
   [key_hash: string]: TwammSaleRateDelta[];
 };
 
-type TwammOrderSplit = {
+export interface TwammOrderSplit {
   node: TwammPool;
   amount: bigint;
   otherTokenAmount: bigint;
   startTime: number;
   endTime: number;
-};
+}
 
-export type TwammOrderSplitResult = {
-  orders: TwammOrderSplit[];
-  priceImpact: number;
-};
-
-export function splitTwammOrder(
-  amount: bigint,
-  startTime: number,
-  endTime: number,
-  isToken1: boolean,
-  pools: TwammPool[],
-  maxSplits: number,
-  averageBlockTime: bigint,
-): TwammOrderSplitResult {
+export function splitTwammOrder({
+  amount,
+  startTime,
+  endTime,
+  isToken1,
+  pools,
+  maxSplits,
+}: {
+  amount: bigint;
+  startTime: number;
+  endTime: number;
+  isToken1: boolean;
+  pools: TwammPool[];
+  maxSplits: number;
+}): TwammOrderSplit[] {
   const smallestSplitAmount = amount / 2n ** BigInt(maxSplits);
   const timeWindow = BigInt(endTime - startTime);
   const numPieces = Math.pow(2, maxSplits);
@@ -52,13 +53,13 @@ export function splitTwammOrder(
         meta: { block: { number: 0, time: startTime } },
       });
 
-      const otherTokenAmount = quoteOtherTokenAmount(
+      const otherTokenAmount = quoteOtherTokenAmount({
         node,
         endTime,
         isToken1,
-        stateAfter,
+        overrideState: stateAfter,
         orderSaleRate,
-      );
+      });
 
       return {
         node,
@@ -110,11 +111,11 @@ export function splitTwammOrder(
       // if pool has been already used, add previous sale rate
       const saleRateOverride = saleRateOverrides.get(node) ?? 0n;
 
-      const otherTokenAmount = quoteOtherTokenAmount(
+      const otherTokenAmount = quoteOtherTokenAmount({
         node,
         endTime,
         isToken1,
-        {
+        overrideState: {
           ...stateAfter,
           token0SaleRate: isToken1
             ? stateAfter.token0SaleRate
@@ -123,8 +124,8 @@ export function splitTwammOrder(
             ? stateAfter.token1SaleRate + saleRateOverride
             : stateAfter.token1SaleRate,
         },
-        partialOrderSaleRate,
-      );
+        orderSaleRate: partialOrderSaleRate,
+      });
 
       if (!memo || memo.otherTokenAmount.lessThan(otherTokenAmount)) {
         return {
@@ -176,41 +177,42 @@ export function splitTwammOrder(
     throw new Error("Invalid order split");
   }
 
-  const priceImpact = getPriceImpact(orders, isToken1, averageBlockTime);
-
-  return { orders, priceImpact };
+  return orders;
 }
 
-function getPriceImpact(
+export function getPriceImpact(
   orders: TwammOrderSplit[],
   isToken1: boolean,
-  averageBlockTime: bigint,
+  averageBlockTime: number,
 ) {
-  const { input, output, executionOutput } = orders.reduce<{
-    input: number;
-    output: number;
-    executionOutput: number;
+  const { totalPerBlockAmount, priceOutput, quoteOutput } = orders.reduce<{
+    totalPerBlockAmount: bigint;
+    priceOutput: bigint;
+    quoteOutput: bigint;
   }>(
     (memo, { node, amount, startTime, endTime }) => {
-      // first catch up the twamm orders to get current price
       const { stateAfter } = node.quote({
         tokenAmount: {
-          token: node.key.token1,
+          // does not matter which one we quote, this is just to catch the pool up
+          token: node.key.token0,
           amount: 0n,
         },
         meta: { block: { number: 0, time: startTime } },
       });
 
+      // this is a 128.256 number
+      const ratioAfter = stateAfter.sqrtRatio * stateAfter.sqrtRatio;
+
       const perBlockAmount =
-        (amount * averageBlockTime) / BigInt(endTime - startTime);
+        (amount * BigInt(averageBlockTime)) / BigInt(endTime - startTime);
 
-      // output amount with no fees and infinite liquidity
-      const poolCurrentPrice = isToken1
-        ? 1 / (Number(stateAfter.sqrtRatio) / 2 ** 128) ** 2
-        : (Number(stateAfter.sqrtRatio) / 2 ** 128) ** 2;
-      const output = Number(perBlockAmount) * poolCurrentPrice;
+      const inverseFee = (1n << 128n) - node.key.fee;
 
-      const { calculatedAmount: executionOutput } = node.quote({
+      const priceOutput = isToken1
+        ? ((perBlockAmount << 256n) * inverseFee) / (ratioAfter << 128n)
+        : (perBlockAmount * ratioAfter * inverseFee) >> 384n;
+
+      const { calculatedAmount: quoteOutput } = node.quote({
         tokenAmount: {
           token: isToken1 ? node.key.token1 : node.key.token0,
           amount: perBlockAmount,
@@ -220,27 +222,43 @@ function getPriceImpact(
       });
 
       return {
-        input: memo.input + Number(perBlockAmount),
-        output: memo.output + output,
-        executionOutput: memo.executionOutput + Number(executionOutput),
+        totalPerBlockAmount: memo.totalPerBlockAmount + perBlockAmount,
+        priceOutput: memo.priceOutput + priceOutput,
+        quoteOutput: memo.quoteOutput + quoteOutput,
       };
     },
-    { input: 0, executionOutput: 0, output: 0 },
+    { totalPerBlockAmount: 0n, quoteOutput: 0n, priceOutput: 0n },
   );
 
-  const currentPrice = output / input;
-  const executionPrice = executionOutput / input;
-  const priceImpact = Math.abs((executionPrice - currentPrice) / currentPrice);
-  return priceImpact;
+  const currentPrice = new Decimal(priceOutput.toString()).div(
+    totalPerBlockAmount.toString(),
+  );
+  const executionPrice = new Decimal(quoteOutput.toString()).div(
+    totalPerBlockAmount.toString(),
+  );
+
+  return executionPrice
+    .ln()
+    .sub(currentPrice.ln())
+    .abs()
+    .exp()
+    .sub(1)
+    .toNumber();
 }
 
-function quoteOtherTokenAmount(
-  node: TwammPool,
-  endTime: number,
-  isToken1: boolean,
-  overrideState: TwammPoolState,
-  orderSaleRate: bigint,
-): Decimal {
+function quoteOtherTokenAmount({
+  node,
+  endTime,
+  isToken1,
+  overrideState,
+  orderSaleRate,
+}: {
+  node: TwammPool;
+  endTime: number;
+  isToken1: boolean;
+  overrideState: TwammPoolState;
+  orderSaleRate: bigint;
+}): Decimal {
   const otherTokenAmountWithoutOrder = getOtherTokenAmount(
     node,
     endTime,

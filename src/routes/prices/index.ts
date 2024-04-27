@@ -1,5 +1,5 @@
 import { EkuboAPIRoute, RequestContext } from "../../shared/context";
-import { error, IRequest, json } from "itty-router";
+import { IRequest, json, StatusError } from "itty-router";
 import {
   getAllTokens,
   getTokenByAddress,
@@ -60,7 +60,7 @@ export class GetPairPrice extends EkuboAPIRoute {
     const qt = getTokenByIdentifier(allTokens, params.quoteToken);
 
     if (!bt || !qt) {
-      return error(400, "Base token or quote token not known");
+      throw new StatusError(400, "Base token or quote token not known");
     }
 
     const baseToken = BigInt(bt.l2_token_address);
@@ -136,7 +136,7 @@ export class GetPairPrice extends EkuboAPIRoute {
     } else if (direct) {
       price = direct.price;
     } else {
-      return error(404, "No volume for this pair");
+      throw new StatusError(404, "No volume for this pair");
     }
 
     const scaled = price.mul(new Decimal(10).pow(bt.decimals - qt.decimals));
@@ -199,20 +199,20 @@ export class GetPairVolatility extends EkuboAPIRoute {
     const tokenB = getTokenByIdentifier(allTokens, params.quoteToken);
 
     if (!tokenA || !tokenB) {
-      return error(400, "Base token or quote token not known");
+      throw new StatusError(400, "Base token or quote token not known");
     }
 
     if (typeof query.fromDate !== "string") {
-      return error(400, "Invalid `fromDate`");
+      throw new StatusError(400, "Invalid `fromDate`");
     }
 
     const fromDate = new Date(query.fromDate);
     if (fromDate.getTime() > Date.now()) {
-      return error(400, "`fromDate` cannot be in future");
+      throw new StatusError(400, "`fromDate` cannot be in future");
     }
 
     if (typeof query.numDays !== "string") {
-      return error(400, "Invalid `numDays`");
+      throw new StatusError(400, "Invalid `numDays`");
     }
 
     const [token0, token1] =
@@ -232,7 +232,7 @@ export class GetPairVolatility extends EkuboAPIRoute {
     });
 
     if (!volatilityData.length) {
-      return error(404, "No volatility data for the pair");
+      throw new StatusError(404, "No volatility data for the pair");
     }
 
     return json(
@@ -278,18 +278,18 @@ export class GetPairPriceHistory extends EkuboAPIRoute {
     const qt = getTokenByIdentifier(allTokens, params.quoteToken);
 
     if (!bt || !qt) {
-      return error(400, "Base token or quote token not known");
+      throw new StatusError(400, "Base token or quote token not known");
     }
 
     const baseToken = BigInt(bt.l2_token_address);
     const quoteToken = BigInt(qt.l2_token_address);
 
     if (!bt || !qt) {
-      return error(400, "Base token or quote token not known");
+      throw new StatusError(400, "Base token or quote token not known");
     }
 
     if (baseToken === quoteToken) {
-      return error(400, "Base token cannot be equal to quote token");
+      throw new StatusError(400, "Base token cannot be equal to quote token");
     }
 
     let intervalSeconds: number;
@@ -308,25 +308,28 @@ export class GetPairPriceHistory extends EkuboAPIRoute {
           ? new Date(parseInt(query.start) * 1_000)
           : new Date(end.getTime() - intervalSeconds * 60 * 1_000); // default 60 data points
     } catch (e) {
-      return error(400, "Invalid `interval`, `end` or `start` parameters");
+      throw new StatusError(
+        400,
+        "Invalid `interval`, `end` or `start` parameters",
+      );
     }
 
     const durationMilliseconds = end.getTime() - start.getTime();
     if (durationMilliseconds > 30 * 86_400 * 1_000) {
-      return error(
+      throw new StatusError(
         400,
         "Start time cannot be more than 30 days before end time",
       );
     }
 
     if (intervalSeconds <= 0) {
-      return error(400, "Interval must be positive");
+      throw new StatusError(400, "Interval must be positive");
     }
 
     const numIntervals = durationMilliseconds / intervalSeconds / 1_000;
 
     if (numIntervals > 120) {
-      return error(400, "Interval too small for the range");
+      throw new StatusError(400, "Interval too small for the range");
     }
 
     const [token0, token1] =
@@ -434,7 +437,7 @@ export class GetTokenPrices extends EkuboAPIRoute {
     const qt = getTokenByAddress(allTokens, quoteToken);
 
     if (!qt) {
-      return error(400, "Quote token not known");
+      throw new StatusError(400, "Quote token not known");
     }
 
     const timestamp = Date.now();

@@ -1,5 +1,5 @@
 import { OpenAPIRouteSchema, Path } from "@cloudflare/itty-router-openapi";
-import { error, IRequest, json } from "itty-router";
+import { IRequest, json, StatusError } from "itty-router";
 import { Env } from "../../env";
 import { z } from "zod";
 import { EkuboAPIRoute, RequestContext } from "../../shared/context";
@@ -202,13 +202,13 @@ export class GetTokenLogo extends EkuboAPIRoute {
 
     const token = getTokenByIdentifier(tokens, params.identifier);
     if (!token) {
-      return error(404, "Token not found");
+      throw new StatusError(404, "Token not found");
     }
 
     const logo = await env.TOKEN_LOGOS_KV?.get(token.symbol);
 
     if (!logo) {
-      return error(404, "Token logo not available");
+      throw new StatusError(404, "Token logo not available");
     }
 
     // the KV store either stores the https link to the image or the svg logo itself

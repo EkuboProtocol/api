@@ -1,5 +1,5 @@
 import { EkuboAPIRoute, RequestContext } from "../../shared/context";
-import { error, IRequest, json } from "itty-router";
+import { IRequest, json, StatusError } from "itty-router";
 import { getAllTokens, getTokenByAddress } from "../meta/tokens";
 import { generateSvg } from "./generateSvg";
 import { parseId } from "./parseId";
@@ -89,7 +89,7 @@ export class GetNftMetadata extends EkuboAPIRoute {
   ) {
     const id = parseId(idStr);
     if (id === null) {
-      return error(400, "Invalid token ID");
+      throw new StatusError(400, "Invalid token ID");
     }
 
     const queries = await createQueries(env);
@@ -200,7 +200,7 @@ export class GetNftMetadata extends EkuboAPIRoute {
     } else {
       const orderMetadata = await queries.getOrderMetadata(id);
       if (orderMetadata.length === 0) {
-        return error(404, `Token ID ${id} not found`);
+        throw new StatusError(404, `Token ID ${id} not found`);
       }
 
       metadata = {
@@ -296,7 +296,7 @@ export class GetNftState extends EkuboAPIRoute {
   async handle({ params: { id: idStr } }: IRequest, { env }: RequestContext) {
     const id = parseId(idStr);
     if (id === null) {
-      return error(400, "Invalid token ID");
+      throw new StatusError(400, "Invalid token ID");
     }
 
     const queries = await createQueries(env);
@@ -304,7 +304,7 @@ export class GetNftState extends EkuboAPIRoute {
     const state = await queries.getPositionState(id);
 
     if (state === null) {
-      return error(404, `Token ID ${id} not found`);
+      throw new StatusError(404, `Token ID ${id} not found`);
     }
 
     return json(
@@ -341,13 +341,13 @@ export class ListNftEvents extends EkuboAPIRoute {
   async handle({ params: { id: idStr } }: IRequest, { env }: RequestContext) {
     const id = parseId(idStr);
     if (id === null) {
-      return error(400, "Invalid token ID");
+      throw new StatusError(400, "Invalid token ID");
     }
 
     const queries = await createQueries(env);
 
     if (!(await queries.getPositionMetadata(id))) {
-      return error(404, "Token ID not found");
+      throw new StatusError(404, "Token ID not found");
     }
 
     const history = await queries.getPositionHistory(id);
@@ -429,7 +429,7 @@ export class GetNftImage extends EkuboAPIRoute {
   async handle({ params: { id: idStr } }: IRequest, { env }: RequestContext) {
     const id = parseId(idStr);
     if (id === null) {
-      return error(400, "Invalid token ID");
+      throw new StatusError(400, "Invalid token ID");
     }
 
     return new Response(generateSvg(id, env.STARKNET_CHAIN_ID), {

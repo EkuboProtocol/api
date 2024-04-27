@@ -1,4 +1,4 @@
-import { error, IRequest, json } from "itty-router";
+import { IRequest, json, StatusError } from "itty-router";
 import { EkuboAPIRoute, RequestContext } from "../../shared/context";
 import { OpenAPIRouteSchema, Path } from "@cloudflare/itty-router-openapi";
 import { z } from "zod";
@@ -44,7 +44,7 @@ export class GetBlock extends EkuboAPIRoute {
     const block = await queries.getBlock(blockTag);
 
     if (block === null) {
-      return error(404, `Block "${blockTag}" not found`);
+      throw new StatusError(404, `Block "${blockTag}" not found`);
     }
 
     return json(

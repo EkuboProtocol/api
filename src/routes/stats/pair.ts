@@ -1,5 +1,5 @@
 import { EkuboAPIRoute, RequestContext } from "../../shared/context";
-import { error, IRequest, json } from "itty-router";
+import { IRequest, json, StatusError } from "itty-router";
 import { AddressType } from "../../shared/validation/address";
 import { createQueries } from "../../queries";
 import { OpenAPIRouteSchema, Path } from "@cloudflare/itty-router-openapi";
@@ -252,7 +252,7 @@ export class GetPairLiquidity extends EkuboAPIRoute {
       tokenA = BigInt(tokenAStr);
       tokenB = BigInt(tokenBStr);
     } catch (e) {
-      return error(400, "Invalid tokens");
+      throw new StatusError(400, "Invalid tokens");
     }
 
     const queries = await createQueries(env);
@@ -261,7 +261,7 @@ export class GetPairLiquidity extends EkuboAPIRoute {
       tokenA < tokenB ? [tokenA, tokenB] : [tokenB, tokenA];
 
     if (token0 === 0n) {
-      return error(400, "Invalid tokens");
+      throw new StatusError(400, "Invalid tokens");
     }
 
     const data = await queries.withinTransaction(() =>
@@ -311,14 +311,14 @@ export class ListPairEvents extends EkuboAPIRoute {
       tokenA = BigInt(tokenAStr);
       tokenB = BigInt(tokenBStr);
     } catch (e) {
-      return error(400, "Invalid tokens");
+      throw new StatusError(400, "Invalid tokens");
     }
 
     const [token0, token1] =
       tokenA < tokenB ? [tokenA, tokenB] : [tokenB, tokenA];
 
     if (token0 === 0n) {
-      return error(400, "Invalid tokens");
+      throw new StatusError(400, "Invalid tokens");
     }
 
     const queries = await createQueries(env);

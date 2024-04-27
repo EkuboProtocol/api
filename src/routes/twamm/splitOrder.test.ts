@@ -467,15 +467,14 @@ describe(splitTwammOrder, () => {
       for (const isToken1 of [false, true]) {
         it(`${description}, token${isToken1 ? "1" : "0"}`, () => {
           expect(() =>
-            splitTwammOrder(
+            splitTwammOrder({
               amount,
               startTime,
               endTime,
               isToken1,
               pools,
               maxSplits,
-              averageBlockTime,
-            ),
+            }),
           ).toThrowError("Invalid order split");
         });
       }
@@ -493,8 +492,6 @@ describe(splitTwammOrder, () => {
 
       const startTime = testCase?.startTime ?? defaultStartTime;
       const endTime = testCase?.endTime ?? defaultEndTime;
-      const averageBlockTime =
-        testCase?.averageBlockTime ?? defaultAverageBlockTime;
 
       let pools: TwammPool[] = [];
 
@@ -517,15 +514,14 @@ describe(splitTwammOrder, () => {
       }
 
       for (const isToken1 of [false, true]) {
-        const { orders, priceImpact } = splitTwammOrder(
+        const orders = splitTwammOrder({
           amount,
           startTime,
           endTime,
           isToken1,
           pools,
           maxSplits,
-          averageBlockTime,
-        );
+        });
         it(`${description}, token${isToken1 ? "1" : "0"}`, () => {
           expect(
             orders.map(({ amount, node, otherTokenAmount }) => {
@@ -544,10 +540,6 @@ describe(splitTwammOrder, () => {
             );
             expect(ordersAmount === amount).toBeTruthy();
           }
-        });
-
-        it(`${description}, token${isToken1 ? "1" : "0"} - priceImpact`, () => {
-          expect(priceImpact).toMatchSnapshot();
         });
       }
     }

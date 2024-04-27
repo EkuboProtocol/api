@@ -1,8 +1,4 @@
-import {
-  OpenAPIRoute,
-  OpenAPIRouteSchema,
-  Path,
-} from "@cloudflare/itty-router-openapi";
+import { OpenAPIRouteSchema, Path } from "@cloudflare/itty-router-openapi";
 import { IRequest, json } from "itty-router";
 import { EkuboAPIRoute, RequestContext } from "../../shared/context";
 import { num } from "starknet";
@@ -15,7 +11,7 @@ import { getAllTokens, getTokenByAddress } from "../meta/tokens";
 import Decimal from "decimal.js-light";
 import { z } from "zod";
 
-export class GetPoolStates extends OpenAPIRoute {
+export class GetPoolStates extends EkuboAPIRoute {
   static route = "/pools";
 
   static schema: OpenAPIRouteSchema = {
@@ -63,7 +59,7 @@ export class GetPoolStates extends OpenAPIRoute {
   }
 }
 
-export class GetPoolKeyHash extends OpenAPIRoute {
+export class GetPoolKeyHash extends EkuboAPIRoute {
   static route = "/pools/:keyHash";
 
   static schema: OpenAPIRouteSchema = {

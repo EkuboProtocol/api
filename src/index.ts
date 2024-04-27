@@ -1,4 +1,4 @@
-import { createCors, error, IRequest, json } from "itty-router";
+import { createCors, error, IRequest, json, StatusError } from "itty-router";
 import { Env } from "./env";
 import Decimal from "decimal.js-light";
 import { RequestContext } from "./shared/context";
@@ -39,8 +39,12 @@ export default {
         await router.handle(request, { env } satisfies RequestContext),
       );
     } catch (e) {
-      console.error(e);
-      response = json(error(500, "Internal server error"));
+      if (e instanceof StatusError) {
+        response = error(e);
+      } else {
+        console.error(e);
+        response = json(error(500, "Internal server error"));
+      }
     }
 
     if (cacheable && response.ok) {

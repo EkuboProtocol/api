@@ -3,7 +3,7 @@ import {
   Path,
   Query,
 } from "@cloudflare/itty-router-openapi";
-import { error, IRequest, json } from "itty-router";
+import { IRequest, json, StatusError } from "itty-router";
 import { z } from "zod";
 import { EkuboAPIRoute, RequestContext } from "../../shared/context";
 import { num } from "starknet";
@@ -186,9 +186,7 @@ export class GetBatchAirdropClaim extends EkuboAPIRoute {
     const queries = await createQueries(env);
     const startingId = Number(request.params.startingId);
     if (startingId % 128 !== 0) {
-      return error(400, {
-        message: "`startingId` must be multiple of 128",
-      });
+      throw new StatusError(400, "`startingId` must be multiple of 128");
     }
     const claims = await queries.getClaimsBetween({
       claimContract: BigInt(request.params.contractAddress),
@@ -198,9 +196,10 @@ export class GetBatchAirdropClaim extends EkuboAPIRoute {
     });
 
     if (claims.length === 0) {
-      return error(404, {
-        message: `No claims for the given address starting from ID ${startingId}`,
-      });
+      throw new StatusError(
+        404,
+        `No claims for the given address starting from ID ${startingId}`,
+      );
     }
 
     const remainingProof = claims[0].proof.slice(
@@ -221,7 +220,7 @@ export class GetBatchAirdropClaim extends EkuboAPIRoute {
           ),
       )
     ) {
-      return error(500, "Proof prefix validation failed");
+      throw new StatusError(500, "Proof prefix validation failed");
     }
 
     return json(
