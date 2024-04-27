@@ -32,6 +32,7 @@ import { quoteRoute } from "./quoteRoute";
 import { getBlockMeta } from "./getBlockMeta";
 import { BasePool } from "./nodes/basePool";
 import { TwammPool, TwammPoolState } from "./nodes/twammPool";
+import { ETH_TOKEN_ADDRESS } from "../../shared/constants";
 
 const PoolKeyType = z
   .object({

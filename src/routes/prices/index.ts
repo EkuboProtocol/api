@@ -17,6 +17,7 @@ import {
   Query,
 } from "@cloudflare/itty-router-openapi";
 import { z } from "zod";
+import { ETH_TOKEN_ADDRESS, STRK_TOKEN_ADDRESS } from "../../shared/constants";
 
 const DEFAULT_PERIOD_SECONDS = 15 * 60;
 

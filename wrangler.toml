@@ -13,7 +13,7 @@ cpu_ms = 5000
 [vars]
 STARKNET_CHAIN_ID = "0x534e5f4d41494e"
 # only used for running the api locally
-PG_CONNECTION_STRING = "postgresql://postgres:postgres@localhost:5432"
+PG_CONNECTION_STRING = "postgresql://postgres:postgres@localhost:5432/mainnet"
 
 [env.sepolia]
 hyperdrive = [
