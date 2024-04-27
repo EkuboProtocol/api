@@ -15,7 +15,7 @@ ETH_TOKEN_ADDRESS = "0x049d36570d4e46f48e99674bd3fcc84644ddd6b96f7c741b1562b82f9
 STRK_TOKEN_ADDRESS = "0x04718f5a0fc34cc1af16a1cdee98ffb20c31f5cd61d6ab07201858f4287c938d"
 STARKNET_CHAIN_ID = "0x534e5f4d41494e"
 # only used for running the api locally
-PG_CONNECTION_STRING = "postgresql://postgres:postgres@localhost:5432"
+PG_CONNECTION_STRING = "postgresql://postgres:postgres@localhost:5432/mainnet"
 
 [env.sepolia]
 hyperdrive = [
