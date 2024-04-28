@@ -8,6 +8,7 @@ import MAINNET_TOKENS from "./defaults/mainnet.json";
 import SEPOLIA_TOKENS from "./defaults/sepolia.json";
 import { constants, num, shortString } from "starknet";
 import { createQueries, Queries } from "../../queries";
+import LOGOS from "./defaults/logos.json";
 
 export const TokenType = z
   .object({
@@ -60,6 +61,7 @@ export const TokenType = z
           "Whether the token has been disabled for use in Ekubo Interface",
       }),
     ),
+    logo_url: z.optional(z.string().url()),
   })
   .required({
     name: true,
@@ -125,6 +127,10 @@ export async function getAllTokens(
     } catch (error) {}
   });
 
+  tokens.forEach((t) => {
+    t.logo_url = (LOGOS as { [symbol: string]: string })[t.symbol];
+  });
+
   return tokens;
 }
 
@@ -187,10 +193,6 @@ export class GetTokenLogo extends EkuboAPIRoute {
       }),
     },
     responses: {
-      "200": {
-        description: "The token logo as SVG",
-        contentType: "image/svg+xml",
-      },
       "302": {
         description: "Redirect to the logo image",
       },
@@ -205,28 +207,18 @@ export class GetTokenLogo extends EkuboAPIRoute {
       throw new StatusError(404, "Token not found");
     }
 
-    const logo = await env.TOKEN_LOGOS_KV?.get(token.symbol);
+    const logoUrl = (LOGOS as { [symbol: string]: string })[token.symbol];
 
-    if (!logo) {
+    if (!logoUrl) {
       throw new StatusError(404, "Token logo not available");
     }
 
     // the KV store either stores the https link to the image or the svg logo itself
-    if (logo.startsWith("https://")) {
-      return new Response(null, {
-        status: 302,
-        headers: {
-          location: logo,
-          "cache-control": "public, max-age=1800, immutable",
-        },
-      });
-    }
-
-    return new Response(logo, {
-      status: 200,
+    return new Response(null, {
+      status: 302,
       headers: {
-        "content-type": "image/svg+xml",
-        "cache-control": "public, max-age=10800, immutable",
+        location: logoUrl,
+        "cache-control": "public, max-age=1800, immutable",
       },
     });
   }
