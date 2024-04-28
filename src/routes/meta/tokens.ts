@@ -1,5 +1,5 @@
-import { OpenAPIRouteSchema, Path } from "@cloudflare/itty-router-openapi";
-import { IRequest, json, StatusError } from "itty-router";
+import { OpenAPIRouteSchema } from "@cloudflare/itty-router-openapi";
+import { IRequest, json } from "itty-router";
 import { Env } from "../../env";
 import { z } from "zod";
 import { EkuboAPIRoute, RequestContext } from "../../shared/context";
@@ -175,50 +175,6 @@ export class ListTokens extends EkuboAPIRoute {
     return json(tokens, {
       headers: {
         "cache-control": `public,max-age=600`,
-      },
-    });
-  }
-}
-
-export class GetTokenLogo extends EkuboAPIRoute {
-  public static route = "/tokens/:identifier/logo";
-
-  static schema: OpenAPIRouteSchema = {
-    tags: ["Meta"],
-    summary: "Get token logo",
-    description: "Get the logo for the given token identifier",
-    parameters: {
-      identifier: Path(z.string({}).min(1), {
-        description: "Either the token symbol or the token address",
-      }),
-    },
-    responses: {
-      "302": {
-        description: "Redirect to the logo image",
-      },
-    },
-  };
-
-  async handle({ params }: IRequest, { env }: RequestContext) {
-    const tokens = await getAllTokens(env, await createQueries(env));
-
-    const token = getTokenByIdentifier(tokens, params.identifier);
-    if (!token) {
-      throw new StatusError(404, "Token not found");
-    }
-
-    const logoUrl = (LOGOS as { [symbol: string]: string })[token.symbol];
-
-    if (!logoUrl) {
-      throw new StatusError(404, "Token logo not available");
-    }
-
-    // the KV store either stores the https link to the image or the svg logo itself
-    return new Response(null, {
-      status: 302,
-      headers: {
-        location: logoUrl,
-        "cache-control": "public, max-age=1800, immutable",
       },
     });
   }

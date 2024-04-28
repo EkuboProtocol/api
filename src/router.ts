@@ -10,7 +10,7 @@ import {
   GetDefiSpringIncentivesForAddressAndDates,
   GetDefiSpringIncentivesForTokenId,
 } from "./routes/meta/get-defi-spring-incentives";
-import { GetTokenLogo, ListTokens } from "./routes/meta/tokens";
+import { ListTokens } from "./routes/meta/tokens";
 import { GetBlock } from "./routes/meta/blocks";
 import { GetNetworkStats } from "./routes/meta/stats";
 import { GetFees } from "./routes/meta/fees";
@@ -93,7 +93,6 @@ export const router = OpenAPIRouter({
     GetDefiSpringIncentivesForAddressAndDates,
   )
   .get(ListTokens.route, ListTokens)
-  .get(GetTokenLogo.route, GetTokenLogo)
   .get(GetBlock.route, GetBlock)
   .get(GetNetworkStats.route, GetNetworkStats)
   .get(GetFees.route, GetFees)
