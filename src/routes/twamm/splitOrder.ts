@@ -159,7 +159,7 @@ export function splitTwammOrder({
     }
   }
 
-  return topPools
+  const orders = topPools
     .map((node) => {
       const { amount, otherTokenAmount } = nodeWithAmounts.get(node) ?? {
         amount: 0n,
@@ -175,6 +175,11 @@ export function splitTwammOrder({
       };
     })
     .filter((pool) => pool.amount !== 0n && pool.otherTokenAmount > 0n);
+
+  if (orders.length === 0) {
+    throw new Error("Invalid order split");
+  }
+  return orders;
 }
 
 export function getPriceImpact(

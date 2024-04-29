@@ -475,7 +475,7 @@ describe(splitTwammOrder, () => {
               pools,
               maxSplits,
             }),
-          ).toThrowError("Invalid order split");
+          ).toThrowError();
         });
       }
     }

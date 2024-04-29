@@ -141,14 +141,14 @@ export class GetSplitTWAPOrderByDate extends EkuboAPIRoute {
     summary: "Split TWAP order by date",
     description: "Returns a set of orders split across TWAMM pools",
     parameters: {
-      buyToken: Path(TokenIdentifierType, { example: "USDC" }),
-      sellToken: Path(TokenIdentifierType, { example: "ETH" }),
       amount: Path(
         z.string().openapi({
           examples: ["1e9", "1000000"],
           description: "The amount of the token to sell",
         }),
       ),
+      sellToken: Path(TokenIdentifierType, { example: "ETH" }),
+      buyToken: Path(TokenIdentifierType, { example: "USDC" }),
       startTime: Path(DatePathParameterType, {
         example: "2020-01-01T00:00:01Z",
       }),
@@ -194,6 +194,7 @@ export class GetSplitTWAPOrderByDate extends EkuboAPIRoute {
     const queries = await createQueries(env);
     const allTokens = await getAllTokens(env, queries);
 
+    console.log(params);
     let amount: bigint;
     try {
       amount = BigInt(new Decimal(params.amount).toInteger().toFixed());
