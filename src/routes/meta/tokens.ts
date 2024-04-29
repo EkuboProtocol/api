@@ -76,6 +76,9 @@ export type TokenInfo = z.infer<typeof TokenType>;
 const SEPOLIA_CHAIN_ID = BigInt(constants.StarknetChainId.SN_SEPOLIA);
 const MAINNET_CHAIN_ID = BigInt(constants.StarknetChainId.SN_MAIN);
 
+const BANNED_TOKEN_SYMBOLS = ["eku", "ekubo", "kubo", "kub", "kube"];
+const ALPHANUMERIC_REGEX = /^[\x00-\x7F]*$/;
+
 export async function getAllTokens(
   env: Env,
   queries: Queries,
@@ -95,13 +98,21 @@ export async function getAllTokens(
       const symbol = shortString.decodeShortString(row.symbol).trim();
       const l2_token_address = num.toHex(row.address);
       if (symbol.length > 9) return;
+
+      // alphanumeric only
+      if (!ALPHANUMERIC_REGEX.test(name) || !ALPHANUMERIC_REGEX.test(symbol))
+        return;
+
+      const lowerSplit = symbol.toLowerCase().split(" ");
       if (
-        ["eku", "ekubo", "kubo", "kub", "kube"].includes(symbol.toLowerCase())
+        lowerSplit.some((piece) =>
+          BANNED_TOKEN_SYMBOLS.some(
+            (banned) => piece.startsWith(banned) || piece.endsWith(banned),
+          ),
+        )
       ) {
         return;
       }
-      if (!/^[\x00-\x7F]*$/.test(name) || !/^[\x00-\x7F]*$/.test(symbol))
-        return;
 
       if (
         // if we find any token matching name symbol etc we skip it
