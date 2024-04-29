@@ -102,6 +102,10 @@ async function getPoolsAndSplitOrder({
         t.hasLiquidity() && t.key.token0 === token0 && t.key.token1 === token1,
     );
 
+  if (twammPools.length === 0) {
+    throw new StatusError(404, "No pools for this pair");
+  }
+
   const startTimeSeconds = Math.max(
     Math.floor(startTime.getTime() / 1000),
     meta?.block?.time,

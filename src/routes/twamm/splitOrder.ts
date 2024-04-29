@@ -33,6 +33,9 @@ export function splitTwammOrder({
   pools: TwammPool[];
   maxSplits: number;
 }): TwammOrderSplit[] {
+  if (pools.length === 0) {
+    throw new Error("No pools");
+  }
   const smallestSplitAmount = amount / 2n ** BigInt(maxSplits);
   const timeWindow = BigInt(endTime - startTime);
   const numPieces = Math.pow(2, maxSplits);
@@ -156,7 +159,7 @@ export function splitTwammOrder({
     }
   }
 
-  const orders = topPools
+  return topPools
     .map((node) => {
       const { amount, otherTokenAmount } = nodeWithAmounts.get(node) ?? {
         amount: 0n,
@@ -172,12 +175,6 @@ export function splitTwammOrder({
       };
     })
     .filter((pool) => pool.amount !== 0n && pool.otherTokenAmount > 0n);
-
-  if (orders.length == 0) {
-    throw new Error("Invalid order split");
-  }
-
-  return orders;
 }
 
 export function getPriceImpact(
