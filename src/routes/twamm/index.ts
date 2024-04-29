@@ -134,7 +134,7 @@ async function getPoolsAndSplitOrder({
 }
 
 export class GetSplitTWAPOrderByDate extends EkuboAPIRoute {
-  static route = "/twap/quote/:buyToken/:sellToken/:amount/:startTime/:endTime";
+  static route = "/twap/quote/:amount/:sellToken/:buyToken/:startTime/:endTime";
 
   static schema: OpenAPIRouteSchema = {
     tags: ["TWAP"],
