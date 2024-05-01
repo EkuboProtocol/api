@@ -194,7 +194,6 @@ export class GetSplitTWAPOrderByDate extends EkuboAPIRoute {
     const queries = await createQueries(env);
     const allTokens = await getAllTokens(env, queries);
 
-    console.log(params);
     let amount: bigint;
     try {
       amount = BigInt(new Decimal(params.amount).toInteger().toFixed());
