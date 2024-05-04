@@ -38,6 +38,7 @@ export async function getRelevantPools(
             tickSpacing: tick_spacing,
             tick,
             sortedTicks:
+              // assumed to be sorted already
               ticks?.map((t) => ({
                 tick: t.t,
                 liquidityDelta: BigInt(t.l),
@@ -62,8 +63,9 @@ export async function getRelevantPools(
             token1SaleRate: BigInt(token1_sale_rate),
             sqrtRatio: BigInt(sqrt_ratio),
             saleRateDeltas:
+              // assumed to be sorted already
               orders?.map((o) => ({
-                time: Number(o.t),
+                time: Number(new Date(o.t).getTime() / 1000),
                 saleRateDelta0: BigInt(o.s0),
                 saleRateDelta1: BigInt(o.s1),
               })) ?? [],
