@@ -204,5 +204,13 @@
     "l2_token_address": "0x00585c32b625999e6e5e78645ff8df7a9001cf5cf3eb6b80ccdd16cb64bd3a34",
     "sort_order": 1,
     "total_supply": null
+  },
+  {
+    "name": "SOCKS",
+    "symbol": "SOCKS",
+    "decimals": 18,
+    "l2_token_address": "0x023ed2ba4fb5709302c5dfd739fa7613359042f143286c115b6c7f7dc2601015",
+    "sort_order": 1,
+    "total_supply": 100000000000
   }
 ]
