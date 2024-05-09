@@ -24,6 +24,7 @@ const ProposalType = z
     description: z.null().or(z.string()),
     calls: z.array(CallType),
     results: z.array(z.array(HexStringType)),
+    created_time: z.number().int().min(0),
   })
   .required({
     id: true,
@@ -73,6 +74,7 @@ export class ListProposals extends EkuboAPIRoute {
             })) ?? [],
           results:
             r.results?.map((p) => p.map((x) => num.toHex(BigInt(x)))) ?? [],
+          created_time: r.created_time,
         })),
       } as ListProposalsResponseType,
       {

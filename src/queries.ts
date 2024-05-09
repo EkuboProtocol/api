@@ -1543,24 +1543,28 @@ export class Queries {
       description: string | null;
       calls: { to: string; selector: string; calldata: string[] }[] | null;
       results: string[][] | null;
+      created_time: number;
     }>(`
-        SELECT id,
+        SELECT gp.id,
                (SELECT description
                 FROM governor_proposal_described gpd
                 WHERE gpd.id = gp.id
                 ORDER BY event_id DESC
-                LIMIT 1)                       AS description,
+                LIMIT 1)                               AS description,
                (SELECT JSONB_AGG(
                                JSONB_BUILD_OBJECT('to', to_address, 'selector', selector, 'calldata', calldata::TEXT[])
                                ORDER BY index)
                 FROM governor_proposed_calls gpc
-                WHERE gpc.proposal_id = gp.id) AS calls,
+                WHERE gpc.proposal_id = gp.id)         AS calls,
                (SELECT JSONB_AGG(
                                results::TEXT[]
                                ORDER BY index)
                 FROM governor_executed_results ger
-                WHERE ger.proposal_id = gp.id) AS results
+                WHERE ger.proposal_id = gp.id)         AS results,
+               FLOOR(EXTRACT(EPOCH FROM b.time))::int4 AS created_time
         FROM governor_proposed gp
+                 JOIN event_keys ek ON event_id = ek.id
+                 JOIN blocks b ON block_number = b.number
     `);
   }
 
