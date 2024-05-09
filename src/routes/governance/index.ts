@@ -25,6 +25,8 @@ const ProposalType = z
     calls: z.array(CallType),
     results: z.array(z.array(HexStringType)),
     created_time: z.number().int().min(0),
+    executed_time: z.number().int().min(0).or(z.null()),
+    canceled_time: z.number().int().min(0).or(z.null()),
   })
   .required({
     id: true,
@@ -75,6 +77,8 @@ export class ListProposals extends EkuboAPIRoute {
           results:
             r.results?.map((p) => p.map((x) => num.toHex(BigInt(x)))) ?? [],
           created_time: r.created_time,
+          executed_time: r.executed_time,
+          canceled_time: r.canceled_time,
         })),
       } as ListProposalsResponseType,
       {
@@ -91,6 +95,7 @@ const ListVotesResponse = z
     votes: z.array(
       z
         .object({
+          time: z.number().min(0).int(),
           voter: AddressType,
           weight: DecimalStringType,
           yea: z.boolean(),
@@ -137,6 +142,7 @@ export class ListVotesOnProposal extends EkuboAPIRoute {
     return json(
       {
         votes: rows.map((r) => ({
+          time: r.time,
           voter: num.toHex(BigInt(r.voter)),
           weight: r.weight,
           yea: r.yea,
