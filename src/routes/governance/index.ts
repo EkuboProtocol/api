@@ -21,9 +21,9 @@ const CallType = z
 const ProposalType = z
   .object({
     id: HexStringType,
-    description: z.string().or(z.null()),
+    description: z.null().or(z.string()),
     calls: z.array(CallType),
-    results: z.null().or(z.array(z.array(HexStringType))),
+    results: z.array(z.array(HexStringType)),
   })
   .required({
     id: true,
@@ -65,13 +65,14 @@ export class ListProposals extends EkuboAPIRoute {
         proposals: rows.map((r) => ({
           id: num.toHex(BigInt(r.id)),
           description: r.description,
-          calls: r.calls.map((c) => ({
-            to: num.toHex(BigInt(c.to)),
-            selector: num.toHex(BigInt(c.selector)),
-            calldata: c.calldata.map((cd) => num.toHex(BigInt(cd))),
-          })),
+          calls:
+            r.calls?.map((c) => ({
+              to: num.toHex(BigInt(c.to)),
+              selector: num.toHex(BigInt(c.selector)),
+              calldata: c.calldata.map((cd) => num.toHex(BigInt(cd))),
+            })) ?? [],
           results:
-            r.results?.map((p) => p.map((x) => num.toHex(BigInt(x)))) ?? null,
+            r.results?.map((p) => p.map((x) => num.toHex(BigInt(x)))) ?? [],
         })),
       } as ListProposalsResponseType,
       {

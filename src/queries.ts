@@ -1540,9 +1540,9 @@ export class Queries {
   getProposals() {
     return this.client.query<{
       id: string;
-      description: string;
-      calls: { to: string; selector: string; calldata: string[] }[];
-      results: null | string[][];
+      description: string | null;
+      calls: { to: string; selector: string; calldata: string[] }[] | null;
+      results: string[][] | null;
     }>(`
         SELECT id,
                (SELECT description
