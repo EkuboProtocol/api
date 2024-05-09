@@ -1565,6 +1565,7 @@ export class Queries {
         FROM governor_proposed gp
                  JOIN event_keys ek ON event_id = ek.id
                  JOIN blocks b ON block_number = b.number
+        ORDER BY created_time DESC
     `);
   }
 
