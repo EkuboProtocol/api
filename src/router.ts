@@ -59,6 +59,7 @@ import {
 } from "./routes/twamm/getTwammPoolState";
 import { ListOrders } from "./routes/twamm/orders";
 import { error } from "itty-router";
+import { ListProposals, ListTopDelegates } from "./routes/governance";
 
 export const router = OpenAPIRouter({
   schema: {
@@ -126,5 +127,7 @@ export const router = OpenAPIRouter({
   .get(GetTwammPoolState.route, GetTwammPoolState)
   .get(GetTwammPairState.route, GetTwammPairState)
   .get(ListOrders.route, ListOrders)
+  .get(ListProposals.route, ListProposals)
+  .get(ListTopDelegates.route, ListTopDelegates)
   // catch missed routes
   .all("*", () => error(404));

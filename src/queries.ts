@@ -1536,6 +1536,52 @@ export class Queries {
         `);
     return rows[0]?.average_block_time ?? 360;
   }
+
+  getProposals() {
+    return this.client.query<{
+      id: string;
+      description: string;
+      calls: { to: string; selector: string; calldata: string[] }[];
+      results: null | string[][];
+    }>(`
+        SELECT id,
+               (SELECT description
+                FROM governor_proposal_described gpd
+                WHERE gpd.id = gp.id
+                ORDER BY event_id DESC
+                LIMIT 1)                       AS description,
+               (SELECT JSONB_AGG(
+                               JSONB_BUILD_OBJECT('to', to_address, 'selector', selector, 'calldata', calldata::TEXT[])
+                               ORDER BY index)
+                FROM governor_proposed_calls gpc
+                WHERE gpc.proposal_id = gp.id) AS calls,
+               (SELECT JSONB_AGG(
+                               results::TEXT[]
+                               ORDER BY index)
+                FROM governor_executed_results ger
+                WHERE ger.proposal_id = gp.id) AS results
+        FROM governor_proposed gp
+    `);
+  }
+
+  getTopDelegates({ limit }: { limit: number }) {
+    return this.client.query<{ delegate: string; amount: string }>({
+      text: `
+          WITH staker_delegation_changes AS (SELECT amount, from_address
+                                             FROM staker_staked
+                                             UNION ALL
+                                             SELECT -amount AS amount, from_address
+                                             FROM staker_withdrawn)
+          SELECT from_address AS delegate,
+                 SUM(amount)  AS amount
+          FROM staker_delegation_changes
+          GROUP BY from_address
+          ORDER BY 2 DESC
+          LIMIT $1
+      `,
+      values: [limit],
+    });
+  }
 }
 
 export async function createQueries(env: Env) {
