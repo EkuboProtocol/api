@@ -1564,6 +1564,17 @@ export class Queries {
     `);
   }
 
+  getVotesOnProposal({ proposalId }: { proposalId: bigint }) {
+    return this.client.query<{ voter: string; weight: string; yea: boolean }>({
+      text: `
+        SELECT voter, weight, yea
+        FROM governor_voted
+        WHERE id = $1
+      `,
+      values: [proposalId],
+    });
+  }
+
   getTopDelegates({ limit }: { limit: number }) {
     return this.client.query<{ delegate: string; amount: string }>({
       text: `

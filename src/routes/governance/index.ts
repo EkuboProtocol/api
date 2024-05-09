@@ -1,6 +1,7 @@
 import { EkuboAPIRoute, RequestContext } from "../../shared/context";
-import { OpenAPIRouteSchema } from "@cloudflare/itty-router-openapi";
+import { OpenAPIRouteSchema, Path } from "@cloudflare/itty-router-openapi";
 import {
+  AddressType,
   DecimalStringType,
   HexStringType,
 } from "../../shared/validation/address";
@@ -76,6 +77,71 @@ export class ListProposals extends EkuboAPIRoute {
       {
         headers: {
           "cache-control": "public, max-age=1800",
+        },
+      },
+    );
+  }
+}
+
+const ListVotesResponse = z
+  .object({
+    votes: z.array(
+      z
+        .object({
+          voter: AddressType,
+          weight: DecimalStringType,
+          yea: z.boolean(),
+        })
+        .required({
+          voter: true,
+          yea: true,
+          weight: true,
+        }),
+    ),
+  })
+  .required({ votes: true });
+type ListVotesResponseType = z.infer<typeof ListVotesResponse>;
+
+export class ListVotesOnProposal extends EkuboAPIRoute {
+  static route = "/governance/proposals/:proposalId/votes";
+
+  static schema: OpenAPIRouteSchema = {
+    tags: ["Governance"],
+    summary: "List Votes",
+    description: "Returns the list of votes on a proposal",
+    parameters: {
+      proposalId: Path(HexStringType, {
+        required: true,
+        description: "The ID of the proposal",
+      }),
+    },
+    responses: {
+      "200": {
+        schema: ListProposalsResponse,
+        description: "The list of votes on a specific proposal",
+        contentType: "application/json",
+      },
+    },
+  };
+
+  async handle({ params }: IRequest, { env }: RequestContext) {
+    const queries = await createQueries(env);
+
+    const { rows } = await queries.getVotesOnProposal({
+      proposalId: BigInt(params.proposalId),
+    });
+
+    return json(
+      {
+        votes: rows.map((r) => ({
+          voter: num.toHex(BigInt(r.voter)),
+          weight: r.weight,
+          yea: r.yea,
+        })),
+      } as ListVotesResponseType,
+      {
+        headers: {
+          "cache-control": "public, max-age=600",
         },
       },
     );
