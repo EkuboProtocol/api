@@ -1554,7 +1554,7 @@ export class Queries {
               ORDER BY event_id DESC
               LIMIT 1)                               AS description,
              (SELECT JSONB_AGG(
-                         JSONB_BUILD_OBJECT('to', to_address, 'selector', selector, 'calldata', calldata::TEXT[])
+                         JSONB_BUILD_OBJECT('to', to_address::TEXT, 'selector', selector::TEXT, 'calldata', calldata::TEXT[])
                          ORDER BY index)
               FROM governor_proposed_calls gpc
               WHERE gpc.proposal_id = gp.id)         AS calls,
