@@ -1629,7 +1629,7 @@ export class Queries {
                                              FROM staker_withdrawn
                                              WHERE from_address = $1)
           SELECT delegate,
-                 SUM(amount) AS total
+                 SUM(amount) AS amount
           FROM staker_delegation_changes
           GROUP BY delegate
           ORDER BY 2 DESC
