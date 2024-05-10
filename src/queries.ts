@@ -1602,19 +1602,39 @@ export class Queries {
   getTopDelegates({ limit }: { limit: number }) {
     return this.client.query<{ delegate: string; amount: string }>({
       text: `
-          WITH staker_delegation_changes AS (SELECT amount, from_address
-                                             FROM staker_staked
-                                             UNION ALL
-                                             SELECT -amount AS amount, from_address
-                                             FROM staker_withdrawn)
-          SELECT from_address AS delegate,
-                 SUM(amount)  AS amount
-          FROM staker_delegation_changes
-          GROUP BY from_address
-          ORDER BY 2 DESC
-          LIMIT $1
+        WITH staker_delegation_changes AS (SELECT amount, delegate
+                                           FROM staker_staked
+                                           UNION ALL
+                                           SELECT -amount AS amount, delegate
+                                           FROM staker_withdrawn)
+        SELECT delegate,
+               SUM(amount) AS amount
+        FROM staker_delegation_changes
+        GROUP BY delegate
+        ORDER BY 2 DESC
+        LIMIT $1
       `,
       values: [limit],
+    });
+  }
+
+  getDelegatesStakedTo({ staker }: { staker: bigint }) {
+    return this.client.query<{ delegate: string; amount: string }>({
+      text: `
+          WITH staker_delegation_changes AS (SELECT amount, delegate
+                                             FROM staker_staked
+                                             WHERE from_address = $1
+                                             UNION ALL
+                                             SELECT -amount AS amount, delegate
+                                             FROM staker_withdrawn
+                                             WHERE from_address = $1)
+          SELECT delegate,
+                 SUM(amount) AS total
+          FROM staker_delegation_changes
+          GROUP BY delegate
+          ORDER BY 2 DESC
+      `,
+      values: [staker],
     });
   }
 }

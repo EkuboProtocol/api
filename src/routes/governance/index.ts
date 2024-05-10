@@ -157,19 +157,19 @@ export class ListVotesOnProposal extends EkuboAPIRoute {
   }
 }
 
-const TopDelegateType = z
+const DelegateType = z
   .object({
-    address: HexStringType,
-    delegated_amount: DecimalStringType,
+    delegate: AddressType,
+    amount: DecimalStringType,
   })
   .required({
-    address: true,
-    delegated_amount: true,
+    delegate: true,
+    amount: true,
   });
 
 const ListTopDelegatesResponse = z
   .object({
-    delegates: z.array(TopDelegateType),
+    delegates: z.array(DelegateType),
   })
   .required({ delegates: true });
 
@@ -200,8 +200,53 @@ export class ListTopDelegates extends EkuboAPIRoute {
     return json(
       {
         delegates: rows.map((r) => ({
-          address: num.toHex(BigInt(r.delegate)),
-          delegated_amount: r.amount,
+          delegate: num.toHex(BigInt(r.delegate)),
+          amount: r.amount,
+        })),
+      } as ListTopDelegatesResponseType,
+      {
+        headers: {
+          "cache-control": "public, max-age=3600",
+        },
+      },
+    );
+  }
+}
+
+export class ListStakedDelegates extends EkuboAPIRoute {
+  static route = "/governance/delegates/:staker";
+
+  static schema: OpenAPIRouteSchema = {
+    tags: ["Governance"],
+    summary: "List Staked Amounts",
+    description:
+      "Returns the list of delegates that the staker has delegated to",
+    parameters: {
+      staker: Path(AddressType, {
+        description: "The staker for which to look up delegates",
+      }),
+    },
+    responses: {
+      "200": {
+        schema: ListTopDelegatesResponse,
+        description: "The list of delegates that the staker has staked to",
+        contentType: "application/json",
+      },
+    },
+  };
+
+  async handle({ params }: IRequest, { env }: RequestContext) {
+    const queries = await createQueries(env);
+
+    const { rows } = await queries.getDelegatesStakedTo({
+      staker: BigInt(params.staker),
+    });
+
+    return json(
+      {
+        delegates: rows.map((r) => ({
+          delegate: num.toHex(BigInt(r.delegate)),
+          amount: r.amount,
         })),
       } as ListTopDelegatesResponseType,
       {
