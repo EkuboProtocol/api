@@ -251,7 +251,7 @@ export class ListStakedDelegates extends EkuboAPIRoute {
       } as ListTopDelegatesResponseType,
       {
         headers: {
-          "cache-control": "public, max-age=3600",
+          "cache-control": "public, max-age=30",
         },
       },
     );
