@@ -21,6 +21,7 @@ const CallType = z
 const ProposalType = z
   .object({
     id: HexStringType,
+    proposer: AddressType,
     description: z.null().or(z.string()),
     calls: z.array(CallType),
     results: z.array(z.array(HexStringType)),
@@ -32,6 +33,11 @@ const ProposalType = z
     id: true,
     description: true,
     calls: true,
+    proposer: true,
+    results: true,
+    created_time: true,
+    executed_time: true,
+    canceled_time: true,
   });
 
 const ListProposalsResponse = z
@@ -67,6 +73,7 @@ export class ListProposals extends EkuboAPIRoute {
       {
         proposals: rows.map((r) => ({
           id: num.toHex(BigInt(r.id)),
+          proposer: num.toHex(BigInt(r.proposer)),
           description: r.description,
           calls:
             r.calls?.map((c) => ({
@@ -83,7 +90,7 @@ export class ListProposals extends EkuboAPIRoute {
       } as ListProposalsResponseType,
       {
         headers: {
-          "cache-control": "public, max-age=1800",
+          "cache-control": "public, max-age=180",
         },
       },
     );

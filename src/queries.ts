@@ -1546,8 +1546,10 @@ export class Queries {
       created_time: number;
       canceled_time: number | null;
       executed_time: number | null;
+      proposer: string;
     }>(`
       SELECT gp.id,
+             gp.proposer as proposer,
              (SELECT description
               FROM governor_proposal_described gpd
               WHERE gpd.id = gp.id
