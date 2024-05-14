@@ -17,12 +17,12 @@ PG_CONNECTION_STRING = "postgresql://postgres:postgres@localhost:5432/mainnet"
 
 [env.sepolia]
 hyperdrive = [
-    { binding = "HYPERDRIVE", id = "c12069dcd06847d0acfe22a686cd8540" }
+    { binding = "HYPERDRIVE", id = "48dd80eff90249868cc5a1ee4b966ac5" }
 ]
 vars = { STARKNET_CHAIN_ID = "0x534e5f5345504f4c4941" }
 
 [env.mainnet]
 hyperdrive = [
-    { binding = "HYPERDRIVE", id = "b8e8dbd6a4b642afbed28edd892c0ad8" }
+    { binding = "HYPERDRIVE", id = "40ad51ac50dd4f29a332f750e6dd7110" }
 ]
 vars = { STARKNET_CHAIN_ID = "0x534e5f4d41494e" }
