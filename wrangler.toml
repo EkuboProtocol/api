@@ -7,6 +7,9 @@ kv_namespaces = [
     { binding = "TOKEN_LOGOS_KV", id = "<ignored>", preview_id = "<ignored>" },
 ]
 
+[placement]
+mode = "smart"
+
 [limits]
 cpu_ms = 5000
 
