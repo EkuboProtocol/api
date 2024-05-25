@@ -78,6 +78,13 @@ async function getPoolsAndSplitOrder({
   priceImpact: number;
   averageBlockTime: number;
 }> {
+  const startTimeSeconds = Math.floor(startTime.getTime() / 1000);
+  const endTimeSeconds = Math.floor(endTime.getTime() / 1000);
+
+  if (startTimeSeconds >= endTimeSeconds) {
+    throw new StatusError(400, "End time must come after start time");
+  }
+
   const sellTokenAddress = BigInt(sellToken.l2_token_address);
   const buyTokenAddress = BigInt(buyToken.l2_token_address);
 
@@ -90,10 +97,15 @@ async function getPoolsAndSplitOrder({
     getBlockMeta(queries),
     queries.getAverageBlockTime(),
     getRelevantPools(queries, {
-      tokenA: BigInt(token0),
-      tokenB: BigInt(token1),
+      tokenA: token0,
+      tokenB: token1,
     }),
   ]);
+
+  if (meta.block.time >= endTimeSeconds) {
+    throw new StatusError(400, "Order ends in past");
+  }
+  const realStartTime = Math.max(meta.block.time, startTimeSeconds);
 
   const twammPools = pools
     .filter((p): p is TwammPool => p instanceof TwammPool)
@@ -106,13 +118,6 @@ async function getPoolsAndSplitOrder({
     throw new StatusError(404, "No pools for this pair");
   }
 
-  const startTimeSeconds = Math.max(
-    Math.floor(startTime.getTime() / 1000),
-    meta?.block?.time,
-  );
-
-  const endTimeSeconds = Math.floor(endTime.getTime() / 1000);
-
   const isToken1 = sellTokenAddress === token1;
 
   const orders = splitTwammOrder({
@@ -122,9 +127,15 @@ async function getPoolsAndSplitOrder({
     isToken1,
     pools: twammPools,
     maxSplits,
+    realStartTime,
   });
 
-  const priceImpact = getPriceImpact(orders, isToken1, averageBlockTime);
+  const priceImpact = getPriceImpact({
+    orders,
+    isToken1,
+    averageBlockTime,
+    realStartTime,
+  });
 
   return {
     orders,
@@ -214,14 +225,6 @@ export class GetSplitTWAPOrderByDate extends EkuboAPIRoute {
 
     const startTime = parseDatePathParameter(params.startTime);
     const endTime = parseDatePathParameter(params.endTime);
-
-    const now = new Date();
-
-    if (endTime < now) {
-      throw new StatusError(400, "Invalid endTime parameters");
-    } else if (startTime > endTime) {
-      throw new StatusError(400, "Invalid startTime parameters");
-    }
 
     const { orders, priceImpact, averageBlockTime } =
       await getPoolsAndSplitOrder({

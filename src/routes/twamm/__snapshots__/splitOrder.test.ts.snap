@@ -5,12 +5,10 @@ exports[`splitTwammOrder > various pools > large order, low liquidity, token0 1`
   {
     "amount": 492187500000000000000n,
     "fee": 170141183460469235273462165868118016n,
-    "otherTokenAmount": 11384049556n,
   },
   {
     "amount": 7812500000000000000n,
     "fee": 170141183460469235273462165868118016n,
-    "otherTokenAmount": 172732652n,
   },
 ]
 `;
@@ -20,12 +18,10 @@ exports[`splitTwammOrder > various pools > large order, low liquidity, token1 1`
   {
     "amount": 492187500000000000000n,
     "fee": 170141183460469235273462165868118016n,
-    "otherTokenAmount": 18471870380972850042n,
   },
   {
     "amount": 7812500000000000000n,
     "fee": 170141183460469235273462165868118016n,
-    "otherTokenAmount": 58273705957287653n,
   },
 ]
 `;
@@ -35,7 +31,6 @@ exports[`splitTwammOrder > various pools > one pool, token0 1`] = `
   {
     "amount": 1000000000000000000n,
     "fee": 3402823669209384634633746074317682114n,
-    "otherTokenAmount": 29572037879931651n,
   },
 ]
 `;
@@ -45,7 +40,6 @@ exports[`splitTwammOrder > various pools > one pool, token1 1`] = `
   {
     "amount": 1000000000000000000n,
     "fee": 3402823669209384634633746074317682114n,
-    "otherTokenAmount": 29572037879931657n,
   },
 ]
 `;
@@ -55,7 +49,6 @@ exports[`splitTwammOrder > various pools > three pools, same liquidity, diff sal
   {
     "amount": 1000000000000000000n,
     "fee": 3402823669209384634633746074317682114n,
-    "otherTokenAmount": 41821177036810446n,
   },
 ]
 `;
@@ -65,7 +58,6 @@ exports[`splitTwammOrder > various pools > three pools, same liquidity, diff sal
   {
     "amount": 1000000000000000000n,
     "fee": 6805647338418769269267492148635364229n,
-    "otherTokenAmount": 41417116263934591n,
   },
 ]
 `;
@@ -75,12 +67,10 @@ exports[`splitTwammOrder > various pools > three pools, same liquidity, maxSplit
   {
     "amount": 500000000000000000n,
     "fee": 3402823669209384634633746074317682114n,
-    "otherTokenAmount": 15118836440023420n,
   },
   {
     "amount": 500000000000000000n,
     "fee": 6805647338418769269267492148635364229n,
-    "otherTokenAmount": 14969532844295689n,
   },
 ]
 `;
@@ -90,12 +80,10 @@ exports[`splitTwammOrder > various pools > three pools, same liquidity, maxSplit
   {
     "amount": 500000000000000000n,
     "fee": 3402823669209384634633746074317682114n,
-    "otherTokenAmount": 15118836440023424n,
   },
   {
     "amount": 500000000000000000n,
     "fee": 6805647338418769269267492148635364229n,
-    "otherTokenAmount": 14969532844295692n,
   },
 ]
 `;
@@ -105,7 +93,6 @@ exports[`splitTwammOrder > various pools > two pools, one with 10x liquidity, to
   {
     "amount": 1000000000000000000n,
     "fee": 6805647338418769269267492148635364229n,
-    "otherTokenAmount": 282179317095523925n,
   },
 ]
 `;
@@ -115,7 +102,6 @@ exports[`splitTwammOrder > various pools > two pools, one with 10x liquidity, to
   {
     "amount": 1000000000000000000n,
     "fee": 6805647338418769269267492148635364229n,
-    "otherTokenAmount": 282179315137456691n,
   },
 ]
 `;
@@ -125,7 +111,6 @@ exports[`splitTwammOrder > various pools > two pools, one with no liquidity, tok
   {
     "amount": 1000000000000000000n,
     "fee": 6805647338418769269267492148635364229n,
-    "otherTokenAmount": 29286323767419650n,
   },
 ]
 `;
@@ -135,7 +120,6 @@ exports[`splitTwammOrder > various pools > two pools, one with no liquidity, tok
   {
     "amount": 1000000000000000000n,
     "fee": 6805647338418769269267492148635364229n,
-    "otherTokenAmount": 29286323767419656n,
   },
 ]
 `;
@@ -145,7 +129,6 @@ exports[`splitTwammOrder > various pools > two pools, same liquidity, different 
   {
     "amount": 1000000000000000000n,
     "fee": 6805647338418769269267492148635364229n,
-    "otherTokenAmount": 29286323767419650n,
   },
 ]
 `;
@@ -155,7 +138,6 @@ exports[`splitTwammOrder > various pools > two pools, same liquidity, different 
   {
     "amount": 1000000000000000000n,
     "fee": 3402823669209384634633746074317682114n,
-    "otherTokenAmount": 41821177036810455n,
   },
 ]
 `;
@@ -165,12 +147,10 @@ exports[`splitTwammOrder > various pools > two pools, same liquidity, same token
   {
     "amount": 500000000000000000n,
     "fee": 3402823669209384634633746074317682114n,
-    "otherTokenAmount": 21381263540781848n,
   },
   {
     "amount": 500000000000000000n,
     "fee": 6805647338418769269267492148635364229n,
-    "otherTokenAmount": 21170116370792619n,
   },
 ]
 `;
@@ -180,12 +160,10 @@ exports[`splitTwammOrder > various pools > two pools, same liquidity, same token
   {
     "amount": 500000000000000000n,
     "fee": 3402823669209384634633746074317682114n,
-    "otherTokenAmount": 5406386711306600n,
   },
   {
     "amount": 500000000000000000n,
     "fee": 6805647338418769269267492148635364229n,
-    "otherTokenAmount": 5352395221635244n,
   },
 ]
 `;
@@ -195,12 +173,10 @@ exports[`splitTwammOrder > various pools > two pools, same liquidity, token0 1`]
   {
     "amount": 500000000000000000n,
     "fee": 3402823669209384634633746074317682114n,
-    "otherTokenAmount": 15118836440023420n,
   },
   {
     "amount": 500000000000000000n,
     "fee": 6805647338418769269267492148635364229n,
-    "otherTokenAmount": 14969532844295689n,
   },
 ]
 `;
@@ -210,12 +186,10 @@ exports[`splitTwammOrder > various pools > two pools, same liquidity, token1 1`]
   {
     "amount": 500000000000000000n,
     "fee": 3402823669209384634633746074317682114n,
-    "otherTokenAmount": 15118836440023424n,
   },
   {
     "amount": 500000000000000000n,
     "fee": 6805647338418769269267492148635364229n,
-    "otherTokenAmount": 14969532844295692n,
   },
 ]
 `;
@@ -225,7 +199,6 @@ exports[`splitTwammOrder > various pools > two pools, same liquidity, token1 sal
   {
     "amount": 1000000000000000000n,
     "fee": 6805647338418769269267492148635364229n,
-    "otherTokenAmount": 41417116263934581n,
   },
 ]
 `;
@@ -235,7 +208,6 @@ exports[`splitTwammOrder > various pools > two pools, same liquidity, token1 sal
   {
     "amount": 1000000000000000000n,
     "fee": 3402823669209384634633746074317682114n,
-    "otherTokenAmount": 29572037879931658n,
   },
 ]
 `;

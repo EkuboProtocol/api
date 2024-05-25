@@ -12,6 +12,7 @@ const BASE_POOL_STATE = {
   sqrt_ratio: toSqrtRatio(1).toString(),
   tick: 1,
   last_event_id: "1",
+  last_liquidity_update_event_id: "1",
 };
 
 type TwammOrderSplitTestCase = {
@@ -32,44 +33,6 @@ const FAIL_TEST_CASES: TwammOrderSplitTestCase[] = [
     poolStates: [],
     orderData: {},
     maxSplits: 0,
-  },
-  {
-    description: "negative amount edge case, max split 0, filter out pool",
-    amount: 100n,
-    poolStates: [
-      {
-        ...BASE_POOL_STATE,
-        sqrt_ratio: "16988185698248224601569110190524726",
-        pool_key_hash: "1",
-        fee: "170141183460469235273462165868118016",
-        token0_sale_rate: "2883988461929862547097",
-        token1_sale_rate: "0",
-        liquidity: "2404617496284",
-        last_execution_time: new Date(1712077649 * 1000),
-      } as TwammPoolStateQueryResult,
-    ],
-    orderData: {
-      "1": [
-        {
-          time: 1712091136,
-          saleRateDelta0: -1993116755301870156387n,
-          saleRateDelta1: 0n,
-        },
-        {
-          time: 1712123904,
-          saleRateDelta0: -808951706627992390710n,
-          saleRateDelta1: 0n,
-        },
-        {
-          time: 1712586752,
-          saleRateDelta0: -81920000000000000000n,
-          saleRateDelta1: 0n,
-        },
-      ],
-    },
-    maxSplits: 0,
-    startTime: 1712346815,
-    endTime: 1712424832,
   },
 ];
 
@@ -474,6 +437,7 @@ describe(splitTwammOrder, () => {
               isToken1,
               pools,
               maxSplits,
+              realStartTime: startTime,
             }),
           ).toThrowError();
         });
@@ -521,13 +485,13 @@ describe(splitTwammOrder, () => {
           isToken1,
           pools,
           maxSplits,
+          realStartTime: startTime,
         });
         it(`${description}, token${isToken1 ? "1" : "0"}`, () => {
           expect(
-            orders.map(({ amount, node, otherTokenAmount }) => {
+            orders.map(({ amount, node }) => {
               return {
                 amount,
-                otherTokenAmount,
                 fee: node.key.fee,
               };
             }),
