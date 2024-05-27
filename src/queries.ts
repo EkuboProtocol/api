@@ -1543,13 +1543,9 @@ export class Queries {
       description: string | null;
       calls: { to: string; selector: string; calldata: string[] }[] | null;
       results: string[][] | null;
-      created_time: number;
-      canceled_time: number | null;
-      executed_time: number | null;
-      proposer: string;
     }>(`
       SELECT gp.id,
-             gp.proposer as proposer,
+             gp.proposer AS proposer,
              (SELECT description
               FROM governor_proposal_described gpd
               WHERE gpd.id = gp.id
@@ -1564,22 +1560,11 @@ export class Queries {
                          results::TEXT[]
                          ORDER BY index)
               FROM governor_executed_results ger
-              WHERE ger.proposal_id = gp.id)         AS results,
-             FLOOR(EXTRACT(EPOCH FROM b.time))::int4 AS created_time,
-             (SELECT FLOOR(EXTRACT(EPOCH FROM b2.time))::int4
-              FROM governor_canceled gc
-                     JOIN event_keys e2 ON gc.event_id = e2.id
-                     JOIN blocks b2 ON e2.block_number = b2.number
-              WHERE gc.id = gp.id)                      canceled_time,
-             (SELECT FLOOR(EXTRACT(EPOCH FROM b2.time))::int4
-              FROM governor_executed ge
-                     JOIN event_keys e2 ON ge.event_id = e2.id
-                     JOIN blocks b2 ON e2.block_number = b2.number
-              WHERE ge.id = gp.id)                      executed_time
+              WHERE ger.proposal_id = gp.id)         AS results
       FROM governor_proposed gp
              JOIN event_keys ek ON event_id = ek.id
              JOIN blocks b ON block_number = b.number
-      ORDER BY created_time DESC
+      ORDER BY b.time DESC
     `);
   }
 
