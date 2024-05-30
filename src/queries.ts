@@ -1545,25 +1545,27 @@ export class Queries {
       results: string[][] | null;
     }>(`
       SELECT gp.id,
-             gp.proposer AS proposer,
+             gp.proposer                     AS proposer,
              (SELECT description
               FROM governor_proposal_described gpd
               WHERE gpd.id = gp.id
               ORDER BY event_id DESC
-              LIMIT 1)                               AS description,
+              LIMIT 1)                       AS description,
              (SELECT JSONB_AGG(
-                         JSONB_BUILD_OBJECT('to', to_address::TEXT, 'selector', selector::TEXT, 'calldata', calldata::TEXT[])
+                         JSONB_BUILD_OBJECT('to', to_address::TEXT, 'selector', selector::TEXT, 'calldata',
+                                            calldata::TEXT[])
                          ORDER BY index)
               FROM governor_proposed_calls gpc
-              WHERE gpc.proposal_id = gp.id)         AS calls,
+              WHERE gpc.proposal_id = gp.id) AS calls,
              (SELECT JSONB_AGG(
                          results::TEXT[]
                          ORDER BY index)
               FROM governor_executed_results ger
-              WHERE ger.proposal_id = gp.id)         AS results
+              WHERE ger.proposal_id = gp.id) AS results
       FROM governor_proposed gp
              JOIN event_keys ek ON event_id = ek.id
              JOIN blocks b ON block_number = b.number
+      WHERE gp.id NOT IN (SELECT id FROM governor_canceled)
       ORDER BY b.time DESC
     `);
   }
