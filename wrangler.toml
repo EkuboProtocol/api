@@ -3,10 +3,6 @@ main = "src/index.ts"
 compatibility_date = "2023-03-14"
 node_compat = true
 
-kv_namespaces = [
-    { binding = "TOKEN_LOGOS_KV", id = "<ignored>", preview_id = "<ignored>" },
-]
-
 [placement]
 mode = "smart"
 
