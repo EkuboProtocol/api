@@ -54,11 +54,12 @@ export function quoteRoute<
   meta: QuoteMeta;
 }): Readonly<QuoteRouteResult<TResources, TState>> | null {
   const isExactOutput = specifiedAmount.amount < 0n;
-  const { quotes, calculatedAmount } = route.reduce<{
+  const result = route.reduce<null | {
     quotes: Quote<TResources, TState>[];
     calculatedAmount: TokenAmount;
   }>(
     (state, node) => {
+      if (!state) return null;
       const isToken1 = node.key.token1 === state.calculatedAmount.token;
 
       const quote = node.quote({
@@ -69,7 +70,7 @@ export function quoteRoute<
 
       if (quote.consumedAmount !== state.calculatedAmount.amount) {
         // partial swaps through a route are not supported
-        throw new Error("Did not consume entire amount");
+        return null;
       }
 
       const nextToken = BigInt(isToken1 ? node.key.token0 : node.key.token1);
@@ -92,13 +93,15 @@ export function quoteRoute<
     },
   );
 
+  if (!result) return null;
+
   return {
-    calculatedAmount,
-    quotes,
+    calculatedAmount: result.calculatedAmount,
+    quotes: result.quotes,
     gasAdjustedCalculatedAmount: gasEstimator.getGasAdjustedAmount(
-      calculatedAmount.amount,
+      result.calculatedAmount.amount,
       route,
-      quotes,
+      result.quotes,
       overrides,
     ),
   };

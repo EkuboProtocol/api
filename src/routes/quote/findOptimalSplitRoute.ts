@@ -5,11 +5,54 @@ import {
   QuoteNode,
   TokenAmount,
 } from "./nodes/quoteNode";
-import { GasEstimator } from "./quoteRoute";
-import {
-  getBestSingularRoute,
-  GetBestSingularRouteResult,
-} from "./getBestSingularRoute";
+import { GasEstimator, quoteRoute, QuoteRouteResult } from "./quoteRoute";
+import { Heap } from "heap-js";
+import { num } from "starknet";
+
+export interface QuotedRoute<
+  TResources extends BasePoolResources,
+  TState extends BasePoolState,
+  TQuoteNode extends QuoteNode<TResources, TState>,
+> {
+  route: TQuoteNode[];
+  quoteRouteResult: Readonly<QuoteRouteResult<TResources, TState>>;
+}
+
+function quoteRoutes<
+  TResources extends BasePoolResources,
+  TState extends BasePoolState,
+  TQuoteNode extends QuoteNode<TResources, TState>,
+>({
+  routes,
+  tokenAmount,
+  gasEstimator,
+  overrides,
+  meta,
+}: {
+  routes: TQuoteNode[][];
+  tokenAmount: TokenAmount;
+  gasEstimator: GasEstimator<TResources, TState, TQuoteNode>;
+  overrides: WeakMap<TQuoteNode, TState>;
+  meta: QuoteMeta;
+}): QuotedRoute<TResources, TState, TQuoteNode>[] {
+  return routes
+    .map((route) => {
+      return {
+        route,
+        quoteRouteResult: quoteRoute({
+          route,
+          specifiedAmount: tokenAmount,
+          gasEstimator,
+          overrides,
+          meta,
+        }),
+      };
+    })
+    .filter(
+      (r): r is QuotedRoute<TResources, TState, TQuoteNode> =>
+        r.quoteRouteResult !== null,
+    );
+}
 
 export function findOptimalSplitRoute<
   TResources extends BasePoolResources,
@@ -20,64 +63,103 @@ export function findOptimalSplitRoute<
   tokenAmount,
   gasEstimator,
   maxSplits,
-  overrides,
   meta,
 }: {
   allRoutes: TQuoteNode[][];
   tokenAmount: TokenAmount;
   gasEstimator: GasEstimator<TResources, TState, TQuoteNode>;
   maxSplits: number;
-  overrides: WeakMap<TQuoteNode, TState>;
   meta: QuoteMeta;
-}): GetBestSingularRouteResult<TResources, TState, TQuoteNode>[] | null {
+}): QuotedRoute<TResources, TState, TQuoteNode>[] | null {
   const maxRoutes = maxSplits + 1;
   const numPieces = 2 ** maxSplits;
   const smallestAmount = tokenAmount.amount / BigInt(numPieces);
-  const swaps: GetBestSingularRouteResult<TResources, TState, TQuoteNode>[] =
-    [];
+  const swaps: QuotedRoute<TResources, TState, TQuoteNode>[] = [];
 
-  let routeOptions = allRoutes;
+  const partialTokenAmount = {
+    token: tokenAmount.token,
+    amount: smallestAmount,
+  };
+
+  const heap = new Heap<QuotedRoute<TResources, TState, TQuoteNode>>((a, b) => {
+    return Number(
+      b.quoteRouteResult.gasAdjustedCalculatedAmount -
+        a.quoteRouteResult.gasAdjustedCalculatedAmount,
+    );
+  });
+  heap.setLimit(numPieces);
+
+  const overrides = new WeakMap<TQuoteNode, TState>();
+
+  heap.init(
+    quoteRoutes({
+      routes: allRoutes,
+      tokenAmount: partialTokenAmount,
+      gasEstimator,
+      overrides,
+      meta,
+    }),
+  );
 
   const uniqueRouteSet: Set<TQuoteNode[]> = new Set();
 
   for (let i = 0; i < numPieces; i++) {
-    const partialTokenAmount = {
-      token: tokenAmount.token,
-      amount:
-        // for the last piece, we need to add the remainder so we always quote the exact amount
-        i === numPieces - 1
-          ? smallestAmount + (tokenAmount.amount % BigInt(numPieces))
-          : smallestAmount,
-    };
-
-    if (partialTokenAmount.amount === 0n) continue;
-
-    const partialResult = getBestSingularRoute({
-      allRoutes: routeOptions,
-      tokenAmount: partialTokenAmount,
-      gasEstimator,
-      meta,
-      overrides,
-    });
-
-    if (!partialResult) {
-      return null;
-    }
+    const partialResult = heap.pop();
+    if (!partialResult) return null;
 
     for (let j = 0; j < partialResult.route.length; j++) {
       const quote = partialResult.quoteRouteResult.quotes[j];
       overrides.set(partialResult.route[j], quote.stateAfter);
     }
 
+    const isLastPiece = i === numPieces - 1;
+
     if (!uniqueRouteSet.has(partialResult.route)) {
       uniqueRouteSet.add(partialResult.route);
 
-      if (uniqueRouteSet.size === maxRoutes) {
-        routeOptions = [...uniqueRouteSet.values()];
+      if (uniqueRouteSet.size === maxRoutes && !isLastPiece) {
+        heap.clear();
+        heap.init(
+          quoteRoutes({
+            routes: [...uniqueRouteSet.values()],
+            meta,
+            overrides,
+            gasEstimator,
+            tokenAmount: partialTokenAmount,
+          }),
+        );
       }
 
       swaps.push(partialResult);
     } else {
+      // we need to requote all the routes that use the same pools as the best route after updating the overrides
+      if (!isLastPiece) {
+        const requote: TQuoteNode[][] = [partialResult.route];
+
+        for (const quotedRoute of heap.toArray()) {
+          // there is a shared node between the two routes
+          if (
+            partialResult.route.some((nodeA) =>
+              quotedRoute.route.some((nodeB) => nodeA === nodeB),
+            )
+          ) {
+            heap.remove(quotedRoute);
+            requote.push(quotedRoute.route);
+          }
+        }
+        heap.addAll(
+          quoteRoutes({
+            routes: requote,
+            tokenAmount: partialTokenAmount,
+            gasEstimator,
+            overrides,
+            meta,
+          }),
+        );
+
+        console.log(requote.length, heap.size());
+      }
+
       // route is used in the list of swaps, so check that the pools are not touched in any swaps after it
       const indexLastSwapSameRoute = swaps.findLastIndex(
         (s) => s.route === partialResult.route,

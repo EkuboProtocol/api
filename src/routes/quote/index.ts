@@ -188,49 +188,11 @@ export class GetQuote extends EkuboAPIRoute {
     // get the ETH price of the other token
     const otherTokenPrice = otherTokenPriceResult?.price ?? new Decimal(0);
 
-    const smallestSplitAmount = amount / 2n ** BigInt(maxSplits);
-
     const gasEstimator = new BaseOrTwammResourcesGasEstimator(otherTokenPrice);
 
-    const overrides = new WeakMap<
-      BasePool | TwammPool,
-      BasePoolState | TwammPoolState
-    >();
-
-    // try the smallest split across all the routes first, and only consider the top 2**maxSplits
-    const feasibleRoutes = allRoutes
-      .map((route) => {
-        try {
-          const quote = quoteRoute({
-            route,
-            gasEstimator,
-            overrides,
-            specifiedAmount: {
-              token,
-              amount: smallestSplitAmount,
-            },
-            meta,
-          });
-          return { quote, route };
-        } catch (e) {
-          return { route, quote: null };
-        }
-      })
-      .sort(({ quote: quoteA }, { quote: quoteB }) => {
-        if (!quoteA) return 1;
-        if (!quoteB) return -1;
-        return Number(
-          quoteB.gasAdjustedCalculatedAmount -
-            quoteA.gasAdjustedCalculatedAmount,
-        );
-      })
-      .slice(0, Math.pow(2, maxSplits))
-      .map(({ route }) => route);
-
     const splitRoutes = findOptimalSplitRoute({
-      allRoutes: feasibleRoutes,
+      allRoutes,
       tokenAmount,
-      overrides,
       gasEstimator,
       maxSplits,
       meta,
