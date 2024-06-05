@@ -156,8 +156,6 @@ export function findOptimalSplitRoute<
             meta,
           }),
         );
-
-        console.log(requote.length, heap.size());
       }
 
       // route is used in the list of swaps, so check that the pools are not touched in any swaps after it
