@@ -217,9 +217,9 @@ export function findOptimalSplitRoute<
 
   const remainder = tokenAmount.amount % BigInt(numPieces);
 
-  // for exact output, we need to get that remainder from one of the routes. so arbitrarily select the first swap
   if (tokenAmount.amount < 0n && remainder != 0n) {
-    // todo: we can do slightly better in which route we select to avoid errors
+    // todo: we can do slightly better in which route we select to avoid errors, e.g. if the quote node can
+    //  only quote the exact amount and not a single wei more
     swaps[0].quoteRouteResult.quotes[0].consumedAmount += remainder;
   }
 
