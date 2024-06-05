@@ -62,11 +62,16 @@ export function quoteRoute<
       if (!state) return null;
       const isToken1 = node.key.token1 === state.calculatedAmount.token;
 
-      const quote = node.quote({
-        tokenAmount: state.calculatedAmount,
-        overrideState: overrides.get(node),
-        meta,
-      });
+      let quote: Quote<TResources, TState>;
+      try {
+        quote = node.quote({
+          tokenAmount: state.calculatedAmount,
+          overrideState: overrides.get(node),
+          meta,
+        });
+      } catch (e) {
+        return null;
+      }
 
       if (quote.consumedAmount !== state.calculatedAmount.amount) {
         // partial swaps through a route are not supported

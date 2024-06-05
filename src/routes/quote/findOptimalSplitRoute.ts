@@ -7,7 +7,6 @@ import {
 } from "./nodes/quoteNode";
 import { GasEstimator, quoteRoute, QuoteRouteResult } from "./quoteRoute";
 import { Heap } from "heap-js";
-import { num } from "starknet";
 
 export interface QuotedRoute<
   TResources extends BasePoolResources,
@@ -81,12 +80,12 @@ export function findOptimalSplitRoute<
     amount: smallestAmount,
   };
 
-  const heap = new Heap<QuotedRoute<TResources, TState, TQuoteNode>>((a, b) => {
-    return Number(
+  const heap = new Heap<QuotedRoute<TResources, TState, TQuoteNode>>((a, b) =>
+    Number(
       b.quoteRouteResult.gasAdjustedCalculatedAmount -
         a.quoteRouteResult.gasAdjustedCalculatedAmount,
-    );
-  });
+    ),
+  );
   heap.setLimit(numPieces);
 
   const overrides = new WeakMap<TQuoteNode, TState>();
