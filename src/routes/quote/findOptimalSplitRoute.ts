@@ -7,6 +7,7 @@ import {
 } from "./nodes/quoteNode";
 import { GasEstimator, quoteRoute, QuoteRouteResult } from "./quoteRoute";
 import { Heap } from "heap-js";
+import { num } from "starknet";
 
 export interface QuotedRoute<
   TResources extends BasePoolResources,
@@ -212,6 +213,14 @@ export function findOptimalSplitRoute<
         swaps.push(partialResult);
       }
     }
+  }
+
+  const remainder = tokenAmount.amount % BigInt(numPieces);
+
+  // for exact output, we need to get that remainder from one of the routes. so arbitrarily select the first swap
+  if (tokenAmount.amount < 0n && remainder != 0n) {
+    // todo: we can do slightly better in which route we select to avoid errors
+    swaps[0].quoteRouteResult.quotes[0].consumedAmount += remainder;
   }
 
   return swaps;
