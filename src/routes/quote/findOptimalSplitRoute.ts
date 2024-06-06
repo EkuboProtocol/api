@@ -7,7 +7,6 @@ import {
 } from "./nodes/quoteNode";
 import { GasEstimator, quoteRoute, QuoteRouteResult } from "./quoteRoute";
 import { Heap } from "heap-js";
-import { num } from "starknet";
 
 export interface QuotedRoute<
   TResources extends BasePoolResources,
@@ -217,7 +216,7 @@ export function findOptimalSplitRoute<
 
   const remainder = tokenAmount.amount % BigInt(numPieces);
 
-  if (tokenAmount.amount < 0n && remainder != 0n) {
+  if (remainder != 0n) {
     // todo: we can do slightly better in which route we select to avoid errors, e.g. if the quote node can
     //  only quote the exact amount and not a single wei more
     swaps[0].quoteRouteResult.quotes[0].consumedAmount += remainder;

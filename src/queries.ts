@@ -108,11 +108,11 @@ export class Queries {
       sqrt_ratio: string;
       liquidity: string;
       tick: number;
-      ticks: { t: number; l: string }[];
+      ticks: { t: number; l: string }[] | null;
       last_virtual_execution_time: string | null;
       token0_sale_rate: string | null;
       token1_sale_rate: string | null;
-      orders: { t: string; s0: string; s1: string }[];
+      orders: { t: string; s0: string; s1: string }[] | null;
     }>({
       text: `
         WITH paired_with_a AS (SELECT (CASE WHEN token0 = $1 THEN token1 ELSE token0 END) AS token
