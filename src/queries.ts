@@ -1583,10 +1583,10 @@ export class Queries {
     }>({
       text: `
         SELECT FLOOR(EXTRACT(EPOCH FROM b.time))::int4 AS time, voter, weight, yea
-        FROM governor_voted
-        JOIN event_keys ek ON event_id = ek.id
-        JOIN blocks b ON block_number = b.number
-        WHERE id = $1
+        FROM governor_voted gv
+               JOIN event_keys ek ON event_id = ek.id
+               JOIN blocks b ON block_number = b.number
+        WHERE gv.id = $1
       `,
       values: [proposalId],
     });

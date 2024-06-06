@@ -120,7 +120,7 @@ export class ListVotesOnProposal extends EkuboAPIRoute {
     },
     responses: {
       "200": {
-        schema: ListProposalsResponse,
+        schema: ListVotesResponse,
         description: "The list of votes on a specific proposal",
         contentType: "application/json",
       },
