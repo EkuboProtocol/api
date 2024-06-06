@@ -162,6 +162,10 @@ export class Queries {
         WHERE
           -- only twamm pools or 0 extension pools
           (extension = 0 OR tpsm.pool_key_hash IS NOT NULL)
+          
+          AND EXISTS (SELECT 1
+                      FROM per_pool_per_tick_liquidity_materialized ppptlm
+                      WHERE ppptlm.pool_key_hash = psm.pool_key_hash)
       `,
       values: [tokenA, tokenB],
     });
