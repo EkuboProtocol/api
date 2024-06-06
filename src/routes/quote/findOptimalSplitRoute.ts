@@ -111,52 +111,23 @@ export function findOptimalSplitRoute<
       overrides.set(partialResult.route[j], quote.stateAfter);
     }
 
+    // we use this to determine whether we need to recompute quotes
     const isLastPiece = i === numPieces - 1;
 
     if (!uniqueRouteSet.has(partialResult.route)) {
       uniqueRouteSet.add(partialResult.route);
 
       if (uniqueRouteSet.size === maxRoutes && !isLastPiece) {
-        heap.clear();
-        heap.init(
-          quoteRoutes({
-            routes: [...uniqueRouteSet.values()],
-            meta,
-            overrides,
-            gasEstimator,
-            tokenAmount: partialTokenAmount,
-          }),
-        );
+        // no longer consider any routes other than what has already been selected
+        for (const item of heap.toArray()) {
+          if (!uniqueRouteSet.has(item.route)) {
+            heap.remove(item);
+          }
+        }
       }
 
       swaps.push(partialResult);
     } else {
-      // we need to requote all the routes that use the same pools as the best route after updating the overrides
-      if (!isLastPiece) {
-        const requote: TQuoteNode[][] = [partialResult.route];
-
-        for (const quotedRoute of heap.toArray()) {
-          // there is a shared node between the two routes
-          if (
-            partialResult.route.some((nodeA) =>
-              quotedRoute.route.some((nodeB) => nodeA === nodeB),
-            )
-          ) {
-            heap.remove(quotedRoute);
-            requote.push(quotedRoute.route);
-          }
-        }
-        heap.addAll(
-          quoteRoutes({
-            routes: requote,
-            tokenAmount: partialTokenAmount,
-            gasEstimator,
-            overrides,
-            meta,
-          }),
-        );
-      }
-
       // route is used in the list of swaps, so check that the pools are not touched in any swaps after it
       const indexLastSwapSameRoute = swaps.findLastIndex(
         (s) => s.route === partialResult.route,
@@ -211,6 +182,32 @@ export function findOptimalSplitRoute<
       } else {
         swaps.push(partialResult);
       }
+    }
+
+    // we need to requote all the routes that use the same pools as the best route after updating the overrides
+    if (!isLastPiece) {
+      const requote: TQuoteNode[][] = [partialResult.route];
+
+      for (const quotedRoute of heap.toArray()) {
+        // there is a shared node between the two routes
+        if (
+          partialResult.route.some((nodeA) =>
+            quotedRoute.route.some((nodeB) => nodeA === nodeB),
+          )
+        ) {
+          heap.remove(quotedRoute);
+          requote.push(quotedRoute.route);
+        }
+      }
+      heap.addAll(
+        quoteRoutes({
+          routes: requote,
+          tokenAmount: partialTokenAmount,
+          gasEstimator,
+          overrides,
+          meta,
+        }),
+      );
     }
   }
 

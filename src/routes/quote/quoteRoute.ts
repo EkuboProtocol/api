@@ -70,6 +70,7 @@ export function quoteRoute<
           meta,
         });
       } catch (e) {
+        console.error(e);
         return null;
       }
 
