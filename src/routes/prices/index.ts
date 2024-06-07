@@ -158,15 +158,16 @@ export class GetPairPrice extends EkuboAPIRoute {
 }
 
 export class GetPairVolatility extends EkuboAPIRoute {
-  static route = "/volatility/:baseToken/:quoteToken";
+  static route = "/volatility/:tokenA/:tokenB";
 
   static schema: OpenAPIRouteSchema = {
     tags: ["Prices"],
     summary: "Get pair volatility",
-    description: "Get the realized volatility (historical) of a token pair",
+    description:
+      "Get the historical volatility (i.e. realized) of a token pair",
     parameters: {
-      baseToken: Path(TokenIdentifierType, { example: "ETH" }),
-      quoteToken: Path(TokenIdentifierType, { example: "USDC" }),
+      tokenA: Path(TokenIdentifierType, { example: "ETH" }),
+      tokenB: Path(TokenIdentifierType, { example: "USDC" }),
       fromDate: Query(
         z.coerce.date().openapi({
           description: "The time from which the volatility should be measured",
@@ -195,8 +196,8 @@ export class GetPairVolatility extends EkuboAPIRoute {
     const queries = await createQueries(env);
     const allTokens = await getAllTokens(env, queries);
 
-    const tokenA = getTokenByIdentifier(allTokens, params.baseToken);
-    const tokenB = getTokenByIdentifier(allTokens, params.quoteToken);
+    const tokenA = getTokenByIdentifier(allTokens, params.tokenA);
+    const tokenB = getTokenByIdentifier(allTokens, params.tokenB);
 
     if (!tokenA || !tokenB) {
       throw new StatusError(400, "Base token or quote token not known");
