@@ -255,7 +255,7 @@ export class GetQuote extends EkuboAPIRoute {
 
     return json(responseBody, {
       headers: {
-        "cache-control": "public,max-age=15,must-revalidate",
+        "cache-control": "public,s-maxage=5,must-revalidate",
       },
     });
   }
