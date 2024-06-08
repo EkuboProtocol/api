@@ -1614,18 +1614,21 @@ export class Queries {
   getDelegatesStakedTo({ staker }: { staker: bigint }) {
     return this.client.query<{ delegate: string; amount: string }>({
       text: `
-          WITH staker_delegation_changes AS (SELECT amount, delegate
-                                             FROM staker_staked
-                                             WHERE from_address = $1
-                                             UNION ALL
-                                             SELECT -amount AS amount, delegate
-                                             FROM staker_withdrawn
-                                             WHERE from_address = $1)
-          SELECT delegate,
-                 SUM(amount) AS amount
-          FROM staker_delegation_changes
-          GROUP BY delegate
-          ORDER BY 2 DESC
+        WITH staker_delegation_changes AS (SELECT amount, delegate
+                                           FROM staker_staked
+                                           WHERE from_address = $1
+                                           UNION ALL
+                                           SELECT -amount AS amount, delegate
+                                           FROM staker_withdrawn
+                                           WHERE from_address = $1),
+             summed AS (SELECT delegate,
+                               SUM(amount) AS amount
+                        FROM staker_delegation_changes
+                        GROUP BY delegate)
+        SELECT delegate, amount
+        FROM summed
+        WHERE amount != 0
+        ORDER BY amount DESC
       `,
       values: [staker],
     });
