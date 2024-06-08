@@ -411,7 +411,9 @@ export class GetTokenPrices extends EkuboAPIRoute {
     description:
       "Given a quote token, returns the price of all other tokens in terms of the qutoe token",
     parameters: {
-      quoteToken: Path(AddressType, { description: "The quote token address" }),
+      quoteToken: Path(TokenIdentifierType, {
+        description: "The quote token identifier",
+      }),
       period: Query(z.coerce.number().int().min(180).max(86400), {
         description: "The period in seconds over which to measure the VWAP",
         required: false,
@@ -431,14 +433,12 @@ export class GetTokenPrices extends EkuboAPIRoute {
   };
 
   async handle({ params, query }: IRequest, { env }: RequestContext) {
-    const quoteToken = BigInt(params.quoteToken);
-
     const queries = await createQueries(env);
     const allTokens = await getAllTokens(env, queries);
-    const qt = getTokenByAddress(allTokens, quoteToken);
+    const qt = getTokenByIdentifier(allTokens, params.quoteToken);
 
     if (!qt) {
-      throw new StatusError(400, "Quote token not known");
+      throw new StatusError(400, "Invalid quote token");
     }
 
     const timestamp = Date.now();
@@ -447,7 +447,7 @@ export class GetTokenPrices extends EkuboAPIRoute {
     );
 
     const prices = await queries.getAllVolumeWeightedPrices({
-      quoteToken,
+      quoteToken: BigInt(qt.l2_token_address),
       start: sixHoursAgo,
       minSwapCount: Number(query.minSwapCount ?? 4),
     });
