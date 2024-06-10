@@ -184,6 +184,7 @@ export class TwammPool implements QuoteNode<TwammResources, TwammPoolState> {
           token0SaleRate,
           token1SaleRate,
           timeElapsed,
+          this.key.fee,
         );
 
         const [token, amount] =

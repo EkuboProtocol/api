@@ -8,6 +8,7 @@ const TEST_CASES: {
   token0SaleRate: bigint;
   token1SaleRate: bigint;
   timeElapsed: bigint;
+  fee: bigint;
 }[] = [
   {
     description: "liquidity is zero, price is sqrtSaleRatio",
@@ -16,6 +17,7 @@ const TEST_CASES: {
     token0SaleRate: (10n ** 18n) << 32n,
     token1SaleRate: (10n ** 18n) << 32n,
     timeElapsed: 0n,
+    fee: 0n,
   },
   {
     description: "large exponent (> 88), price is sqrtSaleRatio",
@@ -24,6 +26,7 @@ const TEST_CASES: {
     token0SaleRate: (10n ** 18n) << 32n,
     token1SaleRate: (1980n * 10n ** 18n) << 32n,
     timeElapsed: 1n,
+    fee: 0n,
   },
   {
     description: "low liquidity, same sale rate",
@@ -32,6 +35,7 @@ const TEST_CASES: {
     token0SaleRate: (10n ** 18n) << 32n,
     token1SaleRate: (10n ** 18n) << 32n,
     timeElapsed: 1n,
+    fee: 0n,
   },
   {
     description: "low liquidity, token0SaleRate > token1SaleRate",
@@ -40,6 +44,7 @@ const TEST_CASES: {
     token0SaleRate: (2n * 10n ** 18n) << 32n,
     token1SaleRate: (10n ** 18n) << 32n,
     timeElapsed: 16n,
+    fee: 0n,
   },
   {
     description: "low liquidity, token1SaleRate > token0SaleRate",
@@ -48,6 +53,7 @@ const TEST_CASES: {
     token0SaleRate: (10n ** 18n) << 32n,
     token1SaleRate: (2n * 10n ** 18n) << 32n,
     timeElapsed: 16n,
+    fee: 0n,
   },
   {
     description: "high liquidity, same sale rate",
@@ -56,6 +62,7 @@ const TEST_CASES: {
     token0SaleRate: (10n ** 18n) << 32n,
     token1SaleRate: (10n ** 18n) << 32n,
     timeElapsed: 1n,
+    fee: 0n,
   },
   {
     description: "high liquidity, token0SaleRate > token1SaleRate",
@@ -64,6 +71,7 @@ const TEST_CASES: {
     token0SaleRate: (2n * 10n ** 18n) << 32n,
     token1SaleRate: (10n ** 18n) << 32n,
     timeElapsed: 1n,
+    fee: 0n,
   },
   {
     description: "high liquidity, token1SaleRate > token0SaleRate",
@@ -72,6 +80,7 @@ const TEST_CASES: {
     token0SaleRate: (10n ** 18n) << 32n,
     token1SaleRate: (2n * 10n ** 18n) << 32n,
     timeElapsed: 1n,
+    fee: 0n,
   },
   {
     description: "round in direction of price",
@@ -80,6 +89,7 @@ const TEST_CASES: {
     token0SaleRate: 10526880627450980392156862745n,
     token1SaleRate: 10526880627450980392156862745n,
     timeElapsed: 2040n,
+    fee: 0n,
   },
 ];
 
@@ -94,6 +104,7 @@ describe(calculateNextSqrtRatio, () => {
             testCase.token0SaleRate,
             testCase.token1SaleRate,
             testCase.timeElapsed,
+            testCase.fee,
           ),
         ).toMatchSnapshot();
       });

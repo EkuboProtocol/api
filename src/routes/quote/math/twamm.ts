@@ -9,6 +9,7 @@ export function calculateNextSqrtRatio(
   token0SaleRate: bigint,
   token1SaleRate: bigint,
   timeElapsed: bigint,
+  fee: bigint,
 ): bigint {
   let sqrtSaleRatio = sqrt((token1SaleRate << 128n) / token0SaleRate) << 64n;
 
@@ -16,7 +17,9 @@ export function calculateNextSqrtRatio(
     return sqrtSaleRatio;
   }
 
-  const sRate = sqrt(token1SaleRate * token0SaleRate);
+  const sRate =
+    (sqrt(token1SaleRate * token0SaleRate) * ((1n << 128n) - fee)) /
+    (1n << 128n);
 
   const roundUp = sqrtRatio > sqrtSaleRatio;
 
