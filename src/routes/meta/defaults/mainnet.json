@@ -220,5 +220,13 @@
     "l2_token_address": "0x023ed2ba4fb5709302c5dfd739fa7613359042f143286c115b6c7f7dc2601015",
     "sort_order": 1,
     "total_supply": 100000000000
+  },
+  {
+    "name": "Nostra",
+    "symbol": "NOSTRA",
+    "decimals": 18,
+    "l2_token_address": "0x00c530f2c0aa4c16a0806365b0898499fba372e5df7a7172dc6fe9ba777e8007",
+    "sort_order": 1,
+    "total_supply": 100000000
   }
 ]
