@@ -194,7 +194,7 @@
     "symbol": "STRK",
     "decimals": 18,
     "l2_token_address": "0x04718f5a0fc34cc1af16a1cdee98ffb20c31f5cd61d6ab07201858f4287c938d",
-    "sort_order": 1,
+    "sort_order": 2,
     "total_supply": 10000000000
   },
   {
@@ -228,5 +228,14 @@
     "l2_token_address": "0x00c530f2c0aa4c16a0806365b0898499fba372e5df7a7172dc6fe9ba777e8007",
     "sort_order": 1,
     "total_supply": 100000000
+  },
+  {
+    "name": "Standard Weighted Adalian Yield",
+    "symbol": "SWAY",
+    "decimals": 18,
+    "l2_token_address": "0x004878d1148318a31829523ee9c6a5ee563af6cd87f90a30809e5b0d27db8a9b",
+    "sort_order": 1,
+    "total_supply": null,
+    "hidden": true
   }
 ]
