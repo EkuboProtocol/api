@@ -76,7 +76,17 @@ export type TokenInfo = z.infer<typeof TokenType>;
 const SEPOLIA_CHAIN_ID = BigInt(constants.StarknetChainId.SN_SEPOLIA);
 const MAINNET_CHAIN_ID = BigInt(constants.StarknetChainId.SN_MAIN);
 
-const BANNED_TOKEN_SYMBOLS = ["eku", "ekubo", "kubo", "kub", "kube", "socks"];
+const BANNED_TOKEN_SYMBOLS = [
+  "eku",
+  "ekubo",
+  "kubo",
+  "kub",
+  "kube",
+  "socks",
+  "nostra",
+  "nostr",
+  "nstra",
+];
 const ALPHANUMERIC_REGEX = /^[\x00-\x7F]*$/;
 
 export async function getAllTokens(

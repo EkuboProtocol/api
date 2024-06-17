@@ -223,7 +223,7 @@
   },
   {
     "name": "Nostra",
-    "symbol": "NOSTRA",
+    "symbol": "NSTR",
     "decimals": 18,
     "l2_token_address": "0x00c530f2c0aa4c16a0806365b0898499fba372e5df7a7172dc6fe9ba777e8007",
     "sort_order": 1,
