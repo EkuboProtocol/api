@@ -13,7 +13,7 @@ export class BaseResourcesGasEstimator
   implements GasEstimator<BasePoolResources, BasePoolState, QuoteNode>
 {
   // These parameters are used for optimizing when we should use multi-hop routes
-  public static ETH_PER_POOL_SWAPPED = new Decimal("1e13");
+  public static ETH_PER_POOL_SWAPPED = new Decimal("1e11");
   public static ETH_PER_INITIALIZED_TICK_CROSS =
     BaseResourcesGasEstimator.ETH_PER_POOL_SWAPPED.div(2);
   public static ETH_PER_TICK_SPACING_CROSSED =
@@ -88,10 +88,12 @@ export class BaseOrTwammResourcesGasEstimator
     this.baseGasEstimator = new BaseResourcesGasEstimator(calculatedTokenPrice);
   }
 
-  public static EXECUTION_COST_EXECUTE_VIRTUAL_ORDERS = new Decimal("1e13");
-  public static EXECUTION_COST_EXECUTE_VIRTUAL_ORDERS_CROSS_DELTA = new Decimal(
-    "1e14",
-  );
+  public static EXECUTION_COST_EXECUTE_VIRTUAL_ORDERS =
+    BaseResourcesGasEstimator.ETH_PER_POOL_SWAPPED;
+  public static EXECUTION_COST_EXECUTE_VIRTUAL_ORDERS_CROSS_DELTA =
+    BaseOrTwammResourcesGasEstimator.EXECUTION_COST_EXECUTE_VIRTUAL_ORDERS.div(
+      10,
+    );
 
   getGasAdjustedAmount(
     calculatedAmount: bigint,
