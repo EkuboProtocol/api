@@ -12,17 +12,21 @@ import { BasePool } from "./nodes/basePool";
 export class BaseResourcesGasEstimator
   implements GasEstimator<BasePoolResources, BasePoolState, QuoteNode>
 {
-  // These parameters are used for optimizing when we should use multi-hop routes
-  public static ETH_PER_POOL_SWAPPED = new Decimal("1e11");
-  public static ETH_PER_INITIALIZED_TICK_CROSS =
-    BaseResourcesGasEstimator.ETH_PER_POOL_SWAPPED.div(2);
-  public static ETH_PER_TICK_SPACING_CROSSED =
-    BaseResourcesGasEstimator.ETH_PER_INITIALIZED_TICK_CROSS.div(5);
+  public readonly baseEthSwapCost: Decimal;
+
+  public get ethPerInitializedTickCrossed(): Decimal {
+    return this.baseEthSwapCost.div(2);
+  }
+
+  public get ethPerTickSpacingCrossed(): Decimal {
+    return this.ethPerInitializedTickCrossed.div(5);
+  }
 
   readonly calculatedTokenPrice: Decimal;
 
-  public constructor(calculatedTokenPrice: Decimal) {
+  public constructor(calculatedTokenPrice: Decimal, baseEthSwapCost: Decimal) {
     this.calculatedTokenPrice = calculatedTokenPrice;
+    this.baseEthSwapCost = baseEthSwapCost;
   }
 
   getGasAdjustedAmount(
@@ -53,16 +57,15 @@ export class BaseResourcesGasEstimator
     );
 
     const gasInOtherToken = BigInt(
-      BaseResourcesGasEstimator.ETH_PER_POOL_SWAPPED.mul(
-        totalRouteResources.newPoolsSwapped,
-      )
+      this.baseEthSwapCost
+        .mul(totalRouteResources.newPoolsSwapped)
         .add(
-          BaseResourcesGasEstimator.ETH_PER_INITIALIZED_TICK_CROSS.mul(
+          this.ethPerInitializedTickCrossed.mul(
             totalRouteResources.initializedTicksCrossed,
           ),
         )
         .add(
-          BaseResourcesGasEstimator.ETH_PER_TICK_SPACING_CROSSED.mul(
+          this.ethPerTickSpacingCrossed.mul(
             totalRouteResources.tickSpacingsCrossed,
           ),
         )
@@ -84,16 +87,19 @@ export class BaseOrTwammResourcesGasEstimator
 {
   private readonly baseGasEstimator: BaseResourcesGasEstimator;
 
-  public constructor(calculatedTokenPrice: Decimal) {
-    this.baseGasEstimator = new BaseResourcesGasEstimator(calculatedTokenPrice);
+  public constructor(calculatedTokenPrice: Decimal, baseEthSwapCost: Decimal) {
+    this.baseGasEstimator = new BaseResourcesGasEstimator(
+      calculatedTokenPrice,
+      baseEthSwapCost,
+    );
   }
 
-  public static EXECUTION_COST_EXECUTE_VIRTUAL_ORDERS =
-    BaseResourcesGasEstimator.ETH_PER_POOL_SWAPPED;
-  public static EXECUTION_COST_EXECUTE_VIRTUAL_ORDERS_CROSS_DELTA =
-    BaseOrTwammResourcesGasEstimator.EXECUTION_COST_EXECUTE_VIRTUAL_ORDERS.div(
-      10,
-    );
+  public get executeVirtualOrdersCost() {
+    return this.baseGasEstimator.baseEthSwapCost;
+  }
+  public get crossDeltaExecuteVirtualOrderCost() {
+    return this.executeVirtualOrdersCost.div(10);
+  }
 
   getGasAdjustedAmount(
     calculatedAmount: bigint,
@@ -125,11 +131,12 @@ export class BaseOrTwammResourcesGasEstimator
         return (
           memo +
           BigInt(
-            BaseOrTwammResourcesGasEstimator.EXECUTION_COST_EXECUTE_VIRTUAL_ORDERS.add(
-              BaseOrTwammResourcesGasEstimator.EXECUTION_COST_EXECUTE_VIRTUAL_ORDERS_CROSS_DELTA.mul(
-                resources.virtualOrderDeltaTimesCrossed,
-              ),
-            )
+            this.executeVirtualOrdersCost
+              .add(
+                this.crossDeltaExecuteVirtualOrderCost.mul(
+                  resources.virtualOrderDeltaTimesCrossed,
+                ),
+              )
               .mul(this.baseGasEstimator.calculatedTokenPrice)
               .toFixed(0, Decimal.ROUND_DOWN),
           )

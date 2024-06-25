@@ -5,7 +5,7 @@ import Decimal from "decimal.js-light";
 import { MAX_U128 } from "./math/constants";
 import { getRelevantPools } from "./quoteNodeFetching";
 import { findAllRoutes } from "./findAllRoutes";
-import { BasePoolState, TokenAmount } from "./nodes/quoteNode";
+import { TokenAmount } from "./nodes/quoteNode";
 import { num } from "starknet";
 import { createQueries } from "../../queries";
 import {
@@ -23,9 +23,6 @@ import { MAX_SQRT_RATIO } from "./math/tick";
 import { getSqrtRatioLimit } from "./getSqrtRatioLimit";
 import { BaseOrTwammResourcesGasEstimator } from "./gasEstimators";
 import { findOptimalSplitRoute } from "./findOptimalSplitRoute";
-import { quoteRoute } from "./quoteRoute";
-import { BasePool } from "./nodes/basePool";
-import { TwammPool, TwammPoolState } from "./nodes/twammPool";
 import { getBlockMeta } from "./getBlockMeta";
 import { ETH_TOKEN_ADDRESS } from "../../shared/constants";
 
@@ -188,7 +185,10 @@ export class GetQuote extends EkuboAPIRoute {
     // get the ETH price of the other token
     const otherTokenPrice = otherTokenPriceResult?.price ?? new Decimal(0);
 
-    const gasEstimator = new BaseOrTwammResourcesGasEstimator(otherTokenPrice);
+    const gasEstimator = new BaseOrTwammResourcesGasEstimator(
+      otherTokenPrice,
+      new Decimal("1e11"),
+    );
 
     const splitRoutes = findOptimalSplitRoute({
       allRoutes,
