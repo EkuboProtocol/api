@@ -237,5 +237,13 @@
     "sort_order": 1,
     "total_supply": null,
     "hidden": true
+  },
+  {
+    "name": "ZKX",
+    "symbol": "ZKX",
+    "decimals": 18,
+    "l2_token_address": "0x256c74b33f5734c68402cd9433dfa77856f62c6940f54591874527cf898a924",
+    "sort_order": 1,
+    "total_supply": 100000000
   }
 ]
