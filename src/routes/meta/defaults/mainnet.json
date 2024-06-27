@@ -245,5 +245,13 @@
     "l2_token_address": "0x256c74b33f5734c68402cd9433dfa77856f62c6940f54591874527cf898a924",
     "sort_order": 1,
     "total_supply": 100000000
+  },
+  {
+    "name": "Carmine",
+    "symbol": "CRM",
+    "decimals": 18,
+    "l2_token_address": "0x51c4b1fe3bf6774b87ad0b15ef5d1472759076e42944fff9b9f641ff13e5bbe",
+    "sort_order": 1,
+    "total_supply": 100000000
   }
 ]
