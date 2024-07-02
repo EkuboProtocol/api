@@ -12,7 +12,7 @@
     "symbol": "USDC",
     "decimals": 6,
     "l2_token_address": "0x053c91253bc9682c04929ca02ed00b3e423f6710d2ee7e0d5ebb06f3ecf368a8",
-    "sort_order": 4,
+    "sort_order": 5,
     "total_supply": null
   },
   {
@@ -28,7 +28,7 @@
     "symbol": "USDT",
     "decimals": 6,
     "l2_token_address": "0x068f5c6a61780768455de69077e07e89787839bf8166decfbf92b645209c0fb8",
-    "sort_order": 3,
+    "sort_order": 4,
     "total_supply": null
   },
   {
@@ -253,5 +253,50 @@
     "l2_token_address": "0x51c4b1fe3bf6774b87ad0b15ef5d1472759076e42944fff9b9f641ff13e5bbe",
     "sort_order": 1,
     "total_supply": 100000000
+  },
+  {
+    "name": "Nimbora sDAI",
+    "symbol": "nsDAI",
+    "decimals": 18,
+    "l2_token_address": "0x004380de5819e2e989b5e8b978ea2811fd36fdbc5c12fcfb3a2b444098888665",
+    "sort_order": 2,
+    "total_supply": null,
+    "hidden": true
+  },
+  {
+    "name": "Nimbora Pendle EtherFi ETH",
+    "symbol": "npeETH",
+    "decimals": 18,
+    "l2_token_address": "0x316ec509f7ad89b7e6e03d15a436df634454f95e815536d616af03edc850fa3",
+    "sort_order": 1,
+    "total_supply": null,
+    "hidden": true
+  },
+  {
+    "name": "Nimbora Pendle Puffer ETH",
+    "symbol": "nppETH",
+    "decimals": 18,
+    "l2_token_address": "0x00357cba05d61beb5fe378429d25013dc5fe0f67878b541747b0675c5ebecee1",
+    "sort_order": 1,
+    "total_supply": null,
+    "hidden": true
+  },
+  {
+    "name": "Nimbora Pendle Flux USDC",
+    "symbol": "npfUSDC",
+    "decimals": 6,
+    "l2_token_address": "0x52bdb85297e6b0c87d8ec98c5195a4324ff731676d64d9bee2e9e8710e8ea52",
+    "sort_order": 3,
+    "total_supply": null,
+    "hidden": true
+  },
+  {
+    "name": "Nimbora Pendle Aave USDT",
+    "symbol": "npaUSDT",
+    "decimals": 6,
+    "l2_token_address": "0x040daf98c49c6104002428958456208455a03825198fa7646bd793a321f4fc82",
+    "sort_order": 3,
+    "total_supply": null,
+    "hidden": true
   }
 ]
