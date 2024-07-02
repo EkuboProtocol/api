@@ -1,6 +1,7 @@
 import { Client } from "pg";
 import Decimal from "decimal.js-light";
 import { Env } from "./env";
+import { num } from "starknet";
 
 interface PositionMetadata {
   lower_bound: string;
@@ -1544,28 +1545,30 @@ export class Queries {
   getProposals() {
     return this.client.query<{
       id: string;
+      created: number;
       description: string | null;
       calls: { to: string; selector: string; calldata: string[] }[] | null;
       results: string[][] | null;
     }>(`
       SELECT gp.id,
-             gp.proposer                     AS proposer,
+             gp.proposer                      AS proposer,
              (SELECT description
               FROM governor_proposal_described gpd
               WHERE gpd.id = gp.id
               ORDER BY event_id DESC
-              LIMIT 1)                       AS description,
+              LIMIT 1)                        AS description,
+             EXTRACT(EPOCH FROM b.time)::int4 AS created,
              (SELECT JSONB_AGG(
                          JSONB_BUILD_OBJECT('to', to_address::TEXT, 'selector', selector::TEXT, 'calldata',
                                             calldata::TEXT[])
                          ORDER BY index)
               FROM governor_proposed_calls gpc
-              WHERE gpc.proposal_id = gp.id) AS calls,
+              WHERE gpc.proposal_id = gp.id)  AS calls,
              (SELECT JSONB_AGG(
                          results::TEXT[]
                          ORDER BY index)
               FROM governor_executed_results ger
-              WHERE ger.proposal_id = gp.id) AS results
+              WHERE ger.proposal_id = gp.id)  AS results
       FROM governor_proposed gp
              JOIN event_keys ek ON event_id = ek.id
              JOIN blocks b ON block_number = b.number
