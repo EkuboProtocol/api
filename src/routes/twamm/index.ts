@@ -128,6 +128,7 @@ async function getPoolsAndSplitOrder({
     pools: twammPools,
     maxSplits,
     realStartTime,
+    averageBlockTime,
   });
 
   const priceImpact = getPriceImpact({

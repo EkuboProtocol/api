@@ -129,6 +129,7 @@ export class BasePool implements QuoteNode {
         calculatedAmount: 0n,
         executionResources: resources,
         stateAfter: state,
+        feesPaid: 0n,
       };
     }
 
@@ -156,6 +157,7 @@ export class BasePool implements QuoteNode {
 
     // the index of the sorted ticks array of the tick that is <= current tick
     let calculatedAmount = 0n;
+    let feesPaid = 0n;
     let initializedTicksCrossed = resources.initializedTicksCrossed;
     let amountRemaining = amount;
 
@@ -190,6 +192,7 @@ export class BasePool implements QuoteNode {
 
       amountRemaining -= step.consumedAmount;
       calculatedAmount += step.calculatedAmount;
+      feesPaid += step.feeAmount;
       sqrtRatio = step.sqrtRatioNext;
 
       // cross the tick if the price moved all the way to the next initialized tick price
@@ -208,6 +211,7 @@ export class BasePool implements QuoteNode {
       isPriceIncreasing: isIncreasing,
       consumedAmount: amount - amountRemaining,
       calculatedAmount,
+      feesPaid,
       executionResources: {
         initializedTicksCrossed,
         tickSpacingsCrossed:

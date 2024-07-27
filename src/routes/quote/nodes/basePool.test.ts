@@ -518,6 +518,7 @@ describe(BasePool, () => {
             "initializedTicksCrossed": 6,
             "tickSpacingsCrossed": 156,
           },
+          "feesPaid": 6000004n,
           "isPriceIncreasing": true,
           "stateAfter": {
             "activeTickIndex": 216,
@@ -543,6 +544,7 @@ describe(BasePool, () => {
             "initializedTicksCrossed": 117,
             "tickSpacingsCrossed": 25385,
           },
+          "feesPaid": 60000060n,
           "isPriceIncreasing": true,
           "stateAfter": {
             "activeTickIndex": 327,
@@ -568,6 +570,7 @@ describe(BasePool, () => {
             "initializedTicksCrossed": 5,
             "tickSpacingsCrossed": 108,
           },
+          "feesPaid": 3000000000000001n,
           "isPriceIncreasing": false,
           "stateAfter": {
             "activeTickIndex": 205,
@@ -593,6 +596,7 @@ describe(BasePool, () => {
             "initializedTicksCrossed": 21,
             "tickSpacingsCrossed": 491,
           },
+          "feesPaid": 30000000000000009n,
           "isPriceIncreasing": false,
           "stateAfter": {
             "activeTickIndex": 189,
@@ -618,6 +622,7 @@ describe(BasePool, () => {
             "initializedTicksCrossed": 5,
             "tickSpacingsCrossed": 106,
           },
+          "feesPaid": 2917215250260097n,
           "isPriceIncreasing": false,
           "stateAfter": {
             "activeTickIndex": 205,
@@ -642,6 +647,7 @@ describe(BasePool, () => {
             "initializedTicksCrossed": 21,
             "tickSpacingsCrossed": 498,
           },
+          "feesPaid": 31251407511921686n,
           "isPriceIncreasing": false,
           "stateAfter": {
             "activeTickIndex": 189,
@@ -666,6 +672,7 @@ describe(BasePool, () => {
             "initializedTicksCrossed": 6,
             "tickSpacingsCrossed": 169,
           },
+          "feesPaid": 6418374n,
           "isPriceIncreasing": true,
           "stateAfter": {
             "activeTickIndex": 216,
@@ -690,6 +697,7 @@ describe(BasePool, () => {
             "initializedTicksCrossed": 121,
             "tickSpacingsCrossed": 433100,
           },
+          "feesPaid": 584650760792364825900439882497n,
           "isPriceIncreasing": true,
           "stateAfter": {
             "activeTickIndex": 331,
@@ -1615,6 +1623,7 @@ describe(BasePool, () => {
             "initializedTicksCrossed": 0,
             "tickSpacingsCrossed": 0,
           },
+          "feesPaid": 131964232073n,
           "isPriceIncreasing": true,
           "stateAfter": {
             "activeTickIndex": 257,
@@ -1661,6 +1670,7 @@ describe(BasePool, () => {
             "initializedTicksCrossed": 3,
             "tickSpacingsCrossed": 243398,
           },
+          "feesPaid": 118061640900052215n,
           "isPriceIncreasing": false,
           "stateAfter": {
             "activeTickIndex": -1,

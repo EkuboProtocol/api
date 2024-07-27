@@ -438,6 +438,7 @@ describe(splitTwammOrder, () => {
               pools,
               maxSplits,
               realStartTime: startTime,
+              averageBlockTime: 360,
             }),
           ).toThrowError();
         });
@@ -486,6 +487,7 @@ describe(splitTwammOrder, () => {
           pools,
           maxSplits,
           realStartTime: startTime,
+          averageBlockTime: 360,
         });
         it(`${description}, token${isToken1 ? "1" : "0"}`, () => {
           expect(

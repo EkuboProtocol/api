@@ -18,6 +18,7 @@ export interface Quote<
   isPriceIncreasing: boolean;
   stateAfter: TState;
   executionResources: TResources;
+  feesPaid: bigint;
 }
 
 export interface NodeKey {

@@ -14,6 +14,7 @@ exports[`TWAMMPoolNode > quote > compare to contract output > first swap 1`] = `
     "virtualOrderDeltaTimesCrossed": 0,
     "virtualOrderSecondsExecuted": 2040,
   },
+  "feesPaid": 0n,
   "isPriceIncreasing": false,
   "stateAfter": {
     "activeTickIndex": 0,
@@ -36,6 +37,7 @@ exports[`TWAMMPoolNode > quote > compare to contract output > second swap from f
     "virtualOrderDeltaTimesCrossed": 0,
     "virtualOrderSecondsExecuted": 60,
   },
+  "feesPaid": 0n,
   "isPriceIncreasing": false,
   "stateAfter": {
     "activeTickIndex": 0,
@@ -58,6 +60,7 @@ exports[`TWAMMPoolNode > quote > moody testing examples > 0 seconds pass 1`] = `
     "virtualOrderDeltaTimesCrossed": 0,
     "virtualOrderSecondsExecuted": 0,
   },
+  "feesPaid": 0n,
   "isPriceIncreasing": false,
   "stateAfter": {
     "activeTickIndex": 0,
@@ -80,6 +83,7 @@ exports[`TWAMMPoolNode > quote > moody testing examples > 30 seconds pass 1`] = 
     "virtualOrderDeltaTimesCrossed": 0,
     "virtualOrderSecondsExecuted": 30,
   },
+  "feesPaid": 0n,
   "isPriceIncreasing": false,
   "stateAfter": {
     "activeTickIndex": 0,
@@ -102,6 +106,7 @@ exports[`TWAMMPoolNode > quote > moody testing examples > 60 seconds pass 1`] = 
     "virtualOrderDeltaTimesCrossed": 1,
     "virtualOrderSecondsExecuted": 60,
   },
+  "feesPaid": 0n,
   "isPriceIncreasing": false,
   "stateAfter": {
     "activeTickIndex": 0,
@@ -124,6 +129,7 @@ exports[`TWAMMPoolNode > quote > price after no swap > result of quote after ful
     "virtualOrderDeltaTimesCrossed": 0,
     "virtualOrderSecondsExecuted": 86400,
   },
+  "feesPaid": 0n,
   "isPriceIncreasing": false,
   "stateAfter": {
     "activeTickIndex": 0,
@@ -146,6 +152,7 @@ exports[`TWAMMPoolNode > quote > price after no swap > result of quote after ful
     "virtualOrderDeltaTimesCrossed": 0,
     "virtualOrderSecondsExecuted": 43200,
   },
+  "feesPaid": 0n,
   "isPriceIncreasing": false,
   "stateAfter": {
     "activeTickIndex": 0,
@@ -168,6 +175,7 @@ exports[`TWAMMPoolNode > quote > price after no swap > result of quote after hal
     "virtualOrderDeltaTimesCrossed": 0,
     "virtualOrderSecondsExecuted": 43200,
   },
+  "feesPaid": 0n,
   "isPriceIncreasing": false,
   "stateAfter": {
     "activeTickIndex": 0,
@@ -194,6 +202,7 @@ exports[`TWAMMPoolNode > quote > second swap in opposite direction > first swap 
     "virtualOrderDeltaTimesCrossed": 0,
     "virtualOrderSecondsExecuted": 2040,
   },
+  "feesPaid": 0n,
   "isPriceIncreasing": false,
   "stateAfter": {
     "activeTickIndex": 0,
@@ -216,6 +225,7 @@ exports[`TWAMMPoolNode > quote > second swap in opposite direction > second swap
     "virtualOrderDeltaTimesCrossed": 0,
     "virtualOrderSecondsExecuted": 60,
   },
+  "feesPaid": 0n,
   "isPriceIncreasing": true,
   "stateAfter": {
     "activeTickIndex": 0,

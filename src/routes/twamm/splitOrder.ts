@@ -20,6 +20,7 @@ export function splitTwammOrder({
   pools,
   maxSplits,
   realStartTime,
+  averageBlockTime,
 }: {
   amount: bigint;
   startTime: number;
@@ -28,6 +29,7 @@ export function splitTwammOrder({
   pools: TwammPool[];
   maxSplits: number;
   realStartTime: number;
+  averageBlockTime: number;
 }): TwammOrderSplit[] {
   if (pools.length === 0) {
     throw new Error("No pools");
@@ -83,7 +85,7 @@ export function splitTwammOrder({
 
       const { calculatedAmount } = node.quote({
         tokenAmount: {
-          amount: partialAmount,
+          amount: (partialAmount * BigInt(averageBlockTime)) / duration,
           token: isToken1 ? node.key.token1 : node.key.token0,
         },
         meta: { block: { number: 0, time: endTime } },

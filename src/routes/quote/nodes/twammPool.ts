@@ -251,6 +251,7 @@ export class TwammPool implements QuoteNode<TwammResources, TwammPoolState> {
       executionResources,
       stateAfter,
       isPriceIncreasing,
+      feesPaid,
     } = this.basePool.quote({
       tokenAmount,
       sqrtRatioLimit,
@@ -262,6 +263,7 @@ export class TwammPool implements QuoteNode<TwammResources, TwammPoolState> {
       isPriceIncreasing,
       consumedAmount,
       calculatedAmount,
+      feesPaid,
       executionResources: {
         ...this.basePool.combineResources(
           basePoolExecutionResources,
