@@ -172,6 +172,9 @@ export function findOptimalSplitRoute<
               consumedAmount:
                 newQuoteResult.consumedAmount +
                 lastSwap.quoteRouteResult.quotes[ix].consumedAmount,
+              feesPaid:
+                lastSwap.quoteRouteResult.quotes[ix].feesPaid +
+                newQuoteResult.feesPaid,
               executionResources: lastSwap.route[ix].combineResources(
                 lastSwap.quoteRouteResult.quotes[ix].executionResources,
                 newQuoteResult.executionResources,
