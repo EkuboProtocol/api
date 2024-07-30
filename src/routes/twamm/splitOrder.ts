@@ -38,6 +38,8 @@ export function splitTwammOrder({
   const numPieces = Math.pow(2, maxSplits);
   const smallestSplitAmount = amount / BigInt(numPieces);
   const duration = BigInt(endTime - realStartTime);
+  // test the quote after a single block
+  const quoteTime = Math.min(realStartTime + averageBlockTime, endTime);
 
   const topPools = pools
     .map((node) => {
@@ -46,7 +48,7 @@ export function splitTwammOrder({
           amount: smallestSplitAmount,
           token: isToken1 ? node.key.token1 : node.key.token0,
         },
-        meta: { block: { number: 0, time: endTime } },
+        meta: { block: { number: 0, time: quoteTime } },
       });
 
       return {
@@ -88,7 +90,7 @@ export function splitTwammOrder({
           amount: (partialAmount * BigInt(averageBlockTime)) / duration,
           token: isToken1 ? node.key.token1 : node.key.token0,
         },
-        meta: { block: { number: 0, time: endTime } },
+        meta: { block: { number: 0, time: quoteTime } },
         overrideState: {
           ...startingState,
           ...(isToken1
