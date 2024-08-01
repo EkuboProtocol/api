@@ -5,12 +5,12 @@ import { createQueries } from "../../queries";
 import { OpenAPIRouteSchema, Path } from "@cloudflare/itty-router-openapi";
 import { z } from "zod";
 import Decimal from "decimal.js-light";
-import { BasePool } from "../quote/nodes/basePool";
-import { MIN_TICK, toSqrtRatio } from "../quote/math/tick";
 import { AddressType, NumericType } from "../../shared/validation/address";
 import { DateType } from "../../shared/validation/date";
+import { BasePool, toSqrtRatio } from "@ekubo/sdk";
 
 const DEFAULT_STRK_PRICE = new Decimal("2.0");
+const MIN_TICK = -88722883;
 
 interface OBLIncentiveResponse {
   Ekubo: {

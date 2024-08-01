@@ -24,6 +24,7 @@
     "check-ts": "tsc --noEmit"
   },
   "dependencies": {
+    "@ekubo/sdk": "^0.0.1",
     "heap-js": "^2.5.0"
   }
 }

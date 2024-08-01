@@ -2,10 +2,8 @@ import { IRequest, json, StatusError } from "itty-router";
 import { EkuboAPIRoute, RequestContext } from "../../shared/context";
 import { getAllTokens, getTokenByIdentifier } from "../meta/tokens";
 import Decimal from "decimal.js-light";
-import { MAX_U128 } from "./math/constants";
 import { getRelevantPools } from "./quoteNodeFetching";
 import { findAllRoutes } from "./findAllRoutes";
-import { TokenAmount } from "./nodes/quoteNode";
 import { num } from "starknet";
 import { createQueries } from "../../queries";
 import {
@@ -19,12 +17,16 @@ import {
   HexStringType,
   TokenIdentifierType,
 } from "../../shared/validation/address";
-import { MAX_SQRT_RATIO } from "./math/tick";
 import { getSqrtRatioLimit } from "./getSqrtRatioLimit";
 import { BaseOrTwammResourcesGasEstimator } from "./gasEstimators";
 import { findOptimalSplitRoute } from "./findOptimalSplitRoute";
 import { getBlockMeta } from "./getBlockMeta";
 import { ETH_TOKEN_ADDRESS } from "../../shared/constants";
+import { TokenAmount } from "@ekubo/sdk";
+
+const MAX_SQRT_RATIO: bigint =
+  6277100250585753475930931601400621808602321654880405518632n;
+const MAX_U128 = 0xffffffffffffffffffffffffffffffffn;
 
 const PoolKeyType = z
   .object({

@@ -9,7 +9,8 @@ import {
 } from "../../shared/validation/address";
 import { z } from "zod";
 import { getAllTokens, getTokenByIdentifier } from "../meta/tokens";
-import { MAX_U128 } from "../quote/math/constants";
+
+const MAX_U128 = 0xffffffffffffffffffffffffffffffffn;
 
 const SaleRateDelta = z.object({
   time: z.number().int().min(0),

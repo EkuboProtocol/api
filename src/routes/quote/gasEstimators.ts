@@ -1,13 +1,15 @@
 import { GasEstimator } from "./quoteRoute";
+import Decimal from "decimal.js-light";
 import {
+  BasePool,
   BasePoolResources,
   BasePoolState,
   Quote,
   QuoteNode,
-} from "./nodes/quoteNode";
-import Decimal from "decimal.js-light";
-import { TwammPool, TwammPoolState, TwammResources } from "./nodes/twammPool";
-import { BasePool } from "./nodes/basePool";
+  TwammPool,
+  TwammPoolState,
+  TwammResources,
+} from "@ekubo/sdk";
 
 export class BaseResourcesGasEstimator
   implements GasEstimator<BasePoolResources, BasePoolState, QuoteNode>

@@ -5,7 +5,7 @@ import {
   QuoteMeta,
   QuoteNode,
   TokenAmount,
-} from "./nodes/quoteNode";
+} from "@ekubo/sdk";
 
 export interface GasEstimator<
   TResources extends BasePoolResources,

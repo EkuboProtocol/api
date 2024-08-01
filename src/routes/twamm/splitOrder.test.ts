@@ -1,8 +1,9 @@
 import { describe, expect, it } from "vitest";
 import { splitTwammOrder, TwammSaleRateDeltaMap } from "./splitOrder";
 import { TwammPoolStateQueryResult } from "../../queries";
-import { MAX_TICK_SPACING, toSqrtRatio } from "../quote/math/tick";
-import { TwammPool } from "../quote/nodes/twammPool";
+import { toSqrtRatio, TwammPool } from "@ekubo/sdk";
+
+const MAX_TICK_SPACING = 354892;
 
 const BASE_POOL_STATE = {
   token0: "0",

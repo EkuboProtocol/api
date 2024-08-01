@@ -1,5 +1,5 @@
 import Decimal from "decimal.js-light";
-import { TwammPool, TwammSaleRateDelta } from "../quote/nodes/twammPool";
+import { TwammPool, TwammSaleRateDelta } from "@ekubo/sdk";
 
 export type TwammSaleRateDeltaMap = {
   [key_hash: string]: TwammSaleRateDelta[];

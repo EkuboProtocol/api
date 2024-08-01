@@ -1,5 +1,5 @@
 import { Queries } from "../../queries";
-import { QuoteMeta } from "./nodes/quoteNode";
+import { QuoteMeta } from "@ekubo/sdk";
 
 export async function getBlockMeta(queries: Queries): Promise<QuoteMeta> {
   const block = await queries.getLatestBlockMeta();

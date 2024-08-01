@@ -1,9 +1,9 @@
-import {
-  MAX_SQRT_RATIO,
-  MAX_TICK,
-  MIN_SQRT_RATIO,
-  toSqrtRatio,
-} from "./math/tick";
+import { toSqrtRatio } from "@ekubo/sdk";
+
+const MAX_TICK = 88722883;
+const MAX_SQRT_RATIO: bigint =
+  6277100250585753475930931601400621808602321654880405518632n;
+const MIN_SQRT_RATIO: bigint = 18446748437148339061n;
 
 export function getSqrtRatioLimit(
   sqrtRatioAfter: bigint,

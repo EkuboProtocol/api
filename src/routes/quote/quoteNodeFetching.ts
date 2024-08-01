@@ -1,7 +1,5 @@
 import { Queries } from "../../queries";
-import { QuoteNode } from "./nodes/quoteNode";
-import { BasePool } from "./nodes/basePool";
-import { TwammPool } from "./nodes/twammPool";
+import { BasePool, QuoteNode, TwammPool } from "@ekubo/sdk";
 
 export async function getRelevantPools(
   queries: Queries,

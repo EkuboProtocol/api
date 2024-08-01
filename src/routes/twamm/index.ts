@@ -16,9 +16,9 @@ import {
 } from "../../shared/validation/address";
 import { getPriceImpact, splitTwammOrder, TwammOrderSplit } from "./splitOrder";
 import { num } from "starknet";
-import { TwammPool } from "../quote/nodes/twammPool";
 import { getBlockMeta } from "../quote/getBlockMeta";
 import { getRelevantPools } from "../quote/quoteNodeFetching";
+import { TwammPool } from "@ekubo/sdk";
 
 export const OrderKeyType = z
   .object({

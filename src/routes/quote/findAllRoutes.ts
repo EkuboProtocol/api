@@ -1,4 +1,4 @@
-import { NodeKey } from "./nodes/quoteNode";
+import { NodeKey } from "@ekubo/sdk";
 
 export interface HasKey {
   key: NodeKey;
