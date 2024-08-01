@@ -1,10 +1,6 @@
 import { getSqrtRatioLimit } from "./getSqrtRatioLimit";
 import { describe, expect, it } from "vitest";
-
-const MAX_SQRT_RATIO: bigint =
-  6277100250585753475930931601400621808602321654880405518632n;
-const MIN_SQRT_RATIO: bigint = 18446748437148339061n;
-const MAX_TICK_SPACING = 354892;
+import { MAX_SQRT_RATIO, MAX_TICK_SPACING, MIN_SQRT_RATIO } from "@ekubo/sdk";
 
 describe(getSqrtRatioLimit, () => {
   it("increases/decreases amount based on direction", () => {

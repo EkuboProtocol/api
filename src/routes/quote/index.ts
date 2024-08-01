@@ -22,11 +22,7 @@ import { BaseOrTwammResourcesGasEstimator } from "./gasEstimators";
 import { findOptimalSplitRoute } from "./findOptimalSplitRoute";
 import { getBlockMeta } from "./getBlockMeta";
 import { ETH_TOKEN_ADDRESS } from "../../shared/constants";
-import { TokenAmount } from "@ekubo/sdk";
-
-const MAX_SQRT_RATIO: bigint =
-  6277100250585753475930931601400621808602321654880405518632n;
-const MAX_U128 = 0xffffffffffffffffffffffffffffffffn;
+import { TokenAmount, MAX_SQRT_RATIO, MAX_U128 } from "@ekubo/sdk";
 
 const PoolKeyType = z
   .object({

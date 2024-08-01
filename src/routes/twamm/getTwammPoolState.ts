@@ -9,8 +9,7 @@ import {
 } from "../../shared/validation/address";
 import { z } from "zod";
 import { getAllTokens, getTokenByIdentifier } from "../meta/tokens";
-
-const MAX_U128 = 0xffffffffffffffffffffffffffffffffn;
+import { MAX_U128 } from "@ekubo/sdk";
 
 const SaleRateDelta = z.object({
   time: z.number().int().min(0),
