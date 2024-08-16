@@ -1,4 +1,4 @@
-name = "ekubo-api"
+name = "api"
 main = "src/index.ts"
 compatibility_date = "2023-03-14"
 node_compat = true
