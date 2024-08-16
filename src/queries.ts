@@ -115,6 +115,7 @@ export class Queries {
       token1_sale_rate: string | null;
       orders: { t: string; s0: string; s1: string }[] | null;
     }>({
+      name: "get-all-routable-pools",
       text: `
         WITH paired_with_a AS (SELECT (CASE WHEN token0 = $1 THEN token1 ELSE token0 END) AS token
                                FROM pool_keys
