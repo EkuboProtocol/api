@@ -68,7 +68,7 @@ export class GetPairInfo extends EkuboAPIRoute {
       },
       {
         headers: {
-          "cache-control": "public, max-age=600",
+          "cache-control": "public, max-age=10800",
         },
       },
     );
@@ -121,7 +121,7 @@ export class GetPairInfoTvl extends EkuboAPIRoute {
       },
       {
         headers: {
-          "cache-control": "public, max-age=600",
+          "cache-control": "public, max-age=3600",
         },
       },
     );
@@ -217,7 +217,7 @@ export class GetPairInfoPools extends EkuboAPIRoute {
       },
       {
         headers: {
-          "cache-control": "public, max-age=600",
+          "cache-control": "public, max-age=7200",
         },
       },
     );
