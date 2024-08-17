@@ -1090,20 +1090,26 @@ export class Queries {
       tvl0_delta_24h: string;
       tvl1_delta_24h: string;
     }>(`
-          SELECT pk.token0,
-                 pk.token1,
-                 SUM(volume0_24h)    AS volume0_24h,
-                 SUM(volume1_24h)    AS volume1_24h,
-                 SUM(fees0_24h)      AS fees0_24h,
-                 SUM(fees1_24h)      AS fees1_24h,
-                 SUM(tvl0_total)     AS tvl0_total,
-                 SUM(tvl1_total)     AS tvl1_total,
-                 SUM(tvl0_delta_24h) AS tvl0_delta_24h,
-                 SUM(tvl1_delta_24h) AS tvl1_delta_24h
-          FROM last_24h_pool_stats_materialized l24
-                   JOIN pool_keys pk ON l24.key_hash = pk.key_hash
-          GROUP BY pk.token0, pk.token1;
-      `);
+        SELECT pk.token0,
+               pk.token1,
+               SUM(volume0_24h)    AS volume0_24h,
+               SUM(volume1_24h)    AS volume1_24h,
+               SUM(fees0_24h)      AS fees0_24h,
+               SUM(fees1_24h)      AS fees1_24h,
+               SUM(tvl0_total)     AS tvl0_total,
+               SUM(tvl1_total)     AS tvl1_total,
+               SUM(tvl0_delta_24h) AS tvl0_delta_24h,
+               SUM(tvl1_delta_24h) AS tvl1_delta_24h
+        FROM last_24h_pool_stats_materialized l24
+                 JOIN pool_keys pk ON l24.key_hash = pk.key_hash
+        WHERE volume0_24h != 0
+          AND volume1_24h != 0
+          AND fees0_24h != 0
+          AND fees1_24h != 0
+          AND tvl0_total != 0
+          AND tvl1_total != 0
+        GROUP BY pk.token0, pk.token1;
+    `);
   }
 
   public async getTopPools(pair: { token0: bigint; token1: bigint }) {
@@ -1134,8 +1140,16 @@ export class Queries {
                  tvl1_delta_24h
           FROM last_24h_pool_stats_materialized l24
                    JOIN pool_keys p ON l24.key_hash = p.key_hash
+
           WHERE p.token0 = $1
-            AND p.token1 = $2;
+            AND p.token1 = $2
+            AND volume0_24h != 0
+            AND volume1_24h != 0
+            AND fees0_24h != 0
+            AND fees1_24h != 0
+            AND tvl0_total != 0
+            AND tvl1_total != 0;
+          ;
       `,
       values: [pair.token0, pair.token1],
     });
