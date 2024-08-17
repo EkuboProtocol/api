@@ -1103,11 +1103,9 @@ export class Queries {
         FROM last_24h_pool_stats_materialized l24
                  JOIN pool_keys pk ON l24.key_hash = pk.key_hash
         WHERE volume0_24h != 0
-          AND volume1_24h != 0
-          AND fees0_24h != 0
-          AND fees1_24h != 0
-          AND tvl0_total != 0
-          AND tvl1_total != 0
+           OR volume1_24h != 0
+           OR tvl0_total != 0
+           OR tvl1_total != 0
         GROUP BY pk.token0, pk.token1;
     `);
   }
@@ -1143,12 +1141,12 @@ export class Queries {
 
           WHERE p.token0 = $1
             AND p.token1 = $2
-            AND volume0_24h != 0
-            AND volume1_24h != 0
-            AND fees0_24h != 0
-            AND fees1_24h != 0
-            AND tvl0_total != 0
-            AND tvl1_total != 0;
+            AND (
+              volume0_24h != 0
+                  OR volume1_24h != 0
+                  OR tvl0_total != 0
+                  OR tvl1_total != 0
+              );
           ;
       `,
       values: [pair.token0, pair.token1],
