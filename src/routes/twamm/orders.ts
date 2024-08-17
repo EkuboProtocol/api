@@ -66,7 +66,6 @@ export class ListOrders extends EkuboAPIRoute {
         orders: rows.reduce<
           {
             token_id: number;
-            points: number;
             orders: {
               key: {
                 sell_token: string;
@@ -90,7 +89,6 @@ export class ListOrders extends EkuboAPIRoute {
               block_time_at_start,
               last_order_update,
               last_collect_proceeds,
-              points,
             },
           ) => {
             const tokenId = Number(token_id);
@@ -114,7 +112,6 @@ export class ListOrders extends EkuboAPIRoute {
             if (!order) {
               memo.push({
                 token_id: tokenId,
-                points: Number(points),
                 orders: [additionalOrder],
               });
             } else {

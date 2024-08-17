@@ -24,7 +24,6 @@ interface TwammOrderMetadata {
   block_time_at_start: Date;
   last_order_update: Date;
   last_collect_proceeds: Date | null;
-  points: string;
 }
 
 export interface BasePoolStateQueryResult {
@@ -348,21 +347,16 @@ export class Queries {
 
   public async getPositionState(id: number) {
     const { rows, rowCount } = await this.client.query<{
-      points_earned: string;
       last_owner: string;
     }>({
       text: `
-                SELECT (SELECT SUM(points)
-                        FROM leaderboard AS l
-                        WHERE l.collector = pt.to_address
-                          AND l.token_id = pt.token_id) AS points_earned,
-                       to_address                       AS last_owner
-                FROM position_transfers pt
-                WHERE token_id = $1
-                  AND to_address != 0
-                ORDER BY event_id DESC
-                LIMIT 1;
-            `,
+          SELECT to_address AS last_owner
+          FROM position_transfers pt
+          WHERE token_id = $1
+            AND to_address != 0
+          ORDER BY event_id DESC
+          LIMIT 1;
+      `,
       values: [id],
     });
 
@@ -1188,7 +1182,6 @@ export class Queries {
     return this.client.query<
       PositionMetadata & {
         token_id: string;
-        points_earned: string;
       }
     >({
       text: `
@@ -1214,11 +1207,7 @@ export class Queries {
                        extension,
                        lower_bound,
                        upper_bound,
-                       blocks.time                      AS minted_timestamp,
-                       (SELECT SUM(points)
-                        FROM leaderboard AS l
-                        WHERE l.collector = $1
-                          AND l.token_id = ot.token_id) AS points_earned
+                       blocks.time                      AS minted_timestamp
                 FROM filtered_owned_tokens AS ot
                          LEFT JOIN LATERAL (
                     SELECT lower_bound, upper_bound, pool_key_hash
@@ -1272,9 +1261,7 @@ export class Queries {
                                  JOIN blocks b2 ON ek2.block_number = b2.number
                         WHERE tpw.salt = ot.token_id::NUMERIC
                         ORDER BY tpw.event_id DESC
-                        LIMIT 1)   AS last_collect_proceeds,
-                       COALESCE((SELECT SUM(points) FROM leaderboard l WHERE l.token_id = ot.token_id AND category = 3),
-                                0) AS points
+                        LIMIT 1)   AS last_collect_proceeds
                 FROM owned_tokens AS ot
                          JOIN LATERAL (
                     SELECT (CASE WHEN tou.sale_rate_delta0 != 0 THEN token0 ELSE token1 END) AS sell_token,
@@ -1314,12 +1301,12 @@ export class Queries {
       total_points: string;
     }>({
       text: `
-                SELECT rank, collector, earned_points, referral_points, total_points
-                FROM leaderboard_materialized_view
-                WHERE (collector = $1 OR $1 IS NULL)
-                ORDER BY rank
-                LIMIT $2 OFFSET $3
-            `,
+          SELECT rank, collector, earned_points, referral_points, total_points
+          FROM leaderboard_materialized_view
+          WHERE (collector = $1 OR $1 IS NULL)
+          ORDER BY rank
+          LIMIT $2 OFFSET $3
+      `,
       values: [collector ?? null, pageSize, start],
     });
   }

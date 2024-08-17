@@ -276,8 +276,7 @@ export class GetNftState extends EkuboAPIRoute {
   static schema: OpenAPIRouteSchema = {
     tags: ["Positions"],
     summary: "Get NFT State",
-    description:
-      "Returns the last owner of the position and the number of points earned",
+    description: "Returns the last owner of the position",
     parameters: {
       id: Path(TokenIdType),
     },
@@ -286,7 +285,6 @@ export class GetNftState extends EkuboAPIRoute {
         description: "The state of the NFT with the given token ID",
         contentType: "application/json",
         schema: z.object({
-          points: z.number().int(),
           last_owner: HexStringType,
         }),
       },
@@ -309,7 +307,6 @@ export class GetNftState extends EkuboAPIRoute {
 
     return json(
       {
-        points: Number(state.points_earned),
         last_owner: num.toHex(BigInt(state.last_owner)),
       },
       {
@@ -494,7 +491,6 @@ export class ListPositions extends EkuboAPIRoute {
           metadata_url: `${origin}/${row.token_id}`,
           image: `${origin}/${row.token_id}/image.svg`,
           minted_timestamp: row.minted_timestamp.getTime(),
-          points_earned: Number(row.points_earned),
         })),
       },
       {
