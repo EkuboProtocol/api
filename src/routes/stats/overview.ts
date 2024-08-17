@@ -95,7 +95,7 @@ export class GetOverviewPairs extends EkuboAPIRoute {
       },
       {
         headers: {
-          "cache-control": "public, max-age=10800",
+          "cache-control": "public, max-age=1800",
         },
       },
     );

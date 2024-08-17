@@ -217,7 +217,7 @@ export class GetPairInfoPools extends EkuboAPIRoute {
       },
       {
         headers: {
-          "cache-control": "public, max-age=7200",
+          "cache-control": "public, max-age=600",
         },
       },
     );
