@@ -423,10 +423,6 @@ export class GetDefiSpringIncentives extends EkuboAPIRoute {
               .plus(usdcValueDepth1)
               .div(new Decimal(10).pow(6));
 
-            const adjustmentByTvlMeasure = new Decimal(
-              latestDateAllocation?.tvl_usd ?? totalValueLockedInRange,
-            ).div(totalValueLockedInRange);
-
             const extrapolatedUsdcReward = new Decimal(
               latestDateAllocation?.allocation ?? 0,
             )
@@ -436,7 +432,6 @@ export class GetDefiSpringIncentives extends EkuboAPIRoute {
             const currentApr = Number(
               extrapolatedUsdcReward
                 .div(totalValueLockedInRange)
-                .mul(adjustmentByTvlMeasure)
                 .toSignificantDigits(6)
                 .toString(),
             );
@@ -447,6 +442,7 @@ export class GetDefiSpringIncentives extends EkuboAPIRoute {
               allocations,
               currentApr,
               volatilityInTicks,
+              tvlUsd: totalValueLockedInRange.toString(),
             };
           }
         }
