@@ -384,14 +384,14 @@ export class GetDefiSpringIncentives extends EkuboAPIRoute {
               sortedTicks,
             });
 
-            const maxDepthForRewards = volatilityInTicks * 3;
+            const maxDepthForRealRewards = volatilityInTicks * 2;
 
             const { consumedAmount: depth0 } = pool.quote({
               tokenAmount: {
                 amount: -0xffffffffffffffffffffffffffffffffn,
                 token: BigInt(token0.l2_token_address),
               },
-              sqrtRatioLimit: toSqrtRatio(tick + maxDepthForRewards),
+              sqrtRatioLimit: toSqrtRatio(tick + maxDepthForRealRewards),
               meta: { block: { number: 1, time: 2 } },
             });
 
@@ -400,7 +400,7 @@ export class GetDefiSpringIncentives extends EkuboAPIRoute {
                 amount: -0xffffffffffffffffffffffffffffffffn,
                 token: BigInt(token1.l2_token_address),
               },
-              sqrtRatioLimit: toSqrtRatio(tick - maxDepthForRewards),
+              sqrtRatioLimit: toSqrtRatio(tick - maxDepthForRealRewards),
               meta: { block: { number: 1, time: 2 } },
             });
 
@@ -442,7 +442,9 @@ export class GetDefiSpringIncentives extends EkuboAPIRoute {
               allocations,
               currentApr,
               volatilityInTicks,
-              tvlUsd: totalValueLockedInRange.toString(),
+              consideredTvl: totalValueLockedInRange
+                .toSignificantDigits(6)
+                .toString(),
             };
           }
         }
