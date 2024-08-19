@@ -92,13 +92,7 @@ export class Queries {
         `);
   }
 
-  public async getAllRoutablePools({
-    tokenA,
-    tokenB,
-  }: {
-    tokenA: bigint;
-    tokenB: bigint;
-  }) {
+  public async getAllRoutablePools() {
     return this.client.query<{
       token0: string;
       token1: string;
@@ -114,60 +108,36 @@ export class Queries {
       token1_sale_rate: string | null;
       orders: { t: string; s0: string; s1: string }[] | null;
     }>({
+      name: "get-routable-pools",
       text: `
-        WITH paired_with_a AS (SELECT (CASE WHEN token0 = $1 THEN token1 ELSE token0 END) AS token
-                               FROM pool_keys
-                               WHERE token0 = $1
-                                  OR token1 = $1),
-             paired_with_b AS (SELECT (CASE WHEN token0 = $2 THEN token1 ELSE token0 END) AS token
-                               FROM pool_keys
-                               WHERE token0 = $2
-                                  OR token1 = $2),
-             paired_with_both AS (SELECT token
-                                  FROM paired_with_a
-                                  INTERSECT
-                                  SELECT token
-                                  FROM paired_with_b),
-             relevant_pools AS (SELECT key_hash
-                                FROM pool_keys pk
-                                WHERE ((pk.token0 IN ($1, $2) OR
-                                        pk.token0 IN (SELECT token FROM paired_with_both)) AND
-                                       (pk.token1 IN ($1, $2) OR
-                                        pk.token1 IN (SELECT token FROM paired_with_both))))
-        SELECT pk.token0,
-               pk.token1,
-               pk.fee,
-               pk.tick_spacing,
-               pk.extension,
-               psm.sqrt_ratio,
-               psm.liquidity,
-               psm.tick,
-               (SELECT JSONB_AGG(JSONB_BUILD_OBJECT('t', ppptlm.tick, 'l',
-                                                    ppptlm.net_liquidity_delta_diff::TEXT) ORDER BY ppptlm.tick)
-                FROM per_pool_per_tick_liquidity_materialized ppptlm
-                WHERE ppptlm.pool_key_hash = pk.key_hash) AS ticks,
-               -- twamm state
-               tpsm.last_virtual_execution_time,
-               tpsm.token0_sale_rate,
-               tpsm.token1_sale_rate,
-               (SELECT JSONB_AGG(JSONB_BUILD_OBJECT('t', tsrdm.time, 's0', tsrdm.net_sale_rate_delta0::TEXT,
-                                                    's1',
-                                                    tsrdm.net_sale_rate_delta1::TEXT) ORDER BY tsrdm.time)
-                FROM twamm_sale_rate_deltas_materialized tsrdm
-                WHERE tsrdm.pool_key_hash = pk.key_hash)  AS orders
-        FROM relevant_pools rp
-               JOIN pool_keys pk ON rp.key_hash = pk.key_hash
-               JOIN pool_states_materialized psm ON rp.key_hash = psm.pool_key_hash
-               LEFT JOIN twamm_pool_states_materialized tpsm ON rp.key_hash = tpsm.pool_key_hash
-        WHERE
-          -- only twamm pools or 0 extension pools
-          (extension = 0 OR tpsm.pool_key_hash IS NOT NULL)
-          
-          AND EXISTS (SELECT 1
-                      FROM per_pool_per_tick_liquidity_materialized ppptlm
-                      WHERE ppptlm.pool_key_hash = psm.pool_key_hash)
+          SELECT pk.token0,
+                 pk.token1,
+                 pk.fee,
+                 pk.tick_spacing,
+                 pk.extension,
+                 psm.sqrt_ratio,
+                 psm.liquidity,
+                 psm.tick,
+                 (SELECT JSONB_AGG(JSONB_BUILD_OBJECT('t', ppptlm.tick, 'l',
+                                                      ppptlm.net_liquidity_delta_diff::TEXT) ORDER BY ppptlm.tick)
+                  FROM per_pool_per_tick_liquidity_materialized ppptlm
+                  WHERE ppptlm.pool_key_hash = pk.key_hash) AS ticks,
+                 -- twamm state
+                 tpsm.last_virtual_execution_time,
+                 tpsm.token0_sale_rate,
+                 tpsm.token1_sale_rate,
+                 (SELECT JSONB_AGG(JSONB_BUILD_OBJECT('t', tsrdm.time, 's0', tsrdm.net_sale_rate_delta0::TEXT,
+                                                      's1',
+                                                      tsrdm.net_sale_rate_delta1::TEXT) ORDER BY tsrdm.time)
+                  FROM twamm_sale_rate_deltas_materialized tsrdm
+                  WHERE tsrdm.pool_key_hash = pk.key_hash)  AS orders
+          FROM pool_keys pk
+                   JOIN pool_states_materialized psm ON pk.key_hash = psm.pool_key_hash
+                   LEFT JOIN twamm_pool_states_materialized tpsm ON pk.key_hash = tpsm.pool_key_hash
+          WHERE
+            -- only twamm pools or 0 extension pools
+              (extension = 0 OR tpsm.pool_key_hash IS NOT NULL)
       `,
-      values: [tokenA, tokenB],
     });
   }
 
@@ -1323,14 +1293,14 @@ export class Queries {
       token: string;
     }>({
       text: `
-                SELECT address AS contract_address,
-                       gd.start_date,
-                       gd.end_date,
-                       token
-                FROM deployed_airdrop_contracts da
-                         JOIN generated_drop gd ON da.drop_id = gd.id
-                WHERE da.token = COALESCE($1, da.token)
-            `,
+          SELECT address AS contract_address,
+                 gd.start_date,
+                 gd.end_date,
+                 token
+          FROM deployed_airdrop_contracts da
+                   JOIN generated_drop gd ON da.drop_id = gd.id
+          WHERE da.token = COALESCE($1, da.token)
+      `,
       values: [token ?? null],
     });
     return rows;

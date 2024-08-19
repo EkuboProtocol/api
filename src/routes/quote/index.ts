@@ -2,7 +2,7 @@ import { IRequest, json, StatusError } from "itty-router";
 import { EkuboAPIRoute, RequestContext } from "../../shared/context";
 import { getAllTokens, getTokenByIdentifier } from "../meta/tokens";
 import Decimal from "decimal.js-light";
-import { getRelevantPools } from "./quoteNodeFetching";
+import { getAllPoolsWithLiquidity } from "./quoteNodeFetching";
 import { findAllRoutes } from "./findAllRoutes";
 import { num } from "starknet";
 import { createQueries } from "../../queries";
@@ -162,18 +162,15 @@ export class GetQuote extends EkuboAPIRoute {
         quoteToken: otherToken,
         minSwapCount: 0,
       }),
-      getRelevantPools(queries, {
-        tokenA: token,
-        tokenB: otherToken,
-      }),
+      getAllPoolsWithLiquidity(queries),
     ]);
-
-    if (!relevantPools.length) {
-      throw new StatusError(404, "No pools connect the two tokens");
-    }
 
     // routes are executed in reverse for exact output
     const allRoutes = findAllRoutes(token, otherToken, relevantPools, maxHops);
+
+    if (!allRoutes.length) {
+      throw new StatusError(404, "No routes connect the two tokens");
+    }
 
     const tokenAmount: TokenAmount = {
       amount,

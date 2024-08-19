@@ -17,7 +17,7 @@ import {
 import { getPriceImpact, splitTwammOrder, TwammOrderSplit } from "./splitOrder";
 import { num } from "starknet";
 import { getBlockMeta } from "../quote/getBlockMeta";
-import { getRelevantPools } from "../quote/quoteNodeFetching";
+import { getAllPoolsWithLiquidity } from "../quote/quoteNodeFetching";
 import { TwammPool } from "@ekubo/sdk";
 
 export const OrderKeyType = z
@@ -96,10 +96,7 @@ async function getPoolsAndSplitOrder({
   const [meta, averageBlockTime, pools] = await Promise.all([
     getBlockMeta(queries),
     queries.getAverageBlockTime(),
-    getRelevantPools(queries, {
-      tokenA: token0,
-      tokenB: token1,
-    }),
+    getAllPoolsWithLiquidity(queries),
   ]);
 
   if (meta.block.time >= endTimeSeconds) {
@@ -107,12 +104,12 @@ async function getPoolsAndSplitOrder({
   }
   const realStartTime = Math.max(meta.block.time, startTimeSeconds);
 
-  const twammPools = pools
-    .filter((p): p is TwammPool => p instanceof TwammPool)
-    .filter(
-      (t) =>
-        t.hasLiquidity() && t.key.token0 === token0 && t.key.token1 === token1,
-    );
+  const twammPools = pools.filter(
+    (p): p is TwammPool =>
+      p instanceof TwammPool &&
+      p.key.token0 === token0 &&
+      p.key.token1 === token1,
+  );
 
   if (twammPools.length === 0) {
     throw new StatusError(404, "No pools for this pair");

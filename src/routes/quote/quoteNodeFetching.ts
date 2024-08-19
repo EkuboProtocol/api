@@ -1,14 +1,10 @@
 import { Queries } from "../../queries";
 import { BasePool, QuoteNode, TwammPool } from "@ekubo/sdk";
 
-export async function getRelevantPools(
+export async function getAllPoolsWithLiquidity(
   queries: Queries,
-  { tokenA, tokenB }: { tokenA: bigint; tokenB: bigint },
 ): Promise<(TwammPool | BasePool)[]> {
-  const { rows: poolData } = await queries.getAllRoutablePools({
-    tokenA,
-    tokenB,
-  });
+  const { rows: poolData } = await queries.getAllRoutablePools();
 
   return poolData
     .map<QuoteNode>(
