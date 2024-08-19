@@ -77,23 +77,24 @@ export class Queries {
     return this.client.query<
       Omit<BasePoolStateQueryResult, "last_liquidity_update_event_id">
     >(`
-            SELECT pool_key_hash,
-                   token0,
-                   token1,
-                   fee,
-                   tick_spacing,
-                   extension,
-                   sqrt_ratio,
-                   tick,
-                   liquidity,
-                   last_event_id
-            FROM pool_states_materialized
-                     JOIN pool_keys ON pool_key_hash = key_hash
-        `);
+        SELECT pool_key_hash,
+               token0,
+               token1,
+               fee,
+               tick_spacing,
+               extension,
+               sqrt_ratio,
+               tick,
+               liquidity,
+               last_event_id
+        FROM pool_states_materialized
+                 JOIN pool_keys ON pool_key_hash = key_hash
+    `);
   }
 
-  public async getAllRoutablePools() {
+  public async getAllRoutablePools({ lastEventId }: { lastEventId?: bigint }) {
     return this.client.query<{
+      key_hash: string;
       token0: string;
       token1: string;
       fee: string;
@@ -107,9 +108,12 @@ export class Queries {
       token0_sale_rate: string | null;
       token1_sale_rate: string | null;
       orders: { t: string; s0: string; s1: string }[] | null;
+      last_event_id: string;
+      last_twamm_event_id: string;
     }>({
       text: `
-          SELECT pk.token0,
+          SELECT pk.key_hash,
+                 pk.token0,
                  pk.token1,
                  pk.fee,
                  pk.tick_spacing,
@@ -129,14 +133,18 @@ export class Queries {
                                                       's1',
                                                       tsrdm.net_sale_rate_delta1::TEXT) ORDER BY tsrdm.time)
                   FROM twamm_sale_rate_deltas_materialized tsrdm
-                  WHERE tsrdm.pool_key_hash = pk.key_hash)  AS orders
+                  WHERE tsrdm.pool_key_hash = pk.key_hash)  AS orders,
+                 psm.last_event_id                          AS last_event_id,
+                 tpsm.last_event_id                         AS last_twamm_event_id
           FROM pool_keys pk
                    JOIN pool_states_materialized psm ON pk.key_hash = psm.pool_key_hash
                    LEFT JOIN twamm_pool_states_materialized tpsm ON pk.key_hash = tpsm.pool_key_hash
           WHERE
             -- only twamm pools or 0 extension pools
               (extension = 0 OR tpsm.pool_key_hash IS NOT NULL)
+            AND (psm.last_event_id > $1 OR (tpsm.last_event_id IS NOT NULL AND tpsm.last_event_id > $1))
       `,
+      values: [lastEventId ?? 0n],
     });
   }
 
@@ -266,7 +274,7 @@ export class Queries {
   }
 
   public async getOrderMetadata(id: number) {
-    const { rows, rowCount } = await this.client.query<{
+    const { rows } = await this.client.query<{
       minted_tx_hash: string;
       minted_timestamp: Date;
       start_time: Date;
