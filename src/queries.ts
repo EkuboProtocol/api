@@ -108,7 +108,6 @@ export class Queries {
       token1_sale_rate: string | null;
       orders: { t: string; s0: string; s1: string }[] | null;
     }>({
-      name: "get-routable-pools",
       text: `
           SELECT pk.token0,
                  pk.token1,
