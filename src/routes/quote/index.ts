@@ -157,10 +157,9 @@ export class GetQuote extends EkuboAPIRoute {
 
     const [meta, otherTokenPriceResult, relevantPools] = await Promise.all([
       getBlockMeta(queries),
-      queries.getVolumeWeightedPriceOverPeriod({
+      queries.getVolumeWeightedPrice({
         baseToken: ETH_TOKEN_ADDRESS,
         quoteToken: otherToken,
-        minSwapCount: 0,
       }),
       getAllPoolsWithLiquidity(queries),
     ]);

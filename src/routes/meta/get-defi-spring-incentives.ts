@@ -233,10 +233,9 @@ export class GetDefiSpringIncentives extends EkuboAPIRoute {
     const strkPrice =
       usdcToken && strkToken
         ? (
-            await queries.getVolumeWeightedPriceOverPeriod({
+            await queries.getVolumeWeightedPrice({
               baseToken: BigInt(strkToken.l2_token_address),
               quoteToken: BigInt(usdcToken.l2_token_address),
-              minSwapCount: 1,
             })
           )?.price?.mul(
             new Decimal(10).pow(strkToken.decimals - usdcToken.decimals),
@@ -321,25 +320,22 @@ export class GetDefiSpringIncentives extends EkuboAPIRoute {
                 token1: BigInt(token1.l2_token_address),
               }),
               // the pair price
-              queries.getVolumeWeightedPriceOverPeriod({
+              queries.getVolumeWeightedPrice({
                 baseToken: BigInt(token0.l2_token_address),
                 quoteToken: BigInt(token1.l2_token_address),
-                minSwapCount: 1,
               }),
               // the usdc price of token0
               usdcToken
-                ? queries.getVolumeWeightedPriceOverPeriod({
+                ? queries.getVolumeWeightedPrice({
                     baseToken: BigInt(token0.l2_token_address),
                     quoteToken: BigInt(usdcToken.l2_token_address),
-                    minSwapCount: 1,
                   })
                 : null,
               // the usdc price of token1
               usdcToken
-                ? queries.getVolumeWeightedPriceOverPeriod({
+                ? queries.getVolumeWeightedPrice({
                     baseToken: BigInt(token1.l2_token_address),
                     quoteToken: BigInt(usdcToken.l2_token_address),
-                    minSwapCount: 1,
                   })
                 : null,
             ]);

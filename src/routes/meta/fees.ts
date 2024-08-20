@@ -67,8 +67,7 @@ export class GetFees extends EkuboAPIRoute {
 
     const usdcPriceEth =
       usdc && eth
-        ? await queries.getVolumeWeightedPriceOverPeriod({
-            minSwapCount: 0,
+        ? await queries.getVolumeWeightedPrice({
             quoteToken: BigInt(usdc.l2_token_address),
             baseToken: BigInt(eth.l2_token_address),
           })
@@ -76,8 +75,7 @@ export class GetFees extends EkuboAPIRoute {
 
     const usdcPriceStrk =
       usdc && strk
-        ? await queries.getVolumeWeightedPriceOverPeriod({
-            minSwapCount: 0,
+        ? await queries.getVolumeWeightedPrice({
             quoteToken: BigInt(usdc.l2_token_address),
             baseToken: BigInt(strk.l2_token_address),
           })

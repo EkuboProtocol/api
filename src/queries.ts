@@ -698,35 +698,28 @@ export class Queries {
       text: `
           WITH times AS (SELECT $1::timestamptz                            AS "end",
                                 $1::timestamptz - ($2 * INTERVAL '1 days') AS start),
+               prices AS (SELECT token0,
+                                 token1,
+                                 hour,
 
-               prices AS (SELECT pk.token0,
-                                 pk.token1,
-                                 date_bin(INTERVAL '1 hour', b.time,
-                                          '2000-01-01 00:00:00'::TIMESTAMP WITHOUT TIME ZONE) AS period_start,
-                                 SUM(delta1 * delta1) / SUM(ABS(delta1 * delta0))             AS price
-                          FROM swaps s
-                                   JOIN event_keys ek ON s.event_id = ek.id
-                                   JOIN blocks b ON ek.block_number = b.number
-                                   JOIN pool_keys pk ON s.pool_key_hash = pk.key_hash,
+                                 total / k_volume AS price
+                          FROM hourly_price_data p,
                                times t
-                          WHERE b.time >= t.start
-                            AND b.time < t.end
-                            AND delta1 != 0
-                            AND delta0 != 0
-                          GROUP BY pk.token0, pk.token1, period_start),
+                          WHERE p.hour BETWEEN t.start AND t.end
+                          ORDER BY hour),
 
                log_price_changes AS (SELECT token0,
                                             token1,
                                             LN(price) -
                                             LN(COALESCE(
-                                                            LAG(price) OVER (PARTITION BY token0, token1 ORDER BY period_start),
-                                                            price))                                   AS price_change,
-                                            EXTRACT(HOURS FROM period_start - COALESCE(LAG(period_start)
-                                                                                       OVER (PARTITION BY token0, token1 ORDER BY period_start),
-                                                                                       period_start)) AS hours_since_last
+                                                            LAG(price) OVER (PARTITION BY token0, token1 ORDER BY hour),
+                                                            price))                   AS price_change,
+                                            EXTRACT(HOURS FROM hour - COALESCE(LAG(hour)
+                                                                               OVER (PARTITION BY token0, token1 ORDER BY hour),
+                                                                               hour)) AS hours_since_last
                                      FROM prices p,
                                           times t
-                                     ORDER BY period_start),
+                                     ORDER BY hour),
 
                realized_volatility_by_pair AS (SELECT token0,
                                                       token1,
@@ -749,18 +742,16 @@ export class Queries {
     return volatilityData;
   }
 
-  public async getVolumeWeightedPriceOverPeriod({
+  public async getVolumeWeightedPrice({
     baseToken,
     quoteToken,
-    start,
-    end,
-    minSwapCount = 1,
+    endTime = new Date(),
+    numHours = 6,
   }: {
     baseToken: bigint;
     quoteToken: bigint;
-    start?: Date;
-    end?: Date;
-    minSwapCount: number;
+    endTime?: Date;
+    numHours?: number;
   }): Promise<{ price: Decimal; k_volume: bigint } | null> {
     if (baseToken === quoteToken)
       return { price: new Decimal(1), k_volume: 1n << 128n };
@@ -776,31 +767,20 @@ export class Queries {
       swap_count: number;
     }>({
       text: `
-          SELECT SUM(delta1 * delta1) AS total, SUM(ABS(delta1 * delta0)) AS k_volume, COUNT(1) AS swap_count
-          FROM swaps
-                   JOIN pool_keys AS pk ON swaps.pool_key_hash = pk.key_hash
-                   JOIN event_keys AS ek ON swaps.event_id = ek.id
-                   JOIN blocks AS b ON ek.block_number = b.number
+          SELECT SUM(total) AS total, SUM(k_volume) AS k_volume, SUM(swap_count) AS swap_count
+          FROM hourly_price_data
           WHERE token0 = $1
             AND token1 = $2
-            AND delta1 != 0
-            AND delta0 != 0
-            AND b.time BETWEEN COALESCE($3, NOW() - INTERVAL '6 hours') AND COALESCE($4, NOW())
+            AND hour BETWEEN (DATE_TRUNC('hour', $3::timestamptz - ($4 * INTERVAL '1 hour'), 'UTC')) AND DATE_TRUNC('hour', $3::timestamptz, 'UTC')
       `,
-      values: [token0, token1, start, end],
+      values: [token0, token1, endTime, numHours],
     });
 
     if (rows.length !== 1) return null;
 
     const { total, k_volume, swap_count } = rows[0];
 
-    if (
-      total === null ||
-      k_volume === null ||
-      swap_count === null ||
-      swap_count < minSwapCount
-    )
-      return null;
+    if (!total || !k_volume || !swap_count) return null;
 
     const price =
       baseToken < quoteToken
@@ -950,16 +930,13 @@ export class Queries {
       text: `
           SELECT token0,
                  token1,
-                 SUM(delta1 * delta1)      AS total,
-                 SUM(ABS(delta1 * delta0)) AS k_volume,
-                 COUNT(1)                  AS swap_count
-          FROM swaps
-                   JOIN pool_keys AS pk ON swaps.pool_key_hash = pk.key_hash
-                   JOIN event_keys AS ek ON swaps.event_id = ek.id
-                   JOIN blocks AS b ON ek.block_number = b.number
+                 SUM(total)      AS total,
+                 SUM(k_volume)   AS k_volume,
+                 SUM(swap_count) AS swap_count
+          FROM hourly_price_data
           WHERE (token0 = $1
               OR token1 = $1)
-            AND b.time >= $2
+            AND hour >= DATE_TRUNC('hour', $2::timestamptz, 'UTC')
           GROUP BY token0, token1
       `,
       values: [quoteToken, start],
