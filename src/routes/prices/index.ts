@@ -108,15 +108,6 @@ export class GetPairPrice extends EkuboAPIRoute {
         }),
       ]);
 
-    console.log(
-      "test",
-      direct?.price.toString(),
-      quoteToEth?.price.toString(),
-      baseToEth?.price.toString(),
-      quoteToStrk?.price.toString(),
-      baseToStrk?.price.toString(),
-    );
-
     let price: Decimal;
     if (
       quoteToEth &&
