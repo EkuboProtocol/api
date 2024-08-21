@@ -1,60 +1,8 @@
 import { EkuboAPIRoute, RequestContext } from "../../shared/context";
-import { IRequest, json, StatusError } from "itty-router";
+import { IRequest, json } from "itty-router";
 import { TokenIdentifierType } from "../../shared/validation/address";
-import { createQueries, Queries } from "../../queries";
 import { OpenAPIRouteSchema, Path } from "@cloudflare/itty-router-openapi";
-import { getAllTokens, getTokenByIdentifier, TokenInfo } from "../meta/tokens";
-import { Env } from "../../env";
-
-async function parseOutTokens(
-  env: Env,
-  request: IRequest,
-): Promise<{
-  queries: Queries;
-  tokenA: TokenInfo;
-  tokenB: TokenInfo;
-  pair: {
-    token0: bigint;
-    token1: bigint;
-  };
-}> {
-  const queries = await createQueries(env);
-  const allTokens = await getAllTokens(env, queries);
-
-  const tokenA = getTokenByIdentifier(allTokens, request.params.tokenA);
-  const tokenB = getTokenByIdentifier(allTokens, request.params.tokenB);
-
-  if (!tokenA) {
-    throw new StatusError(
-      400,
-      `Invalid token identifier: "${request.params.tokenA}"`,
-    );
-  }
-  if (!tokenB) {
-    throw new StatusError(
-      400,
-      `Invalid token identifier: "${request.params.tokenB}"`,
-    );
-  }
-  if (tokenA.l2_token_address === tokenB.l2_token_address) {
-    throw new StatusError(400, `tokenA cannot be same as tokenB`);
-  }
-
-  const [token0, token1] =
-    BigInt(tokenA.l2_token_address) < BigInt(tokenB.l2_token_address)
-      ? [tokenA, tokenB]
-      : [tokenB, tokenA];
-
-  return {
-    queries,
-    tokenA,
-    tokenB,
-    pair: {
-      token0: BigInt(token0.l2_token_address),
-      token1: BigInt(token1.l2_token_address),
-    },
-  };
-}
+import { parseOutTokens } from "../../shared/parseOutTokens";
 
 export class GetPairInfo extends EkuboAPIRoute {
   static route = "/pair/:tokenA/:tokenB";
@@ -76,7 +24,7 @@ export class GetPairInfo extends EkuboAPIRoute {
   };
 
   async handle(request: IRequest, { env }: RequestContext) {
-    const { queries, pair } = await parseOutTokens(env, request);
+    const { queries, pair } = await parseOutTokens(env, request.params);
 
     const timestamp = Date.now();
     const thirtyDaysAgo = new Date(timestamp - 1000 * 60 * 60 * 24 * 30);
@@ -139,7 +87,7 @@ export class GetPairInfoTvl extends EkuboAPIRoute {
   };
 
   async handle(request: IRequest, { env }: RequestContext) {
-    const { queries, pair } = await parseOutTokens(env, request);
+    const { queries, pair } = await parseOutTokens(env, request.params);
 
     const timestamp = Date.now();
     const thirtyDaysAgo = new Date(timestamp - 1000 * 60 * 60 * 24 * 30);
@@ -184,7 +132,7 @@ export class GetPairInfoVolume extends EkuboAPIRoute {
   };
 
   async handle(request: IRequest, { env }: RequestContext) {
-    const { queries, pair } = await parseOutTokens(env, request);
+    const { queries, pair } = await parseOutTokens(env, request.params);
 
     const timestamp = Date.now();
     const thirtyDaysAgo = new Date(timestamp - 1000 * 60 * 60 * 24 * 30);
@@ -231,7 +179,7 @@ export class GetPairInfoPools extends EkuboAPIRoute {
   };
 
   async handle(request: IRequest, { env }: RequestContext) {
-    const { queries, pair } = await parseOutTokens(env, request);
+    const { queries, pair } = await parseOutTokens(env, request.params);
 
     const { rows: topPools } = await queries.getTopPools(pair);
 
@@ -268,7 +216,7 @@ export class GetPairLiquidity extends EkuboAPIRoute {
   };
 
   async handle(request: IRequest, { env }: RequestContext) {
-    const { queries, pair } = await parseOutTokens(env, request);
+    const { queries, pair } = await parseOutTokens(env, request.params);
 
     const data = await queries.withinTransaction(() =>
       queries.getPairLiquidityGraph(pair),
@@ -306,7 +254,7 @@ export class ListPairEvents extends EkuboAPIRoute {
   };
 
   async handle(request: IRequest, { env }: RequestContext) {
-    const { queries, pair } = await parseOutTokens(env, request);
+    const { queries, pair } = await parseOutTokens(env, request.params);
 
     const { rows } = await queries.getPairEvents({
       ...pair,

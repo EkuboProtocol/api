@@ -6,10 +6,7 @@ import {
   getTokenByIdentifier,
 } from "../meta/tokens";
 import Decimal from "decimal.js-light";
-import {
-  AddressType,
-  TokenIdentifierType,
-} from "../../shared/validation/address";
+import { TokenIdentifierType } from "../../shared/validation/address";
 import { createQueries } from "../../queries";
 import {
   OpenAPIRouteSchema,
@@ -18,6 +15,7 @@ import {
 } from "@cloudflare/itty-router-openapi";
 import { z } from "zod";
 import { ETH_TOKEN_ADDRESS, STRK_TOKEN_ADDRESS } from "../../shared/constants";
+import { parseOutTokens } from "../../shared/parseOutTokens";
 
 const DEFAULT_PERIOD_SECONDS = 3600;
 
@@ -183,11 +181,7 @@ export class GetPairVolatility extends EkuboAPIRoute {
   };
 
   async handle({ params, query }: IRequest, { env }: RequestContext) {
-    const queries = await createQueries(env);
-    const allTokens = await getAllTokens(env, queries);
-
-    const tokenA = getTokenByIdentifier(allTokens, params.tokenA);
-    const tokenB = getTokenByIdentifier(allTokens, params.tokenB);
+    const { queries, tokenA, tokenB } = await parseOutTokens(env, params);
 
     if (!tokenA || !tokenB) {
       throw new StatusError(400, "Base token or quote token not known");

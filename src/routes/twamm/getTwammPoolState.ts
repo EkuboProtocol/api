@@ -1,15 +1,14 @@
 import { OpenAPIRouteSchema, Path } from "@cloudflare/itty-router-openapi";
 import { IRequest, json, StatusError } from "itty-router";
 import { EkuboAPIRoute, RequestContext } from "../../shared/context";
-import { createQueries } from "../../queries";
 import {
   DecimalStringType,
   NumericType,
   TokenIdentifierType,
 } from "../../shared/validation/address";
 import { z } from "zod";
-import { getAllTokens, getTokenByIdentifier } from "../meta/tokens";
 import { MAX_U128 } from "@ekubo/sdk";
+import { parseOutTokens } from "../../shared/parseOutTokens";
 
 const SaleRateDelta = z.object({
   time: z.number().int().min(0),
@@ -49,30 +48,17 @@ export class GetTwammPoolState extends EkuboAPIRoute {
     },
   };
 
-  async handle({ params }: IRequest, { env }: RequestContext) {
-    const queries = await createQueries(env);
+  async handle(request: IRequest, { env }: RequestContext) {
+    const {
+      queries,
+      pair: { token0, token1 },
+    } = await parseOutTokens(env, request.params);
 
-    const tokens = await getAllTokens(env, queries);
-
-    const tokenA = getTokenByIdentifier(tokens, params.tokenA);
-    if (!tokenA) {
-      throw new StatusError(404, "`tokenA` not found");
-    }
-    const tokenB = getTokenByIdentifier(tokens, params.tokenB);
-    if (!tokenB) {
-      throw new StatusError(404, "`tokenB` not found");
-    }
-
-    const fee = BigInt(params.fee);
+    const fee = BigInt(request.params.fee);
 
     if (fee > MAX_U128) {
       throw new StatusError(400, "Invalid `fee`");
     }
-
-    const [token0, token1] =
-      BigInt(tokenA.l2_token_address) < BigInt(tokenB.l2_token_address)
-        ? [BigInt(tokenA.l2_token_address), BigInt(tokenB.l2_token_address)]
-        : [BigInt(tokenB.l2_token_address), BigInt(tokenA.l2_token_address)];
 
     if (token0 === token1) {
       throw new StatusError(400, "`tokenA` cannot be same as `tokenB`");
@@ -143,28 +129,11 @@ export class GetTwammPairState extends EkuboAPIRoute {
     },
   };
 
-  async handle({ params }: IRequest, { env }: RequestContext) {
-    const queries = await createQueries(env);
-
-    const tokens = await getAllTokens(env, queries);
-
-    const tokenA = getTokenByIdentifier(tokens, params.tokenA);
-    if (!tokenA) {
-      throw new StatusError(404, "`tokenA` not found");
-    }
-    const tokenB = getTokenByIdentifier(tokens, params.tokenB);
-    if (!tokenB) {
-      throw new StatusError(404, "`tokenB` not found");
-    }
-
-    const [token0, token1] =
-      BigInt(tokenA.l2_token_address) < BigInt(tokenB.l2_token_address)
-        ? [BigInt(tokenA.l2_token_address), BigInt(tokenB.l2_token_address)]
-        : [BigInt(tokenB.l2_token_address), BigInt(tokenA.l2_token_address)];
-
-    if (token0 === token1) {
-      throw new StatusError(400, "`tokenA` cannot be same as `tokenB`");
-    }
+  async handle(request: IRequest, { env }: RequestContext) {
+    const {
+      queries,
+      pair: { token0, token1 },
+    } = await parseOutTokens(env, request.params);
 
     const [{ rows: stateResults }, { rows: saleRateDeltas }] =
       await queries.withinTransaction(() =>
