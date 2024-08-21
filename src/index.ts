@@ -27,8 +27,7 @@ export default {
       const cached = await cache.match(request);
       if (cached) {
         const corsified = corsify(cached);
-
-        corsified.headers.set("Vary", "Origin");
+        corsified.headers.set("Access-Control-Allow-Origin", "*");
         return corsified;
       }
     }
@@ -52,7 +51,7 @@ export default {
     }
 
     const corsified = corsify(response);
-    corsified.headers.set("Vary", "Origin");
+    corsified.headers.set("Access-Control-Allow-Origin", "*");
     return corsified;
   },
 };
