@@ -537,17 +537,27 @@ export class Queries {
       timestamp: string;
 
       transaction_hash: string;
-      block_number: bigint;
-      index: bigint;
+      event_id: string;
 
       delta0: string;
       delta1: string;
     }>({
       text: `
-          WITH relevant_pool_keys AS (SELECT key_hash, fee, extension, tick_spacing
+          WITH earliest_event AS (SELECT id
+                                  FROM event_keys ek
+                                  WHERE ek.block_number = (SELECT number
+                                                           FROM blocks
+                                                           WHERE time >= NOW() - INTERVAL '1 days'
+                                                           ORDER BY number
+                                                           LIMIT 1)
+                                  ORDER BY id
+                                  LIMIT 1),
+
+               relevant_pool_keys AS (SELECT key_hash, fee, extension, tick_spacing
                                       FROM pool_keys
                                       WHERE token0 = $1
                                         AND token1 = $2),
+
                relevant_swaps AS (SELECT 0                           AS type,
                                          relevant_pool_keys.key_hash AS pool_key_hash,
                                          relevant_pool_keys.fee,
@@ -555,16 +565,16 @@ export class Queries {
                                          relevant_pool_keys.extension,
                                          blocks.time                 AS timestamp,
                                          transaction_hash,
-                                         block_number,
-                                         transaction_index,
-                                         event_index,
+                                         event_id,
                                          locker,
                                          delta0,
                                          delta1
                                   FROM swaps
                                            JOIN relevant_pool_keys ON key_hash = pool_key_hash
                                            JOIN event_keys ON swaps.event_id = event_keys.id
-                                           JOIN blocks ON event_keys.block_number = blocks.number),
+                                           JOIN blocks ON event_keys.block_number = blocks.number,
+                                       earliest_event
+                                  WHERE event_id >= earliest_event.id),
                relevant_updates AS (SELECT 1                           AS type,
                                            relevant_pool_keys.key_hash AS pool_key_hash,
                                            relevant_pool_keys.fee,
@@ -572,9 +582,7 @@ export class Queries {
                                            relevant_pool_keys.extension,
                                            blocks.time                 AS timestamp,
                                            transaction_hash,
-                                           block_number,
-                                           transaction_index,
-                                           event_index,
+                                           event_id,
                                            locker,
                                            delta0,
                                            delta1
@@ -582,7 +590,9 @@ export class Queries {
                                              JOIN relevant_pool_keys
                                                   ON key_hash = pool_key_hash
                                              JOIN event_keys ON position_updates.event_id = event_keys.id
-                                             JOIN blocks ON event_keys.block_number = blocks.number),
+                                             JOIN blocks ON event_keys.block_number = blocks.number,
+                                         earliest_event
+                                    WHERE event_id >= earliest_event.id),
                combined AS (SELECT *
                             FROM relevant_updates
                             UNION ALL
@@ -591,7 +601,7 @@ export class Queries {
 
           SELECT *
           FROM combined
-          ORDER BY block_number DESC, transaction_index DESC, event_index DESC
+          ORDER BY event_id DESC
           LIMIT $3
       `,
       values: [token0, token1, limit],

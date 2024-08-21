@@ -1,8 +1,12 @@
 import { EkuboAPIRoute, RequestContext } from "../../shared/context";
 import { IRequest, json, StatusError } from "itty-router";
-import { AddressType } from "../../shared/validation/address";
+import {
+  AddressType,
+  TokenIdentifierType,
+} from "../../shared/validation/address";
 import { createQueries } from "../../queries";
 import { OpenAPIRouteSchema, Path } from "@cloudflare/itty-router-openapi";
+import { getAllTokens, getTokenByIdentifier } from "../meta/tokens";
 
 export class GetPairInfo extends EkuboAPIRoute {
   static route = "/pair/:tokenA/:tokenB";
@@ -291,8 +295,8 @@ export class ListPairEvents extends EkuboAPIRoute {
     summary: "Get pair events",
     description: "Returns a list of recent events for the given trading pair",
     parameters: {
-      tokenA: Path(AddressType),
-      tokenB: Path(AddressType),
+      tokenA: Path(TokenIdentifierType),
+      tokenB: Path(TokenIdentifierType),
     },
     responses: {
       "200": {
@@ -306,27 +310,29 @@ export class ListPairEvents extends EkuboAPIRoute {
     { params: { tokenA: tokenAStr, tokenB: tokenBStr } }: IRequest,
     { env }: RequestContext,
   ) {
-    let tokenA: bigint, tokenB: bigint;
-    try {
-      tokenA = BigInt(tokenAStr);
-      tokenB = BigInt(tokenBStr);
-    } catch (e) {
-      throw new StatusError(400, "Invalid tokens");
+    const queries = await createQueries(env);
+    const allTokens = await getAllTokens(env, queries);
+
+    const tokenA = getTokenByIdentifier(allTokens, tokenAStr);
+    const tokenB = getTokenByIdentifier(allTokens, tokenBStr);
+
+    if (
+      !tokenA ||
+      !tokenB ||
+      tokenA.l2_token_address === tokenB.l2_token_address
+    ) {
+      throw new StatusError(400, "Invalid token pair");
     }
 
     const [token0, token1] =
-      tokenA < tokenB ? [tokenA, tokenB] : [tokenB, tokenA];
-
-    if (token0 === 0n) {
-      throw new StatusError(400, "Invalid tokens");
-    }
-
-    const queries = await createQueries(env);
+      BigInt(tokenA.l2_token_address) < BigInt(tokenB.l2_token_address)
+        ? [BigInt(tokenA.l2_token_address), BigInt(tokenB.l2_token_address)]
+        : [BigInt(tokenB.l2_token_address), BigInt(tokenA.l2_token_address)];
 
     const { rows } = await queries.getPairEvents({
       token0,
       token1,
-      limit: 300,
+      limit: 100,
     });
 
     return json(
