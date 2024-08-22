@@ -109,6 +109,7 @@ export class Queries {
       orders: { t: string; s0: string; s1: string }[] | null;
       last_event_id: string;
       last_twamm_event_id: string;
+      last_oracle_snapshot_block_timestamp: string | null;
     }>({
       text: `
           SELECT pk.key_hash,
@@ -134,13 +135,15 @@ export class Queries {
                   FROM twamm_sale_rate_deltas_materialized tsrdm
                   WHERE tsrdm.pool_key_hash = pk.key_hash)  AS orders,
                  psm.last_event_id                          AS last_event_id,
-                 tpsm.last_event_id                         AS last_twamm_event_id
+                 tpsm.last_event_id                         AS last_twamm_event_id,
+                 opsm.last_snapshot_block_timestamp         AS last_oracle_snapshot_block_timestamp
           FROM pool_keys pk
                    JOIN pool_states_materialized psm ON pk.key_hash = psm.pool_key_hash
                    LEFT JOIN twamm_pool_states_materialized tpsm ON pk.key_hash = tpsm.pool_key_hash
+                   LEFT JOIN oracle_pool_states_materialized opsm ON opsm.pool_key_hash = pk.key_hash
           WHERE
-            -- only twamm pools or 0 extension pools
-              (extension = 0 OR tpsm.pool_key_hash IS NOT NULL)
+            -- only twamm pools, oracle pools or plain pools
+              (extension = 0 OR tpsm.pool_key_hash IS NOT NULL OR opsm.last_snapshot_block_timestamp IS NOT NULL)
             AND (psm.last_event_id > $1 OR (tpsm.last_event_id IS NOT NULL AND tpsm.last_event_id > $1))
       `,
       values: [lastEventId ?? 0n],

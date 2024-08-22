@@ -1,8 +1,8 @@
 import { Queries } from "../../queries";
-import { BasePool, TwammPool } from "@ekubo/sdk";
+import { BasePool, OraclePool, TwammPool } from "@ekubo/sdk";
 
 const allPoolsWithLiquidityByKeyHash: {
-  [key_hash: string]: BasePool | TwammPool;
+  [key_hash: string]: BasePool | TwammPool | OraclePool;
 } = {};
 let lastEventId: bigint = 0n;
 
@@ -29,8 +29,10 @@ export async function getAllPoolsWithLiquidity(
       last_virtual_execution_time,
       last_event_id,
       last_twamm_event_id,
+      last_oracle_snapshot_block_timestamp,
     }) => {
       const e = BigInt(extension);
+
       if (e === 0n) {
         allPoolsWithLiquidityByKeyHash[key_hash] = new BasePool({
           token0: BigInt(token0),
@@ -73,9 +75,34 @@ export async function getAllPoolsWithLiquidity(
               saleRateDelta0: BigInt(o.s0),
               saleRateDelta1: BigInt(o.s1),
             })) ?? [],
+          sortedTicks:
+            // assumed to be sorted already
+            ticks?.map((t) => ({
+              tick: t.t,
+              liquidityDelta: BigInt(t.l),
+            })) ?? [],
         });
         if (BigInt(last_twamm_event_id) > lastEventId) {
           lastEventId = BigInt(last_twamm_event_id);
+        }
+      } else if (last_oracle_snapshot_block_timestamp !== null) {
+        allPoolsWithLiquidityByKeyHash[key_hash] = new OraclePool({
+          token0: BigInt(token0),
+          token1: BigInt(token1),
+          liquidity: BigInt(liquidity),
+          tick: tick,
+          lastSnapshotTime: BigInt(last_oracle_snapshot_block_timestamp),
+          extension: e,
+          sqrtRatio: BigInt(sqrt_ratio),
+          sortedTicks:
+            // assumed to be sorted already
+            ticks?.map((t) => ({
+              tick: t.t,
+              liquidityDelta: BigInt(t.l),
+            })) ?? [],
+        });
+        if (BigInt(last_event_id) > lastEventId) {
+          lastEventId = BigInt(last_event_id);
         }
       } else {
         throw new Error("UNRECOGNIZED POOL TYPE");

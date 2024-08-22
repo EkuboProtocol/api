@@ -4,6 +4,9 @@ import {
   BasePool,
   BasePoolResources,
   BasePoolState,
+  OraclePool,
+  OraclePoolState,
+  OracleResources,
   Quote,
   QuoteNode,
   TwammPool,
@@ -79,12 +82,12 @@ export class BaseResourcesGasEstimator
   }
 }
 
-export class BaseOrTwammResourcesGasEstimator
+export class SupportedPoolsResourcesGasEstimator
   implements
     GasEstimator<
-      BasePoolResources | TwammResources,
-      BasePoolState | TwammPoolState,
-      BasePool | TwammPool
+      BasePoolResources | TwammResources | OracleResources,
+      BasePoolState | TwammPoolState | OraclePoolState,
+      BasePool | TwammPool | OraclePool
     >
 {
   private readonly baseGasEstimator: BaseResourcesGasEstimator;
@@ -99,6 +102,11 @@ export class BaseOrTwammResourcesGasEstimator
   public get executeVirtualOrdersCost() {
     return this.baseGasEstimator.baseEthSwapCost;
   }
+
+  public get writeSnapshotCost() {
+    return this.baseGasEstimator.baseEthSwapCost;
+  }
+
   public get crossDeltaExecuteVirtualOrderCost() {
     return this.executeVirtualOrdersCost.div(10);
   }
@@ -122,27 +130,41 @@ export class BaseOrTwammResourcesGasEstimator
     return (
       baseAmount -
       route.reduce<bigint>((memo, node, ix) => {
-        if (!(node instanceof TwammPool) || overrides.has(node)) return memo;
+        if (node instanceof TwammPool && !overrides.has(node)) {
+          const resources = quoteResults[ix].executionResources;
 
-        const resources = quoteResults[ix].executionResources;
+          if (!("virtualOrderSecondsExecuted" in resources)) return memo;
 
-        if (!("virtualOrderSecondsExecuted" in resources)) return memo;
+          if (resources.virtualOrderSecondsExecuted === 0) return memo;
 
-        if (resources.virtualOrderSecondsExecuted === 0) return memo;
-
-        return (
-          memo +
-          BigInt(
-            this.executeVirtualOrdersCost
-              .add(
-                this.crossDeltaExecuteVirtualOrderCost.mul(
-                  resources.virtualOrderDeltaTimesCrossed,
-                ),
-              )
-              .mul(this.baseGasEstimator.calculatedTokenPrice)
-              .toFixed(0, Decimal.ROUND_DOWN),
-          )
-        );
+          return (
+            memo +
+            BigInt(
+              this.executeVirtualOrdersCost
+                .add(
+                  this.crossDeltaExecuteVirtualOrderCost.mul(
+                    resources.virtualOrderDeltaTimesCrossed,
+                  ),
+                )
+                .mul(this.baseGasEstimator.calculatedTokenPrice)
+                .toFixed(0, Decimal.ROUND_DOWN),
+            )
+          );
+        } else if (node instanceof OraclePool && !overrides.has(node)) {
+          const resources = quoteResults[ix].executionResources;
+          if (!("snapshotUpdated" in resources)) return memo;
+          if (!resources.snapshotUpdated) return memo;
+          return (
+            memo +
+            BigInt(
+              this.writeSnapshotCost
+                .mul(this.baseGasEstimator.calculatedTokenPrice)
+                .toFixed(0, Decimal.ROUND_DOWN),
+            )
+          );
+        } else {
+          return memo;
+        }
       }, 0n)
     );
   }

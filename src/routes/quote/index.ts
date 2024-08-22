@@ -18,7 +18,7 @@ import {
   TokenIdentifierType,
 } from "../../shared/validation/address";
 import { getSqrtRatioLimit } from "./getSqrtRatioLimit";
-import { BaseOrTwammResourcesGasEstimator } from "./gasEstimators";
+import { SupportedPoolsResourcesGasEstimator } from "./gasEstimators";
 import { findOptimalSplitRoute } from "./findOptimalSplitRoute";
 import { getBlockMeta } from "./getBlockMeta";
 import { ETH_TOKEN_ADDRESS } from "../../shared/constants";
@@ -179,7 +179,7 @@ export class GetQuote extends EkuboAPIRoute {
     // get the ETH price of the other token
     const otherTokenPrice = otherTokenPriceResult?.price ?? new Decimal(0);
 
-    const gasEstimator = new BaseOrTwammResourcesGasEstimator(
+    const gasEstimator = new SupportedPoolsResourcesGasEstimator(
       otherTokenPrice,
       new Decimal("1e11"),
     );

@@ -391,6 +391,13 @@ const TEST_CASES: TwammOrderSplitTestCase[] = [
   },
 ];
 
+function toSortedTicks(liquidity: bigint) {
+  return [
+    { tick: -88368108, liquidityDelta: liquidity },
+    { tick: 88368108, liquidityDelta: -liquidity },
+  ];
+}
+
 describe(splitTwammOrder, () => {
   describe("failure cases", async () => {
     const defaultStartTime = Math.floor(Date.now() / 1000);
@@ -422,6 +429,7 @@ describe(splitTwammOrder, () => {
             saleRateDeltas: orderData[pool.pool_key_hash] ?? [],
             token0SaleRate: BigInt(pool.token0_sale_rate),
             token1SaleRate: BigInt(pool.token1_sale_rate),
+            sortedTicks: toSortedTicks(BigInt(pool.liquidity)),
           }),
         );
       }
@@ -473,6 +481,7 @@ describe(splitTwammOrder, () => {
             saleRateDeltas: orderData[pool.pool_key_hash] ?? [],
             token0SaleRate: BigInt(pool.token0_sale_rate),
             token1SaleRate: BigInt(pool.token1_sale_rate),
+            sortedTicks: toSortedTicks(BigInt(pool.liquidity)),
           }),
         );
       }
