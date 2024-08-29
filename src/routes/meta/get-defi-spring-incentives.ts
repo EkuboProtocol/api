@@ -1,6 +1,6 @@
 import { IRequest, json } from "itty-router";
 import { EkuboAPIRoute, RequestContext } from "../../shared/context";
-import { getAllTokens, getTokenByIdentifier } from "./tokens";
+import { getAllTokens, getTokenByIdentifier, TokenType } from "./tokens";
 import { createQueries } from "../../queries";
 import { OpenAPIRouteSchema, Path } from "@cloudflare/itty-router-openapi";
 import { z } from "zod";
@@ -158,6 +158,35 @@ const SPLITS_BY_DATE_RANGE = [
   },
 ];
 
+const DefiSpringIncentivesResponse = z.object({
+  strkPrice: z.number().min(0),
+  totalStrk: z.number().min(0),
+  pairs: z.array(
+    z.object({
+      token0: TokenType,
+      token1: TokenType,
+      allocations: z.array(
+        z.object({
+          date: z.string().datetime(),
+          allocation: z.number().min(0),
+          thirty_day_realized_volatility: z.number(),
+        }),
+      ),
+
+      currentApr: z.number().min(0).optional(),
+      volatilityInTicks: z.number().int().min(0).optional(),
+      sevenDayRealizedVolatilityInTicks: z.number().int().min(0).optional(),
+      consideredTvl: z.number().min(0).optional(),
+    }),
+  ),
+});
+
+type DefiSpringIncentivesResponseType = z.infer<
+  typeof DefiSpringIncentivesResponse
+>;
+
+type PairInfo = DefiSpringIncentivesResponseType["pairs"][number];
+
 export class GetDefiSpringIncentives extends EkuboAPIRoute {
   public static route = "/defi-spring-incentives";
   static schema: OpenAPIRouteSchema = {
@@ -169,6 +198,7 @@ export class GetDefiSpringIncentives extends EkuboAPIRoute {
       "200": {
         description: "The allocation of incentives",
         contentType: "application/json",
+        schema: DefiSpringIncentivesResponse,
       },
     },
   };
@@ -222,7 +252,7 @@ export class GetDefiSpringIncentives extends EkuboAPIRoute {
     const pairs = Object.entries(incentiveData);
 
     const totalStrk = pairs.reduce(
-      (memo, [key, value]) =>
+      (memo, [, value]) =>
         memo + value.reduce((memo, { allocation }) => allocation + memo, 0),
       0,
     );
@@ -268,14 +298,29 @@ export class GetDefiSpringIncentives extends EkuboAPIRoute {
       })
       .filter((x): x is Exclude<typeof x, null> => !!x);
 
-    const currentVolatilityData = await queries.getVolatilityData({
-      fromDate: new Date(`${new Date().toISOString().split("T")[0]}T00:00:00Z`),
-      numDays: 30,
-      pairs: filteredPairs.map((p) => ({
-        token0: BigInt(p.token0.l2_token_address),
-        token1: BigInt(p.token1.l2_token_address),
-      })),
-    });
+    const [currentThirtyDayVolatilityData, currentSevenDayVolatilityData] =
+      await Promise.all([
+        queries.getVolatilityData({
+          fromDate: new Date(
+            `${new Date().toISOString().split("T")[0]}T00:00:00Z`,
+          ),
+          numDays: 30,
+          pairs: filteredPairs.map((p) => ({
+            token0: BigInt(p.token0.l2_token_address),
+            token1: BigInt(p.token1.l2_token_address),
+          })),
+        }),
+        queries.getVolatilityData({
+          fromDate: new Date(
+            `${new Date().toISOString().split("T")[0]}T00:00:00Z`,
+          ),
+          numDays: 7,
+          pairs: filteredPairs.map((p) => ({
+            token0: BigInt(p.token0.l2_token_address),
+            token1: BigInt(p.token1.l2_token_address),
+          })),
+        }),
+      ]);
 
     const pairData = await Promise.all(
       filteredPairs.map(async ({ token0, token1, dailyAllocations }) => {
@@ -295,11 +340,18 @@ export class GetDefiSpringIncentives extends EkuboAPIRoute {
         );
 
         if (latestDateAllocation) {
-          let volatilityInTicks = currentVolatilityData.find(
+          let volatilityInTicks = currentThirtyDayVolatilityData.find(
             (vd) =>
               BigInt(vd.token0) === BigInt(token0.l2_token_address) &&
               BigInt(vd.token1) === BigInt(token1.l2_token_address),
           )?.volatility_in_ticks;
+
+          const sevenDayRealizedVolatilityInTicks =
+            currentSevenDayVolatilityData.find(
+              (vd) =>
+                BigInt(vd.token0) === BigInt(token0.l2_token_address) &&
+                BigInt(vd.token1) === BigInt(token1.l2_token_address),
+            )?.volatility_in_ticks;
 
           if (!volatilityInTicks) {
             volatilityInTicks = Math.round(
@@ -438,10 +490,13 @@ export class GetDefiSpringIncentives extends EkuboAPIRoute {
               allocations,
               currentApr,
               volatilityInTicks,
-              consideredTvl: totalValueLockedInRange
-                .toSignificantDigits(6)
-                .toString(),
-            };
+              sevenDayRealizedVolatilityInTicks:
+                sevenDayRealizedVolatilityInTicks ??
+                Math.floor(volatilityInTicks / 4),
+              consideredTvl: Number(
+                totalValueLockedInRange.toSignificantDigits(6).toString(),
+              ),
+            } satisfies PairInfo;
           }
         }
 
@@ -449,7 +504,7 @@ export class GetDefiSpringIncentives extends EkuboAPIRoute {
           token0,
           token1,
           allocations,
-        };
+        } satisfies PairInfo;
       }),
     );
 
@@ -458,7 +513,7 @@ export class GetDefiSpringIncentives extends EkuboAPIRoute {
         strkPrice: Number(strkPrice.toSignificantDigits(6).toString()),
         totalStrk,
         pairs: pairData.filter((p) => !!p),
-      },
+      } as DefiSpringIncentivesResponseType,
       {
         headers: {
           "cache-control": "public, max-age=3600, must-revalidate",
