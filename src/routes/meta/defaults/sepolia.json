@@ -46,5 +46,21 @@
     "l2_token_address": "0x020d208b9e57a7f92bfa9f61135446e0961afc340378be97dbd317453c0950ae",
     "sort_order": 1,
     "total_supply": null
+  },
+  {
+    "name": "AXE",
+    "symbol": "AXE",
+    "decimals": 18,
+    "l2_token_address": "0x4d204547803c53c80c3ce46d5f6542166d7d947c3fdd185ed8fb3cdfb4ad3f",
+    "sort_order": 1,
+    "total_supply": null
+  },
+  {
+    "name": "MINERAL",
+    "symbol": "MINERAL",
+    "decimals": 18,
+    "l2_token_address": "0x2ebbfafc2e40f66fc4e729a21270c36d7277dbeba5e5dda61884a998ecdadc8",
+    "sort_order": 1,
+    "total_supply": null
   }
 ]
