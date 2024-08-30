@@ -1436,7 +1436,7 @@ export class Queries {
         SELECT FLOOR(AVG(EXTRACT(EPOCH FROM (time - last_time))))::int4 AS average_block_time
         FROM blocks_and_last_time
     `);
-    return rows[0]?.average_block_time ?? 360;
+    return rows[0]?.average_block_time ?? 30;
   }
 
   getProposals() {
