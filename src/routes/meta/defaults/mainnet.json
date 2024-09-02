@@ -36,7 +36,7 @@
     "symbol": "ETH",
     "decimals": 18,
     "l2_token_address": "0x049d36570d4e46f48e99674bd3fcc84644ddd6b96f7c741b1562b82f9e004dc7",
-    "sort_order": 2,
+    "sort_order": 3,
     "total_supply": null
   },
   {
@@ -44,7 +44,7 @@
     "symbol": "DAIv0",
     "decimals": 18,
     "l2_token_address": "0x00da114221cb83fa859dbdb4c44beeaa0bb37c7537ad5ae66fe5e0efd20e6eb3",
-    "sort_order": 3,
+    "sort_order": 4,
     "total_supply": null
   },
   {
@@ -52,7 +52,7 @@
     "symbol": "DAI",
     "decimals": 18,
     "l2_token_address": "0x05574eb6b8789a91466f902c380d978e472db68170ff82a5b650b95a58ddf4ad",
-    "sort_order": 3,
+    "sort_order": 4,
     "total_supply": null
   },
   {
