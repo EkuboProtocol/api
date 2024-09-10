@@ -4,12 +4,29 @@ import {
   Path,
   Query,
 } from "@cloudflare/itty-router-openapi";
-import { AddressType } from "../../shared/validation/address";
+import {
+  AddressType,
+  DecimalStringType,
+} from "../../shared/validation/address";
 import { z } from "zod";
 import { IRequest, json } from "itty-router";
 import { OrderKeyType } from "./index";
 import { createQueries } from "../../queries";
 import { num } from "starknet";
+
+const TwammOrderPartInfo = z.object({
+  key: OrderKeyType,
+  block_time_at_start: z.number().int().min(0),
+  last_order_update: z.number().int().min(0),
+  total_proceeds_withdrawn: DecimalStringType,
+});
+
+const TwammOrderInfo = z.object({
+  token_id: z.number().int().min(1),
+  orders: z.array(TwammOrderPartInfo),
+});
+
+type TwammOrderInfoType = z.infer<typeof TwammOrderInfo>;
 
 export class ListOrders extends EkuboAPIRoute {
   static route = "/twap/orders/:address";
@@ -31,23 +48,10 @@ export class ListOrders extends EkuboAPIRoute {
         description: "The list of TWAP orders placed by the address",
         contentType: "application/json",
         schema: z.object({
-          orders: z
-            .array(
-              z.object({
-                token_id: z.number().int().min(1),
-                orders: z.array(
-                  z.object({
-                    key: OrderKeyType,
-                    block_time_at_start: z.number().int().min(0),
-                    last_order_update: z.number().int().min(0),
-                  }),
-                ),
-              }),
-            )
-            .openapi({
-              description:
-                "The list of TWAP orders currently and/or previously owned by the address, depending on `showClosed`",
-            }),
+          orders: z.array(TwammOrderInfo).openapi({
+            description:
+              "The list of TWAP orders currently and/or previously owned by the address, depending on `showClosed`",
+          }),
         }),
       },
     },
@@ -63,20 +67,7 @@ export class ListOrders extends EkuboAPIRoute {
 
     return json(
       {
-        orders: rows.reduce<
-          {
-            token_id: number;
-            orders: {
-              key: {
-                sell_token: string;
-                buy_token: string;
-                fee: string;
-                start_time: number;
-                end_time: number;
-              };
-            }[];
-          }[]
-        >(
+        orders: rows.reduce<TwammOrderInfoType[]>(
           (
             memo,
             {
@@ -89,6 +80,7 @@ export class ListOrders extends EkuboAPIRoute {
               block_time_at_start,
               last_order_update,
               last_collect_proceeds,
+              total_proceeds_withdrawn,
             },
           ) => {
             const tokenId = Number(token_id);
@@ -107,6 +99,7 @@ export class ListOrders extends EkuboAPIRoute {
               last_collect_proceeds: last_collect_proceeds
                 ? last_collect_proceeds.getTime() / 1000
                 : null,
+              total_proceeds_withdrawn,
             };
 
             if (!order) {

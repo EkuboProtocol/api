@@ -14,17 +14,6 @@ interface PositionMetadata {
   minted_tx_hash: string;
 }
 
-interface TwammOrderMetadata {
-  sell_token: string;
-  buy_token: string;
-  start_time: Date;
-  end_time: Date;
-  fee: string;
-  block_time_at_start: Date;
-  last_order_update: Date;
-  last_collect_proceeds: Date | null;
-}
-
 export interface BasePoolStateQueryResult {
   pool_key_hash: string;
   token0: string;
@@ -1143,11 +1132,18 @@ export class Queries {
   }
 
   public async getTwammOrdersByAddress(address: bigint, showClosed: boolean) {
-    return this.client.query<
-      TwammOrderMetadata & {
-        token_id: string;
-      }
-    >({
+    return this.client.query<{
+      token_id: string;
+      sell_token: string;
+      buy_token: string;
+      start_time: Date;
+      end_time: Date;
+      fee: string;
+      block_time_at_start: Date;
+      last_order_update: Date;
+      last_collect_proceeds: Date | null;
+      total_proceeds_withdrawn: string;
+    }>({
       text: `
           WITH owned_tokens AS (SELECT token_id
                                 FROM position_transfers pt1
@@ -1171,7 +1167,10 @@ export class Queries {
                            JOIN blocks b2 ON ek2.block_number = b2.number
                   WHERE tpw.salt = ot.token_id::NUMERIC
                   ORDER BY tpw.event_id DESC
-                  LIMIT 1) AS last_collect_proceeds
+                  LIMIT 1) AS                            last_collect_proceeds,
+                 COALESCE((SELECT SUM(CASE WHEN tpw.amount0 != 0 THEN tpw.amount0 ELSE tpw.amount1 END)
+                  FROM twamm_proceeds_withdrawals tpw
+                  WHERE tpw.salt = ot.token_id::NUMERIC), 0::NUMERIC) total_proceeds_withdrawn
           FROM owned_tokens AS ot
                    JOIN LATERAL (
               SELECT (CASE WHEN tou.sale_rate_delta0 != 0 THEN token0 ELSE token1 END) AS sell_token,
