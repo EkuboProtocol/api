@@ -298,30 +298,6 @@ export class GetDefiSpringIncentives extends EkuboAPIRoute {
       })
       .filter((x): x is Exclude<typeof x, null> => !!x);
 
-    const [currentThirtyDayVolatilityData, currentSevenDayVolatilityData] =
-      await Promise.all([
-        queries.getVolatilityData({
-          fromDate: new Date(
-            `${new Date().toISOString().split("T")[0]}T00:00:00Z`,
-          ),
-          numDays: 30,
-          pairs: filteredPairs.map((p) => ({
-            token0: BigInt(p.token0.l2_token_address),
-            token1: BigInt(p.token1.l2_token_address),
-          })),
-        }),
-        queries.getVolatilityData({
-          fromDate: new Date(
-            `${new Date().toISOString().split("T")[0]}T00:00:00Z`,
-          ),
-          numDays: 7,
-          pairs: filteredPairs.map((p) => ({
-            token0: BigInt(p.token0.l2_token_address),
-            token1: BigInt(p.token1.l2_token_address),
-          })),
-        }),
-      ]);
-
     const pairData = await Promise.all(
       filteredPairs.map(async ({ token0, token1, dailyAllocations }) => {
         const lastAllocation = dailyAllocations[dailyAllocations.length - 1];
@@ -340,30 +316,13 @@ export class GetDefiSpringIncentives extends EkuboAPIRoute {
         );
 
         if (latestDateAllocation) {
-          let volatilityInTicks = currentThirtyDayVolatilityData.find(
-            (vd) =>
-              BigInt(vd.token0) === BigInt(token0.l2_token_address) &&
-              BigInt(vd.token1) === BigInt(token1.l2_token_address),
-          )?.volatility_in_ticks;
+          const volatilityInTicks = Math.round(
+            new Decimal(latestDateAllocation.thirty_day_realized_volatility)
+              .exp()
+              .log("1.000001")
+              .toNumber(),
+          );
 
-          const sevenDayRealizedVolatilityInTicks =
-            currentSevenDayVolatilityData.find(
-              (vd) =>
-                BigInt(vd.token0) === BigInt(token0.l2_token_address) &&
-                BigInt(vd.token1) === BigInt(token1.l2_token_address),
-            )?.volatility_in_ticks;
-
-          if (!volatilityInTicks) {
-            volatilityInTicks = Math.round(
-              new Decimal(
-                dailyAllocations[dailyAllocations.length - 1]
-                  ?.thirty_day_realized_volatility ?? 1,
-              )
-                .exp()
-                .log("1.000001")
-                .toNumber(),
-            );
-          }
           const [pairLiquidityGraph, pairPrice, price0, price1] =
             await Promise.all([
               // liquidity graph
@@ -490,9 +449,6 @@ export class GetDefiSpringIncentives extends EkuboAPIRoute {
               allocations,
               currentApr,
               volatilityInTicks,
-              sevenDayRealizedVolatilityInTicks:
-                sevenDayRealizedVolatilityInTicks ??
-                Math.floor(volatilityInTicks / 4),
               consideredTvl: Number(
                 totalValueLockedInRange.toSignificantDigits(6).toString(),
               ),

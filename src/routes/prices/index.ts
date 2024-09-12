@@ -51,15 +51,14 @@ export class GetPairPrice extends EkuboAPIRoute {
   };
 
   async handle({ params, query }: IRequest, { env }: RequestContext) {
-    const queries = await createQueries(env);
-    const allTokens = await getAllTokens(env, queries);
-
-    const bt = getTokenByIdentifier(allTokens, params.baseToken);
-    const qt = getTokenByIdentifier(allTokens, params.quoteToken);
-
-    if (!bt || !qt) {
-      throw new StatusError(400, "Base token or quote token not known");
-    }
+    const {
+      queries,
+      tokenA: bt,
+      tokenB: qt,
+    } = await parseOutTokens(env, {
+      tokenA: params.baseToken,
+      tokenB: params.quoteToken,
+    });
 
     const baseToken = BigInt(bt.l2_token_address);
     const quoteToken = BigInt(qt.l2_token_address);
