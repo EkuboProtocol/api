@@ -2,8 +2,6 @@ import { IRequest, json, StatusError } from "itty-router";
 import { EkuboAPIRoute, RequestContext } from "../../shared/context";
 import { getAllTokens, getTokenByIdentifier } from "../meta/tokens";
 import Decimal from "decimal.js-light";
-import { getAllPoolsWithLiquidity } from "./quoteNodeFetching";
-import { findAllRoutes } from "./findAllRoutes";
 import { num } from "starknet";
 import { createQueries } from "../../queries";
 import {
@@ -17,12 +15,9 @@ import {
   HexStringType,
   TokenIdentifierType,
 } from "../../shared/validation/address";
-import { getSqrtRatioLimit } from "./getSqrtRatioLimit";
-import { SupportedPoolsResourcesGasEstimator } from "./gasEstimators";
-import { findOptimalSplitRoute } from "./findOptimalSplitRoute";
-import { getBlockMeta } from "./getBlockMeta";
-import { ETH_TOKEN_ADDRESS } from "../../shared/constants";
-import { TokenAmount, MAX_SQRT_RATIO, MAX_U128 } from "@ekubo/sdk";
+import { MAX_SQRT_RATIO, MAX_U128 } from "@ekubo/sdk";
+
+const AVERAGE_SWAP_FEES_IN_DOLLARS = 0.05;
 
 const PoolKeyType = z
   .object({
@@ -155,97 +150,92 @@ export class GetQuote extends EkuboAPIRoute {
       throw new StatusError(400, "Amount is too large");
     }
 
-    const [meta, otherTokenPriceResult, relevantPools] = await Promise.all([
-      getBlockMeta(queries),
-      queries.getVolumeWeightedPrice({
-        baseToken: ETH_TOKEN_ADDRESS,
-        quoteToken: otherToken,
-      }),
-      getAllPoolsWithLiquidity(queries),
-    ]);
+    const usdcToken = allTokens.find((t) => t.symbol === "USDC");
 
-    // routes are executed in reverse for exact output
-    const allRoutes = findAllRoutes(token, otherToken, relevantPools, maxHops);
-
-    if (!allRoutes.length) {
-      throw new StatusError(404, "No routes connect the two tokens");
+    if (!usdcToken) {
+      throw new StatusError(500, "Failed to find the USDC token address");
     }
 
-    const tokenAmount: TokenAmount = {
-      amount,
-      token,
-    };
-
-    // get the ETH price of the other token
-    const otherTokenPrice = otherTokenPriceResult?.price ?? new Decimal(0);
-
-    const gasEstimator = new SupportedPoolsResourcesGasEstimator(
-      otherTokenPrice,
-      new Decimal("1e11"),
-    );
-
-    const splitRoutes = findOptimalSplitRoute({
-      allRoutes,
-      tokenAmount,
-      gasEstimator,
-      maxSplits,
-      meta,
+    const tokenPerUsdcNoDecimals = await queries.getVolumeWeightedPrice({
+      baseToken: BigInt(usdcToken.l2_token_address),
+      quoteToken: otherToken,
+      numHours: 24,
     });
 
-    if (splitRoutes === null) {
-      throw new StatusError(404, "Route not found");
+    const outputPriceFactor = tokenPerUsdcNoDecimals?.price
+      ? // dollar per swap divided by dollar per token ~= output token per swap
+        tokenPerUsdcNoDecimals.price
+          // adjust for usdc decimals to get token/usd
+          .mul(Math.pow(10, 6))
+          // in dollars/swap
+          .mul(AVERAGE_SWAP_FEES_IN_DOLLARS)
+          // now we have tokens/swap, multiply by 100 which is a factor we can adjust
+          .mul(100)
+          .toNumber()
+      : undefined;
+
+    const response = await fetch(
+      `${env.QUOTER_API_BASE_URL}${amount}/${token}/${otherToken}?max_hops=${maxHops}&max_splits=${maxSplits}&output_price_factor=${outputPriceFactor}`,
+    );
+
+    if (!response.ok) {
+      const errorJson = await response.json();
+
+      if (errorJson && typeof errorJson === "object" && "error" in errorJson) {
+        throw new StatusError(
+          response.status,
+          `Request failed: ${errorJson.error}`,
+        );
+      }
+
+      throw new StatusError(502, "Proxy request failed for unknown reason");
     }
 
-    const serializedRoutes = splitRoutes.map(({ route, quoteRouteResult }) => ({
-      specifiedAmount: quoteRouteResult.quotes[0].consumedAmount.toString(),
-      amount: quoteRouteResult.calculatedAmount.amount.toString(),
-      route: route.map(({ key }, ix) => ({
-        pool_key: {
-          token0: num.toHex(key.token0),
-          token1: num.toHex(key.token1),
-          fee: num.toHex(key.fee),
-          tick_spacing: key.tickSpacing,
-          extension: num.toHex(key.extension),
-        },
-        sqrt_ratio_limit: num.toHex(
-          getSqrtRatioLimit(
-            quoteRouteResult.quotes[ix].stateAfter.sqrtRatio,
-            key.tickSpacing,
-            quoteRouteResult.quotes[ix].isPriceIncreasing,
-          ),
-        ),
-        skip_ahead: num.toHex(
-          Math.round(
-            quoteRouteResult.quotes[ix].executionResources.tickSpacingsCrossed /
-              Math.max(
-                quoteRouteResult.quotes[ix].executionResources
-                  .initializedTicksCrossed,
-                1,
-              ),
-          ),
-        ),
-      })),
-    }));
+    const result = (await response.json()) as {
+      total_calculated: string;
+      splits: {
+        amount_specified: string;
+        amount_calculated: string;
+        route_id: string;
+        route: {
+          pool_key: {
+            token0: string;
+            token1: string;
+            fee: string;
+            tick_spacing: number;
+            extension: string;
+          };
+          sqrt_ratio_limit: string;
+          skip_ahead: number;
+        }[];
+      }[];
+    };
 
     const responseBody = specifiedMaxSplits
       ? {
-          total: splitRoutes
-            .reduce(
-              (
-                sum,
-                {
-                  quoteRouteResult: {
-                    calculatedAmount: { amount },
-                  },
-                },
-              ) => amount + sum,
-              0n,
-            )
-            .toString(),
-
-          splits: serializedRoutes,
+          total: result.total_calculated,
+          splits: result.splits.map(
+            (s) =>
+              ({
+                amount: s.amount_calculated,
+                specifiedAmount: s.amount_specified,
+                route: s.route.map((r) => ({
+                  pool_key: r.pool_key,
+                  sqrt_ratio_limit: r.sqrt_ratio_limit,
+                  skip_ahead: r.skip_ahead,
+                })),
+              }) satisfies z.infer<typeof GetQuoteResponseType>,
+          ),
         }
-      : serializedRoutes[0];
+      : ({
+          specifiedAmount: result.splits[0].amount_specified,
+          amount: result.total_calculated,
+          route: result.splits[0].route.map((r) => ({
+            pool_key: r.pool_key,
+            sqrt_ratio_limit: r.sqrt_ratio_limit,
+            skip_ahead: r.skip_ahead,
+          })),
+        } satisfies z.infer<typeof GetQuoteResponseType>);
 
     return json(responseBody, {
       headers: {
