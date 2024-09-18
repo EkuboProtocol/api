@@ -402,6 +402,7 @@ describe(splitTwammOrder, () => {
   describe("failure cases", async () => {
     const defaultStartTime = Math.floor(Date.now() / 1000);
     const defaultEndTime = defaultStartTime + Number(16);
+    const defaultAverageBlockTime = 1n;
 
     for (const testCase of FAIL_TEST_CASES) {
       const { description, amount, poolStates, orderData, maxSplits } =
@@ -409,6 +410,8 @@ describe(splitTwammOrder, () => {
 
       const startTime = testCase?.startTime ?? defaultStartTime;
       const endTime = testCase?.endTime ?? defaultEndTime;
+      const averageBlockTime =
+        testCase?.averageBlockTime ?? defaultAverageBlockTime;
 
       let pools: TwammPool[] = [];
 

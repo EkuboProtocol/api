@@ -4,8 +4,6 @@ import { constants } from "starknet";
 export interface Env {
   readonly STARKNET_CHAIN_ID: constants.StarknetChainId;
 
-  readonly QUOTER_API_BASE_URL: string;
-
   readonly PG_CONNECTION_STRING?: string;
 
   readonly HYPERDRIVE?: Hyperdrive;
