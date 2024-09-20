@@ -166,13 +166,15 @@ export class GetQuote extends EkuboAPIRoute {
       ? // dollar per swap divided by dollar per token ~= output token per swap
         tokenPerUsdcNoDecimals.price
           // adjust for usdc decimals to get token/usd
-          .mul(Math.pow(10, 6))
+          .mul(Math.pow(10, otherTokenInfo.decimals - usdcToken.decimals))
           // in dollars/swap
           .mul(AVERAGE_SWAP_FEES_IN_DOLLARS)
           // now we have tokens/swap, multiply by 100 which is a factor we can adjust
-          .mul(100)
+          .mul(10000)
           .toNumber()
       : undefined;
+
+    console.log(outputPriceFactor);
 
     const response = await fetch(
       `${env.QUOTER_API_BASE_URL}${amount}/${token}/${otherToken}?max_hops=${maxHops}&max_splits=${maxSplits}&output_price_factor=${outputPriceFactor}`,
