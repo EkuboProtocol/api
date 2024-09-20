@@ -172,9 +172,7 @@ export class GetQuote extends EkuboAPIRoute {
           // now we have tokens/swap, multiply by 100 which is a factor we can adjust
           .mul(10000)
           .toNumber()
-      : undefined;
-
-    console.log(outputPriceFactor);
+      : 0;
 
     const response = await fetch(
       `${env.QUOTER_API_BASE_URL}${amount}/${token}/${otherToken}?max_hops=${maxHops}&max_splits=${maxSplits}&output_price_factor=${outputPriceFactor}`,
