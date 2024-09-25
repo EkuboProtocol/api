@@ -298,5 +298,14 @@
     "sort_order": 3,
     "total_supply": null,
     "hidden": true
+  },
+  {
+    "name": "Cash",
+    "symbol": "CASH",
+    "decimals": 18,
+    "l2_token_address": "0x498edfaf50ca5855666a700c25dd629d577eb9afccdf3b5977aec79aee55ada",
+    "sort_order": 3,
+    "total_supply": null,
+    "hidden": false
   }
 ]
