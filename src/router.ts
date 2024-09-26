@@ -52,12 +52,11 @@ import {
   ListNftEvents,
   ListPositions,
 } from "./routes/nft";
-import { GetSplitTWAPOrderByDate } from "./routes/twamm";
 import {
   GetTwammPairState,
   GetTwammPoolState,
 } from "./routes/twamm/getTwammPoolState";
-import { ListOrders } from "./routes/twamm/orders";
+import { ListTwapOrders } from "./routes/twamm/orders";
 import { error } from "itty-router";
 import {
   ListProposals,
@@ -128,10 +127,9 @@ export const router = OpenAPIRouter({
   .get(GetNftMetadata.route, GetNftMetadata)
   .get(ListNftEvents.route, ListNftEvents)
   .get(GetNftImage.route, GetNftImage)
-  .get(GetSplitTWAPOrderByDate.route, GetSplitTWAPOrderByDate)
   .get(GetTwammPoolState.route, GetTwammPoolState)
   .get(GetTwammPairState.route, GetTwammPairState)
-  .get(ListOrders.route, ListOrders)
+  .get(ListTwapOrders.route, ListTwapOrders)
   .get(ListProposals.route, ListProposals)
   .get(ListTopDelegates.route, ListTopDelegates)
   .get(ListVotesOnProposal.route, ListVotesOnProposal)

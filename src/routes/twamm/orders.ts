@@ -10,9 +10,30 @@ import {
 } from "../../shared/validation/address";
 import { z } from "zod";
 import { IRequest, json } from "itty-router";
-import { OrderKeyType } from "./index";
 import { createQueries } from "../../queries";
 import { num } from "starknet";
+
+export const OrderKeyType = z
+  .object({
+    sell_token: AddressType.openapi({
+      example:
+        "0x049d36570d4e46f48e99674bd3fcc84644ddd6b96f7c741b1562b82f9e004dc7",
+    }),
+    buy_token: AddressType.openapi({
+      example:
+        "0x053c91253bc9682c04929ca02ed00b3e423f6710d2ee7e0d5ebb06f3ecf368a8",
+    }),
+    fee: z.string().openapi({
+      example: "1020847100762815411640772995208708096",
+    }),
+    start_time: z.number().int().min(0).openapi({
+      description: "The epoch time in seconds at which the order starts",
+    }),
+    end_time: z.number().int().min(0).openapi({
+      description: "The epoch time in seconds at which the order ends",
+    }),
+  })
+  .openapi({ description: "The key identifier for a TWAP order in Ekubo" });
 
 const TwammOrderPartInfo = z.object({
   key: OrderKeyType,
@@ -28,7 +49,7 @@ const TwammOrderInfo = z.object({
 
 type TwammOrderInfoType = z.infer<typeof TwammOrderInfo>;
 
-export class ListOrders extends EkuboAPIRoute {
+export class ListTwapOrders extends EkuboAPIRoute {
   static route = "/twap/orders/:address";
 
   static schema: OpenAPIRouteSchema = {
