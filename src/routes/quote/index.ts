@@ -88,6 +88,7 @@ export class GetQuote extends EkuboAPIRoute {
         description:
           "The maximum number of routes that the amount can be split across",
         required: false,
+        deprecated: true,
       }),
       maxHops: Query(z.coerce.number().int().min(1).max(3), {
         description:
@@ -157,12 +158,12 @@ export class GetQuote extends EkuboAPIRoute {
     }
 
     const tokenPerUsdcNoDecimals = await queries.getVolumeWeightedPrice({
-      baseToken: BigInt(usdcToken.l2_token_address),
-      quoteToken: otherToken,
+      quoteToken: BigInt(usdcToken.l2_token_address),
+      baseToken: otherToken,
       numHours: 24,
     });
 
-    const outputPriceFactor = tokenPerUsdcNoDecimals?.price
+    const otherTokenResourceCost = tokenPerUsdcNoDecimals?.price
       ? // dollar per swap divided by dollar per token ~= output token per swap
         tokenPerUsdcNoDecimals.price
           // adjust for usdc decimals to get token/usd
@@ -175,7 +176,7 @@ export class GetQuote extends EkuboAPIRoute {
       : 0;
 
     const response = await fetch(
-      `${env.QUOTER_API_BASE_URL}${amount}/${token}/${otherToken}?max_hops=${maxHops}&max_splits=${maxSplits}&output_price_factor=${outputPriceFactor}`,
+      `${env.QUOTER_API_BASE_URL}${amount}/${token}/${otherToken}?max_hops=${maxHops}&other_token_resource_cost=${otherTokenResourceCost}`,
     );
 
     if (!response.ok) {
