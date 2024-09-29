@@ -112,7 +112,7 @@ export class Queries {
                  psm.tick,
                  (SELECT JSONB_AGG(JSONB_BUILD_OBJECT('t', ppptlm.tick, 'l',
                                                       ppptlm.net_liquidity_delta_diff::TEXT) ORDER BY ppptlm.tick)
-                  FROM per_pool_per_tick_liquidity_materialized ppptlm
+                  FROM per_pool_per_tick_liquidity_incremental_view ppptlm
                   WHERE ppptlm.pool_key_hash = pk.key_hash) AS ticks,
                  -- twamm state
                  tpsm.last_virtual_execution_time,
@@ -462,7 +462,7 @@ export class Queries {
     }>({
       text: `
           SELECT tick, SUM(net_liquidity_delta_diff) AS net_liquidity_delta_diff
-          FROM per_pool_per_tick_liquidity_materialized
+          FROM per_pool_per_tick_liquidity_incremental_view
                    JOIN pool_keys ON pool_key_hash = key_hash
           WHERE net_liquidity_delta_diff != 0
             AND token0 = $1
@@ -482,7 +482,7 @@ export class Queries {
     }>({
       text: `
           SELECT tick, net_liquidity_delta_diff
-          FROM per_pool_per_tick_liquidity_materialized
+          FROM per_pool_per_tick_liquidity_incremental_view
           WHERE pool_key_hash = $1
           ORDER BY tick
       `,
