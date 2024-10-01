@@ -80,65 +80,6 @@ export class Queries {
     `);
   }
 
-  public async getAllRoutablePools({ lastEventId }: { lastEventId?: bigint }) {
-    return this.client.query<{
-      key_hash: string;
-      token0: string;
-      token1: string;
-      fee: string;
-      tick_spacing: number;
-      extension: string;
-      sqrt_ratio: string;
-      liquidity: string;
-      tick: number;
-      ticks: { t: number; l: string }[] | null;
-      last_virtual_execution_time: string | null;
-      token0_sale_rate: string | null;
-      token1_sale_rate: string | null;
-      orders: { t: string; s0: string; s1: string }[] | null;
-      last_event_id: string;
-      last_twamm_event_id: string;
-      last_oracle_snapshot_block_timestamp: string | null;
-    }>({
-      text: `
-          SELECT pk.key_hash,
-                 pk.token0,
-                 pk.token1,
-                 pk.fee,
-                 pk.tick_spacing,
-                 pk.extension,
-                 psm.sqrt_ratio,
-                 psm.liquidity,
-                 psm.tick,
-                 (SELECT JSONB_AGG(JSONB_BUILD_OBJECT('t', ppptlm.tick, 'l',
-                                                      ppptlm.net_liquidity_delta_diff::TEXT) ORDER BY ppptlm.tick)
-                  FROM per_pool_per_tick_liquidity_incremental_view ppptlm
-                  WHERE ppptlm.pool_key_hash = pk.key_hash) AS ticks,
-                 -- twamm state
-                 tpsm.last_virtual_execution_time,
-                 tpsm.token0_sale_rate,
-                 tpsm.token1_sale_rate,
-                 (SELECT JSONB_AGG(JSONB_BUILD_OBJECT('t', tsrdm.time, 's0', tsrdm.net_sale_rate_delta0::TEXT,
-                                                      's1',
-                                                      tsrdm.net_sale_rate_delta1::TEXT) ORDER BY tsrdm.time)
-                  FROM twamm_sale_rate_deltas_materialized tsrdm
-                  WHERE tsrdm.pool_key_hash = pk.key_hash)  AS orders,
-                 psm.last_event_id                          AS last_event_id,
-                 tpsm.last_event_id                         AS last_twamm_event_id,
-                 opsm.last_snapshot_block_timestamp         AS last_oracle_snapshot_block_timestamp
-          FROM pool_keys pk
-                   JOIN pool_states_materialized psm ON pk.key_hash = psm.pool_key_hash
-                   LEFT JOIN twamm_pool_states_materialized tpsm ON pk.key_hash = tpsm.pool_key_hash
-                   LEFT JOIN oracle_pool_states_materialized opsm ON opsm.pool_key_hash = pk.key_hash
-          WHERE
-            -- only twamm pools, oracle pools or plain pools
-              (extension = 0 OR tpsm.pool_key_hash IS NOT NULL OR opsm.last_snapshot_block_timestamp IS NOT NULL)
-            AND (psm.last_event_id > $1 OR (tpsm.last_event_id IS NOT NULL AND tpsm.last_event_id > $1))
-      `,
-      values: [lastEventId ?? 0n],
-    });
-  }
-
   public async getTwammPoolStateByKey({
     token0,
     token1,
