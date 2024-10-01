@@ -219,7 +219,8 @@
     "decimals": 18,
     "l2_token_address": "0x023ed2ba4fb5709302c5dfd739fa7613359042f143286c115b6c7f7dc2601015",
     "sort_order": 1,
-    "total_supply": 100000000000
+    "total_supply": 100000000000,
+    "hidden": true
   },
   {
     "name": "Nostra",
