@@ -1108,13 +1108,12 @@ export class Queries {
                            JOIN blocks b2 ON ek2.block_number = b2.number
                   WHERE tpw.salt = ot.token_id::NUMERIC
                   ORDER BY tpw.event_id DESC
-                  LIMIT 1) AS                            last_collect_proceeds,
-                 COALESCE((SELECT SUM(CASE WHEN tpw.amount0 != 0 THEN tpw.amount0 ELSE tpw.amount1 END)
-                  FROM twamm_proceeds_withdrawals tpw
-                  WHERE tpw.salt = ot.token_id::NUMERIC), 0::NUMERIC) total_proceeds_withdrawn
+                  LIMIT 1) AS last_collect_proceeds,
+                 tpw.total_proceeds_withdrawn as total_proceeds_withdrawn
           FROM owned_tokens AS ot
                    JOIN LATERAL (
-              SELECT (CASE WHEN tou.sale_rate_delta0 != 0 THEN token0 ELSE token1 END) AS sell_token,
+              SELECT tou.key_hash,
+                     (CASE WHEN tou.sale_rate_delta0 != 0 THEN token0 ELSE token1 END) AS sell_token,
                      (CASE WHEN tou.sale_rate_delta0 != 0 THEN token1 ELSE token0 END) AS buy_token,
                      start_time,
                      end_time,
@@ -1126,8 +1125,14 @@ export class Queries {
                        JOIN event_keys ek ON tou.event_id = ek.id
                        JOIN blocks b ON ek.block_number = b.number
               WHERE tou.salt = token_id::NUMERIC
-              GROUP BY 1, 2, 3, 4, 5
+              GROUP BY 1, 2, 3, 4, 5, 6
               ) AS distinct_orders ON TRUE
+                   LEFT JOIN LATERAL (
+              SELECT SUM(CASE WHEN tpw.amount0 != 0 THEN tpw.amount0 ELSE tpw.amount1 END) total_proceeds_withdrawn
+              FROM twamm_proceeds_withdrawals tpw
+              WHERE tpw.salt = ot.token_id::NUMERIC
+                AND tpw.key_hash = distinct_orders.key_hash
+              ) AS tpw ON TRUE
           ORDER BY token_id DESC
       `,
       values: [address, showClosed],
