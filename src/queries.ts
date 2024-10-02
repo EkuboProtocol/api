@@ -1108,8 +1108,8 @@ export class Queries {
                            JOIN blocks b2 ON ek2.block_number = b2.number
                   WHERE tpw.salt = ot.token_id::NUMERIC
                   ORDER BY tpw.event_id DESC
-                  LIMIT 1) AS last_collect_proceeds,
-                 tpw.total_proceeds_withdrawn as total_proceeds_withdrawn
+                  LIMIT 1)                    AS last_collect_proceeds,
+                 tpw.total_proceeds_withdrawn AS total_proceeds_withdrawn
           FROM owned_tokens AS ot
                    JOIN LATERAL (
               SELECT tou.key_hash,
@@ -1132,6 +1132,8 @@ export class Queries {
               FROM twamm_proceeds_withdrawals tpw
               WHERE tpw.salt = ot.token_id::NUMERIC
                 AND tpw.key_hash = distinct_orders.key_hash
+                AND tpw.start_time = distinct_orders.start_time
+                AND tpw.end_time = distinct_orders.end_time
               ) AS tpw ON TRUE
           ORDER BY token_id DESC
       `,
