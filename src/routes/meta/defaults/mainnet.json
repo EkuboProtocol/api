@@ -206,6 +206,15 @@
     "total_supply": null
   },
   {
+    "name": "Also Ekubo Protocol",
+    "symbol": "MOCHI",
+    "decimals": 18,
+    "l2_token_address": "0x075afe6402ad5a5c20dd25e10ec3b3986acaa647b77e4ae24b0cbc9a54a27a87",
+    "sort_order": 1,
+    "total_supply": 10000000,
+    "hidden": true
+  },
+  {
     "name": "Ekubo Protocol",
     "symbol": "EKUBO",
     "decimals": 18,
