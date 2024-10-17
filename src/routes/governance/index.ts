@@ -1,5 +1,9 @@
 import { EkuboAPIRoute, RequestContext } from "../../shared/context";
-import { OpenAPIRouteSchema, Path } from "@cloudflare/itty-router-openapi";
+import {
+  OpenAPIRouteSchema,
+  Path,
+  Query,
+} from "@cloudflare/itty-router-openapi";
 import {
   AddressType,
   DecimalStringType,
@@ -166,9 +170,10 @@ const DelegateType = z
 
 const ListTopDelegatesResponse = z
   .object({
+    amountDelegatedTo: DecimalStringType,
     delegates: z.array(DelegateType),
   })
-  .required({ delegates: true });
+  .required({ amountDelegatedTo: true, delegates: true });
 
 type ListTopDelegatesResponseType = z.infer<typeof ListTopDelegatesResponse>;
 
@@ -179,7 +184,12 @@ export class ListTopDelegates extends EkuboAPIRoute {
     tags: ["Governance"],
     summary: "List Top Delegates",
     description: "Returns the list of top delegates",
-    parameters: {},
+    parameters: {
+      pageSize: Query(z.coerce.number().min(1).max(1000).int(), {
+        required: false,
+      }),
+      start: Query(z.coerce.number().min(0).int(), { required: false }),
+    },
     responses: {
       "200": {
         schema: ListTopDelegatesResponse,
@@ -189,10 +199,15 @@ export class ListTopDelegates extends EkuboAPIRoute {
     },
   };
 
-  async handle({}: IRequest, { env }: RequestContext) {
+  async handle({ query }: IRequest, { env }: RequestContext) {
     const queries = await createQueries(env);
 
-    const { rows } = await queries.getTopDelegates({ limit: 100 });
+    const { pageSize, start } = query;
+
+    const { rows } = await queries.getTopDelegates({
+      pageSize: Number(pageSize ?? 100),
+      start: Number(start ?? 0),
+    });
 
     return json(
       {
@@ -235,12 +250,18 @@ export class ListStakedDelegates extends EkuboAPIRoute {
   async handle({ params }: IRequest, { env }: RequestContext) {
     const queries = await createQueries(env);
 
-    const { rows } = await queries.getDelegatesStakedTo({
-      staker: BigInt(params.staker),
-    });
+    const [{ rows }, amountDelegatedTo] = await Promise.all([
+      queries.getDelegatesStakedTo({
+        staker: BigInt(params.staker),
+      }),
+      queries.getAmountDelegatedTo({
+        delegate: BigInt(params.staker),
+      }),
+    ]);
 
     return json(
       {
+        amountDelegatedTo: amountDelegatedTo.toString(),
         delegates: rows.map((r) => ({
           delegate: num.toHex(BigInt(r.delegate)),
           amount: r.amount,
@@ -248,7 +269,7 @@ export class ListStakedDelegates extends EkuboAPIRoute {
       } as ListTopDelegatesResponseType,
       {
         headers: {
-          "cache-control": "public, max-age=30",
+          "cache-control": "public, max-age=5",
         },
       },
     );

@@ -1439,7 +1439,7 @@ export class Queries {
     });
   }
 
-  getTopDelegates({ limit }: { limit: number }) {
+  getTopDelegates({ pageSize, start }: { pageSize: number; start: number }) {
     return this.client.query<{ delegate: string; amount: string }>({
       text: `
           WITH staker_delegation_changes AS (SELECT amount, delegate
@@ -1452,9 +1452,9 @@ export class Queries {
           FROM staker_delegation_changes
           GROUP BY delegate
           ORDER BY 2 DESC
-          LIMIT $1
+          LIMIT $1 OFFSET $2
       `,
-      values: [limit],
+      values: [pageSize, start],
     });
   }
 
@@ -1479,6 +1479,24 @@ export class Queries {
       `,
       values: [staker],
     });
+  }
+
+  async getAmountDelegatedTo({ delegate }: { delegate: bigint }) {
+    const { rows } = await this.client.query<{
+      amount_delegated: string;
+    }>({
+      text: `
+          SELECT COALESCE((SELECT SUM(amount)
+                           FROM staker_staked
+                           WHERE delegate = $1), 0::NUMERIC) - COALESCE(
+                         (SELECT SUM(amount)
+                          FROM staker_withdrawn
+                          WHERE delegate = $1), 0::NUMERIC) as amount_delegated
+      `,
+      values: [delegate],
+    });
+
+    return BigInt(rows[0]?.amount_delegated ?? 0);
   }
 }
 
