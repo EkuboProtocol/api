@@ -170,7 +170,6 @@ const DelegateType = z
 
 const ListTopDelegatesResponse = z
   .object({
-    amountDelegatedTo: DecimalStringType,
     delegates: z.array(DelegateType),
   })
   .required({ amountDelegatedTo: true, delegates: true });
@@ -225,8 +224,16 @@ export class ListTopDelegates extends EkuboAPIRoute {
   }
 }
 
+const GetStakerInfoResponse = z
+  .object({
+    amountDelegatedTo: DecimalStringType,
+    delegates: z.array(DelegateType),
+  })
+  .required({ amountDelegatedTo: true, delegates: true });
+type GetStakerInfoResponseType = z.infer<typeof GetStakerInfoResponse>;
+
 export class ListStakedDelegates extends EkuboAPIRoute {
-  static route = "/governance/delegates/:staker";
+  static route = "/governance/delegates/:address";
 
   static schema: OpenAPIRouteSchema = {
     tags: ["Governance"],
@@ -234,8 +241,8 @@ export class ListStakedDelegates extends EkuboAPIRoute {
     description:
       "Returns the list of delegates that the staker has delegated to",
     parameters: {
-      staker: Path(AddressType, {
-        description: "The staker for which to look up delegates",
+      address: Path(AddressType, {
+        description: "The address for which to look up staker data",
       }),
     },
     responses: {
@@ -250,12 +257,14 @@ export class ListStakedDelegates extends EkuboAPIRoute {
   async handle({ params }: IRequest, { env }: RequestContext) {
     const queries = await createQueries(env);
 
+    const address = BigInt(params.address);
+
     const [{ rows }, amountDelegatedTo] = await Promise.all([
       queries.getDelegatesStakedTo({
-        staker: BigInt(params.staker),
+        staker: address,
       }),
       queries.getAmountDelegatedTo({
-        delegate: BigInt(params.staker),
+        delegate: address,
       }),
     ]);
 
@@ -266,7 +275,7 @@ export class ListStakedDelegates extends EkuboAPIRoute {
           delegate: num.toHex(BigInt(r.delegate)),
           amount: r.amount,
         })),
-      } as ListTopDelegatesResponseType,
+      } as GetStakerInfoResponseType,
       {
         headers: {
           "cache-control": "public, max-age=5",
