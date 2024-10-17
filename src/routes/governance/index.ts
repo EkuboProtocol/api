@@ -232,7 +232,7 @@ const GetStakerInfoResponse = z
   .required({ amountDelegatedTo: true, delegates: true });
 type GetStakerInfoResponseType = z.infer<typeof GetStakerInfoResponse>;
 
-export class ListStakedDelegates extends EkuboAPIRoute {
+export class GetStakerInfo extends EkuboAPIRoute {
   static route = "/governance/delegates/:address";
 
   static schema: OpenAPIRouteSchema = {
