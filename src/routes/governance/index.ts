@@ -247,8 +247,8 @@ export class GetStakerInfo extends EkuboAPIRoute {
     },
     responses: {
       "200": {
-        schema: ListTopDelegatesResponse,
-        description: "The list of delegates that the staker has staked to",
+        schema: GetStakerInfoResponse,
+        description: "Information about the given staker",
         contentType: "application/json",
       },
     },
