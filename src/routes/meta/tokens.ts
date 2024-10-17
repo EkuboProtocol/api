@@ -107,11 +107,6 @@ export async function getAllTokens(
       const name = row.name;
       const symbol = row.symbol;
       const l2_token_address = num.toHex(row.address);
-      if (symbol.length > 9) return;
-
-      // alphanumeric only
-      if (!ALPHANUMERIC_REGEX.test(name) || !ALPHANUMERIC_REGEX.test(symbol))
-        return;
 
       const lowerSplit = symbol.toLowerCase().split(" ");
       if (
