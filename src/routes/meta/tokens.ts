@@ -6,7 +6,7 @@ import { EkuboAPIRoute, RequestContext } from "../../shared/context";
 
 import MAINNET_TOKENS from "./defaults/mainnet.json";
 import SEPOLIA_TOKENS from "./defaults/sepolia.json";
-import { constants, num, shortString } from "starknet";
+import { constants, num } from "starknet";
 import { createQueries, Queries } from "../../queries";
 import LOGOS from "./defaults/logos.json";
 
@@ -104,8 +104,8 @@ export async function getAllTokens(
 
   rows.forEach((row) => {
     try {
-      const name = shortString.decodeShortString(row.name).trim();
-      const symbol = shortString.decodeShortString(row.symbol).trim();
+      const name = row.name;
+      const symbol = row.symbol;
       const l2_token_address = num.toHex(row.address);
       if (symbol.length > 9) return;
 
@@ -195,7 +195,7 @@ export class ListTokens extends EkuboAPIRoute {
 
     return json(tokens, {
       headers: {
-        "cache-control": `public,max-age=600`,
+        "cache-control": `public,max-age=300`,
       },
     });
   }
