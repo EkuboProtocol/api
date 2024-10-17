@@ -84,7 +84,7 @@ export class GetQuote extends EkuboAPIRoute {
           description: "The amount of the specified token",
         }),
       ),
-      maxSplits: Query(z.coerce.number().int().min(0).max(8), {
+      maxSplits: Query(z.coerce.number().int().min(0).max(12), {
         description:
           "The maximum number of routes that the amount can be split across",
         required: false,
@@ -103,12 +103,9 @@ export class GetQuote extends EkuboAPIRoute {
   };
 
   async handle({ params, query }: IRequest, { env }: RequestContext) {
-    const maxSplitsQueryParam = query.maxSplits;
-    const specifiedMaxSplits = typeof maxSplitsQueryParam === "string";
-
     let maxSplits: number | undefined;
-    if (specifiedMaxSplits) {
-      maxSplits = parseInt(maxSplitsQueryParam);
+    if (typeof query.maxSplits === "string") {
+      maxSplits = parseInt(query.maxSplits);
     }
 
     const queries = await createQueries(env);
@@ -166,7 +163,8 @@ export class GetQuote extends EkuboAPIRoute {
       : 0;
 
     const response = await fetch(
-      `${env.QUOTER_API_BASE_URL}${amount}/${token}/${otherToken}?other_token_resource_cost=${otherTokenResourceCost}&max_splits=${maxSplits}`,
+      `${env.QUOTER_API_BASE_URL}${amount}/${token}/${otherToken}?other_token_resource_cost=${otherTokenResourceCost}` +
+        (typeof maxSplits === "number" ? `&max_splits=${maxSplits}` : ""),
     );
 
     if (!response.ok) {
