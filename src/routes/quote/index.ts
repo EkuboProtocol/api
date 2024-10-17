@@ -36,36 +36,36 @@ const PoolKeyType = z
   .openapi({ description: "The composite key identifier for a pool in Ekubo" });
 
 const GetQuoteResponseType = z.object({
-  specifiedAmount: z.string(),
-  amount: z
-    .string()
-    .regex(/^-?\d+$/)
-    .openapi({
-      description: "The calculated amount for the quote",
-      example: "-123456",
-    }),
-  route: z
-    .array(
-      z.object({
-        pool_key: PoolKeyType,
-        sqrt_ratio_limit: HexStringType.openapi({
-          example: num.toHex(MAX_SQRT_RATIO),
-        }),
-        skip_ahead: z.number().openapi({
-          description:
-            "A suggested skip_ahead value for gas optimizing the trade",
-          example: 123,
-        }),
-      }),
-    )
-    .openapi({
-      description: "The list of pool keys through which to swap",
-    }),
-});
-
-const GetQuoteWithSplitsResponseType = z.object({
   total: z.string(),
-  splits: z.array(GetQuoteResponseType),
+  splits: z.array(
+    z.object({
+      specifiedAmount: z.string(),
+      amount: z
+        .string()
+        .regex(/^-?\d+$/)
+        .openapi({
+          description: "The calculated amount for the quote",
+          example: "-123456",
+        }),
+      route: z
+        .array(
+          z.object({
+            pool_key: PoolKeyType,
+            sqrt_ratio_limit: HexStringType.openapi({
+              example: num.toHex(MAX_SQRT_RATIO),
+            }),
+            skip_ahead: z.number().openapi({
+              description:
+                "A suggested skip_ahead value for gas optimizing the trade",
+              example: 123,
+            }),
+          }),
+        )
+        .openapi({
+          description: "The list of pool keys through which to swap",
+        }),
+    }),
+  ),
 });
 
 export class GetQuote extends EkuboAPIRoute {
@@ -90,19 +90,14 @@ export class GetQuote extends EkuboAPIRoute {
         required: false,
         deprecated: true,
       }),
-      maxHops: Query(z.coerce.number().int().min(1).max(3), {
-        description:
-          "The maximum number of pools that may be used in any route",
-        required: false,
-      }),
       token: Path(TokenIdentifierType, { example: "USDC" }),
       otherToken: Path(TokenIdentifierType, { example: "ETH" }),
     },
     responses: {
       "200": {
-        description: "The suggested route(s) to get the best price",
+        description: "The suggested split routes to get the best price",
         contentType: "application/json",
-        schema: z.union([GetQuoteResponseType, GetQuoteWithSplitsResponseType]),
+        schema: GetQuoteResponseType,
       },
     },
   };
@@ -111,14 +106,9 @@ export class GetQuote extends EkuboAPIRoute {
     const maxSplitsQueryParam = query.maxSplits;
     const specifiedMaxSplits = typeof maxSplitsQueryParam === "string";
 
-    let maxSplits: number = 0;
+    let maxSplits: number | undefined;
     if (specifiedMaxSplits) {
       maxSplits = parseInt(maxSplitsQueryParam);
-    }
-
-    let maxHops: number = 2;
-    if (typeof query.maxHops === "string") {
-      maxHops = parseInt(query.maxHops);
     }
 
     const queries = await createQueries(env);
@@ -176,7 +166,7 @@ export class GetQuote extends EkuboAPIRoute {
       : 0;
 
     const response = await fetch(
-      `${env.QUOTER_API_BASE_URL}${amount}/${token}/${otherToken}?max_hops=${maxHops}&other_token_resource_cost=${otherTokenResourceCost}`,
+      `${env.QUOTER_API_BASE_URL}${amount}/${token}/${otherToken}?other_token_resource_cost=${otherTokenResourceCost}&max_splits=${maxSplits}`,
     );
 
     if (!response.ok) {
@@ -212,36 +202,24 @@ export class GetQuote extends EkuboAPIRoute {
       }[];
     };
 
-    const responseBody = specifiedMaxSplits
-      ? {
-          total: result.total_calculated,
-          splits: result.splits.map(
-            (s) =>
-              ({
-                amount: s.amount_calculated,
-                specifiedAmount: s.amount_specified,
-                route: s.route.map((r) => ({
-                  pool_key: r.pool_key,
-                  sqrt_ratio_limit: r.sqrt_ratio_limit,
-                  skip_ahead: r.skip_ahead,
-                })),
-              }) satisfies z.infer<typeof GetQuoteResponseType>,
-          ),
-        }
-      : ({
-          specifiedAmount: result.splits[0].amount_specified,
-          amount: result.total_calculated,
-          route: result.splits[0].route.map((r) => ({
+    return json(
+      {
+        total: result.total_calculated,
+        splits: result.splits.map((s) => ({
+          amount: s.amount_calculated,
+          specifiedAmount: s.amount_specified,
+          route: s.route.map((r) => ({
             pool_key: r.pool_key,
             sqrt_ratio_limit: r.sqrt_ratio_limit,
             skip_ahead: r.skip_ahead,
           })),
-        } satisfies z.infer<typeof GetQuoteResponseType>);
-
-    return json(responseBody, {
-      headers: {
-        "cache-control": "public,s-maxage=5,must-revalidate",
+        })),
+      } satisfies z.infer<typeof GetQuoteResponseType>,
+      {
+        headers: {
+          "cache-control": "public,s-maxage=5,must-revalidate",
+        },
       },
-    });
+    );
   }
 }
