@@ -237,9 +237,9 @@ export class GetStakerInfo extends EkuboAPIRoute {
 
   static schema: OpenAPIRouteSchema = {
     tags: ["Governance"],
-    summary: "List Staked Amounts",
+    summary: "Get Staker Info",
     description:
-      "Returns the list of delegates that the staker has delegated to",
+      "Returns information about a particular staker address: the addresses they have delegated to and the total amount delegated to them",
     parameters: {
       address: Path(AddressType, {
         description: "The address for which to look up staker data",
