@@ -1084,6 +1084,7 @@ export class Queries {
       last_order_update: Date;
       last_collect_proceeds: Date | null;
       total_proceeds_withdrawn: string;
+      total_amount_sold_before_last_update: string;
     }>({
       text: `
           WITH owned_tokens AS (SELECT token_id
@@ -1093,7 +1094,24 @@ export class Queries {
                                                   FROM position_transfers pt2
                                                   WHERE pt2.token_id = pt1.token_id
                                                     AND pt2.event_id > pt1.event_id
-                                                    AND (CASE WHEN $2 THEN pt2.to_address != 0 ELSE TRUE END)))
+                                                    AND (CASE WHEN $2 THEN pt2.to_address != 0 ELSE TRUE END))),
+               order_updates_with_seconds_passed AS (SELECT event_id,
+                                                            SUM(CASE
+                                                                    WHEN sale_rate_delta1 != 0 THEN sale_rate_delta1
+                                                                    ELSE sale_rate_delta0 END) OVER (
+                                                                PARTITION BY tou.salt, tou.key_hash, tou.start_time, tou.end_time, tou.owner ORDER BY tou.event_id
+                                                                )              AS sale_rate_after_update,
+                                                            -- the number of seconds that the order was active at the previous state before this update
+                                                            COALESCE(
+                                                                            LEAD(EXTRACT(EPOCH FROM
+                                                                                         LEAST(GREATEST(b.time, tou.start_time), tou.end_time)))
+                                                                            OVER (PARTITION BY tou.salt, tou.key_hash, tou.start_time, tou.end_time, tou.owner ORDER BY tou.event_id) -
+                                                                            EXTRACT(EPOCH FROM
+                                                                                    LEAST(GREATEST(b.time, tou.start_time), tou.end_time)),
+                                                                            0) AS current_state_active_seconds
+                                                     FROM twamm_order_updates tou
+                                                              JOIN event_keys e ON tou.event_id = e.id
+                                                              JOIN blocks b ON e.block_number = b.number)
           SELECT token_id,
                  sell_token,
                  buy_token,
@@ -1109,7 +1127,8 @@ export class Queries {
                   WHERE tpw.salt = ot.token_id::NUMERIC
                   ORDER BY tpw.event_id DESC
                   LIMIT 1)                    AS last_collect_proceeds,
-                 tpw.total_proceeds_withdrawn AS total_proceeds_withdrawn
+                 tpw.total_proceeds_withdrawn AS total_proceeds_withdrawn,
+                 tas.total_amount_sold_before_last_update        AS total_amount_sold_before_last_update
           FROM owned_tokens AS ot
                    JOIN LATERAL (
               SELECT tou.key_hash,
@@ -1135,6 +1154,18 @@ export class Queries {
                 AND tpw.start_time = distinct_orders.start_time
                 AND tpw.end_time = distinct_orders.end_time
               ) AS tpw ON TRUE
+                   LEFT JOIN LATERAL (
+              SELECT SUM(
+                             FLOOR(ouwsp.sale_rate_after_update *
+                                   ouwsp.current_state_active_seconds / pow(2, 32)::numeric)
+                     ) AS total_amount_sold_before_last_update
+              FROM twamm_order_updates tou
+                       JOIN order_updates_with_seconds_passed ouwsp ON tou.event_id = ouwsp.event_id
+              WHERE tou.salt = ot.token_id::NUMERIC
+                AND tou.key_hash = distinct_orders.key_hash
+                AND tou.start_time = distinct_orders.start_time
+                AND tou.end_time = distinct_orders.end_time
+              ) AS tas ON TRUE
           ORDER BY token_id DESC
       `,
       values: [address, showClosed],

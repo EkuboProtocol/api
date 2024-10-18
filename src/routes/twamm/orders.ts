@@ -40,6 +40,7 @@ const TwammOrderPartInfo = z.object({
   block_time_at_start: z.number().int().min(0),
   last_order_update: z.number().int().min(0),
   total_proceeds_withdrawn: DecimalStringType,
+  total_amount_sold_before_last_update: DecimalStringType,
 });
 
 const TwammOrderInfo = z.object({
@@ -102,6 +103,7 @@ export class ListTwapOrders extends EkuboAPIRoute {
               last_order_update,
               last_collect_proceeds,
               total_proceeds_withdrawn,
+              total_amount_sold_before_last_update,
             },
           ) => {
             const tokenId = Number(token_id);
@@ -121,6 +123,7 @@ export class ListTwapOrders extends EkuboAPIRoute {
                 ? last_collect_proceeds.getTime() / 1000
                 : null,
               total_proceeds_withdrawn,
+              total_amount_sold_before_last_update,
             };
 
             if (!order) {
