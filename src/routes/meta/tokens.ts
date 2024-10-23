@@ -86,6 +86,11 @@ const BANNED_TOKEN_SYMBOLS = [
   "nostra",
   "nostr",
   "nstra",
+  "avnu",
+  "vesu",
+  "jedi",
+  "opus",
+  "haiko",
 ];
 const ALPHANUMERIC_REGEX = /^[\x00-\x7F]*$/;
 
