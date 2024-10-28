@@ -326,5 +326,14 @@
     "sort_order": 1,
     "total_supply": 10000000000,
     "hidden": true
+  },
+  {
+    "name": "Flip",
+    "symbol": "FLIP",
+    "decimals": 18,
+    "l2_token_address": "0x01bfe97d729138fc7c2d93c77d6d1d8a24708d5060608017d9b384adf38f04c7",
+    "sort_order": 1,
+    "total_supply": null,
+    "hidden": true
   }
 ]
