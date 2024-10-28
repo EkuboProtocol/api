@@ -317,5 +317,23 @@
     "sort_order": 3,
     "total_supply": null,
     "hidden": false
+  },
+  {
+    "name": "Flippin Frogs",
+    "symbol": "flip",
+    "decimals": 18,
+    "l2_token_address": "0x6377e49fa4c7a95e3884510ba5416e4baeaf20cfe078ffb821558d774a7614b",
+    "sort_order": 1,
+    "total_supply": 10000000000,
+    "hidden": true
+  },
+  {
+    "name": "Flip",
+    "symbol": "FLIP",
+    "decimals": 18,
+    "l2_token_address": "0x1e64141403429904d53738e05c65c2384cb031613dd46bf567b8675aae28ed5",
+    "sort_order": 1,
+    "total_supply": 10000000000,
+    "hidden": true
   }
 ]
