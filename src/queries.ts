@@ -605,67 +605,6 @@ export class Queries {
     });
   }
 
-  public async getVolatilityData({
-    fromDate,
-    pairs,
-    numDays = 14,
-  }: {
-    fromDate: Date;
-    pairs: { token0: bigint; token1: bigint }[];
-    numDays?: number;
-  }) {
-    const { rows: volatilityData } = await this.client.query<{
-      token0: string;
-      token1: string;
-      volatility_in_ticks: number;
-    }>({
-      text: `
-          WITH times AS (SELECT $1::timestamptz                            AS "end",
-                                $1::timestamptz - ($2 * INTERVAL '1 days') AS start),
-               prices AS (SELECT token0,
-                                 token1,
-                                 hour,
-
-                                 total / k_volume AS price
-                          FROM hourly_price_data p,
-                               times t
-                          WHERE p.hour BETWEEN t.start AND t.end
-                          ORDER BY hour),
-
-               log_price_changes AS (SELECT token0,
-                                            token1,
-                                            LN(price) -
-                                            LN(COALESCE(
-                                                            LAG(price) OVER (PARTITION BY token0, token1 ORDER BY hour),
-                                                            price))                   AS price_change,
-                                            EXTRACT(HOURS FROM hour - COALESCE(LAG(hour)
-                                                                               OVER (PARTITION BY token0, token1 ORDER BY hour),
-                                                                               hour)) AS hours_since_last
-                                     FROM prices p,
-                                          times t
-                                     ORDER BY hour),
-
-               realized_volatility_by_pair AS (SELECT token0,
-                                                      token1,
-                                                      STDDEV(lpc.price_change) * SQRT(SUM(hours_since_last)) AS realized_volatility
-                                               FROM log_price_changes lpc
-                                               GROUP BY token0, token1)
-
-          SELECT token0,
-                 token1,
-                 int4(FLOOR(LOG(EXP(realized_volatility)) / LOG(1.000001::NUMERIC))) AS volatility_in_ticks
-          FROM realized_volatility_by_pair
-          WHERE (token0, token1) IN (
-              ${pairs
-                .map((p) => `(${p.token0}::numeric, ${p.token1}::numeric)`)
-                .join(", ")}
-              );
-      `,
-      values: [fromDate, numDays],
-    });
-    return volatilityData;
-  }
-
   public async getVolumeWeightedPrice({
     baseToken,
     quoteToken,
@@ -833,57 +772,6 @@ export class Queries {
       `,
       values: [pair?.token0 ?? null, pair?.token1 ?? null, after],
     });
-  }
-
-  public async getAllVolumeWeightedPrices({
-    start,
-    quoteToken,
-    minSwapCount,
-  }: {
-    start: Date;
-    quoteToken: bigint;
-    minSwapCount: number;
-  }): Promise<{ token: string; price: Decimal; k_volume: bigint }[]> {
-    const { rows } = await this.client.query<{
-      token0: string;
-      token1: string;
-      total: string;
-      k_volume: string;
-      swap_count: number;
-    }>({
-      text: `
-          SELECT token0,
-                 token1,
-                 SUM(total)      AS total,
-                 SUM(k_volume)   AS k_volume,
-                 SUM(swap_count) AS swap_count
-          FROM hourly_price_data
-          WHERE (token0 = $1
-              OR token1 = $1)
-            AND hour >= DATE_TRUNC('hour', $2::timestamptz, 'UTC')
-          GROUP BY token0, token1
-      `,
-      values: [quoteToken, start],
-    });
-
-    return rows
-      .filter(
-        ({ k_volume, total, swap_count }) =>
-          BigInt(k_volume) > 0n &&
-          BigInt(total) > 0n &&
-          swap_count >= minSwapCount,
-      )
-      .map(({ token0, token1, k_volume, total }) => ({
-        token: `0x${(BigInt(token0) === quoteToken
-          ? BigInt(token1)
-          : BigInt(token0)
-        ).toString(16)}`,
-        price:
-          BigInt(token0) !== quoteToken
-            ? new Decimal(total).div(k_volume)
-            : new Decimal(k_volume).div(total),
-        k_volume: BigInt(k_volume),
-      }));
   }
 
   public async withinTransaction<T>(doX: () => Promise<T>): Promise<T> {
@@ -1392,17 +1280,6 @@ export class Queries {
       values: [since],
     });
     return rows;
-  }
-
-  async getLatestBlockMeta() {
-    const { rows } = await this.client.query<{ number: number; time: Date }>(
-      `SELECT number, time
-       FROM blocks
-       ORDER BY number DESC
-       LIMIT 1`,
-    );
-    if (!rows.length) throw new Error("No blocks");
-    return rows[0];
   }
 
   async getAverageBlockTime() {

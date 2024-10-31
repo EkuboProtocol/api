@@ -34,12 +34,7 @@ import {
   GetPairLiquidity,
   ListPairEvents,
 } from "./routes/stats/pair";
-import {
-  GetPairPrice,
-  GetPairPriceHistory,
-  GetPairVolatility,
-  GetTokenPrices,
-} from "./routes/prices";
+import { GetPairPriceHistory } from "./routes/prices";
 import {
   GetPoolKeyHash,
   GetPoolLiquidity,
@@ -113,10 +108,7 @@ export const router = OpenAPIRouter({
   .get(GetPairInfoTvl.route, GetPairInfoTvl)
   .get(GetPairInfoVolume.route, GetPairInfoVolume)
   .get(GetPairInfoPools.route, GetPairInfoPools)
-  .get(GetPairPrice.route, GetPairPrice)
-  .get(GetPairVolatility.route, GetPairVolatility)
   .get(GetPairPriceHistory.route, GetPairPriceHistory)
-  .get(GetTokenPrices.route, GetTokenPrices)
   .get(GetPoolStates.route, GetPoolStates)
   .get(GetPoolKeyHash.route, GetPoolKeyHash)
   .get(GetPoolLiquidity.route, GetPoolLiquidity)
