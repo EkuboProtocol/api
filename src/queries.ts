@@ -1254,46 +1254,6 @@ export class Queries {
     return rows;
   }
 
-  async getAverageSwapCostOverLastPeriod({ since }: { since: Date }) {
-    const { rows } = await this.client.query<{
-      count: string;
-      fee_paid_unit: 0 | 1 | 2;
-      avg_fee_paid: string;
-    }>({
-      text: `
-          SELECT COUNT(1) AS count, tr.fee_paid_unit, AVG(tr.fee_paid) AS avg_fee_paid
-          FROM event_keys ek
-                   JOIN transaction_receipts tr ON ek.transaction_hash = tr.transaction_hash
-          WHERE id >= (SELECT id
-                       FROM event_keys
-                       WHERE block_number <=
-                             (SELECT number
-                              FROM blocks
-                              WHERE time < $1
-                              ORDER BY number DESC
-                              LIMIT 1)
-                       ORDER BY id DESC
-                       LIMIT 1)
-            AND id IN (SELECT event_id FROM swaps)
-          GROUP BY tr.fee_paid_unit
-      `,
-      values: [since],
-    });
-    return rows;
-  }
-
-  async getAverageBlockTime() {
-    const { rows } = await this.client.query<{ average_block_time: number }>(`
-        WITH blocks_and_last_time
-                 AS (SELECT time, LAG(time) OVER (ORDER BY number) AS last_time
-                     FROM blocks
-                     WHERE time >= NOW() - INTERVAL '3 hour')
-        SELECT FLOOR(AVG(EXTRACT(EPOCH FROM (time - last_time))))::int4 AS average_block_time
-        FROM blocks_and_last_time
-    `);
-    return rows[0]?.average_block_time ?? 30;
-  }
-
   getProposals() {
     return this.client.query<{
       id: string;
