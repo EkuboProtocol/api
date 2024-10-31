@@ -12,8 +12,6 @@ import {
 } from "./routes/meta/get-defi-spring-incentives";
 import { ListTokens } from "./routes/meta/tokens";
 import { GetBlock } from "./routes/meta/blocks";
-import { GetNetworkStats } from "./routes/meta/stats";
-import { GetFees } from "./routes/meta/fees";
 import {
   GetLeaderboard,
   GetLeaderboardForCollector,
@@ -94,8 +92,6 @@ export const router = OpenAPIRouter({
   )
   .get(ListTokens.route, ListTokens)
   .get(GetBlock.route, GetBlock)
-  .get(GetNetworkStats.route, GetNetworkStats)
-  .get(GetFees.route, GetFees)
   .get(GetLeaderboard.route, GetLeaderboard)
   .get(GetLeaderboardForCollector.route, GetLeaderboardForCollector)
   .get(GetQuote.route, GetQuote)
