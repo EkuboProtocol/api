@@ -41,21 +41,34 @@ export class Queries {
     this.client = client;
   }
 
-  public async getBlock(blockTag: "latest" | number) {
+  public async getLatestBlock() {
     const { rows } = await this.client.query<{
       number: string;
-      hash: string;
       timestamp: string;
     }>({
       text: `
           SELECT number, hash, time AS timestamp
           FROM blocks
-          WHERE number = $1
-             OR $1 IS NULL
           ORDER BY number DESC
           LIMIT 1
       `,
-      values: [blockTag === "latest" ? null : blockTag],
+      values: [],
+    });
+    if (rows.length !== 1) return null;
+    return rows[0];
+  }
+
+  public async getBlock(blockNumber: number) {
+    const { rows } = await this.client.query<{
+      number: string;
+      timestamp: string;
+    }>({
+      text: `
+          SELECT number, time AS timestamp
+          FROM blocks
+          WHERE number = $1
+      `,
+      values: [blockNumber],
     });
     if (rows.length !== 1) return null;
     return rows[0];

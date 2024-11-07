@@ -41,7 +41,9 @@ export class GetBlock extends EkuboAPIRoute {
       request.params.blockTag === "latest"
         ? "latest"
         : Number(request.params.blockTag);
-    const block = await queries.getBlock(blockTag);
+    const block = await (blockTag === "latest"
+      ? queries.getLatestBlock()
+      : queries.getBlock(blockTag));
 
     if (block === null) {
       throw new StatusError(404, `Block "${blockTag}" not found`);
