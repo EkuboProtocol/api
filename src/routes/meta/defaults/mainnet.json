@@ -21,7 +21,8 @@
     "decimals": 18,
     "l2_token_address": "0x070a76fd48ca0ef910631754d77dd822147fe98a569b826ec85e3c33fde586ac",
     "sort_order": 3,
-    "total_supply": null
+    "total_supply": null,
+    "hidden": true
   },
   {
     "name": "Tether USD",
@@ -45,7 +46,8 @@
     "decimals": 18,
     "l2_token_address": "0x00da114221cb83fa859dbdb4c44beeaa0bb37c7537ad5ae66fe5e0efd20e6eb3",
     "sort_order": 4,
-    "total_supply": null
+    "total_supply": null,
+    "hidden": true
   },
   {
     "name": "Dai Stablecoin",
@@ -148,7 +150,7 @@
     "l2_token_address": "0x0410466536b5ae074f7fea81e5533b8134a9fa08b3dd077dd9db08f64997d113",
     "sort_order": 1,
     "total_supply": null,
-    "hidden": false
+    "hidden": true
   },
   {
     "name": "STRAK-meme",
@@ -254,7 +256,8 @@
     "decimals": 18,
     "l2_token_address": "0x256c74b33f5734c68402cd9433dfa77856f62c6940f54591874527cf898a924",
     "sort_order": 1,
-    "total_supply": 100000000
+    "total_supply": 100000000,
+    "hidden": true
   },
   {
     "name": "Carmine",
