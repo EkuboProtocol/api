@@ -28,6 +28,8 @@ export interface NFTMetadata {
   }[];
 }
 
+const BANNED_NFT_IDS = [576524, 719582, 31005, 34335, 36450, 36947];
+
 const BASE = new Decimal("1.000001");
 
 export function formattedPrice(
@@ -88,7 +90,7 @@ export class GetNftMetadata extends EkuboAPIRoute {
     { env }: RequestContext,
   ) {
     const id = parseId(idStr);
-    if (id === null) {
+    if (id === null || BANNED_NFT_IDS.includes(id)) {
       throw new StatusError(400, "Invalid token ID");
     }
 
@@ -475,23 +477,25 @@ export class ListPositions extends EkuboAPIRoute {
 
     return json(
       {
-        data: rows.map((row) => ({
-          id: Number(row.token_id),
-          pool_key: {
-            token0: num.toHex(row.token0),
-            token1: num.toHex(row.token1),
-            fee: num.toHex(row.fee),
-            tick_spacing: num.toHex(row.tick_spacing),
-            extension: num.toHex(row.extension),
-          },
-          bounds: {
-            lower: Number(row.lower_bound),
-            upper: Number(row.upper_bound),
-          },
-          metadata_url: `${origin}/${row.token_id}`,
-          image: `${origin}/${row.token_id}/image.svg`,
-          minted_timestamp: row.minted_timestamp.getTime(),
-        })),
+        data: rows
+          .filter((row) => !BANNED_NFT_IDS.includes(Number(row.token_id)))
+          .map((row) => ({
+            id: Number(row.token_id),
+            pool_key: {
+              token0: num.toHex(row.token0),
+              token1: num.toHex(row.token1),
+              fee: num.toHex(row.fee),
+              tick_spacing: num.toHex(row.tick_spacing),
+              extension: num.toHex(row.extension),
+            },
+            bounds: {
+              lower: Number(row.lower_bound),
+              upper: Number(row.upper_bound),
+            },
+            metadata_url: `${origin}/${row.token_id}`,
+            image: `${origin}/${row.token_id}/image.svg`,
+            minted_timestamp: row.minted_timestamp.getTime(),
+          })),
       },
       {
         headers: {
