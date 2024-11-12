@@ -109,8 +109,8 @@ export async function getAllTokens(
 
   rows.forEach((row) => {
     try {
-      const name = row.name;
-      const symbol = row.symbol;
+      const name = row.name.trim();
+      const symbol = row.symbol.trim();
       const l2_token_address = num.toHex(row.address);
 
       const lowerSplit = symbol.toLowerCase().split(" ");
