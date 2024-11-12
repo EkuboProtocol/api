@@ -91,8 +91,8 @@ const BANNED_TOKEN_SYMBOLS = [
   "jedi",
   "opus",
   "haiko",
+  "mochi",
 ];
-const ALPHANUMERIC_REGEX = /^[\x00-\x7F]*$/;
 
 export async function getAllTokens(
   env: Env,
