@@ -329,5 +329,14 @@
     "sort_order": 1,
     "total_supply": null,
     "hidden": true
+  },
+  {
+    "name": "Alf the Alpha",
+    "symbol": "ALF",
+    "decimals": 18,
+    "l2_token_address": "0x078d7dfcddb44667153513bd837ff534ef395484f4b6cf28faa25b2c46e063d9",
+    "sort_order": 1,
+    "total_supply": 10065076070,
+    "hidden": true
   }
 ]
