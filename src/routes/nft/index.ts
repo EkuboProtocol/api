@@ -28,8 +28,6 @@ export interface NFTMetadata {
   }[];
 }
 
-const BANNED_NFT_IDS = [576524, 719582, 31005, 34335, 36450, 36947];
-
 const BASE = new Decimal("1.000001");
 
 export function formattedPrice(
@@ -90,7 +88,7 @@ export class GetNftMetadata extends EkuboAPIRoute {
     { env }: RequestContext,
   ) {
     const id = parseId(idStr);
-    if (id === null || BANNED_NFT_IDS.includes(id)) {
+    if (id === null) {
       throw new StatusError(400, "Invalid token ID");
     }
 
@@ -239,26 +237,26 @@ export class GetNftMetadata extends EkuboAPIRoute {
             BigInt(metadata.sale_rate1) === 0n
               ? []
               : BigInt(metadata.sale_rate0) > 0n
-                ? [
-                    {
-                      trait_type: `sell_token_${ix}`,
-                      value: num.toHex(BigInt(metadata.token0)),
-                    },
-                    {
-                      trait_type: `buy_token_${ix}`,
-                      value: num.toHex(BigInt(metadata.token1)),
-                    },
-                  ]
-                : [
-                    {
-                      trait_type: `sell_token_${ix}`,
-                      value: num.toHex(BigInt(metadata.token1)),
-                    },
-                    {
-                      trait_type: `buy_token_${ix}`,
-                      value: num.toHex(BigInt(metadata.token0)),
-                    },
-                  ]),
+              ? [
+                  {
+                    trait_type: `sell_token_${ix}`,
+                    value: num.toHex(BigInt(metadata.token0)),
+                  },
+                  {
+                    trait_type: `buy_token_${ix}`,
+                    value: num.toHex(BigInt(metadata.token1)),
+                  },
+                ]
+              : [
+                  {
+                    trait_type: `sell_token_${ix}`,
+                    value: num.toHex(BigInt(metadata.token1)),
+                  },
+                  {
+                    trait_type: `buy_token_${ix}`,
+                    value: num.toHex(BigInt(metadata.token0)),
+                  },
+                ]),
           ]),
         ),
         description: "A TWAP order in Ekubo Protocol",
@@ -373,29 +371,29 @@ export class ListNftEvents extends EkuboAPIRoute {
                   to_address: num.toHex(to_address),
                 }
               : type === 1
-                ? {
-                    type: "update",
-                    transaction_hash: num.toHex(transaction_hash),
-                    timestamp,
-                    liquidity_delta,
-                    delta0,
-                    delta1,
-                  }
-                : type === 2
-                  ? {
-                      type: "collect_fees",
-                      transaction_hash: num.toHex(transaction_hash),
-                      timestamp,
-                      delta0,
-                      delta1,
-                    }
-                  : {
-                      type: "protocol_fees",
-                      transaction_hash: num.toHex(transaction_hash),
-                      timestamp,
-                      delta0,
-                      delta1,
-                    },
+              ? {
+                  type: "update",
+                  transaction_hash: num.toHex(transaction_hash),
+                  timestamp,
+                  liquidity_delta,
+                  delta0,
+                  delta1,
+                }
+              : type === 2
+              ? {
+                  type: "collect_fees",
+                  transaction_hash: num.toHex(transaction_hash),
+                  timestamp,
+                  delta0,
+                  delta1,
+                }
+              : {
+                  type: "protocol_fees",
+                  transaction_hash: num.toHex(transaction_hash),
+                  timestamp,
+                  delta0,
+                  delta1,
+                },
         ),
       },
       {
@@ -477,25 +475,23 @@ export class ListPositions extends EkuboAPIRoute {
 
     return json(
       {
-        data: rows
-          .filter((row) => !BANNED_NFT_IDS.includes(Number(row.token_id)))
-          .map((row) => ({
-            id: Number(row.token_id),
-            pool_key: {
-              token0: num.toHex(row.token0),
-              token1: num.toHex(row.token1),
-              fee: num.toHex(row.fee),
-              tick_spacing: num.toHex(row.tick_spacing),
-              extension: num.toHex(row.extension),
-            },
-            bounds: {
-              lower: Number(row.lower_bound),
-              upper: Number(row.upper_bound),
-            },
-            metadata_url: `${origin}/${row.token_id}`,
-            image: `${origin}/${row.token_id}/image.svg`,
-            minted_timestamp: row.minted_timestamp.getTime(),
-          })),
+        data: rows.map((row) => ({
+          id: Number(row.token_id),
+          pool_key: {
+            token0: num.toHex(row.token0),
+            token1: num.toHex(row.token1),
+            fee: num.toHex(row.fee),
+            tick_spacing: num.toHex(row.tick_spacing),
+            extension: num.toHex(row.extension),
+          },
+          bounds: {
+            lower: Number(row.lower_bound),
+            upper: Number(row.upper_bound),
+          },
+          metadata_url: `${origin}/${row.token_id}`,
+          image: `${origin}/${row.token_id}/image.svg`,
+          minted_timestamp: row.minted_timestamp.getTime(),
+        })),
       },
       {
         headers: {
