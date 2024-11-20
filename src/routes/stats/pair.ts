@@ -136,19 +136,25 @@ export class GetPairInfoVolume extends EkuboAPIRoute {
 
     const timestamp = Date.now();
     const thirtyDaysAgo = new Date(timestamp - 1000 * 60 * 60 * 24 * 30);
+    const twentyFourHoursAgo = new Date(timestamp - 1000 * 60 * 60 * 24);
 
-    const [{ rows: volumeByToken }, { rows: volumeByTokenByDate }] =
-      await queries.withinTransaction(() =>
-        Promise.all([
-          queries.getTotalVolumeByToken({ pair }),
-          queries.getVolumeByTokenByDate(thirtyDaysAgo, pair),
-        ]),
-      );
+    const [
+      { rows: volumeByToken },
+      { rows: volumeByTokenByDate },
+      { rows: volumeByToken_24h },
+    ] = await queries.withinTransaction(() =>
+      Promise.all([
+        queries.getTotalVolumeByToken({ pair }),
+        queries.getVolumeByTokenByDate(thirtyDaysAgo, pair),
+        queries.getTotalVolumeByToken({ since: twentyFourHoursAgo }),
+      ]),
+    );
 
     return json(
       {
         volumeByToken,
         volumeByTokenByDate,
+        volumeByToken_24h,
       },
       {
         headers: {
