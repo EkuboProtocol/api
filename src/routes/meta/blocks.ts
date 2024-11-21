@@ -58,7 +58,7 @@ export class GetBlock extends EkuboAPIRoute {
         headers: {
           "cache-control":
             blockTag === "latest"
-              ? "public,max-age=0,must-revalidate"
+              ? "public,max-age=5,no-cache"
               : "public,max-age=300,must-revalidate",
         },
       },
