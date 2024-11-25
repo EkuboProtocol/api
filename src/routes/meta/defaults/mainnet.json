@@ -347,5 +347,14 @@
     "sort_order": 1,
     "total_supply": null,
     "hidden": true
+  },
+  {
+    "name": "Staked Starknet Token",
+    "symbol": "sSTRK",
+    "decimals": 18,
+    "l2_token_address": "0x0356f304b154d29d2a8fe22f1cb9107a9b564a733cf6b4cc47fd121ac1af90c9",
+    "sort_order": 1,
+    "total_supply": null,
+    "hidden": true
   }
 ]
