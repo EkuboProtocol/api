@@ -338,5 +338,14 @@
     "sort_order": 1,
     "total_supply": 10065076070,
     "hidden": true
+  },
+  {
+    "name": "Endur xSTRK",
+    "symbol": "xSTRK",
+    "decimals": 18,
+    "l2_token_address": "0x028d709c875c0ceac3dce7065bec5328186dc89fe254527084d1689910954b0a",
+    "sort_order": 1,
+    "total_supply": null,
+    "hidden": true
   }
 ]
