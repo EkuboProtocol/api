@@ -356,5 +356,14 @@
     "sort_order": 1,
     "total_supply": null,
     "hidden": true
+  },
+  {
+    "name": "zkLend Staked STRK",
+    "symbol": "kSTRK",
+    "decimals": 18,
+    "l2_token_address": "0x45cd05ee2caaac3459b87e5e2480099d201be2f62243f839f00e10dde7f500c",
+    "sort_order": 1,
+    "total_supply": null,
+    "hidden": true
   }
 ]
