@@ -988,67 +988,58 @@ export class Queries {
       total_amount_sold_before_last_update: string;
     }>({
       text: `
-          WITH owned_tokens AS (SELECT token_id
-                                FROM position_transfers pt1
-                                WHERE to_address = $1
-                                  AND NOT EXISTS (SELECT 1
-                                                  FROM position_transfers pt2
-                                                  WHERE pt2.token_id = pt1.token_id
-                                                    AND pt2.event_id > pt1.event_id
-                                                    AND (CASE WHEN $2 THEN pt2.to_address != 0 ELSE TRUE END))),
-               order_updates_with_seconds_passed AS (SELECT event_id,
-                                                            SUM(CASE
-                                                                    WHEN sale_rate_delta1 != 0 THEN sale_rate_delta1
-                                                                    ELSE sale_rate_delta0 END) OVER (
-                                                                PARTITION BY tou.salt, tou.key_hash, tou.start_time, tou.end_time, tou.owner ORDER BY tou.event_id
-                                                                )              AS sale_rate_after_update,
-                                                            -- the number of seconds that the order was active at the previous state before this update
-                                                            COALESCE(
-                                                                            LEAD(EXTRACT(EPOCH FROM
-                                                                                         LEAST(GREATEST(b.time, tou.start_time), tou.end_time)))
-                                                                            OVER (PARTITION BY tou.salt, tou.key_hash, tou.start_time, tou.end_time, tou.owner ORDER BY tou.event_id) -
-                                                                            EXTRACT(EPOCH FROM
-                                                                                    LEAST(GREATEST(b.time, tou.start_time), tou.end_time)),
-                                                                            0) AS current_state_active_seconds
-                                                     FROM twamm_order_updates tou
-                                                              JOIN event_keys e ON tou.event_id = e.id
-                                                              JOIN blocks b ON e.block_number = b.number)
-          SELECT token_id,
-                 sell_token,
-                 buy_token,
-                 start_time,
-                 end_time,
-                 fee,
-                 block_time_at_start,
-                 last_order_update,
-                 (SELECT b2.time
-                  FROM twamm_proceeds_withdrawals tpw
-                           JOIN event_keys ek2 ON tpw.event_id = ek2.id
-                           JOIN blocks b2 ON ek2.block_number = b2.number
-                  WHERE tpw.salt = ot.token_id::NUMERIC
-                  ORDER BY tpw.event_id DESC
-                  LIMIT 1)                    AS last_collect_proceeds,
-                 tpw.total_proceeds_withdrawn AS total_proceeds_withdrawn,
-                 tas.total_amount_sold_before_last_update        AS total_amount_sold_before_last_update
+          WITH owned_tokens AS (
+              SELECT token_id
+              FROM position_transfers pt1
+              WHERE to_address = $1
+                AND NOT EXISTS (
+                  SELECT 1
+                  FROM position_transfers pt2
+                  WHERE pt2.token_id = pt1.token_id
+                    AND pt2.event_id > pt1.event_id
+                    AND (CASE WHEN $2 THEN pt2.to_address != 0 ELSE TRUE END)
+              )
+          )
+          SELECT
+              token_id,
+              sell_token,
+              buy_token,
+              start_time,
+              end_time,
+              fee,
+              block_time_at_start,
+              last_order_update,
+              (SELECT b2.time
+               FROM twamm_proceeds_withdrawals tpw
+                        JOIN event_keys ek2 ON tpw.event_id = ek2.id
+                        JOIN blocks b2 ON ek2.block_number = b2.number
+               WHERE tpw.salt = ot.token_id::NUMERIC
+               ORDER BY tpw.event_id DESC
+               LIMIT 1) AS last_collect_proceeds,
+              tpw.total_proceeds_withdrawn,
+              tas.total_amount_sold_before_last_update
           FROM owned_tokens AS ot
                    JOIN LATERAL (
-              SELECT tou.key_hash,
-                     (CASE WHEN tou.sale_rate_delta0 != 0 THEN token0 ELSE token1 END) AS sell_token,
-                     (CASE WHEN tou.sale_rate_delta0 != 0 THEN token1 ELSE token0 END) AS buy_token,
-                     start_time,
-                     end_time,
-                     fee,
-                     MIN(b.time)                                                       AS block_time_at_start,
-                     MAX(b.time)                                                       AS last_order_update
-              FROM twamm_order_updates AS tou
+              SELECT
+                  tou.key_hash,
+                  CASE WHEN tou.sale_rate_delta0 != 0 THEN token0 ELSE token1 END AS sell_token,
+                  CASE WHEN tou.sale_rate_delta0 != 0 THEN token1 ELSE token0 END AS buy_token,
+                  start_time,
+                  end_time,
+                  fee,
+                  MIN(b.time) AS block_time_at_start,
+                  MAX(b.time) AS last_order_update
+              FROM twamm_order_updates tou
                        JOIN pool_keys ON tou.key_hash = pool_keys.key_hash
                        JOIN event_keys ek ON tou.event_id = ek.id
                        JOIN blocks b ON ek.block_number = b.number
-              WHERE tou.salt = token_id::NUMERIC
+              WHERE tou.salt = ot.token_id::NUMERIC
               GROUP BY 1, 2, 3, 4, 5, 6
               ) AS distinct_orders ON TRUE
                    LEFT JOIN LATERAL (
-              SELECT SUM(CASE WHEN tpw.amount0 != 0 THEN tpw.amount0 ELSE tpw.amount1 END) total_proceeds_withdrawn
+              SELECT SUM(
+                             CASE WHEN tpw.amount0 != 0 THEN tpw.amount0 ELSE tpw.amount1 END
+                     ) AS total_proceeds_withdrawn
               FROM twamm_proceeds_withdrawals tpw
               WHERE tpw.salt = ot.token_id::NUMERIC
                 AND tpw.key_hash = distinct_orders.key_hash
@@ -1057,15 +1048,32 @@ export class Queries {
               ) AS tpw ON TRUE
                    LEFT JOIN LATERAL (
               SELECT SUM(
-                             FLOOR(ouwsp.sale_rate_after_update *
-                                   ouwsp.current_state_active_seconds / pow(2, 32)::numeric)
+                             FLOOR(ouwsp.sale_rate_after_update * ouwsp.current_state_active_seconds / POW(2, 32)::NUMERIC)
                      ) AS total_amount_sold_before_last_update
-              FROM twamm_order_updates tou
-                       JOIN order_updates_with_seconds_passed ouwsp ON tou.event_id = ouwsp.event_id
-              WHERE tou.salt = ot.token_id::NUMERIC
-                AND tou.key_hash = distinct_orders.key_hash
-                AND tou.start_time = distinct_orders.start_time
-                AND tou.end_time = distinct_orders.end_time
+              FROM (
+                       SELECT
+                           tou.event_id,
+                           SUM(
+                           CASE WHEN sale_rate_delta1 != 0 THEN sale_rate_delta1 ELSE sale_rate_delta0 END
+                              ) OVER (
+                               PARTITION BY tou.salt, tou.key_hash, tou.start_time, tou.end_time, tou.owner
+                               ORDER BY tou.event_id
+                               ) AS sale_rate_after_update,
+                           COALESCE(
+                                           LEAD(EXTRACT(EPOCH FROM LEAST(GREATEST(b.time, tou.start_time), tou.end_time))) OVER (
+                                       PARTITION BY tou.salt, tou.key_hash, tou.start_time, tou.end_time, tou.owner
+                                       ORDER BY tou.event_id
+                                       ) - EXTRACT(EPOCH FROM LEAST(GREATEST(b.time, tou.start_time), tou.end_time)),
+                                           0
+                           ) AS current_state_active_seconds
+                       FROM twamm_order_updates tou
+                                JOIN event_keys e ON tou.event_id = e.id
+                                JOIN blocks b ON e.block_number = b.number
+                       WHERE tou.salt = ot.token_id::NUMERIC
+                         AND tou.key_hash = distinct_orders.key_hash
+                         AND tou.start_time = distinct_orders.start_time
+                         AND tou.end_time = distinct_orders.end_time
+                   ) ouwsp
               ) AS tas ON TRUE
           ORDER BY token_id DESC
       `,
