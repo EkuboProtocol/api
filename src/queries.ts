@@ -1387,6 +1387,50 @@ export class Queries {
 
     return BigInt(rows[0]?.amount_delegated ?? 0);
   }
+
+  getLimitOrdersByAddress(address: bigint, showClosed: boolean) {
+    return this.client.query<{
+      token_id: string;
+      token0: string;
+      token1: string;
+      tick: number;
+      liquidity: string;
+      amount: string;
+    }>({
+      text: `
+          WITH owned_tokens AS (SELECT token_id
+                                FROM position_transfers pt1
+                                WHERE to_address = $1
+                                  AND NOT EXISTS (SELECT 1
+                                                  FROM position_transfers pt2
+                                                  WHERE pt2.token_id = pt1.token_id
+                                                    AND pt2.event_id > pt1.event_id
+                                                    AND (CASE WHEN $2 THEN pt2.to_address != 0 ELSE TRUE END)))
+          SELECT ot.token_id, lo.token0, lo.token1, lo.tick, lo.liquidity, lo.amount
+          FROM owned_tokens ot
+                   -- select the information for the latest open event for each order
+                   JOIN LATERAL (
+              SELECT event_id AS open_event_id, token0, token1, tick, liquidity, amount
+              FROM limit_order_placed lop
+              WHERE salt = ot.token_id::NUMERIC
+              ORDER BY event_id DESC
+              LIMIT 1
+              ) AS lo ON TRUE
+              -- select the latest close event
+                   LEFT JOIN LATERAL (
+              SELECT event_id AS close_event_id
+              FROM limit_order_closed
+              WHERE salt = ot.token_id::NUMERIC
+              ORDER BY event_id DESC
+              LIMIT 1
+              ) AS lc ON TRUE
+          WHERE $2
+             OR lc.close_event_id IS NULL
+             OR lc.close_event_id < lo.open_event_id
+      `,
+      values: [address, showClosed],
+    });
+  }
 }
 
 export async function createQueries(env: Env) {
