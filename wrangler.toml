@@ -26,3 +26,7 @@ hyperdrive = [
     { binding = "HYPERDRIVE", id = "40ad51ac50dd4f29a332f750e6dd7110" }
 ]
 vars = { STARKNET_CHAIN_ID = "0x534e5f4d41494e", QUOTER_API_BASE_URL = "https://quoter-mainnet-api.ekubo.org/" }
+
+[observability]
+enabled = true
+head_sampling_rate = 1 # optional. default = 1.
