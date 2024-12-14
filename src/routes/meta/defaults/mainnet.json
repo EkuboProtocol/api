@@ -365,5 +365,14 @@
     "sort_order": 1,
     "total_supply": null,
     "hidden": true
+  },
+  {
+    "name": "SCHIZODIO",
+    "symbol": "SCHIZODIO",
+    "decimals": 18,
+    "l2_token_address": "0x00acc2fa3bb7f6a6726c14d9e142d51fe3984dbfa32b5907e1e76425177875e2",
+    "sort_order": 1,
+    "total_supply": 1000000000,
+    "hidden": true
   }
 ]
