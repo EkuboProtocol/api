@@ -353,14 +353,14 @@ export class GetDefiSpringIncentives extends EkuboAPIRoute {
                 : null,
             ]);
 
-          const sqrtRatio = BigInt(
-            pairPrice?.price
-              .sqrt()
-              .mul((2n ** 128n).toString())
-              .toFixed(0) ?? 0n,
-          );
+          if (pairPrice) {
+            const sqrtRatio = BigInt(
+              pairPrice.price
+                .sqrt()
+                .mul((2n ** 128n).toString())
+                .toFixed(0),
+            );
 
-          if (sqrtRatio) {
             const sortedTicks = pairLiquidityGraph.map((p) => ({
               tick: Number(p.tick),
               liquidityDelta: BigInt(p.net_liquidity_delta_diff),
@@ -379,7 +379,8 @@ export class GetDefiSpringIncentives extends EkuboAPIRoute {
               );
 
             const tick = Number(
-              pairLiquidityGraph[currentTickIndex]?.tick ?? MIN_TICK,
+              pairLiquidityGraph[currentTickIndex]?.tick ??
+                pairPrice.price.log(1.000001).toFixed(0),
             );
 
             const pool = new BasePool({
