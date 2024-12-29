@@ -622,7 +622,7 @@ export class Queries {
     baseToken,
     quoteToken,
     endTime = new Date(),
-    numHours = 6,
+    numHours = 24,
   }: {
     baseToken: bigint;
     quoteToken: bigint;

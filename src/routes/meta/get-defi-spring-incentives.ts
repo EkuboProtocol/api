@@ -16,6 +16,8 @@ interface OBLIncentiveResponse {
     [pairId: string]: {
       date: string;
       allocation: number;
+      token0_allocation?: number;
+      token1_allocation?: number;
       thirty_day_realized_volatility: number;
       tvl_usd?: number;
       apr?: number;
