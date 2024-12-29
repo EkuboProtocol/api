@@ -7,7 +7,12 @@ import { z } from "zod";
 import Decimal from "decimal.js-light";
 import { AddressType, NumericType } from "../../shared/validation/address";
 import { DateType } from "../../shared/validation/date";
-import { BasePool, MIN_TICK, toSqrtRatio } from "@ekubo/sdk";
+import {
+  BasePool,
+  MAX_SQRT_RATIO,
+  MIN_SQRT_RATIO,
+  toSqrtRatio,
+} from "@ekubo/sdk";
 
 const DEFAULT_STRK_PRICE = new Decimal("2.0");
 
@@ -394,36 +399,47 @@ export class GetDefiSpringIncentives extends EkuboAPIRoute {
               sortedTicks,
             });
 
-            const maxDepthForRealRewards = volatilityInTicks * 2;
+            const maxDepthForRealRewards = Math.max(volatilityInTicks, 1) * 2;
+            const maxSqrtRatioForRewards =
+              (sqrtRatio * toSqrtRatio(maxDepthForRealRewards * 2)) >> 128n;
 
             const { consumedAmount: depth0 } = pool.quote({
               tokenAmount: {
                 amount: -0xffffffffffffffffffffffffffffffffn,
                 token: BigInt(token0.l2_token_address),
               },
-              sqrtRatioLimit: toSqrtRatio(tick + maxDepthForRealRewards),
+              sqrtRatioLimit:
+                maxSqrtRatioForRewards < MAX_SQRT_RATIO
+                  ? maxSqrtRatioForRewards
+                  : MAX_SQRT_RATIO,
               meta: { block: { number: 1, time: 2 } },
             });
+
+            const minSqrtRatioForRewards =
+              (sqrtRatio << 128n) / toSqrtRatio(maxDepthForRealRewards * 2);
 
             const { consumedAmount: depth1 } = pool.quote({
               tokenAmount: {
                 amount: -0xffffffffffffffffffffffffffffffffn,
                 token: BigInt(token1.l2_token_address),
               },
-              sqrtRatioLimit: toSqrtRatio(tick - maxDepthForRealRewards),
+              sqrtRatioLimit:
+                minSqrtRatioForRewards > MIN_SQRT_RATIO
+                  ? minSqrtRatioForRewards
+                  : MIN_SQRT_RATIO,
               meta: { block: { number: 1, time: 2 } },
             });
 
             const usdcValueDepth0 = price0?.price
               ? new Decimal(-depth0.toString()).mul(price0.price)
-              : pairPrice?.price && price1?.price
+              : pairPrice.price && price1?.price
                 ? new Decimal(-depth0.toString())
                     .mul(pairPrice.price)
                     .mul(price1.price)
                 : new Decimal(0);
             const usdcValueDepth1 = price1?.price
               ? new Decimal(-depth1.toString()).mul(price1.price)
-              : pairPrice?.price && price0?.price
+              : pairPrice.price && price0?.price
                 ? new Decimal(-depth1.toString())
                     .div(pairPrice.price)
                     .mul(price0.price)
@@ -434,7 +450,7 @@ export class GetDefiSpringIncentives extends EkuboAPIRoute {
               .div(new Decimal(10).pow(6));
 
             const extrapolatedUsdcReward = new Decimal(
-              latestDateAllocation?.allocation ?? 0,
+              latestDateAllocation.allocation,
             )
               .mul(365)
               .mul(strkPrice);
