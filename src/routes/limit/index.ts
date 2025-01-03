@@ -34,8 +34,16 @@ const LimitOrderPartInfo = z
     key: OrderKeyType,
     liquidity: DecimalStringType,
     amount: DecimalStringType,
+    token0_amount_withdrawn: DecimalStringType.nullable(),
+    token1_amount_withdrawn: DecimalStringType.nullable(),
   })
-  .required({ amount: true, liquidity: true, key: true });
+  .required({
+    amount: true,
+    liquidity: true,
+    key: true,
+    token0_amount_withdrawn: true,
+    token1_amount_withdrawn: true,
+  });
 
 const LimitOrderInfo = z
   .object({
@@ -86,7 +94,19 @@ export class ListLimitOrders extends EkuboAPIRoute {
     return json(
       {
         orders: rows.reduce<LimitOrderInfoType[]>(
-          (memo, { token_id, token0, token1, tick, amount, liquidity }) => {
+          (
+            memo,
+            {
+              token_id,
+              token0,
+              token1,
+              tick,
+              amount,
+              liquidity,
+              token0_amount_withdrawn,
+              token1_amount_withdrawn,
+            },
+          ) => {
             const tokenId = Number(token_id);
             const order = memo.find((m) => m.token_id === tokenId);
 
@@ -98,6 +118,8 @@ export class ListLimitOrders extends EkuboAPIRoute {
               },
               liquidity: BigInt(liquidity).toString(),
               amount: BigInt(amount).toString(),
+              token0_amount_withdrawn,
+              token1_amount_withdrawn,
             };
 
             if (!order) {

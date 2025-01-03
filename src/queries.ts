@@ -1396,6 +1396,8 @@ export class Queries {
       tick: number;
       liquidity: string;
       amount: string;
+      token0_amount_withdrawn: string | null;
+      token1_amount_withdrawn: string | null;
     }>({
       text: `
           WITH owned_tokens AS (SELECT token_id
@@ -1406,7 +1408,7 @@ export class Queries {
                                                   WHERE pt2.token_id = pt1.token_id
                                                     AND pt2.event_id > pt1.event_id
                                                     AND (CASE WHEN $2 THEN pt2.to_address != 0 ELSE TRUE END)))
-          SELECT ot.token_id, lo.token0, lo.token1, lo.tick, lo.liquidity, lo.amount
+          SELECT ot.token_id, lo.token0, lo.token1, lo.tick, lo.liquidity, lo.amount, lc.token0_amount_withdrawn, lc.token1_amount_withdrawn
           FROM owned_tokens ot
                    -- select the information for the latest open event for each order
                    JOIN LATERAL (
@@ -1418,7 +1420,7 @@ export class Queries {
               ) AS lo ON TRUE
               -- select the latest close event
                    LEFT JOIN LATERAL (
-              SELECT event_id AS close_event_id
+              SELECT event_id AS close_event_id, amount0 AS token0_amount_withdrawn, amount1 AS token1_amount_withdrawn
               FROM limit_order_closed
               WHERE salt = ot.token_id::NUMERIC
               ORDER BY event_id DESC
