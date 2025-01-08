@@ -29,6 +29,7 @@ export interface NFTMetadata {
 }
 
 const BASE = new Decimal("1.000001");
+const DOUBLE_LIMIT_ORDER_TICK_SPACING = 256;
 
 export function formattedPrice(
   tick: bigint,
@@ -97,6 +98,15 @@ export class GetNftMetadata extends EkuboAPIRoute {
     let metadata: NFTMetadata;
 
     const positionMetadata = await queries.getPositionMetadata(id);
+    let twammOrderMetadata = null;
+    let limitOrderMetadata = null;
+
+    if (positionMetadata === null) {
+      twammOrderMetadata = await queries.getTwammOrderMetadata(id);
+    }
+    if ((twammOrderMetadata?.length ?? 0) === 0) {
+      limitOrderMetadata = await queries.getLimitOrderMetadata(id);
+    }
 
     const origin = new URL(url).origin;
     const image = `${origin}/${id}/image.svg`;
@@ -197,26 +207,21 @@ export class GetNftMetadata extends EkuboAPIRoute {
           attributes: attributesStored,
         };
       }
-    } else {
-      const orderMetadata = await queries.getOrderMetadata(id);
-      if (orderMetadata.length === 0) {
-        throw new StatusError(404, `Token ID ${id} not found`);
-      }
-
+    } else if (twammOrderMetadata && twammOrderMetadata?.length !== 0) {
       metadata = {
         name: "Ekubo TWAP Order",
         image,
         attributes: [
           {
             trait_type: "minted_tx_hash",
-            value: num.toHex(orderMetadata[0].minted_tx_hash),
+            value: num.toHex(twammOrderMetadata[0].minted_tx_hash),
           },
           {
             trait_type: "minted_timestamp",
-            value: orderMetadata[0].minted_timestamp.getTime().toString(),
+            value: twammOrderMetadata[0].minted_timestamp.getTime().toString(),
           },
         ].concat(
-          orderMetadata.flatMap((metadata, ix) => [
+          twammOrderMetadata.flatMap((metadata, ix) => [
             {
               trait_type: `start_time_${ix}`,
               value: (metadata.start_time.getTime() / 1000).toString(),
@@ -237,30 +242,76 @@ export class GetNftMetadata extends EkuboAPIRoute {
             BigInt(metadata.sale_rate1) === 0n
               ? []
               : BigInt(metadata.sale_rate0) > 0n
-              ? [
-                  {
-                    trait_type: `sell_token_${ix}`,
-                    value: num.toHex(BigInt(metadata.token0)),
-                  },
-                  {
-                    trait_type: `buy_token_${ix}`,
-                    value: num.toHex(BigInt(metadata.token1)),
-                  },
-                ]
-              : [
-                  {
-                    trait_type: `sell_token_${ix}`,
-                    value: num.toHex(BigInt(metadata.token1)),
-                  },
-                  {
-                    trait_type: `buy_token_${ix}`,
-                    value: num.toHex(BigInt(metadata.token0)),
-                  },
-                ]),
+                ? [
+                    {
+                      trait_type: `sell_token_${ix}`,
+                      value: num.toHex(BigInt(metadata.token0)),
+                    },
+                    {
+                      trait_type: `buy_token_${ix}`,
+                      value: num.toHex(BigInt(metadata.token1)),
+                    },
+                  ]
+                : [
+                    {
+                      trait_type: `sell_token_${ix}`,
+                      value: num.toHex(BigInt(metadata.token1)),
+                    },
+                    {
+                      trait_type: `buy_token_${ix}`,
+                      value: num.toHex(BigInt(metadata.token0)),
+                    },
+                  ]),
           ]),
         ),
         description: "A TWAP order in Ekubo Protocol",
       };
+    } else if (limitOrderMetadata && limitOrderMetadata.length !== 0) {
+      metadata = {
+        name: "Ekubo Limit Order",
+        description: "A Limit order in Ekubo Protocol",
+        image,
+        attributes: [
+          {
+            trait_type: "minted_tx_hash",
+            value: num.toHex(limitOrderMetadata[0].minted_tx_hash),
+          },
+          {
+            trait_type: "minted_timestamp",
+            value: limitOrderMetadata[0].minted_timestamp.getTime().toString(),
+          },
+        ].concat(
+          limitOrderMetadata.flatMap((metadata, ix) => {
+            const isSellingToken0 =
+              metadata.tick % DOUBLE_LIMIT_ORDER_TICK_SPACING === 0;
+
+            const [sellToken, buyToken] = isSellingToken0
+              ? [metadata.token0, metadata.token1]
+              : [metadata.token1, metadata.token0];
+
+            return [
+              {
+                trait_type: `sell_amount_${ix}`,
+                value: limitOrderMetadata[0].amount ?? "0",
+              },
+              {
+                trait_type: `limit_tick_${ix}`,
+                value: limitOrderMetadata[0].tick.toString(),
+              },
+              {
+                trait_type: `sell_token_${ix}`,
+                value: num.toHex(BigInt(sellToken)),
+              },
+              {
+                trait_type: `buy_token_${ix}`,
+                value: num.toHex(BigInt(buyToken)),
+              },
+            ];
+          }),
+        ),
+      };
+    } else {
+      throw new StatusError(404, `Token ID ${id} not found`);
     }
 
     return json(metadata, {
@@ -371,29 +422,29 @@ export class ListNftEvents extends EkuboAPIRoute {
                   to_address: num.toHex(to_address),
                 }
               : type === 1
-              ? {
-                  type: "update",
-                  transaction_hash: num.toHex(transaction_hash),
-                  timestamp,
-                  liquidity_delta,
-                  delta0,
-                  delta1,
-                }
-              : type === 2
-              ? {
-                  type: "collect_fees",
-                  transaction_hash: num.toHex(transaction_hash),
-                  timestamp,
-                  delta0,
-                  delta1,
-                }
-              : {
-                  type: "protocol_fees",
-                  transaction_hash: num.toHex(transaction_hash),
-                  timestamp,
-                  delta0,
-                  delta1,
-                },
+                ? {
+                    type: "update",
+                    transaction_hash: num.toHex(transaction_hash),
+                    timestamp,
+                    liquidity_delta,
+                    delta0,
+                    delta1,
+                  }
+                : type === 2
+                  ? {
+                      type: "collect_fees",
+                      transaction_hash: num.toHex(transaction_hash),
+                      timestamp,
+                      delta0,
+                      delta1,
+                    }
+                  : {
+                      type: "protocol_fees",
+                      transaction_hash: num.toHex(transaction_hash),
+                      timestamp,
+                      delta0,
+                      delta1,
+                    },
         ),
       },
       {

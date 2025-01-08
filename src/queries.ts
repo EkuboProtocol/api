@@ -199,7 +199,7 @@ export class Queries {
     return rows[0];
   }
 
-  public async getOrderMetadata(id: number) {
+  public async getTwammOrderMetadata(id: number) {
     const { rows } = await this.client.query<{
       minted_tx_hash: string;
       minted_timestamp: Date;
@@ -239,6 +239,43 @@ export class Queries {
               ) AS order_data ON TRUE
                    JOIN pool_keys ON order_data.pool_key_hash = key_hash
                    JOIN event_keys ON transfer.event_id = event_keys.id
+                   JOIN blocks ON event_keys.block_number = blocks.number
+          WHERE token_id = $1
+            AND from_address = 0
+      `,
+      values: [id],
+    });
+    return rows;
+  }
+
+  public async getLimitOrderMetadata(id: number) {
+    const { rows } = await this.client.query<{
+      minted_tx_hash: string;
+      minted_timestamp: Date;
+      token0: string;
+      token1: string;
+      tick: number;
+      amount: string;
+    }>({
+      text: `
+          SELECT event_keys.transaction_hash AS minted_tx_hash,
+                 blocks.time                 AS minted_timestamp,
+                 limit_order_data.token0,
+                 limit_order_data.token1,
+                 limit_order_data.tick,
+                 limit_order_data.amount
+          FROM position_transfers AS pt
+                   LEFT JOIN LATERAL (
+              SELECT token0,
+                     token1,
+                     tick,
+                     amount,
+                     key_hash                AS pool_key_hash
+              FROM limit_order_placed AS lop
+              WHERE lop.salt = token_id::NUMERIC
+              ) AS limit_order_data ON TRUE
+                   JOIN pool_keys ON limit_order_data.pool_key_hash = pool_keys.key_hash
+                   JOIN event_keys ON pt.event_id = event_keys.id
                    JOIN blocks ON event_keys.block_number = blocks.number
           WHERE token_id = $1
             AND from_address = 0
