@@ -98,15 +98,14 @@ export class GetNftMetadata extends EkuboAPIRoute {
     let metadata: NFTMetadata;
 
     const positionMetadata = await queries.getPositionMetadata(id);
-    let twammOrderMetadata = null;
-    let limitOrderMetadata = null;
-
-    if (positionMetadata === null) {
-      twammOrderMetadata = await queries.getTwammOrderMetadata(id);
-    }
-    if ((twammOrderMetadata?.length ?? 0) === 0) {
-      limitOrderMetadata = await queries.getLimitOrderMetadata(id);
-    }
+    const twammOrderMetadata =
+      positionMetadata === null
+        ? await queries.getTwammOrderMetadata(id)
+        : null;
+    const limitOrderMetadata =
+      (twammOrderMetadata?.length ?? 0) === 0
+        ? await queries.getLimitOrderMetadata(id)
+        : null;
 
     const origin = new URL(url).origin;
     const image = `${origin}/${id}/image.svg`;
@@ -292,11 +291,11 @@ export class GetNftMetadata extends EkuboAPIRoute {
             return [
               {
                 trait_type: `sell_amount_${ix}`,
-                value: limitOrderMetadata[0].amount ?? "0",
+                value: metadata.amount ?? "0",
               },
               {
                 trait_type: `limit_tick_${ix}`,
-                value: limitOrderMetadata[0].tick.toString(),
+                value: metadata.tick.toString(),
               },
               {
                 trait_type: `sell_token_${ix}`,
