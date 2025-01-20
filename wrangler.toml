@@ -16,13 +16,13 @@ PG_CONNECTION_STRING = "postgresql://postgres:postgres@localhost:5432/evm_sepoli
 
 [env.sepolia]
 hyperdrive = [
-    { binding = "HYPERDRIVE", id = "48dd80eff90249868cc5a1ee4b966ac5" }
+    { binding = "HYPERDRIVE", id = "4c98d632c1e5426eab8bece278d2abc6" }
 ]
 vars = { CHAIN_ID = "11155111" }
 
 [env.mainnet]
 hyperdrive = [
-    { binding = "HYPERDRIVE", id = "40ad51ac50dd4f29a332f750e6dd7110" }
+    { binding = "HYPERDRIVE", id = "04a121d0804b4451b6cdf894c9b61b56" }
 ]
 vars = { CHAIN_ID = "1" }
 
