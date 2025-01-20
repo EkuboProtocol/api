@@ -10,7 +10,7 @@ mode = "smart"
 cpu_ms = 5000
 
 [vars]
-STARKNET_CHAIN_ID = "11155111"
+CHAIN_ID = "11155111"
 # only used for running the api locally
 PG_CONNECTION_STRING = "postgresql://postgres:postgres@localhost:5432/evm_sepolia"
 
