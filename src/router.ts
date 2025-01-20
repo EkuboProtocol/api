@@ -1,22 +1,7 @@
 import { OpenAPIRouter } from "@cloudflare/itty-router-openapi";
 import { version } from "../package.json";
-import {
-  GetBatchAirdropClaim,
-  ListAvailableClaimsForUser,
-  ListDrops,
-} from "./routes/meta/drops";
-import {
-  GetDefiSpringIncentives,
-  GetDefiSpringIncentivesForAddressAndDates,
-  GetDefiSpringIncentivesForTokenId,
-} from "./routes/meta/get-defi-spring-incentives";
 import { ListTokens } from "./routes/meta/tokens";
 import { GetBlock } from "./routes/meta/blocks";
-import {
-  GetLeaderboard,
-  GetLeaderboardForCollector,
-} from "./routes/leaderboard";
-import { GetQuote } from "./routes/quote";
 import {
   GetOverview,
   GetOverviewPairs,
@@ -45,19 +30,7 @@ import {
   ListNftEvents,
   ListPositions,
 } from "./routes/nft";
-import {
-  GetTwammPairState,
-  GetTwammPoolState,
-} from "./routes/twamm/getTwammPoolState";
-import { ListTwapOrders } from "./routes/twamm/orders";
 import { error } from "itty-router";
-import {
-  ListProposals,
-  GetStakerInfo,
-  ListTopDelegates,
-  ListVotesOnProposal,
-} from "./routes/governance";
-import { ListLimitOrders } from "./routes/limit";
 
 export const router = OpenAPIRouter({
   schema: {
@@ -79,23 +52,8 @@ export const router = OpenAPIRouter({
   redoc_url: null as unknown as undefined,
   docs_url: null as unknown as undefined,
 })
-  .get(ListDrops.route, ListDrops)
-  .get(ListAvailableClaimsForUser.route, ListAvailableClaimsForUser)
-  .get(GetBatchAirdropClaim.route, GetBatchAirdropClaim)
-  .get(GetDefiSpringIncentives.route, GetDefiSpringIncentives)
-  .get(
-    GetDefiSpringIncentivesForTokenId.route,
-    GetDefiSpringIncentivesForTokenId,
-  )
-  .get(
-    GetDefiSpringIncentivesForAddressAndDates.route,
-    GetDefiSpringIncentivesForAddressAndDates,
-  )
   .get(ListTokens.route, ListTokens)
   .get(GetBlock.route, GetBlock)
-  .get(GetLeaderboard.route, GetLeaderboard)
-  .get(GetLeaderboardForCollector.route, GetLeaderboardForCollector)
-  .get(GetQuote.route, GetQuote)
   .get(GetOverview.route, GetOverview)
   .get(GetOverviewPairs.route, GetOverviewPairs)
   .get(GetOverviewRevenue.route, GetOverviewRevenue)
@@ -116,13 +74,5 @@ export const router = OpenAPIRouter({
   .get(GetNftMetadata.route, GetNftMetadata)
   .get(ListNftEvents.route, ListNftEvents)
   .get(GetNftImage.route, GetNftImage)
-  .get(GetTwammPoolState.route, GetTwammPoolState)
-  .get(GetTwammPairState.route, GetTwammPairState)
-  .get(ListTwapOrders.route, ListTwapOrders)
-  .get(ListLimitOrders.route, ListLimitOrders)
-  .get(ListProposals.route, ListProposals)
-  .get(ListTopDelegates.route, ListTopDelegates)
-  .get(ListVotesOnProposal.route, ListVotesOnProposal)
-  .get(GetStakerInfo.route, GetStakerInfo)
   // catch missed routes
   .all("*", () => error(404));

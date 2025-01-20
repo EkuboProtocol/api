@@ -5,7 +5,6 @@ import { generateSvg } from "./generateSvg";
 import { parseId } from "./parseId";
 import Decimal from "decimal.js-light";
 
-import { num } from "starknet";
 import { createQueries } from "../../queries";
 import {
   OpenAPIRouteSchema,
@@ -14,6 +13,7 @@ import {
 } from "@cloudflare/itty-router-openapi";
 import { z } from "zod";
 import { AddressType, HexStringType } from "../../shared/validation/address";
+import { toHex } from "viem";
 
 export interface NFTMetadata {
   name: string;
@@ -29,7 +29,6 @@ export interface NFTMetadata {
 }
 
 const BASE = new Decimal("1.000001");
-const DOUBLE_LIMIT_ORDER_TICK_SPACING = 256;
 
 export function formattedPrice(
   tick: bigint,
@@ -98,14 +97,6 @@ export class GetNftMetadata extends EkuboAPIRoute {
     let metadata: NFTMetadata;
 
     const positionMetadata = await queries.getPositionMetadata(id);
-    const twammOrderMetadata =
-      positionMetadata === null
-        ? await queries.getTwammOrderMetadata(id)
-        : null;
-    const limitOrderMetadata =
-      (twammOrderMetadata?.length ?? 0) === 0
-        ? await queries.getLimitOrderMetadata(id)
-        : null;
 
     const origin = new URL(url).origin;
     const image = `${origin}/${id}/image.svg`;
@@ -114,10 +105,10 @@ export class GetNftMetadata extends EkuboAPIRoute {
       const attributesStored: NFTMetadata["attributes"] = [
         {
           trait_type: "minted_tx_hash",
-          value: num.toHex(positionMetadata.minted_tx_hash),
+          value: toHex(positionMetadata.minted_tx_hash),
         },
-        { trait_type: "token0", value: num.toHex(positionMetadata.token0) },
-        { trait_type: "token1", value: num.toHex(positionMetadata.token1) },
+        { trait_type: "token0", value: toHex(positionMetadata.token0) },
+        { trait_type: "token1", value: toHex(positionMetadata.token1) },
         { trait_type: "fee", value: positionMetadata.fee.toString() },
         {
           trait_type: "tick_spacing",
@@ -125,7 +116,7 @@ export class GetNftMetadata extends EkuboAPIRoute {
         },
         {
           trait_type: "extension",
-          value: num.toHex(positionMetadata.extension).toString(),
+          value: toHex(positionMetadata.extension).toString(),
         },
         {
           trait_type: "tick_lower",
@@ -141,7 +132,7 @@ export class GetNftMetadata extends EkuboAPIRoute {
         },
       ];
 
-      const allTokens = await getAllTokens(env, queries);
+      const allTokens = await getAllTokens(env);
 
       const token0 = getTokenByAddress(allTokens, positionMetadata.token0);
       const token1 = getTokenByAddress(allTokens, positionMetadata.token1);
@@ -206,109 +197,6 @@ export class GetNftMetadata extends EkuboAPIRoute {
           attributes: attributesStored,
         };
       }
-    } else if (twammOrderMetadata && twammOrderMetadata?.length !== 0) {
-      metadata = {
-        name: "Ekubo TWAP Order",
-        image,
-        attributes: [
-          {
-            trait_type: "minted_tx_hash",
-            value: num.toHex(twammOrderMetadata[0].minted_tx_hash),
-          },
-          {
-            trait_type: "minted_timestamp",
-            value: twammOrderMetadata[0].minted_timestamp.getTime().toString(),
-          },
-        ].concat(
-          twammOrderMetadata.flatMap((metadata, ix) => [
-            {
-              trait_type: `start_time_${ix}`,
-              value: (metadata.start_time.getTime() / 1000).toString(),
-            },
-            {
-              trait_type: `end_time_${ix}`,
-              value: (metadata.end_time.getTime() / 1000).toString(),
-            },
-            {
-              trait_type: `fee_${ix}`,
-              value: num.toHex(BigInt(metadata.fee)),
-            },
-            {
-              trait_type: `last_update_time_${ix}`,
-              value: (metadata.last_update_time.getTime() / 1000).toString(),
-            },
-            ...(BigInt(metadata.sale_rate0) === 0n &&
-            BigInt(metadata.sale_rate1) === 0n
-              ? []
-              : BigInt(metadata.sale_rate0) > 0n
-                ? [
-                    {
-                      trait_type: `sell_token_${ix}`,
-                      value: num.toHex(BigInt(metadata.token0)),
-                    },
-                    {
-                      trait_type: `buy_token_${ix}`,
-                      value: num.toHex(BigInt(metadata.token1)),
-                    },
-                  ]
-                : [
-                    {
-                      trait_type: `sell_token_${ix}`,
-                      value: num.toHex(BigInt(metadata.token1)),
-                    },
-                    {
-                      trait_type: `buy_token_${ix}`,
-                      value: num.toHex(BigInt(metadata.token0)),
-                    },
-                  ]),
-          ]),
-        ),
-        description: "A TWAP order in Ekubo Protocol",
-      };
-    } else if (limitOrderMetadata && limitOrderMetadata.length !== 0) {
-      metadata = {
-        name: "Ekubo Limit Order",
-        description: "A Limit order in Ekubo Protocol",
-        image,
-        attributes: [
-          {
-            trait_type: "minted_tx_hash",
-            value: num.toHex(limitOrderMetadata[0].minted_tx_hash),
-          },
-          {
-            trait_type: "minted_timestamp",
-            value: limitOrderMetadata[0].minted_timestamp.getTime().toString(),
-          },
-        ].concat(
-          limitOrderMetadata.flatMap((metadata, ix) => {
-            const isSellingToken0 =
-              metadata.tick % DOUBLE_LIMIT_ORDER_TICK_SPACING === 0;
-
-            const [sellToken, buyToken] = isSellingToken0
-              ? [metadata.token0, metadata.token1]
-              : [metadata.token1, metadata.token0];
-
-            return [
-              {
-                trait_type: `sell_amount_${ix}`,
-                value: metadata.amount ?? "0",
-              },
-              {
-                trait_type: `limit_tick_${ix}`,
-                value: metadata.tick.toString(),
-              },
-              {
-                trait_type: `sell_token_${ix}`,
-                value: num.toHex(BigInt(sellToken)),
-              },
-              {
-                trait_type: `buy_token_${ix}`,
-                value: num.toHex(BigInt(buyToken)),
-              },
-            ];
-          }),
-        ),
-      };
     } else {
       throw new StatusError(404, `Token ID ${id} not found`);
     }
@@ -357,7 +245,7 @@ export class GetNftState extends EkuboAPIRoute {
 
     return json(
       {
-        last_owner: num.toHex(BigInt(state.last_owner)),
+        last_owner: toHex(BigInt(state.last_owner)),
       },
       {
         headers: {
@@ -415,15 +303,15 @@ export class ListNftEvents extends EkuboAPIRoute {
             type === 0
               ? {
                   type: "transfer",
-                  transaction_hash: num.toHex(transaction_hash),
+                  transaction_hash: toHex(transaction_hash),
                   timestamp,
-                  from_address: num.toHex(from_address),
-                  to_address: num.toHex(to_address),
+                  from_address: toHex(from_address),
+                  to_address: toHex(to_address),
                 }
               : type === 1
                 ? {
                     type: "update",
-                    transaction_hash: num.toHex(transaction_hash),
+                    transaction_hash: toHex(transaction_hash),
                     timestamp,
                     liquidity_delta,
                     delta0,
@@ -432,14 +320,14 @@ export class ListNftEvents extends EkuboAPIRoute {
                 : type === 2
                   ? {
                       type: "collect_fees",
-                      transaction_hash: num.toHex(transaction_hash),
+                      transaction_hash: toHex(transaction_hash),
                       timestamp,
                       delta0,
                       delta1,
                     }
                   : {
                       type: "protocol_fees",
-                      transaction_hash: num.toHex(transaction_hash),
+                      transaction_hash: toHex(transaction_hash),
                       timestamp,
                       delta0,
                       delta1,
@@ -479,7 +367,7 @@ export class GetNftImage extends EkuboAPIRoute {
       throw new StatusError(400, "Invalid token ID");
     }
 
-    return new Response(generateSvg(id, env.STARKNET_CHAIN_ID), {
+    return new Response(generateSvg(id, env.CHAIN_ID), {
       status: 200,
       headers: {
         "content-type": "image/svg+xml",
@@ -528,11 +416,11 @@ export class ListPositions extends EkuboAPIRoute {
         data: rows.map((row) => ({
           id: Number(row.token_id),
           pool_key: {
-            token0: num.toHex(row.token0),
-            token1: num.toHex(row.token1),
-            fee: num.toHex(row.fee),
-            tick_spacing: num.toHex(row.tick_spacing),
-            extension: num.toHex(row.extension),
+            token0: toHex(row.token0),
+            token1: toHex(row.token1),
+            fee: toHex(row.fee),
+            tick_spacing: toHex(row.tick_spacing),
+            extension: toHex(row.extension),
           },
           bounds: {
             lower: Number(row.lower_bound),

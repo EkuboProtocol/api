@@ -3,7 +3,7 @@
     "name": "Wrapped BTC",
     "symbol": "WBTC",
     "decimals": 8,
-    "l2_token_address": "0x03fe2b97c1fd336e750087d68b9b867997fd64a2661ff3ca5a7c771641e8e7ac",
+    "token_address": "0x03fe2b97c1fd336e750087d68b9b867997fd64a2661ff3ca5a7c771641e8e7ac",
     "sort_order": 0,
     "total_supply": null
   },
@@ -11,7 +11,7 @@
     "name": "USD Coin",
     "symbol": "USDC",
     "decimals": 6,
-    "l2_token_address": "0x053c91253bc9682c04929ca02ed00b3e423f6710d2ee7e0d5ebb06f3ecf368a8",
+    "token_address": "0x053c91253bc9682c04929ca02ed00b3e423f6710d2ee7e0d5ebb06f3ecf368a8",
     "sort_order": 5,
     "total_supply": null
   },
@@ -19,7 +19,7 @@
     "name": "LUSD Stablecoin",
     "symbol": "LUSD",
     "decimals": 18,
-    "l2_token_address": "0x070a76fd48ca0ef910631754d77dd822147fe98a569b826ec85e3c33fde586ac",
+    "token_address": "0x070a76fd48ca0ef910631754d77dd822147fe98a569b826ec85e3c33fde586ac",
     "sort_order": 3,
     "total_supply": null,
     "hidden": true
@@ -28,7 +28,7 @@
     "name": "Tether USD",
     "symbol": "USDT",
     "decimals": 6,
-    "l2_token_address": "0x068f5c6a61780768455de69077e07e89787839bf8166decfbf92b645209c0fb8",
+    "token_address": "0x068f5c6a61780768455de69077e07e89787839bf8166decfbf92b645209c0fb8",
     "sort_order": 4,
     "total_supply": null
   },
@@ -36,7 +36,7 @@
     "name": "Ether",
     "symbol": "ETH",
     "decimals": 18,
-    "l2_token_address": "0x049d36570d4e46f48e99674bd3fcc84644ddd6b96f7c741b1562b82f9e004dc7",
+    "token_address": "0x049d36570d4e46f48e99674bd3fcc84644ddd6b96f7c741b1562b82f9e004dc7",
     "sort_order": 3,
     "total_supply": null
   },
@@ -44,7 +44,7 @@
     "name": "Dai Stablecoin",
     "symbol": "DAIv0",
     "decimals": 18,
-    "l2_token_address": "0x00da114221cb83fa859dbdb4c44beeaa0bb37c7537ad5ae66fe5e0efd20e6eb3",
+    "token_address": "0x00da114221cb83fa859dbdb4c44beeaa0bb37c7537ad5ae66fe5e0efd20e6eb3",
     "sort_order": 4,
     "total_supply": null,
     "hidden": true
@@ -53,7 +53,7 @@
     "name": "Dai Stablecoin",
     "symbol": "DAI",
     "decimals": 18,
-    "l2_token_address": "0x05574eb6b8789a91466f902c380d978e472db68170ff82a5b650b95a58ddf4ad",
+    "token_address": "0x05574eb6b8789a91466f902c380d978e472db68170ff82a5b650b95a58ddf4ad",
     "sort_order": 4,
     "total_supply": null
   },
@@ -61,7 +61,7 @@
     "name": "Wrapped liquid staked Ether 2.0",
     "symbol": "wstETH",
     "decimals": 18,
-    "l2_token_address": "0x042b8f0484674ca266ac5d08e4ac6a3fe65bd3129795def2dca5c34ecc5f96d2",
+    "token_address": "0x042b8f0484674ca266ac5d08e4ac6a3fe65bd3129795def2dca5c34ecc5f96d2",
     "sort_order": 1,
     "total_supply": null
   },
@@ -69,7 +69,7 @@
     "name": "Rocket Pool ETH",
     "symbol": "rETH",
     "decimals": 18,
-    "l2_token_address": "0x0319111a5037cbec2b3e638cc34a3474e2d2608299f3e62866e9cc683208c610",
+    "token_address": "0x0319111a5037cbec2b3e638cc34a3474e2d2608299f3e62866e9cc683208c610",
     "sort_order": 1,
     "total_supply": null
   },
@@ -77,7 +77,7 @@
     "name": "LORDS",
     "symbol": "LORDS",
     "decimals": 18,
-    "l2_token_address": "0x0124aeb495b947201f5fac96fd1138e326ad86195b98df6dec9009158a533b49",
+    "token_address": "0x0124aeb495b947201f5fac96fd1138e326ad86195b98df6dec9009158a533b49",
     "sort_order": 1,
     "total_supply": 50900000
   },
@@ -85,7 +85,7 @@
     "name": "R Stablecoin",
     "symbol": "R",
     "decimals": 18,
-    "l2_token_address": "0x01fa2fb85f624600112040e1f3a848f53a37ed5a7385810063d5fe6887280333",
+    "token_address": "0x01fa2fb85f624600112040e1f3a848f53a37ed5a7385810063d5fe6887280333",
     "sort_order": 3,
     "total_supply": null,
     "hidden": true
@@ -94,7 +94,7 @@
     "name": "Frax",
     "symbol": "FRAX",
     "decimals": 18,
-    "l2_token_address": "0x009c6b4fb13dfaa025c1383ed6190af8ed8cbb09d9588a3bb020feb152442406",
+    "token_address": "0x009c6b4fb13dfaa025c1383ed6190af8ed8cbb09d9588a3bb020feb152442406",
     "sort_order": 1,
     "total_supply": 649462235,
     "hidden": true
@@ -103,7 +103,7 @@
     "name": "Frax Share",
     "symbol": "FXS",
     "decimals": 18,
-    "l2_token_address": "0x0058efd0e73c33a848ffaa88738d128ebf0af98ea78cf3c14dc757bb02d39ffb",
+    "token_address": "0x0058efd0e73c33a848ffaa88738d128ebf0af98ea78cf3c14dc757bb02d39ffb",
     "sort_order": 1,
     "total_supply": null,
     "hidden": true
@@ -112,7 +112,7 @@
     "name": "Staked Frax Ether",
     "symbol": "sfrxETH",
     "decimals": 18,
-    "l2_token_address": "0x04578fffc279e61b5cb0267a5f8e24b6089d40f93158fbbad2cb23b8622c9233",
+    "token_address": "0x04578fffc279e61b5cb0267a5f8e24b6089d40f93158fbbad2cb23b8622c9233",
     "sort_order": 1,
     "total_supply": null,
     "hidden": true
@@ -121,7 +121,7 @@
     "name": "Anubis",
     "symbol": "ANB",
     "decimals": 18,
-    "l2_token_address": "0x070dd1f88cc973de315c10b2da4e196554c20e925d630474e257a0a4d9d363dc",
+    "token_address": "0x070dd1f88cc973de315c10b2da4e196554c20e925d630474e257a0a4d9d363dc",
     "sort_order": 1,
     "total_supply": 1000000000,
     "hidden": true
@@ -130,7 +130,7 @@
     "name": "Uniswap",
     "symbol": "UNI",
     "decimals": 18,
-    "l2_token_address": "0x049210ffc442172463f3177147c1aeaa36c51d152c1b0630f2364c300d4f48ee",
+    "token_address": "0x049210ffc442172463f3177147c1aeaa36c51d152c1b0630f2364c300d4f48ee",
     "sort_order": 1,
     "total_supply": 1000000000
   },
@@ -138,7 +138,7 @@
     "name": "OWL",
     "symbol": "OWL",
     "decimals": 18,
-    "l2_token_address": "0x039877a272619050ab8b0e3e0a19b58d076fc2ce84da1dc73b699590e629f2b8",
+    "token_address": "0x039877a272619050ab8b0e3e0a19b58d076fc2ce84da1dc73b699590e629f2b8",
     "sort_order": 1,
     "total_supply": 100000000,
     "hidden": true
@@ -147,7 +147,7 @@
     "name": "Paper",
     "symbol": "PAPER",
     "decimals": 18,
-    "l2_token_address": "0x0410466536b5ae074f7fea81e5533b8134a9fa08b3dd077dd9db08f64997d113",
+    "token_address": "0x0410466536b5ae074f7fea81e5533b8134a9fa08b3dd077dd9db08f64997d113",
     "sort_order": 1,
     "total_supply": null,
     "hidden": true
@@ -156,7 +156,7 @@
     "name": "STRAK-meme",
     "symbol": "STRAK-meme",
     "decimals": 18,
-    "l2_token_address": "0x055c3868c743e92c470701799388cb3fb1d922dcec271150d10462c6948e3cf4",
+    "token_address": "0x055c3868c743e92c470701799388cb3fb1d922dcec271150d10462c6948e3cf4",
     "sort_order": 1,
     "total_supply": 10000000000,
     "hidden": true
@@ -165,7 +165,7 @@
     "name": "StarkPepe",
     "symbol": "xSPEPE",
     "decimals": 18,
-    "l2_token_address": "0x06f15ec4b6ff0b7f7a216c4b2ccdefc96cbf114d6242292ca82971592f62273b",
+    "token_address": "0x06f15ec4b6ff0b7f7a216c4b2ccdefc96cbf114d6242292ca82971592f62273b",
     "sort_order": 1,
     "total_supply": null,
     "hidden": true,
@@ -175,7 +175,7 @@
     "name": "Gary Gensler",
     "symbol": "xGARY",
     "decimals": 18,
-    "l2_token_address": "0xd3d60f69d76b6639fc51ae1447480ecdf0ba1ea3f6162e3230be0a40ef2a6b",
+    "token_address": "0xd3d60f69d76b6639fc51ae1447480ecdf0ba1ea3f6162e3230be0a40ef2a6b",
     "sort_order": 1,
     "total_supply": null,
     "hidden": true,
@@ -185,7 +185,7 @@
     "name": "StarkBanana",
     "symbol": "xSBANANA",
     "decimals": 18,
-    "l2_token_address": "0x03650d77855a4f05b9dd0acff3936cfffd693624754a96d90e4d5876e06c231d",
+    "token_address": "0x03650d77855a4f05b9dd0acff3936cfffd693624754a96d90e4d5876e06c231d",
     "sort_order": 1,
     "total_supply": 100000000,
     "hidden": true,
@@ -195,7 +195,7 @@
     "name": "StarkNet Token",
     "symbol": "STRK",
     "decimals": 18,
-    "l2_token_address": "0x04718f5a0fc34cc1af16a1cdee98ffb20c31f5cd61d6ab07201858f4287c938d",
+    "token_address": "0x04718f5a0fc34cc1af16a1cdee98ffb20c31f5cd61d6ab07201858f4287c938d",
     "sort_order": 2,
     "total_supply": 10000000000
   },
@@ -203,7 +203,7 @@
     "name": "zkLend Token",
     "symbol": "ZEND",
     "decimals": 18,
-    "l2_token_address": "0x00585c32b625999e6e5e78645ff8df7a9001cf5cf3eb6b80ccdd16cb64bd3a34",
+    "token_address": "0x00585c32b625999e6e5e78645ff8df7a9001cf5cf3eb6b80ccdd16cb64bd3a34",
     "sort_order": 1,
     "total_supply": null
   },
@@ -211,7 +211,7 @@
     "name": "Also Ekubo Protocol",
     "symbol": "MOCHI",
     "decimals": 18,
-    "l2_token_address": "0x075afe6402ad5a5c20dd25e10ec3b3986acaa647b77e4ae24b0cbc9a54a27a87",
+    "token_address": "0x075afe6402ad5a5c20dd25e10ec3b3986acaa647b77e4ae24b0cbc9a54a27a87",
     "sort_order": 1,
     "total_supply": 10000000,
     "hidden": true
@@ -220,7 +220,7 @@
     "name": "Ekubo Protocol",
     "symbol": "EKUBO",
     "decimals": 18,
-    "l2_token_address": "0x075afe6402ad5a5c20dd25e10ec3b3986acaa647b77e4ae24b0cbc9a54a27a87",
+    "token_address": "0x075afe6402ad5a5c20dd25e10ec3b3986acaa647b77e4ae24b0cbc9a54a27a87",
     "sort_order": 1,
     "total_supply": 10000000
   },
@@ -228,7 +228,7 @@
     "name": "SOCKS",
     "symbol": "SOCKS",
     "decimals": 18,
-    "l2_token_address": "0x023ed2ba4fb5709302c5dfd739fa7613359042f143286c115b6c7f7dc2601015",
+    "token_address": "0x023ed2ba4fb5709302c5dfd739fa7613359042f143286c115b6c7f7dc2601015",
     "sort_order": 1,
     "total_supply": 100000000000,
     "hidden": true
@@ -237,7 +237,7 @@
     "name": "Nostra",
     "symbol": "NSTR",
     "decimals": 18,
-    "l2_token_address": "0x00c530f2c0aa4c16a0806365b0898499fba372e5df7a7172dc6fe9ba777e8007",
+    "token_address": "0x00c530f2c0aa4c16a0806365b0898499fba372e5df7a7172dc6fe9ba777e8007",
     "sort_order": 1,
     "total_supply": 100000000
   },
@@ -245,7 +245,7 @@
     "name": "Standard Weighted Adalian Yield",
     "symbol": "SWAY",
     "decimals": 6,
-    "l2_token_address": "0x004878d1148318a31829523ee9c6a5ee563af6cd87f90a30809e5b0d27db8a9b",
+    "token_address": "0x004878d1148318a31829523ee9c6a5ee563af6cd87f90a30809e5b0d27db8a9b",
     "sort_order": 1,
     "total_supply": null,
     "hidden": true
@@ -254,7 +254,7 @@
     "name": "ZKX",
     "symbol": "ZKX",
     "decimals": 18,
-    "l2_token_address": "0x256c74b33f5734c68402cd9433dfa77856f62c6940f54591874527cf898a924",
+    "token_address": "0x256c74b33f5734c68402cd9433dfa77856f62c6940f54591874527cf898a924",
     "sort_order": 1,
     "total_supply": 100000000,
     "hidden": true
@@ -263,7 +263,7 @@
     "name": "Carmine",
     "symbol": "CRM",
     "decimals": 18,
-    "l2_token_address": "0x51c4b1fe3bf6774b87ad0b15ef5d1472759076e42944fff9b9f641ff13e5bbe",
+    "token_address": "0x51c4b1fe3bf6774b87ad0b15ef5d1472759076e42944fff9b9f641ff13e5bbe",
     "sort_order": 1,
     "total_supply": 100000000
   },
@@ -271,7 +271,7 @@
     "name": "Nimbora sDAI",
     "symbol": "nsDAI",
     "decimals": 18,
-    "l2_token_address": "0x004380de5819e2e989b5e8b978ea2811fd36fdbc5c12fcfb3a2b444098888665",
+    "token_address": "0x004380de5819e2e989b5e8b978ea2811fd36fdbc5c12fcfb3a2b444098888665",
     "sort_order": 2,
     "total_supply": null,
     "hidden": true
@@ -280,7 +280,7 @@
     "name": "Nimbora Pendle EtherFi ETH",
     "symbol": "npeETH",
     "decimals": 18,
-    "l2_token_address": "0x316ec509f7ad89b7e6e03d15a436df634454f95e815536d616af03edc850fa3",
+    "token_address": "0x316ec509f7ad89b7e6e03d15a436df634454f95e815536d616af03edc850fa3",
     "sort_order": 1,
     "total_supply": null,
     "hidden": true
@@ -289,7 +289,7 @@
     "name": "Nimbora Pendle Puffer ETH",
     "symbol": "nppETH",
     "decimals": 18,
-    "l2_token_address": "0x00357cba05d61beb5fe378429d25013dc5fe0f67878b541747b0675c5ebecee1",
+    "token_address": "0x00357cba05d61beb5fe378429d25013dc5fe0f67878b541747b0675c5ebecee1",
     "sort_order": 1,
     "total_supply": null,
     "hidden": true
@@ -298,7 +298,7 @@
     "name": "Nimbora Pendle Flux USDC",
     "symbol": "npfUSDC",
     "decimals": 6,
-    "l2_token_address": "0x52bdb85297e6b0c87d8ec98c5195a4324ff731676d64d9bee2e9e8710e8ea52",
+    "token_address": "0x52bdb85297e6b0c87d8ec98c5195a4324ff731676d64d9bee2e9e8710e8ea52",
     "sort_order": 3,
     "total_supply": null,
     "hidden": true
@@ -307,7 +307,7 @@
     "name": "Nimbora Pendle Aave USDT",
     "symbol": "npaUSDT",
     "decimals": 6,
-    "l2_token_address": "0x040daf98c49c6104002428958456208455a03825198fa7646bd793a321f4fc82",
+    "token_address": "0x040daf98c49c6104002428958456208455a03825198fa7646bd793a321f4fc82",
     "sort_order": 3,
     "total_supply": null,
     "hidden": true
@@ -316,7 +316,7 @@
     "name": "Cash",
     "symbol": "CASH",
     "decimals": 18,
-    "l2_token_address": "0x498edfaf50ca5855666a700c25dd629d577eb9afccdf3b5977aec79aee55ada",
+    "token_address": "0x498edfaf50ca5855666a700c25dd629d577eb9afccdf3b5977aec79aee55ada",
     "sort_order": 3,
     "total_supply": null,
     "hidden": false
@@ -325,7 +325,7 @@
     "name": "Flip",
     "symbol": "FLIP",
     "decimals": 18,
-    "l2_token_address": "0x01bfe97d729138fc7c2d93c77d6d1d8a24708d5060608017d9b384adf38f04c7",
+    "token_address": "0x01bfe97d729138fc7c2d93c77d6d1d8a24708d5060608017d9b384adf38f04c7",
     "sort_order": 1,
     "total_supply": null,
     "hidden": true
@@ -334,7 +334,7 @@
     "name": "Alf the Alpha",
     "symbol": "ALF",
     "decimals": 18,
-    "l2_token_address": "0x078d7dfcddb44667153513bd837ff534ef395484f4b6cf28faa25b2c46e063d9",
+    "token_address": "0x078d7dfcddb44667153513bd837ff534ef395484f4b6cf28faa25b2c46e063d9",
     "sort_order": 1,
     "total_supply": 10065076070,
     "hidden": true
@@ -343,7 +343,7 @@
     "name": "Endur xSTRK",
     "symbol": "xSTRK",
     "decimals": 18,
-    "l2_token_address": "0x028d709c875c0ceac3dce7065bec5328186dc89fe254527084d1689910954b0a",
+    "token_address": "0x028d709c875c0ceac3dce7065bec5328186dc89fe254527084d1689910954b0a",
     "sort_order": 1,
     "total_supply": null,
     "hidden": false
@@ -352,7 +352,7 @@
     "name": "Nimbora Staked Starknet Token",
     "symbol": "sSTRK",
     "decimals": 18,
-    "l2_token_address": "0x0356f304b154d29d2a8fe22f1cb9107a9b564a733cf6b4cc47fd121ac1af90c9",
+    "token_address": "0x0356f304b154d29d2a8fe22f1cb9107a9b564a733cf6b4cc47fd121ac1af90c9",
     "sort_order": 1,
     "total_supply": null,
     "hidden": false
@@ -361,7 +361,7 @@
     "name": "zkLend Staked STRK",
     "symbol": "kSTRK",
     "decimals": 18,
-    "l2_token_address": "0x45cd05ee2caaac3459b87e5e2480099d201be2f62243f839f00e10dde7f500c",
+    "token_address": "0x45cd05ee2caaac3459b87e5e2480099d201be2f62243f839f00e10dde7f500c",
     "sort_order": 1,
     "total_supply": null,
     "hidden": false
@@ -370,7 +370,7 @@
     "name": "SCHIZODIO",
     "symbol": "SCHIZODIO",
     "decimals": 18,
-    "l2_token_address": "0x00acc2fa3bb7f6a6726c14d9e142d51fe3984dbfa32b5907e1e76425177875e2",
+    "token_address": "0x00acc2fa3bb7f6a6726c14d9e142d51fe3984dbfa32b5907e1e76425177875e2",
     "sort_order": 1,
     "total_supply": 1000000000,
     "hidden": true
@@ -379,7 +379,7 @@
     "name": "Eternum Stone",
     "symbol": "STONE",
     "decimals": 18,
-    "l2_token_address": "0x439a1c010e3e1bb2d43d43411000893c0042bd88f6c701611a0ea914d426da4",
+    "token_address": "0x439a1c010e3e1bb2d43d43411000893c0042bd88f6c701611a0ea914d426da4",
     "sort_order": 1,
     "total_supply": null,
     "hidden": true
@@ -388,7 +388,7 @@
     "name": "Eternum Coal",
     "symbol": "COAL",
     "decimals": 18,
-    "l2_token_address": "0xce635e3f241b0ae78c46a929d84a9101910188f9c4024eaa7559556503c31a",
+    "token_address": "0xce635e3f241b0ae78c46a929d84a9101910188f9c4024eaa7559556503c31a",
     "sort_order": 1,
     "total_supply": null,
     "hidden": true
@@ -397,7 +397,7 @@
     "name": "Eternum Wood",
     "symbol": "WOOD",
     "decimals": 18,
-    "l2_token_address": "0x40d8907cec0f7ae9c364dfb12485a1314d84c129bf1898d2f3d4b7fcc7d44f4",
+    "token_address": "0x40d8907cec0f7ae9c364dfb12485a1314d84c129bf1898d2f3d4b7fcc7d44f4",
     "sort_order": 1,
     "total_supply": null,
     "hidden": true
@@ -406,7 +406,7 @@
     "name": "Eternum Copper",
     "symbol": "COPPER",
     "decimals": 18,
-    "l2_token_address": "0x66ed5c928ee027a9419ace1cbea8389885161db5572a7c5c4fef2310e9bf494",
+    "token_address": "0x66ed5c928ee027a9419ace1cbea8389885161db5572a7c5c4fef2310e9bf494",
     "sort_order": 1,
     "total_supply": null,
     "hidden": true
@@ -415,7 +415,7 @@
     "name": "Eternum Ironwood",
     "symbol": "IRONWOOD",
     "decimals": 18,
-    "l2_token_address": "0x1720cf6318bff45e62acc588680ae3cd4d5f8465b1d52cb710533c9299b031a",
+    "token_address": "0x1720cf6318bff45e62acc588680ae3cd4d5f8465b1d52cb710533c9299b031a",
     "sort_order": 1,
     "total_supply": null,
     "hidden": true
@@ -424,7 +424,7 @@
     "name": "Eternum Obsidian",
     "symbol": "OBSIDIAN",
     "decimals": 18,
-    "l2_token_address": "0x3b6448d09dcd023507376402686261f5d6739455fa02f804907b066e488da66",
+    "token_address": "0x3b6448d09dcd023507376402686261f5d6739455fa02f804907b066e488da66",
     "sort_order": 1,
     "total_supply": null,
     "hidden": true
@@ -433,7 +433,7 @@
     "name": "Eternum Gold",
     "symbol": "GOLD",
     "decimals": 18,
-    "l2_token_address": "0xdff9dca192609c4e86ab3be22c7ec1e968876c992d21986f3c542be97fa2f",
+    "token_address": "0xdff9dca192609c4e86ab3be22c7ec1e968876c992d21986f3c542be97fa2f",
     "sort_order": 1,
     "total_supply": null,
     "hidden": true
@@ -442,7 +442,7 @@
     "name": "Eternum Silver",
     "symbol": "SILVER",
     "decimals": 18,
-    "l2_token_address": "0x6fe21d2d4a8a05bdb70f09c9250af9870020d5dcc35f410b4a39d6605c3e353",
+    "token_address": "0x6fe21d2d4a8a05bdb70f09c9250af9870020d5dcc35f410b4a39d6605c3e353",
     "sort_order": 1,
     "total_supply": null,
     "hidden": true
@@ -451,7 +451,7 @@
     "name": "Eternum Mithral",
     "symbol": "MITHRAL",
     "decimals": 18,
-    "l2_token_address": "0x67ba235c569c23877064b2ac6ebd4d79f32d3c00f5fab8e28a3b5700b957f6",
+    "token_address": "0x67ba235c569c23877064b2ac6ebd4d79f32d3c00f5fab8e28a3b5700b957f6",
     "sort_order": 1,
     "total_supply": null,
     "hidden": true
@@ -460,7 +460,7 @@
     "name": "Eternum Alchemical Silver",
     "symbol": "ALCHEMICALSILVER",
     "decimals": 18,
-    "l2_token_address": "0x3956a5301e99522038a2e7dcb9c2a89bf087ffa79310ee0a508b5538efd8ddd",
+    "token_address": "0x3956a5301e99522038a2e7dcb9c2a89bf087ffa79310ee0a508b5538efd8ddd",
     "sort_order": 1,
     "total_supply": null,
     "hidden": true
@@ -469,7 +469,7 @@
     "name": "Eternum Cold Iron",
     "symbol": "COLDIRON",
     "decimals": 18,
-    "l2_token_address": "0x555d713e59d4ff96b7960447e9bc9e79bfdeab5b0eea74e3df81bce61cfbc77",
+    "token_address": "0x555d713e59d4ff96b7960447e9bc9e79bfdeab5b0eea74e3df81bce61cfbc77",
     "sort_order": 1,
     "total_supply": null,
     "hidden": true
@@ -478,7 +478,7 @@
     "name": "Eternum Deep Crystal",
     "symbol": "DEEPCRYSTAL",
     "decimals": 18,
-    "l2_token_address": "0x1d655ac834d38df7921074fc1588411e202b1af83307cbd996983aff52db3a8",
+    "token_address": "0x1d655ac834d38df7921074fc1588411e202b1af83307cbd996983aff52db3a8",
     "sort_order": 1,
     "total_supply": null,
     "hidden": true
@@ -487,7 +487,7 @@
     "name": "Eternum Ruby",
     "symbol": "RUBY",
     "decimals": 18,
-    "l2_token_address": "0x3d9b66720959d0e7687b898292c10e62e78626f2dba5e1909961a2ce3f86612",
+    "token_address": "0x3d9b66720959d0e7687b898292c10e62e78626f2dba5e1909961a2ce3f86612",
     "sort_order": 1,
     "total_supply": null,
     "hidden": true
@@ -496,7 +496,7 @@
     "name": "Eternum Diamonds",
     "symbol": "DIAMONDS",
     "decimals": 18,
-    "l2_token_address": "0xe03ea8ae385f64754820af5c01c36abf1b8130dd6797d3fd9d430e4114e876",
+    "token_address": "0xe03ea8ae385f64754820af5c01c36abf1b8130dd6797d3fd9d430e4114e876",
     "sort_order": 1,
     "total_supply": null,
     "hidden": true
@@ -505,7 +505,7 @@
     "name": "Eternum Hartwood",
     "symbol": "HARTWOOD",
     "decimals": 18,
-    "l2_token_address": "0x5620aa7170cd66dbcbc37d03087bfe4633ffef91d3e4d97b501de906004f79b",
+    "token_address": "0x5620aa7170cd66dbcbc37d03087bfe4633ffef91d3e4d97b501de906004f79b",
     "sort_order": 1,
     "total_supply": null,
     "hidden": true
@@ -514,7 +514,7 @@
     "name": "Eternum Ignium",
     "symbol": "IGNIUM",
     "decimals": 18,
-    "l2_token_address": "0x625c1f789b03ebebc7a9322366f38ebad1f693b84b2abd8cb8f5b2748b0cdd5",
+    "token_address": "0x625c1f789b03ebebc7a9322366f38ebad1f693b84b2abd8cb8f5b2748b0cdd5",
     "sort_order": 1,
     "total_supply": null,
     "hidden": true
@@ -523,7 +523,7 @@
     "name": "Eternum Twilight Quartz",
     "symbol": "TWILIGHTQUARTZ",
     "decimals": 18,
-    "l2_token_address": "0x35e24c02409c3cfe8d5646399a62c4d102bb782938d5f5180e92c9c62d3faf7",
+    "token_address": "0x35e24c02409c3cfe8d5646399a62c4d102bb782938d5f5180e92c9c62d3faf7",
     "sort_order": 1,
     "total_supply": null,
     "hidden": true
@@ -532,7 +532,7 @@
     "name": "Eternum True Ice",
     "symbol": "TRUEICE",
     "decimals": 18,
-    "l2_token_address": "0x4485f5a6e16562e1c761cd348e63256d00389e3ddf4f5d98afe7ab44c57c481",
+    "token_address": "0x4485f5a6e16562e1c761cd348e63256d00389e3ddf4f5d98afe7ab44c57c481",
     "sort_order": 1,
     "total_supply": null,
     "hidden": true
@@ -541,7 +541,7 @@
     "name": "Eternum Adamantine",
     "symbol": "ADAMANTINE",
     "decimals": 18,
-    "l2_token_address": "0x367f838f85a2f5e1580d6f011e4476f581083314cff8721ba3dda9706076eed",
+    "token_address": "0x367f838f85a2f5e1580d6f011e4476f581083314cff8721ba3dda9706076eed",
     "sort_order": 1,
     "total_supply": null,
     "hidden": true
@@ -550,7 +550,7 @@
     "name": "Eternum Sapphire",
     "symbol": "SAPPHIRE",
     "decimals": 18,
-    "l2_token_address": "0x2f8dd022568af8f9f718aa37707a9b858529db56910633a160456838b6cbcbc",
+    "token_address": "0x2f8dd022568af8f9f718aa37707a9b858529db56910633a160456838b6cbcbc",
     "sort_order": 1,
     "total_supply": null,
     "hidden": true
@@ -559,7 +559,7 @@
     "name": "Eternum Ethereal Silica",
     "symbol": "ETHEREALSILICA",
     "decimals": 18,
-    "l2_token_address": "0x68b6e23cbbd58a644700f55e96c83580921e9f521b6e5175396b53ba7910e7d",
+    "token_address": "0x68b6e23cbbd58a644700f55e96c83580921e9f521b6e5175396b53ba7910e7d",
     "sort_order": 1,
     "total_supply": null,
     "hidden": true
@@ -568,7 +568,7 @@
     "name": "Eternum Dragon Hide",
     "symbol": "DRAGONHIDE",
     "decimals": 18,
-    "l2_token_address": "0x3bf856515bece3c93f5061b7941b8645f817a0acab93c758b8c7b4bc0afa3c6",
+    "token_address": "0x3bf856515bece3c93f5061b7941b8645f817a0acab93c758b8c7b4bc0afa3c6",
     "sort_order": 1,
     "total_supply": null,
     "hidden": true
@@ -577,7 +577,7 @@
     "name": "Eternum Ancient Fragment",
     "symbol": "ANCIENTFRAGMENT",
     "decimals": 18,
-    "l2_token_address": "0x0695b08ecdfdd828c2e6267da62f59e6d7543e690ef56a484df25c8566b332a5",
+    "token_address": "0x0695b08ecdfdd828c2e6267da62f59e6d7543e690ef56a484df25c8566b332a5",
     "sort_order": 1,
     "total_supply": null,
     "hidden": true
@@ -586,7 +586,7 @@
     "name": "Eternum Donkey",
     "symbol": "DONKEY",
     "decimals": 18,
-    "l2_token_address": "0x264be95a4a2ace20add68cb321acdccd2f9f8440ee1c7abd85da44ddab01085",
+    "token_address": "0x264be95a4a2ace20add68cb321acdccd2f9f8440ee1c7abd85da44ddab01085",
     "sort_order": 1,
     "total_supply": null,
     "hidden": true
@@ -595,7 +595,7 @@
     "name": "Eternum Knight",
     "symbol": "KNIGHT",
     "decimals": 18,
-    "l2_token_address": "0xac965f9e67164723c16735a9da8dbc9eb8e43b1bd0323591e87c056badf606",
+    "token_address": "0xac965f9e67164723c16735a9da8dbc9eb8e43b1bd0323591e87c056badf606",
     "sort_order": 1,
     "total_supply": null,
     "hidden": true
@@ -604,7 +604,7 @@
     "name": "Eternum Crossbowman",
     "symbol": "CROSSBOWMAN",
     "decimals": 18,
-    "l2_token_address": "0x67e4ac00a241be06ba6afc11fa2715ec7da0c42c05a67ef6ecfcfeda725aaa8",
+    "token_address": "0x67e4ac00a241be06ba6afc11fa2715ec7da0c42c05a67ef6ecfcfeda725aaa8",
     "sort_order": 1,
     "total_supply": null,
     "hidden": true
@@ -613,7 +613,7 @@
     "name": "Eternum Paladin",
     "symbol": "PALADIN",
     "decimals": 18,
-    "l2_token_address": "0x3bc86299bee061c7c8d7546ccb62b9daf9bffc653b1508facb722c6593874bc",
+    "token_address": "0x3bc86299bee061c7c8d7546ccb62b9daf9bffc653b1508facb722c6593874bc",
     "sort_order": 1,
     "total_supply": null,
     "hidden": true
@@ -622,7 +622,7 @@
     "name": "Eternum Wheat",
     "symbol": "WHEAT",
     "decimals": 18,
-    "l2_token_address": "0x57a3f1ee475e072ce3be41785c0e889b7295d7a0dcc22b992c5b9408dbeb280",
+    "token_address": "0x57a3f1ee475e072ce3be41785c0e889b7295d7a0dcc22b992c5b9408dbeb280",
     "sort_order": 1,
     "total_supply": null,
     "hidden": true
@@ -631,7 +631,7 @@
     "name": "Eternum Fish",
     "symbol": "FISH",
     "decimals": 18,
-    "l2_token_address": "0x27719173cfe10f1aa38d2aaed0a075b6077290f1e817aa3485d2b828394f4d9",
+    "token_address": "0x27719173cfe10f1aa38d2aaed0a075b6077290f1e817aa3485d2b828394f4d9",
     "sort_order": 1,
     "total_supply": null,
     "hidden": true

@@ -2,10 +2,7 @@ import prand, { unsafeUniformIntDistribution } from "pure-rand";
 
 import { Env } from "../../env";
 
-export function generateSvg(
-  id: number,
-  chainId: Env["STARKNET_CHAIN_ID"],
-): string {
+export function generateSvg(id: number, chainId: Env["CHAIN_ID"]): string {
   let generator = prand.xoroshiro128plus(Number(chainId));
   generator = prand.xoroshiro128plus(
     id + unsafeUniformIntDistribution(0, 2 ** 32 - id, generator),

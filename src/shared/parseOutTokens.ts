@@ -20,7 +20,7 @@ export async function parseOutTokens(
   };
 }> {
   const queries = await createQueries(env);
-  const allTokens = await getAllTokens(env, queries);
+  const allTokens = await getAllTokens(env);
 
   const tokenA = getTokenByIdentifier(allTokens, params.tokenA);
   const tokenB = getTokenByIdentifier(allTokens, params.tokenB);
@@ -31,12 +31,12 @@ export async function parseOutTokens(
   if (!tokenB) {
     throw new StatusError(400, `Invalid token identifier: "${params.tokenB}"`);
   }
-  if (tokenA.l2_token_address === tokenB.l2_token_address) {
+  if (tokenA.token_address === tokenB.token_address) {
     throw new StatusError(400, `tokenA cannot be equal to tokenB`);
   }
 
   const [token0, token1] =
-    BigInt(tokenA.l2_token_address) < BigInt(tokenB.l2_token_address)
+    BigInt(tokenA.token_address) < BigInt(tokenB.token_address)
       ? [tokenA, tokenB]
       : [tokenB, tokenA];
 
@@ -45,8 +45,8 @@ export async function parseOutTokens(
     tokenA,
     tokenB,
     pair: {
-      token0: BigInt(token0.l2_token_address),
-      token1: BigInt(token1.l2_token_address),
+      token0: BigInt(token0.token_address),
+      token1: BigInt(token1.token_address),
     },
   };
 }

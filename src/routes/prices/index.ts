@@ -34,7 +34,7 @@ export class GetPairPriceHistory extends EkuboAPIRoute {
 
   async handle({ params, query }: IRequest, { env }: RequestContext) {
     const queries = await createQueries(env);
-    const allTokens = await getAllTokens(env, queries);
+    const allTokens = await getAllTokens(env);
 
     const bt = getTokenByIdentifier(allTokens, params.baseToken);
     const qt = getTokenByIdentifier(allTokens, params.quoteToken);
@@ -43,8 +43,8 @@ export class GetPairPriceHistory extends EkuboAPIRoute {
       throw new StatusError(400, "Base token or quote token not known");
     }
 
-    const baseToken = BigInt(bt.l2_token_address);
-    const quoteToken = BigInt(qt.l2_token_address);
+    const baseToken = BigInt(bt.token_address);
+    const quoteToken = BigInt(qt.token_address);
 
     if (!bt || !qt) {
       throw new StatusError(400, "Base token or quote token not known");

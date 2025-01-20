@@ -1,7 +1,6 @@
 import { OpenAPIRouteSchema, Path } from "@cloudflare/itty-router-openapi";
 import { IRequest, json } from "itty-router";
 import { EkuboAPIRoute, RequestContext } from "../../shared/context";
-import { num } from "starknet";
 import { createQueries } from "../../queries";
 import {
   DecimalStringType,
@@ -10,6 +9,7 @@ import {
 import { getAllTokens, getTokenByAddress } from "../meta/tokens";
 import Decimal from "decimal.js-light";
 import { z } from "zod";
+import { toHex } from "viem";
 
 export class GetPoolStates extends EkuboAPIRoute {
   static route = "/pools";
@@ -37,13 +37,13 @@ export class GetPoolStates extends EkuboAPIRoute {
 
     return json(
       rows.map((pool) => ({
-        key_hash: num.toHex(pool.pool_key_hash),
-        token0: num.toHex(pool.token0),
-        token1: num.toHex(pool.token1),
-        fee: num.toHex(pool.fee),
+        key_hash: toHex(pool.pool_key_hash),
+        token0: toHex(pool.token0),
+        token1: toHex(pool.token1),
+        fee: toHex(pool.fee),
         tick_spacing: Number(pool.tick_spacing),
-        extension: num.toHex(pool.extension),
-        sqrt_ratio: num.toHex(pool.sqrt_ratio),
+        extension: toHex(pool.extension),
+        sqrt_ratio: toHex(pool.sqrt_ratio),
         tick: pool.tick,
         liquidity: pool.liquidity,
         lastUpdate: {
@@ -84,7 +84,7 @@ export class GetPoolKeyHash extends EkuboAPIRoute {
     const queries = await createQueries(env);
     const poolKey = await queries.getPoolKey(poolKeyHash);
 
-    const tokens = await getAllTokens(env, queries);
+    const tokens = await getAllTokens(env);
     const [token0, token1] = [
       getTokenByAddress(tokens, poolKey.token0),
       getTokenByAddress(tokens, poolKey.token1),
@@ -93,11 +93,11 @@ export class GetPoolKeyHash extends EkuboAPIRoute {
     return json(
       {
         pool_key: {
-          token0: num.toHex(BigInt(poolKey.token0)),
-          token1: num.toHex(BigInt(poolKey.token1)),
-          fee: num.toHex(BigInt(poolKey.fee)),
+          token0: toHex(BigInt(poolKey.token0)),
+          token1: toHex(BigInt(poolKey.token1)),
+          fee: toHex(BigInt(poolKey.fee)),
           tick_spacing: poolKey.tick_spacing,
-          extension: num.toHex(BigInt(poolKey.extension)),
+          extension: toHex(BigInt(poolKey.extension)),
         },
         human_readable: {
           token0,

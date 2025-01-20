@@ -1,4 +1,4 @@
-name = "api"
+name = "evm-api"
 main = "src/index.ts"
 compatibility_date = "2023-03-14"
 node_compat = true
@@ -10,22 +10,21 @@ mode = "smart"
 cpu_ms = 5000
 
 [vars]
-STARKNET_CHAIN_ID = "0x534e5f4d41494e"
+STARKNET_CHAIN_ID = "11155111"
 # only used for running the api locally
-PG_CONNECTION_STRING = "postgresql://postgres:postgres@localhost:5432/mainnet"
-QUOTER_API_BASE_URL = "https://quoter-mainnet-api.ekubo.org/"
+PG_CONNECTION_STRING = "postgresql://postgres:postgres@localhost:5432/evm_sepolia"
 
 [env.sepolia]
 hyperdrive = [
     { binding = "HYPERDRIVE", id = "48dd80eff90249868cc5a1ee4b966ac5" }
 ]
-vars = { STARKNET_CHAIN_ID = "0x534e5f5345504f4c4941", QUOTER_API_BASE_URL = "https://quoter-sepolia-api.ekubo.org/" }
+vars = { CHAIN_ID = "11155111" }
 
 [env.mainnet]
 hyperdrive = [
     { binding = "HYPERDRIVE", id = "40ad51ac50dd4f29a332f750e6dd7110" }
 ]
-vars = { STARKNET_CHAIN_ID = "0x534e5f4d41494e", QUOTER_API_BASE_URL = "https://quoter-mainnet-api.ekubo.org/" }
+vars = { CHAIN_ID = "1" }
 
 [observability]
 enabled = true

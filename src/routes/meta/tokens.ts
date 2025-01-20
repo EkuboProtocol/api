@@ -6,8 +6,6 @@ import { EkuboAPIRoute, RequestContext } from "../../shared/context";
 
 import MAINNET_TOKENS from "./defaults/mainnet.json";
 import SEPOLIA_TOKENS from "./defaults/sepolia.json";
-import { constants, num } from "starknet";
-import { createQueries, Queries } from "../../queries";
 import LOGOS from "./defaults/logos.json";
 
 export const TokenType = z
@@ -32,7 +30,7 @@ export const TokenType = z
       .min(0)
       .max(78)
       .int(),
-    l2_token_address: z.string({
+    token_address: z.string({
       description: "The address of the token on Starknet",
     }),
     sort_order: z
@@ -67,86 +65,22 @@ export const TokenType = z
     name: true,
     symbol: true,
     decimals: true,
-    l2_token_address: true,
+    token_address: true,
     total_supply: true,
   });
 
 export type TokenInfo = z.infer<typeof TokenType>;
 
-const SEPOLIA_CHAIN_ID = BigInt(constants.StarknetChainId.SN_SEPOLIA);
-const MAINNET_CHAIN_ID = BigInt(constants.StarknetChainId.SN_MAIN);
+const SEPOLIA_CHAIN_ID = 11155111;
+const MAINNET_CHAIN_ID = 1;
 
-const BANNED_TOKEN_SYMBOLS = [
-  "eku",
-  "ekubo",
-  "kubo",
-  "kub",
-  "kube",
-  "socks",
-  "nostra",
-  "nostr",
-  "nstra",
-  "avnu",
-  "vesu",
-  "jedi",
-  "opus",
-  "haiko",
-  "mochi",
-];
-
-export async function getAllTokens(
-  env: Env,
-  queries: Queries,
-): Promise<TokenInfo[]> {
+export async function getAllTokens(env: Env): Promise<TokenInfo[]> {
   const tokens: TokenInfo[] =
-    BigInt(env.STARKNET_CHAIN_ID) === SEPOLIA_CHAIN_ID
+    Number(env.CHAIN_ID) === SEPOLIA_CHAIN_ID
       ? SEPOLIA_TOKENS
-      : BigInt(env.STARKNET_CHAIN_ID) === MAINNET_CHAIN_ID
+      : Number(env.CHAIN_ID) === MAINNET_CHAIN_ID
         ? MAINNET_TOKENS
         : [];
-
-  const { rows } = await queries.getRegisteredTokens();
-
-  rows.forEach((row) => {
-    try {
-      const name = row.name.trim();
-      const symbol = row.symbol.trim();
-      const l2_token_address = num.toHex(row.address);
-
-      const lowerSplit = symbol.toLowerCase().split(" ");
-      if (
-        lowerSplit.some((piece) =>
-          BANNED_TOKEN_SYMBOLS.some(
-            (banned) => piece.startsWith(banned) || piece.endsWith(banned),
-          ),
-        )
-      ) {
-        return;
-      }
-
-      if (
-        // if we find any token matching name symbol etc we skip it
-        !tokens.find(
-          (t) =>
-            BigInt(t.l2_token_address) === BigInt(l2_token_address) ||
-            t.symbol.toLowerCase() === symbol.toLowerCase() ||
-            t.name === name.toLowerCase(),
-        )
-      ) {
-        tokens.push({
-          name,
-          symbol,
-          decimals: row.decimals,
-          l2_token_address,
-          sort_order: 1,
-          total_supply: Number(
-            BigInt(row.total_supply) / 10n ** BigInt(row.decimals),
-          ),
-          hidden: true,
-        });
-      }
-    } catch (error) {}
-  });
 
   tokens.forEach((t) => {
     t.logo_url = (LOGOS as { [symbol: string]: string })[t.symbol];
@@ -159,7 +93,7 @@ export function getTokenByAddress(
   tokens: TokenInfo[],
   address: string | bigint,
 ): TokenInfo | undefined {
-  return tokens?.find((x) => BigInt(x.l2_token_address) === BigInt(address));
+  return tokens?.find((x) => BigInt(x.token_address) === BigInt(address));
 }
 
 export function getTokenByIdentifier(
@@ -191,7 +125,7 @@ export class ListTokens extends EkuboAPIRoute {
   };
 
   async handle(request: IRequest, { env }: RequestContext) {
-    const tokens = await getAllTokens(env, await createQueries(env));
+    const tokens = await getAllTokens(env);
 
     return json(tokens, {
       headers: {
