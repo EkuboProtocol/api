@@ -20,7 +20,7 @@ hyperdrive = [
 ]
 vars = { CHAIN_ID = "11155111" }
 routes = [
-    { pattern = "eth-api-sepolia.ekubo.org", custom_domain = true }
+    { pattern = "eth-sepolia-api.ekubo.org", custom_domain = true }
 ]
 
 
@@ -30,7 +30,7 @@ hyperdrive = [
 ]
 vars = { CHAIN_ID = "1" }
 routes = [
-    { pattern = "eth-api-mainnet.ekubo.org", custom_domain = true }
+    { pattern = "eth-mainnet-api.ekubo.org", custom_domain = true }
 ]
 
 [observability]
