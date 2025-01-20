@@ -19,12 +19,19 @@ hyperdrive = [
     { binding = "HYPERDRIVE", id = "4c98d632c1e5426eab8bece278d2abc6" }
 ]
 vars = { CHAIN_ID = "11155111" }
+routes = [
+    { pattern = "eth-api-sepolia.ekubo.org", custom_domain = true }
+]
+
 
 [env.mainnet]
 hyperdrive = [
     { binding = "HYPERDRIVE", id = "04a121d0804b4451b6cdf894c9b61b56" }
 ]
 vars = { CHAIN_ID = "1" }
+routes = [
+    { pattern = "eth-api-mainnet.ekubo.org", custom_domain = true }
+]
 
 [observability]
 enabled = true
