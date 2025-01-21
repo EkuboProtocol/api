@@ -2,7 +2,7 @@ import { EkuboAPIRoute, RequestContext } from "../../shared/context";
 import { IRequest, json, StatusError } from "itty-router";
 import { getAllTokens, getTokenByAddress } from "../meta/tokens";
 import { generateSvg } from "./generateSvg";
-import { parseId } from "./parseId";
+import { MAX_POSITION_TOKEN_ID, parseId } from "./parseId";
 import Decimal from "decimal.js-light";
 
 import { createQueries } from "../../queries";
@@ -59,7 +59,7 @@ const TokenIdType = z.coerce
   .number({})
   .int()
   .min(1)
-  .max(2 ** 40 - 1)
+  .max(MAX_POSITION_TOKEN_ID)
   .openapi({
     example: 1,
     title: "TokenID",
