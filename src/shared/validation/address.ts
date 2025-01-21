@@ -20,7 +20,7 @@ export const NumericType = HexStringType.or(DecimalStringType).openapi({
 
 export const AddressType = NumericType.openapi({
   title: "Address",
-  description: "The address of a contract on Starknet",
+  description: "An address on Ethereum",
 });
 
 export const TokenSymbolType = z
@@ -33,11 +33,4 @@ export const TokenSymbolType = z
     description: "The symbol for a token",
   });
 
-export const DateType = z.string().datetime();
-
 export const TokenIdentifierType = AddressType.or(TokenSymbolType);
-
-export const DateIdentifierType = DateType.openapi({
-  title: "Date",
-  description: "An ISO 8601 date timestamp",
-});

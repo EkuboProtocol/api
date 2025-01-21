@@ -24,11 +24,11 @@ import {
   GetPoolStates,
 } from "./routes/state";
 import {
-  GetNftImage,
-  GetNftMetadata,
+  GetPositionNftImage,
+  GetPositionNftMetadata,
   GetNftState,
-  ListNftEvents,
-  ListPositions,
+  ListPositionNftEvents,
+  ListPositionsByAddress,
 } from "./routes/nft";
 import { error } from "itty-router";
 
@@ -67,12 +67,12 @@ export const router = OpenAPIRouter({
   .get(GetPoolStates.route, GetPoolStates)
   .get(GetPoolKeyHash.route, GetPoolKeyHash)
   .get(GetPoolLiquidity.route, GetPoolLiquidity)
-  .get(ListPositions.route, ListPositions)
   .get(GetPairLiquidity.route, GetPairLiquidity)
   .get(ListPairEvents.route, ListPairEvents)
   .get(GetNftState.route, GetNftState)
-  .get(GetNftMetadata.route, GetNftMetadata)
-  .get(ListNftEvents.route, ListNftEvents)
-  .get(GetNftImage.route, GetNftImage)
+  .get(ListPositionsByAddress.route, ListPositionsByAddress)
+  .get(ListPositionNftEvents.route, ListPositionNftEvents)
+  .get(GetPositionNftMetadata.route, GetPositionNftMetadata)
+  .get(GetPositionNftImage.route, GetPositionNftImage)
   // catch missed routes
   .all("*", () => error(404));

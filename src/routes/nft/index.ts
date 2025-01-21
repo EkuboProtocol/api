@@ -66,8 +66,8 @@ const TokenIdType = z.coerce
     description: "The ID of a position NFT token",
   });
 
-export class GetNftMetadata extends EkuboAPIRoute {
-  static route = "/:id";
+export class GetPositionNftMetadata extends EkuboAPIRoute {
+  static route = "/positions/nft/:id";
   static schema: OpenAPIRouteSchema = {
     tags: ["Positions"],
     summary: "Get NFT Metadata",
@@ -98,107 +98,107 @@ export class GetNftMetadata extends EkuboAPIRoute {
 
     const positionMetadata = await queries.getPositionMetadata(id);
 
-    const origin = new URL(url).origin;
-    const image = `${origin}/${id}/image.svg`;
-
-    if (positionMetadata !== null) {
-      const attributesStored: NFTMetadata["attributes"] = [
-        {
-          trait_type: "minted_tx_hash",
-          value: toHex(positionMetadata.minted_tx_hash),
-        },
-        { trait_type: "token0", value: toHex(positionMetadata.token0) },
-        { trait_type: "token1", value: toHex(positionMetadata.token1) },
-        { trait_type: "fee", value: positionMetadata.fee.toString() },
-        {
-          trait_type: "tick_spacing",
-          value: positionMetadata.tick_spacing.toString(),
-        },
-        {
-          trait_type: "extension",
-          value: toHex(positionMetadata.extension).toString(),
-        },
-        {
-          trait_type: "tick_lower",
-          value: positionMetadata.lower_bound.toString(),
-        },
-        {
-          trait_type: "tick_upper",
-          value: positionMetadata.upper_bound.toString(),
-        },
-        {
-          trait_type: "minted_timestamp",
-          value: positionMetadata.minted_timestamp.getTime().toString(),
-        },
-      ];
-
-      const allTokens = await getAllTokens(env);
-
-      const token0 = getTokenByAddress(allTokens, positionMetadata.token0);
-      const token1 = getTokenByAddress(allTokens, positionMetadata.token1);
-
-      if (token0 && token1) {
-        const reversed = token0.sort_order >= token1.sort_order;
-        const [numerator, denominator, lowerPrice, upperPrice] = reversed
-          ? [
-              token0,
-              token1,
-              formattedPrice(
-                -BigInt(positionMetadata.upper_bound),
-                token0.decimals,
-                token1.decimals,
-              ),
-              formattedPrice(
-                -BigInt(positionMetadata.lower_bound),
-                token0.decimals,
-                token1.decimals,
-              ),
-            ]
-          : [
-              token1,
-              token0,
-              formattedPrice(
-                BigInt(positionMetadata.lower_bound),
-                token1.decimals,
-                token0.decimals,
-              ),
-              formattedPrice(
-                BigInt(positionMetadata.upper_bound),
-                token1.decimals,
-                token0.decimals,
-              ),
-            ];
-
-        metadata = {
-          name: `${numerator.symbol} / ${
-            denominator.symbol
-          } : ${lowerPrice} <> ${upperPrice} : ${feeToPercent(
-            positionMetadata.fee,
-          )}% / ${tickSpacingToPercent(positionMetadata.tick_spacing)}%`,
-          description: `A liquidity position in Ekubo consisting of the ${
-            numerator.name
-          } and ${
-            denominator.name
-          } tokens, active between the prices of ${lowerPrice} ${
-            numerator.symbol
-          } / ${denominator.symbol} to ${upperPrice} ${numerator.symbol} / ${
-            denominator.symbol
-          }. This position charges a ${feeToPercent(
-            positionMetadata.fee,
-          )}% fee on swaps.`,
-          image,
-          attributes: attributesStored,
-        };
-      } else {
-        metadata = {
-          name: `Ekubo NFT #${id}`,
-          description: "An NFT that represents a position in Ekubo Protocol",
-          image,
-          attributes: attributesStored,
-        };
-      }
-    } else {
+    if (positionMetadata === null) {
       throw new StatusError(404, `Token ID ${id} not found`);
+    }
+
+    const origin = new URL(url).origin;
+    const image = `${origin}/positions/nft/${id}/image.svg`;
+
+    const attributesStored: NFTMetadata["attributes"] = [
+      {
+        trait_type: "minted_tx_hash",
+        value: toHex(positionMetadata.minted_tx_hash),
+      },
+      { trait_type: "token0", value: toHex(positionMetadata.token0) },
+      { trait_type: "token1", value: toHex(positionMetadata.token1) },
+      { trait_type: "fee", value: positionMetadata.fee.toString() },
+      {
+        trait_type: "tick_spacing",
+        value: positionMetadata.tick_spacing.toString(),
+      },
+      {
+        trait_type: "extension",
+        value: toHex(positionMetadata.extension).toString(),
+      },
+      {
+        trait_type: "tick_lower",
+        value: positionMetadata.lower_bound.toString(),
+      },
+      {
+        trait_type: "tick_upper",
+        value: positionMetadata.upper_bound.toString(),
+      },
+      {
+        trait_type: "minted_timestamp",
+        value: positionMetadata.minted_timestamp.getTime().toString(),
+      },
+    ];
+
+    const allTokens = await getAllTokens(env);
+
+    const token0 = getTokenByAddress(allTokens, positionMetadata.token0);
+    const token1 = getTokenByAddress(allTokens, positionMetadata.token1);
+
+    if (token0 && token1) {
+      const reversed = token0.sort_order >= token1.sort_order;
+      const [numerator, denominator, lowerPrice, upperPrice] = reversed
+        ? [
+            token0,
+            token1,
+            formattedPrice(
+              -BigInt(positionMetadata.upper_bound),
+              token0.decimals,
+              token1.decimals,
+            ),
+            formattedPrice(
+              -BigInt(positionMetadata.lower_bound),
+              token0.decimals,
+              token1.decimals,
+            ),
+          ]
+        : [
+            token1,
+            token0,
+            formattedPrice(
+              BigInt(positionMetadata.lower_bound),
+              token1.decimals,
+              token0.decimals,
+            ),
+            formattedPrice(
+              BigInt(positionMetadata.upper_bound),
+              token1.decimals,
+              token0.decimals,
+            ),
+          ];
+
+      metadata = {
+        name: `${numerator.symbol} / ${
+          denominator.symbol
+        } : ${lowerPrice} <> ${upperPrice} : ${feeToPercent(
+          positionMetadata.fee,
+        )}% / ${tickSpacingToPercent(positionMetadata.tick_spacing)}%`,
+        description: `A liquidity position in Ekubo consisting of the ${
+          numerator.name
+        } and ${
+          denominator.name
+        } tokens, active between the prices of ${lowerPrice} ${
+          numerator.symbol
+        } / ${denominator.symbol} to ${upperPrice} ${numerator.symbol} / ${
+          denominator.symbol
+        }. This position charges a ${feeToPercent(
+          positionMetadata.fee,
+        )}% fee on swaps.`,
+        image,
+        attributes: attributesStored,
+      };
+    } else {
+      metadata = {
+        name: `Ekubo NFT #${id}`,
+        description: "An NFT that represents a position in Ekubo Protocol",
+        image,
+        attributes: attributesStored,
+      };
     }
 
     return json(metadata, {
@@ -256,8 +256,8 @@ export class GetNftState extends EkuboAPIRoute {
   }
 }
 
-export class ListNftEvents extends EkuboAPIRoute {
-  static route = "/:id/history";
+export class ListPositionNftEvents extends EkuboAPIRoute {
+  static route = "/positions/nft/:id/history";
   static schema: OpenAPIRouteSchema = {
     tags: ["Positions"],
     summary: "List position history",
@@ -343,8 +343,8 @@ export class ListNftEvents extends EkuboAPIRoute {
   }
 }
 
-export class GetNftImage extends EkuboAPIRoute {
-  static route = "/:id/image.svg";
+export class GetPositionNftImage extends EkuboAPIRoute {
+  static route = "/positions/nft/:id/image.svg";
 
   static schema: OpenAPIRouteSchema = {
     tags: ["Positions"],
@@ -377,7 +377,7 @@ export class GetNftImage extends EkuboAPIRoute {
   }
 }
 
-export class ListPositions extends EkuboAPIRoute {
+export class ListPositionsByAddress extends EkuboAPIRoute {
   static route = "/positions/:address";
 
   static schema: OpenAPIRouteSchema = {
@@ -426,8 +426,8 @@ export class ListPositions extends EkuboAPIRoute {
             lower: Number(row.lower_bound),
             upper: Number(row.upper_bound),
           },
-          metadata_url: `${origin}/${row.token_id}`,
-          image: `${origin}/${row.token_id}/image.svg`,
+          metadata_url: `${origin}/positions/nft/${row.token_id}`,
+          image: `${origin}/positions/nft/${row.token_id}/image.svg`,
           minted_timestamp: row.minted_timestamp.getTime(),
         })),
       },
