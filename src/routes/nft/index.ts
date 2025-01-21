@@ -13,7 +13,8 @@ import {
 } from "@cloudflare/itty-router-openapi";
 import { z } from "zod";
 import { AddressType, HexStringType } from "../../shared/validation/address";
-import { toHex } from "viem";
+import toHex from "../../shared/toHex";
+import { checksumAddress } from "viem";
 
 export interface NFTMetadata {
   name: string;
@@ -110,8 +111,14 @@ export class GetPositionNftMetadata extends EkuboAPIRoute {
         trait_type: "minted_tx_hash",
         value: toHex(positionMetadata.minted_tx_hash),
       },
-      { trait_type: "token0", value: toHex(positionMetadata.token0) },
-      { trait_type: "token1", value: toHex(positionMetadata.token1) },
+      {
+        trait_type: "token0",
+        value: checksumAddress(toHex(positionMetadata.token0)),
+      },
+      {
+        trait_type: "token1",
+        value: checksumAddress(toHex(positionMetadata.token1)),
+      },
       { trait_type: "fee", value: positionMetadata.fee.toString() },
       {
         trait_type: "tick_spacing",
@@ -119,7 +126,7 @@ export class GetPositionNftMetadata extends EkuboAPIRoute {
       },
       {
         trait_type: "extension",
-        value: toHex(positionMetadata.extension).toString(),
+        value: checksumAddress(toHex(positionMetadata.extension)),
       },
       {
         trait_type: "tick_lower",

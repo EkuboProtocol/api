@@ -9,7 +9,7 @@ import {
 import { getAllTokens, getTokenByAddress } from "../meta/tokens";
 import Decimal from "decimal.js-light";
 import { z } from "zod";
-import { toHex } from "viem";
+import toHex from "../../shared/toHex";
 
 export class GetPoolStates extends EkuboAPIRoute {
   static route = "/pools";
