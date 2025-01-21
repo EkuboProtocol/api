@@ -59,7 +59,7 @@ const TokenIdType = z.coerce
   .number({})
   .int()
   .min(1)
-  .max(10 ** 10 - 1)
+  .max(2 ** 40 - 1)
   .openapi({
     example: 1,
     title: "TokenID",
