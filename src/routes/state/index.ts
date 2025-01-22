@@ -1,5 +1,5 @@
 import { OpenAPIRouteSchema, Path } from "@cloudflare/itty-router-openapi";
-import { IRequest, json } from "itty-router";
+import { IRequest, json, StatusError } from "itty-router";
 import { EkuboAPIRoute, RequestContext } from "../../shared/context";
 import { createQueries } from "../../queries";
 import {
@@ -83,6 +83,10 @@ export class GetPoolKeyHash extends EkuboAPIRoute {
 
     const queries = await createQueries(env);
     const poolKey = await queries.getPoolKey(poolKeyHash);
+
+    if (!poolKey) {
+      throw new StatusError(404, "Pool key not found");
+    }
 
     const tokens = await getAllTokens(env);
     const [token0, token1] = [

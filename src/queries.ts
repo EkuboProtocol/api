@@ -863,10 +863,7 @@ export class Queries {
              WHERE key_hash = $1`,
       values: [poolKeyHash],
     });
-    if (rows.length !== 1) {
-      throw new Error("Invalid pool key hash");
-    }
-    return rows[0];
+    return rows[0] ?? null;
   }
 }
 
