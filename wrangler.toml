@@ -16,7 +16,7 @@ PG_CONNECTION_STRING = "postgresql://postgres:postgres@localhost:5432/eth_sepoli
 
 [env.sepolia]
 hyperdrive = [
-    { binding = "HYPERDRIVE", id = "4c98d632c1e5426eab8bece278d2abc6" }
+    { binding = "HYPERDRIVE", id = "1fc62b7bd745410ea6da4849cf2def2e" }
 ]
 vars = { CHAIN_ID = "11155111" }
 routes = [
