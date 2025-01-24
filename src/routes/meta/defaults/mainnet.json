@@ -8,11 +8,19 @@
     "total_supply": null
   },
   {
-    "name": "USD Coin",
+    "name": "USDC",
     "symbol": "USDC",
     "decimals": 6,
     "token_address": "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48",
     "sort_order": 5,
+    "total_supply": null
+  },
+  {
+    "name": "EURC",
+    "symbol": "EURC",
+    "decimals": 6,
+    "token_address": "0x1aBaEA1f7C830bD89Acc67eC4af516284b1bC33c",
+    "sort_order": 4,
     "total_supply": null
   },
   {
