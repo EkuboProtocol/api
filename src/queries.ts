@@ -1,8 +1,8 @@
 import { Client } from "pg";
-import Decimal from "decimal.js-light";
 import { Env } from "./env";
 
 interface PositionMetadata {
+  positions_address: string;
   lower_bound: string;
   upper_bound: string;
   token0: string;
@@ -15,7 +15,7 @@ interface PositionMetadata {
 }
 
 export interface BasePoolStateQueryResult {
-  pool_key_hash: string;
+  core_address: string;
   token0: string;
   token1: string;
   fee: string;
@@ -25,7 +25,6 @@ export interface BasePoolStateQueryResult {
   tick: number;
   liquidity: string;
   last_event_id: string;
-  last_liquidity_update_event_id: string | null;
 }
 
 export class Queries {
@@ -69,10 +68,8 @@ export class Queries {
   }
 
   public async getAllPoolsWithStates() {
-    return this.client.query<
-      Omit<BasePoolStateQueryResult, "last_liquidity_update_event_id">
-    >(`
-        SELECT pool_key_hash,
+    return this.client.query<BasePoolStateQueryResult>(`
+        SELECT core_address,
                token0,
                token1,
                fee,
@@ -95,6 +92,7 @@ export class Queries {
           SELECT event_keys.transaction_hash AS minted_tx_hash,
                  mint_position_update.lower_bound,
                  mint_position_update.upper_bound,
+                 event_keys.emitter          AS positions_address,
                  pool_keys.token0,
                  pool_keys.token1,
                  pool_keys.fee,
@@ -306,7 +304,14 @@ export class Queries {
     return rows;
   }
 
-  public getPoolLiquidityGraph(poolKeyHash: bigint) {
+  public getPoolLiquidityGraph(key: {
+    coreAddress: bigint;
+    token0: bigint;
+    token1: bigint;
+    fee: bigint;
+    tickSpacing: number;
+    extension: bigint;
+  }) {
     return this.client.query<{
       tick: string;
       net_liquidity_delta_diff: string;
@@ -314,10 +319,25 @@ export class Queries {
       text: `
           SELECT tick, net_liquidity_delta_diff
           FROM per_pool_per_tick_liquidity_incremental_view
-          WHERE pool_key_hash = $1
+          WHERE pool_key_hash = (SELECT key_hash
+                                 FROM pool_keys
+                                 WHERE core_address = $1
+                                   AND token0 = $2
+                                   AND token1 = $3
+                                   AND fee = $4
+                                   AND tick_spacing = $5
+                                   AND extension = $6
+                                 LIMIT 1)
           ORDER BY tick
       `,
-      values: [poolKeyHash],
+      values: [
+        key.coreAddress,
+        key.token0,
+        key.token1,
+        key.fee,
+        key.tickSpacing,
+        key.extension,
+      ],
     });
   }
 
@@ -333,7 +353,6 @@ export class Queries {
     return this.client.query<{
       type: 0 | 1;
 
-      key_hash: string;
       fee: string;
       tick_spacing: string;
       extension: string;
@@ -702,6 +721,7 @@ export class Queries {
                                          GROUP BY token_id)
           SELECT token_id,
                  event_keys.transaction_hash AS minted_tx_hash,
+                 event_keys.emitter as positions_address,
                  token0,
                  token1,
                  fee,
@@ -721,7 +741,7 @@ export class Queries {
               SELECT event_id
               FROM position_transfers AS pt
               WHERE pt.token_id = ot.token_id
-              ORDER BY event_id 
+              ORDER BY event_id
               LIMIT 1
               ) AS mint_tx ON TRUE
                    JOIN event_keys ON mint_tx.event_id = event_keys.id
@@ -732,22 +752,6 @@ export class Queries {
       `,
       values: [address, showClosed],
     });
-  }
-
-  async getPoolKey(poolKeyHash: bigint) {
-    const { rows } = await this.client.query<{
-      token0: string;
-      token1: string;
-      fee: string;
-      tick_spacing: number;
-      extension: string;
-    }>({
-      text: `SELECT token0, token1, fee, tick_spacing, extension
-             FROM pool_keys
-             WHERE key_hash = $1`,
-      values: [poolKeyHash],
-    });
-    return rows[0] ?? null;
   }
 }
 

@@ -108,6 +108,10 @@ export class GetPositionNftMetadata extends EkuboAPIRoute {
 
     const attributesStored: NFTMetadata["attributes"] = [
       {
+        trait_type: "positions_address",
+        value: toHex(positionMetadata.positions_address),
+      },
+      {
         trait_type: "minted_tx_hash",
         value: toHex(positionMetadata.minted_tx_hash),
       },
@@ -422,6 +426,7 @@ export class ListPositionsByAddress extends EkuboAPIRoute {
       {
         data: rows.map((row) => ({
           id: Number(row.token_id),
+          positions_address: toHex(row.positions_address),
           pool_key: {
             token0: toHex(row.token0),
             token1: toHex(row.token1),

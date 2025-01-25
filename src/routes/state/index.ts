@@ -1,13 +1,12 @@
 import { OpenAPIRouteSchema, Path } from "@cloudflare/itty-router-openapi";
-import { IRequest, json, StatusError } from "itty-router";
+import { IRequest, json } from "itty-router";
 import { EkuboAPIRoute, RequestContext } from "../../shared/context";
 import { createQueries } from "../../queries";
 import {
+  AddressType,
   DecimalStringType,
   NumericType,
 } from "../../shared/validation/address";
-import { getAllTokens, getTokenByAddress } from "../meta/tokens";
-import Decimal from "decimal.js-light";
 import { z } from "zod";
 import toHex from "../../shared/toHex";
 
@@ -37,7 +36,7 @@ export class GetPoolStates extends EkuboAPIRoute {
 
     return json(
       rows.map((pool) => ({
-        key_hash: toHex(pool.pool_key_hash),
+        core_address: pool.core_address,
         token0: toHex(pool.token0),
         token1: toHex(pool.token1),
         fee: toHex(pool.fee),
@@ -59,75 +58,6 @@ export class GetPoolStates extends EkuboAPIRoute {
   }
 }
 
-export class GetPoolKeyHash extends EkuboAPIRoute {
-  static route = "/pools/:keyHash";
-
-  static schema: OpenAPIRouteSchema = {
-    tags: ["Swap", "Meta"],
-    summary: "Get pool info",
-    description:
-      "Returns the information associated with the given pool key hash",
-    parameters: {
-      keyHash: Path(NumericType, { example: "0xabcd" }),
-    },
-    responses: {
-      "200": {
-        description: "The description of the pool key",
-        contentType: "application/json",
-      },
-    },
-  };
-
-  async handle({ params: { keyHash } }: IRequest, { env }: RequestContext) {
-    const poolKeyHash = BigInt(keyHash);
-
-    const queries = await createQueries(env);
-    const poolKey = await queries.getPoolKey(poolKeyHash);
-
-    if (!poolKey) {
-      throw new StatusError(404, "Pool key not found");
-    }
-
-    const tokens = await getAllTokens(env);
-    const [token0, token1] = [
-      getTokenByAddress(tokens, poolKey.token0),
-      getTokenByAddress(tokens, poolKey.token1),
-    ];
-
-    return json(
-      {
-        pool_key: {
-          token0: toHex(BigInt(poolKey.token0)),
-          token1: toHex(BigInt(poolKey.token1)),
-          fee: toHex(BigInt(poolKey.fee)),
-          tick_spacing: poolKey.tick_spacing,
-          extension: toHex(BigInt(poolKey.extension)),
-        },
-        human_readable: {
-          token0,
-          token1,
-          fee: `${new Decimal(poolKey.fee)
-            .div(new Decimal(2).pow(128))
-            .mul(100)
-            .toSignificantDigits(6)
-            .toString()}%`,
-          tick_spacing: `${new Decimal("1.000001")
-            .pow(new Decimal(poolKey.tick_spacing))
-            .sub(1)
-            .mul(100)
-            .toSignificantDigits(6)
-            .toString()}%`,
-        },
-      },
-      {
-        headers: {
-          "cache-control": "public, immutable, max-age=86400",
-        },
-      },
-    );
-  }
-}
-
 const LiquidityResponseSchema = z.array(
   z.object({
     tick: DecimalStringType,
@@ -138,7 +68,8 @@ const LiquidityResponseSchema = z.array(
 type LiquidityResponseType = z.infer<typeof LiquidityResponseSchema>;
 
 export class GetPoolLiquidity extends EkuboAPIRoute {
-  static route = "/pools/:keyHash/liquidity";
+  static route =
+    "/pools/:coreAddress/:token0/:token1/:fee/:tickSpacing/:extension/liquidity";
 
   static schema: OpenAPIRouteSchema = {
     tags: ["Swap"],
@@ -146,7 +77,18 @@ export class GetPoolLiquidity extends EkuboAPIRoute {
     description:
       "Returns the liquidity delta for each tick for the given pool key hash",
     parameters: {
-      keyHash: Path(NumericType, { example: "0xabcd" }),
+      coreAddress: Path(AddressType, { example: "0xabcd" }),
+      token0: Path(AddressType, {
+        example: "0x0000000000000000000000000000eeEEee000000",
+      }),
+      token1: Path(AddressType, {
+        example: "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48",
+      }),
+      fee: Path(NumericType, {
+        example: "1020847100762815390390123822295304634",
+      }),
+      tickSpacing: Path(NumericType, { example: "5982" }),
+      extension: Path(AddressType, { example: "0xabcd" }),
     },
     responses: {
       "200": {
@@ -157,14 +99,24 @@ export class GetPoolLiquidity extends EkuboAPIRoute {
     },
   };
 
-  async handle({ params: { keyHash } }: IRequest, { env }: RequestContext) {
-    const poolKeyHash = BigInt(keyHash);
-
+  async handle(
+    {
+      params: { coreAddress, token0, token1, fee, tickSpacing, extension },
+    }: IRequest,
+    { env }: RequestContext,
+  ) {
     const queries = await createQueries(env);
 
     const rows: LiquidityResponseType = (
       await queries.withinTransaction(() =>
-        queries.getPoolLiquidityGraph(poolKeyHash),
+        queries.getPoolLiquidityGraph({
+          coreAddress: BigInt(coreAddress),
+          token0: BigInt(token0),
+          token1: BigInt(token1),
+          fee: BigInt(fee),
+          tickSpacing: Number(fee),
+          extension: BigInt(extension),
+        }),
       )
     ).rows;
 

@@ -3,7 +3,6 @@ import { version } from "../package.json";
 import { ListTokens } from "./routes/meta/tokens";
 import { GetBlock } from "./routes/meta/blocks";
 import {
-  GetOverview,
   GetOverviewPairs,
   GetOverviewRevenue,
   GetOverviewTvl,
@@ -17,15 +16,11 @@ import {
   GetPairLiquidity,
   ListPairEvents,
 } from "./routes/stats/pair";
+import { GetPoolLiquidity, GetPoolStates } from "./routes/state";
 import {
-  GetPoolKeyHash,
-  GetPoolLiquidity,
-  GetPoolStates,
-} from "./routes/state";
-import {
+  GetNftState,
   GetPositionNftImage,
   GetPositionNftMetadata,
-  GetNftState,
   ListPositionNftEvents,
   ListPositionsByAddress,
 } from "./routes/nft";
@@ -53,7 +48,6 @@ export const router = OpenAPIRouter({
 })
   .get(ListTokens.route, ListTokens)
   .get(GetBlock.route, GetBlock)
-  .get(GetOverview.route, GetOverview)
   .get(GetOverviewPairs.route, GetOverviewPairs)
   .get(GetOverviewRevenue.route, GetOverviewRevenue)
   .get(GetOverviewTvl.route, GetOverviewTvl)
@@ -63,7 +57,6 @@ export const router = OpenAPIRouter({
   .get(GetPairInfoVolume.route, GetPairInfoVolume)
   .get(GetPairInfoPools.route, GetPairInfoPools)
   .get(GetPoolStates.route, GetPoolStates)
-  .get(GetPoolKeyHash.route, GetPoolKeyHash)
   .get(GetPoolLiquidity.route, GetPoolLiquidity)
   .get(GetPairLiquidity.route, GetPairLiquidity)
   .get(ListPairEvents.route, ListPairEvents)
