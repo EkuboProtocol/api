@@ -74,7 +74,7 @@ export type TokenInfo = z.infer<typeof TokenType>;
 const SEPOLIA_CHAIN_ID = 11155111;
 const MAINNET_CHAIN_ID = 1;
 
-export async function getAllTokens(env: Env): Promise<TokenInfo[]> {
+export function getAllTokens(env: Env): TokenInfo[] {
   const tokens: TokenInfo[] =
     Number(env.CHAIN_ID) === SEPOLIA_CHAIN_ID
       ? SEPOLIA_TOKENS
