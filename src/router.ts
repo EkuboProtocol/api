@@ -34,9 +34,9 @@ import { error } from "itty-router";
 export const router = OpenAPIRouter({
   schema: {
     info: {
-      title: "Ekubo API",
+      title: "Ekubo EVM API",
       version,
-      description: "API for querying data about Ekubo Protocol",
+      description: "API for querying data about Ekubo Protocol on EVM chains",
       contact: {
         url: "https://ekubo.org",
         email: "eng@ekubo.org",
