@@ -1,4 +1,4 @@
-export const MAX_POSITION_TOKEN_ID = 2 ** 40 - 1;
+export const MAX_POSITION_TOKEN_ID = Number.MAX_SAFE_INTEGER;
 
 export function parseId(id: string): number | null {
   let num = Number(id);
