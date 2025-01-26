@@ -31,28 +31,43 @@ export interface NFTMetadata {
 
 const BASE = new Decimal("1.000001");
 
-export function formattedPrice(
-  tick: bigint,
+const NUM_DIGITS = 12;
+const MIN_PRICE_RENDER = new Decimal(10).pow(-NUM_DIGITS);
+const MAX_PRICE_RENDER = new Decimal(10).pow(NUM_DIGITS);
+
+Decimal.config({ toExpNeg: -NUM_DIGITS, toExpPos: NUM_DIGITS });
+
+function formattedPrice(
+  tick: number,
   numeratorDecimals: number,
   denominatorDecimals: number,
 ): string {
-  return BASE.pow(tick.toString())
-    .mul(new Decimal(10).pow(denominatorDecimals - numeratorDecimals))
-    .toSignificantDigits(6)
-    .toString();
+  const p = BASE.pow(tick.toString()).mul(
+    new Decimal(10).pow(denominatorDecimals - numeratorDecimals),
+  );
+
+  if (p.lt(MIN_PRICE_RENDER)) {
+    return "0.0";
+  }
+
+  if (p.gt(MAX_PRICE_RENDER)) {
+    return "∞";
+  }
+
+  return Number(p.toSignificantDigits(12)).toLocaleString("en-US");
 }
 
 const U128 = new Decimal(2).pow(128);
 
 export function feeToPercent(fee: string) {
-  return new Decimal(fee).div(U128).mul(100).toSignificantDigits(4).toString();
+  return new Decimal(fee).div(U128).mul(100).toSignificantDigits(2).toString();
 }
 
 export function tickSpacingToPercent(tick_spacing: string) {
   return BASE.pow(tick_spacing)
     .sub(1)
     .mul(100)
-    .toSignificantDigits(4)
+    .toSignificantDigits(2)
     .toString();
 }
 
@@ -158,12 +173,12 @@ export class GetPositionNftMetadata extends EkuboAPIRoute {
             token0,
             token1,
             formattedPrice(
-              -BigInt(positionMetadata.upper_bound),
+              -Number(positionMetadata.upper_bound),
               token0.decimals,
               token1.decimals,
             ),
             formattedPrice(
-              -BigInt(positionMetadata.lower_bound),
+              -Number(positionMetadata.lower_bound),
               token0.decimals,
               token1.decimals,
             ),
@@ -172,12 +187,12 @@ export class GetPositionNftMetadata extends EkuboAPIRoute {
             token1,
             token0,
             formattedPrice(
-              BigInt(positionMetadata.lower_bound),
+              Number(positionMetadata.lower_bound),
               token1.decimals,
               token0.decimals,
             ),
             formattedPrice(
-              BigInt(positionMetadata.upper_bound),
+              Number(positionMetadata.upper_bound),
               token1.decimals,
               token0.decimals,
             ),
@@ -186,9 +201,9 @@ export class GetPositionNftMetadata extends EkuboAPIRoute {
       metadata = {
         name: `${numerator.symbol} / ${
           denominator.symbol
-        } : ${lowerPrice} <> ${upperPrice} : ${feeToPercent(
+        } : ${lowerPrice} - ${upperPrice} : ${feeToPercent(
           positionMetadata.fee,
-        )}% / ${tickSpacingToPercent(positionMetadata.tick_spacing)}%`,
+        )}%F${tickSpacingToPercent(positionMetadata.tick_spacing)}%TS`,
         description: `A liquidity position in Ekubo consisting of the ${
           numerator.name
         } and ${
