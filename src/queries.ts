@@ -567,27 +567,6 @@ export class Queries {
     });
   }
 
-  public async withinTransaction<T>(doX: () => Promise<T>): Promise<T> {
-    await this.client.query(
-      `BEGIN TRANSACTION ISOLATION LEVEL REPEATABLE READ`,
-    );
-    try {
-      const result = await doX();
-      await this.client.query(`ROLLBACK`);
-      return result;
-    } catch (error) {
-      if (
-        typeof error === "object" &&
-        error &&
-        "code" in error &&
-        error.code === "40001"
-      ) {
-        console.error("Serialization failure!", error);
-      }
-      throw error;
-    }
-  }
-
   public async getRevenueByTokenByDate(
     after: Date,
     pair?: { token0: bigint; token1: bigint },

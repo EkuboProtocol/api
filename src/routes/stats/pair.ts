@@ -142,13 +142,11 @@ export class GetPairInfoVolume extends EkuboAPIRoute {
       { rows: volumeByToken },
       { rows: volumeByTokenByDate },
       { rows: volumeByToken_24h },
-    ] = await queries.withinTransaction(() =>
-      Promise.all([
-        queries.getTotalVolumeByToken({ pair }),
-        queries.getVolumeByTokenByDate(thirtyDaysAgo, pair),
-        queries.getTotalVolumeByToken({ since: twentyFourHoursAgo, pair }),
-      ]),
-    );
+    ] = await Promise.all([
+      queries.getTotalVolumeByToken({ pair }),
+      queries.getVolumeByTokenByDate(thirtyDaysAgo, pair),
+      queries.getTotalVolumeByToken({ since: twentyFourHoursAgo, pair }),
+    ]);
 
     return json(
       {
@@ -224,9 +222,7 @@ export class GetPairLiquidity extends EkuboAPIRoute {
   async handle(request: IRequest, { env }: RequestContext) {
     const { queries, pair } = await parseOutTokens(env, request.params);
 
-    const data = await queries.withinTransaction(() =>
-      queries.getPairLiquidityGraph(pair),
-    );
+    const data = await queries.getPairLiquidityGraph(pair);
 
     return json(
       {

@@ -60,13 +60,11 @@ export class GetOverviewRevenue extends EkuboAPIRoute {
       { rows: revenueByToken },
       { rows: revenueByTokenByDate },
       { rows: revenueByToken_24h },
-    ] = await queries.withinTransaction(() =>
-      Promise.all([
-        queries.getRevenueByToken({}),
-        queries.getRevenueByTokenByDate(thirtyDaysAgo),
-        queries.getRevenueByToken({ since: twentyFourHoursAgo }),
-      ]),
-    );
+    ] = await Promise.all([
+      queries.getRevenueByToken({}),
+      queries.getRevenueByTokenByDate(thirtyDaysAgo),
+      queries.getRevenueByToken({ since: twentyFourHoursAgo }),
+    ]);
 
     return json(
       {
@@ -108,13 +106,11 @@ export class GetOverviewVolume extends EkuboAPIRoute {
       { rows: volumeByToken },
       { rows: volumeByTokenByDate },
       { rows: volumeByToken_24h },
-    ] = await queries.withinTransaction(() =>
-      Promise.all([
-        queries.getTotalVolumeByToken({}),
-        queries.getVolumeByTokenByDate(thirtyDaysAgo),
-        queries.getTotalVolumeByToken({ since: twentyFourHoursAgo }),
-      ]),
-    );
+    ] = await Promise.all([
+      queries.getTotalVolumeByToken({}),
+      queries.getVolumeByTokenByDate(thirtyDaysAgo),
+      queries.getTotalVolumeByToken({ since: twentyFourHoursAgo }),
+    ]);
 
     return json(
       {
@@ -152,12 +148,10 @@ export class GetOverviewTvl extends EkuboAPIRoute {
     const queries = await createQueries(env);
 
     const [{ rows: tvlByToken }, { rows: tvlDeltaByTokenByDate }] =
-      await queries.withinTransaction(() =>
-        Promise.all([
-          queries.getTvlByToken(),
-          queries.getTvlDeltaByTokenByDate(thirtyDaysAgo),
-        ]),
-      );
+      await Promise.all([
+        queries.getTvlByToken(),
+        queries.getTvlDeltaByTokenByDate(thirtyDaysAgo),
+      ]);
 
     return json(
       {

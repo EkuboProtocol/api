@@ -30,9 +30,7 @@ export class GetPoolStates extends EkuboAPIRoute {
   async handle(_: IRequest, { env }: RequestContext) {
     const queries = await createQueries(env);
 
-    const { rows } = await queries.withinTransaction(() =>
-      queries.getAllPoolsWithStates(),
-    );
+    const { rows } = await queries.getAllPoolsWithStates();
 
     return json(
       rows.map((pool) => ({
@@ -108,16 +106,14 @@ export class GetPoolLiquidity extends EkuboAPIRoute {
     const queries = await createQueries(env);
 
     const rows: LiquidityResponseType = (
-      await queries.withinTransaction(() =>
-        queries.getPoolLiquidityGraph({
+      await queries.getPoolLiquidityGraph({
           coreAddress: BigInt(coreAddress),
           token0: BigInt(token0),
           token1: BigInt(token1),
           fee: BigInt(fee),
           tickSpacing: Number(fee),
           extension: BigInt(extension),
-        }),
-      )
+        })
     ).rows;
 
     return json(
