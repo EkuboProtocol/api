@@ -6,6 +6,7 @@ import { EkuboAPIRoute, RequestContext } from "../../shared/context";
 
 import MAINNET_TOKENS from "./defaults/mainnet.json";
 import SEPOLIA_TOKENS from "./defaults/sepolia.json";
+import UNISWAP_DEFAULT_LIST from "@uniswap/default-token-list";
 import LOGOS from "./defaults/logos.json";
 
 export const TokenType = z
@@ -74,7 +75,12 @@ export type TokenInfo = z.infer<typeof TokenType>;
 const SEPOLIA_CHAIN_ID = 11155111;
 const MAINNET_CHAIN_ID = 1;
 
-export function getAllTokens(env: Env): TokenInfo[] {
+const TOKENS: { [chainId: number]: TokenInfo[] | null } = {};
+
+export function getDefaultTokens(env: Env): TokenInfo[] {
+  const ci = Number(env.CHAIN_ID);
+  if (TOKENS[ci]) return TOKENS[ci];
+
   const tokens: TokenInfo[] =
     Number(env.CHAIN_ID) === SEPOLIA_CHAIN_ID
       ? SEPOLIA_TOKENS
@@ -82,11 +88,35 @@ export function getAllTokens(env: Env): TokenInfo[] {
         ? MAINNET_TOKENS
         : [];
 
+  UNISWAP_DEFAULT_LIST.tokens.forEach((tNew) => {
+    if (tNew.chainId !== ci) return;
+
+    // can't find a copy in the list already
+    if (
+      !tokens.find(
+        (tOld) =>
+          BigInt(tOld.token_address) === BigInt(tNew.address) ||
+          tOld.symbol.toLowerCase() === tNew.symbol.toLowerCase(),
+      )
+    ) {
+      tokens.push({
+        symbol: tNew.symbol,
+        name: tNew.name,
+        token_address: tNew.address,
+        decimals: tNew.decimals,
+        hidden: true,
+        logo_url: tNew.logoURI,
+        total_supply: null,
+        sort_order: 1,
+      });
+    }
+  });
+
   tokens.forEach((t) => {
     t.logo_url = (LOGOS as { [symbol: string]: string })[t.symbol];
   });
 
-  return tokens;
+  return (TOKENS[ci] = tokens);
 }
 
 export function getTokenByAddress(
@@ -125,7 +155,7 @@ export class ListTokens extends EkuboAPIRoute {
   };
 
   async handle(request: IRequest, { env }: RequestContext) {
-    const tokens = await getAllTokens(env);
+    const tokens = getDefaultTokens(env);
 
     return json(tokens, {
       headers: {

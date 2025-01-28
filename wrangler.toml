@@ -10,7 +10,7 @@ mode = "smart"
 cpu_ms = 5000
 
 [vars]
-CHAIN_ID = "11155111"
+CHAIN_ID = "1"
 # only used for running the api locally
 PG_CONNECTION_STRING = "postgresql://postgres:postgres@localhost:5432/eth_sepolia"
 

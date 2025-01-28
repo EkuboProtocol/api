@@ -2,7 +2,7 @@ import { Env } from "../env";
 import { IRequest, StatusError } from "itty-router";
 import { createQueries, Queries } from "../queries";
 import {
-  getAllTokens,
+  getDefaultTokens,
   getTokenByIdentifier,
   TokenInfo,
 } from "../routes/meta/tokens";
@@ -20,7 +20,7 @@ export async function parseOutTokens(
   };
 }> {
   const queries = await createQueries(env);
-  const allTokens = await getAllTokens(env);
+  const allTokens = await getDefaultTokens(env);
 
   const tokenA = getTokenByIdentifier(allTokens, params.tokenA);
   const tokenB = getTokenByIdentifier(allTokens, params.tokenB);

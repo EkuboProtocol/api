@@ -1,6 +1,6 @@
 import { EkuboAPIRoute, RequestContext } from "../../shared/context";
 import { IRequest, json, StatusError } from "itty-router";
-import { getAllTokens, getTokenByAddress } from "../meta/tokens";
+import { getDefaultTokens, getTokenByAddress } from "../meta/tokens";
 import { generateSvg } from "./generateSvg";
 import { MAX_POSITION_TOKEN_ID, parseId } from "./parseId";
 import Decimal from "decimal.js-light";
@@ -161,7 +161,7 @@ export class GetPositionNftMetadata extends EkuboAPIRoute {
       },
     ];
 
-    const allTokens = await getAllTokens(env);
+    const allTokens = await getDefaultTokens(env);
 
     const token0 = getTokenByAddress(allTokens, positionMetadata.token0);
     const token1 = getTokenByAddress(allTokens, positionMetadata.token1);
