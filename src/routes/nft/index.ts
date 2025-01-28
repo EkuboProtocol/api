@@ -343,21 +343,13 @@ export class ListPositionNftEvents extends EkuboAPIRoute {
                     delta0,
                     delta1,
                   }
-                : type === 2
-                  ? {
-                      type: "collect_fees",
-                      transaction_hash: toHex(transaction_hash),
-                      timestamp,
-                      delta0,
-                      delta1,
-                    }
-                  : {
-                      type: "protocol_fees",
-                      transaction_hash: toHex(transaction_hash),
-                      timestamp,
-                      delta0,
-                      delta1,
-                    },
+                : {
+                    type: "collect_fees",
+                    transaction_hash: toHex(transaction_hash),
+                    timestamp,
+                    delta0,
+                    delta1,
+                  },
         ),
       },
       {
