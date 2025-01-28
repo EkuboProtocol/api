@@ -104,7 +104,7 @@ export function getDefaultTokens(env: Env): TokenInfo[] {
         name: tNew.name,
         token_address: tNew.address,
         decimals: tNew.decimals,
-        hidden: true,
+        hidden: false,
         logo_url: tNew.logoURI,
         total_supply: null,
         sort_order: 1,
@@ -113,7 +113,8 @@ export function getDefaultTokens(env: Env): TokenInfo[] {
   });
 
   tokens.forEach((t) => {
-    t.logo_url = (LOGOS as { [symbol: string]: string })[t.symbol];
+    t.logo_url =
+      (LOGOS as { [symbol: string]: string })[t.symbol] ?? t.logo_url;
   });
 
   return (TOKENS[ci] = tokens);
