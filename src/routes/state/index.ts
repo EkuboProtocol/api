@@ -34,7 +34,7 @@ export class GetPoolStates extends EkuboAPIRoute {
 
     return json(
       rows.map((pool) => ({
-        core_address: pool.core_address,
+        core_address: toHex(pool.core_address),
         token0: toHex(pool.token0),
         token1: toHex(pool.token1),
         fee: toHex(pool.fee),
