@@ -161,7 +161,7 @@ export class GetPositionNftMetadata extends EkuboAPIRoute {
       },
     ];
 
-    const allTokens = await getDefaultTokens(env);
+    const allTokens = getDefaultTokens(env);
 
     const token0 = getTokenByAddress(allTokens, positionMetadata.token0);
     const token1 = getTokenByAddress(allTokens, positionMetadata.token1);

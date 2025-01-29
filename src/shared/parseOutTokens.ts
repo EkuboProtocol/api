@@ -20,7 +20,7 @@ export async function parseOutTokens(
   };
 }> {
   const queries = await createQueries(env);
-  const allTokens = await getDefaultTokens(env);
+  const allTokens = getDefaultTokens(env);
 
   const tokenA = getTokenByIdentifier(allTokens, params.tokenA);
   const tokenB = getTokenByIdentifier(allTokens, params.tokenB);
