@@ -697,7 +697,7 @@ export class Queries {
                    JOIN pool_keys ON mint_position_update.pool_key_hash = pool_keys.key_hash
                    JOIN blocks ON event_keys.block_number = blocks.number
           WHERE ($2 OR ot.liquidity > 0)
-          ORDER BY token_id DESC
+          ORDER BY blocks.time DESC
       `,
       values: [address, showClosed],
     });
