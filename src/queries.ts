@@ -338,7 +338,7 @@ export class Queries {
       text: `
           WITH earliest_event AS (SELECT id
                                   FROM event_keys ek
-                                  WHERE ek.block_number = (SELECT number
+                                  WHERE ek.block_number >= (SELECT number
                                                            FROM blocks
                                                            WHERE time >= NOW() - INTERVAL '1 days'
                                                            ORDER BY number
