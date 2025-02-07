@@ -28,7 +28,7 @@ export class GetOverviewPairs extends EkuboAPIRoute {
       },
       {
         headers: {
-          "cache-control": "public, max-age=1800",
+          "cache-control": "public, max-age=600",
         },
       },
     );
@@ -74,7 +74,7 @@ export class GetOverviewRevenue extends EkuboAPIRoute {
       },
       {
         headers: {
-          "cache-control": "public, max-age=3600",
+          "cache-control": "public, max-age=600",
         },
       },
     );
@@ -120,7 +120,7 @@ export class GetOverviewVolume extends EkuboAPIRoute {
       },
       {
         headers: {
-          "cache-control": "public, max-age=3600",
+          "cache-control": "public, max-age=600",
         },
       },
     );
@@ -160,7 +160,7 @@ export class GetOverviewTvl extends EkuboAPIRoute {
       },
       {
         headers: {
-          "cache-control": "public, max-age=3600",
+          "cache-control": "public, max-age=600",
         },
       },
     );
