@@ -3,7 +3,7 @@ import { IRequest, StatusError } from "itty-router";
 import { createQueries, Queries } from "../queries";
 import {
   getDefaultTokens,
-  getTokenByIdentifier,
+  getTokenParsedAddressByIdentifier,
   TokenInfo,
 } from "../routes/meta/tokens";
 
@@ -12,8 +12,6 @@ export async function parseOutTokens(
   params: IRequest["params"],
 ): Promise<{
   queries: Queries;
-  tokenA: TokenInfo;
-  tokenB: TokenInfo;
   pair: {
     token0: bigint;
     token1: bigint;
@@ -22,8 +20,8 @@ export async function parseOutTokens(
   const queries = await createQueries(env);
   const allTokens = getDefaultTokens(env);
 
-  const tokenA = getTokenByIdentifier(allTokens, params.tokenA);
-  const tokenB = getTokenByIdentifier(allTokens, params.tokenB);
+  const tokenA = getTokenParsedAddressByIdentifier(allTokens, params.tokenA);
+  const tokenB = getTokenParsedAddressByIdentifier(allTokens, params.tokenB);
 
   if (!tokenA) {
     throw new StatusError(400, `Invalid token identifier: "${params.tokenA}"`);
@@ -31,22 +29,18 @@ export async function parseOutTokens(
   if (!tokenB) {
     throw new StatusError(400, `Invalid token identifier: "${params.tokenB}"`);
   }
-  if (tokenA.token_address === tokenB.token_address) {
+  if (tokenA === tokenB) {
     throw new StatusError(400, `tokenA cannot be equal to tokenB`);
   }
 
   const [token0, token1] =
-    BigInt(tokenA.token_address) < BigInt(tokenB.token_address)
-      ? [tokenA, tokenB]
-      : [tokenB, tokenA];
+    tokenA < tokenB ? [tokenA, tokenB] : [tokenB, tokenA];
 
   return {
     queries,
-    tokenA,
-    tokenB,
     pair: {
-      token0: BigInt(token0.token_address),
-      token1: BigInt(token1.token_address),
+      token0,
+      token1,
     },
   };
 }

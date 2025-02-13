@@ -127,17 +127,21 @@ export function getTokenByAddress(
   return tokens?.find((x) => BigInt(x.token_address) === BigInt(address));
 }
 
-export function getTokenByIdentifier(
+export function getTokenParsedAddressByIdentifier(
   tokens: TokenInfo[],
   identifier: string,
-): TokenInfo | undefined {
+): bigint | undefined {
   if (/^0x[a-fA-F0-9]+$/.test(identifier) || /^\d+$/.test(identifier)) {
-    return getTokenByAddress(tokens, identifier);
+    return BigInt(identifier);
   }
 
-  return tokens.find(
+  const foundTokenBySymbol = tokens.find(
     (x) => x.symbol.toLowerCase() === identifier.toLowerCase(),
   );
+
+  return foundTokenBySymbol !== undefined
+    ? BigInt(foundTokenBySymbol.token_address)
+    : undefined;
 }
 
 export class ListTokens extends EkuboAPIRoute {
