@@ -326,6 +326,7 @@ export class Queries {
       fee: string;
       tick_spacing: string;
       extension: string;
+      core_address: string;
 
       timestamp: string;
 
@@ -346,7 +347,7 @@ export class Queries {
                                   ORDER BY id
                                   LIMIT 1),
 
-               relevant_pool_keys AS (SELECT key_hash, fee, extension, tick_spacing
+               relevant_pool_keys AS (SELECT key_hash, fee, extension, tick_spacing, core_address
                                       FROM pool_keys
                                       WHERE token0 = $1
                                         AND token1 = $2),
@@ -356,6 +357,7 @@ export class Queries {
                                          relevant_pool_keys.fee,
                                          relevant_pool_keys.tick_spacing,
                                          relevant_pool_keys.extension,
+                                         relevant_pool_keys.core_address,
                                          blocks.time                 AS timestamp,
                                          transaction_hash,
                                          event_id,
@@ -373,6 +375,7 @@ export class Queries {
                                            relevant_pool_keys.fee,
                                            relevant_pool_keys.tick_spacing,
                                            relevant_pool_keys.extension,
+                                           relevant_pool_keys.core_address,
                                            blocks.time                 AS timestamp,
                                            transaction_hash,
                                            event_id,
@@ -609,6 +612,7 @@ export class Queries {
     return this.client.query<{
       fee: string;
       tick_spacing: number;
+      core_address: string;
       extension: string;
       volume0_24h: string;
       volume1_24h: string;
@@ -622,6 +626,7 @@ export class Queries {
       text: `
           SELECT p.fee,
                  p.tick_spacing,
+                 p.core_address,
                  p.extension,
                  volume0_24h,
                  volume1_24h,
