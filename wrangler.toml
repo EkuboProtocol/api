@@ -26,7 +26,7 @@ routes = [
 
 [env.mainnet]
 hyperdrive = [
-    { binding = "HYPERDRIVE", id = "04a121d0804b4451b6cdf894c9b61b56" }
+    { binding = "HYPERDRIVE", id = "38e42bfb68194e9e86b6be8dbf51bd69" }
 ]
 vars = { CHAIN_ID = "1" }
 routes = [
