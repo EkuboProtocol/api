@@ -1,9 +1,18 @@
 [
   {
     "name": "Ether",
-    "symbol": "ETH",
+    "symbol": "ETHv1",
     "decimals": 18,
     "token_address": "0x0000000000000000000000000000eeEEee000000",
+    "sort_order": 2,
+    "total_supply": null,
+    "disabled": true
+  },
+  {
+    "name": "Ether",
+    "symbol": "ETH",
+    "decimals": 18,
+    "token_address": "0x0000000000000000000000000000000000000000",
     "sort_order": 2,
     "total_supply": null
   },

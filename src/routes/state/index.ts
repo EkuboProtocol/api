@@ -77,7 +77,7 @@ export class GetPoolLiquidity extends EkuboAPIRoute {
     parameters: {
       coreAddress: Path(AddressType, { example: "0xabcd" }),
       token0: Path(AddressType, {
-        example: "0x0000000000000000000000000000eeEEee000000",
+        example: "0x0000000000000000000000000000000000000000",
       }),
       token1: Path(AddressType, {
         example: "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48",
