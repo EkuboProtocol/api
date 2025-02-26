@@ -21,7 +21,7 @@
     "check-ts": "tsc --noEmit"
   },
   "dependencies": {
-    "@uniswap/default-token-list": "^13.2.0",
+    "@uniswap/default-token-list": "^13.6.0",
     "viem": "^2.22.10"
   }
 }
