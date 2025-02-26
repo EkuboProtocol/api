@@ -23,10 +23,10 @@ export async function parseOutTokens(
   const tokenA = getTokenParsedAddressByIdentifier(allTokens, params.tokenA);
   const tokenB = getTokenParsedAddressByIdentifier(allTokens, params.tokenB);
 
-  if (!tokenA) {
+  if (tokenA === undefined) {
     throw new StatusError(400, `Invalid token identifier: "${params.tokenA}"`);
   }
-  if (!tokenB) {
+  if (tokenB === undefined) {
     throw new StatusError(400, `Invalid token identifier: "${params.tokenB}"`);
   }
   if (tokenA === tokenB) {
