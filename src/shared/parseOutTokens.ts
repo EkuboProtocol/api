@@ -4,7 +4,6 @@ import { createQueries, Queries } from "../queries";
 import {
   getDefaultTokens,
   getTokenParsedAddressByIdentifier,
-  TokenInfo,
 } from "../routes/meta/tokens";
 
 export async function parseOutTokens(

@@ -25,6 +25,7 @@ import {
   ListPositionsByAddress,
 } from "./routes/nft";
 import { error } from "itty-router";
+import { GetPairPriceHistory } from "./routes/prices";
 
 export const router = OpenAPIRouter({
   schema: {
@@ -56,6 +57,7 @@ export const router = OpenAPIRouter({
   .get(GetPairInfoTvl.route, GetPairInfoTvl)
   .get(GetPairInfoVolume.route, GetPairInfoVolume)
   .get(GetPairInfoPools.route, GetPairInfoPools)
+  .get(GetPairPriceHistory.route, GetPairPriceHistory)
   .get(GetPoolStates.route, GetPoolStates)
   .get(GetPoolLiquidity.route, GetPoolLiquidity)
   .get(GetPairLiquidity.route, GetPairLiquidity)

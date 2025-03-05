@@ -1,5 +1,6 @@
 import { Client } from "pg";
 import { Env } from "./env";
+import Decimal from "decimal.js-light";
 
 interface PositionMetadata {
   positions_address: string;
@@ -485,6 +486,117 @@ export class Queries {
       `,
       values: [pair?.token0 ?? null, pair?.token1 ?? null, after],
     });
+  }
+
+  public async getVolumeWeightedPrice({
+    baseToken,
+    quoteToken,
+    endTime = new Date(),
+    numHours = 24,
+  }: {
+    baseToken: bigint;
+    quoteToken: bigint;
+    endTime?: Date;
+    numHours?: number;
+  }): Promise<{ price: Decimal; k_volume: bigint } | null> {
+    if (baseToken === quoteToken)
+      return { price: new Decimal(1), k_volume: 1n << 128n };
+
+    const [token0, token1] =
+      baseToken < quoteToken
+        ? [baseToken, quoteToken]
+        : [quoteToken, baseToken];
+
+    const { rows } = await this.client.query<{
+      total: string | null;
+      k_volume: string | null;
+      swap_count: number;
+    }>({
+      text: `
+          SELECT SUM(total) AS total, SUM(k_volume) AS k_volume, SUM(swap_count) AS swap_count
+          FROM hourly_price_data
+          WHERE token0 = $1
+            AND token1 = $2
+            AND hour BETWEEN (DATE_TRUNC('hour', $3::timestamptz - ($4 * INTERVAL '1 hour'), 'UTC')) AND DATE_TRUNC('hour', $3::timestamptz, 'UTC')
+      `,
+      values: [token0, token1, endTime, numHours],
+    });
+
+    if (rows.length !== 1) return null;
+
+    const { total, k_volume, swap_count } = rows[0];
+
+    if (!total || !k_volume || !swap_count) return null;
+
+    const price =
+      baseToken < quoteToken
+        ? new Decimal(total).div(k_volume)
+        : new Decimal(k_volume).div(total);
+    return { price, k_volume: BigInt(k_volume) };
+  }
+
+  public async getPriceHistory({
+    token0,
+    token1,
+    start,
+    end,
+    intervalSeconds,
+    delta0Threshold = 0n,
+    delta1Threshold = 0n,
+  }: {
+    token0: bigint;
+    token1: bigint;
+    start: Date;
+    end: Date;
+    intervalSeconds: number;
+    delta0Threshold?: bigint;
+    delta1Threshold?: bigint;
+  }) {
+    if (token0 >= token1) throw new Error("invalid token0 and token1");
+
+    const { rows } = await this.client.query<{
+      start: string;
+      vwap: number;
+      min: number;
+      max: number;
+      k_volume: string;
+    }>({
+      text: `
+          SELECT date_bin($5 * INTERVAL '1 sec', blocks.time,
+                          '2000-01-01 00:00:00'::TIMESTAMP WITHOUT TIME ZONE)         AS start,
+                 SUM(swaps.delta1 * swaps.delta1) / SUM(ABS(swaps.delta0 * swaps.delta1)) AS vwap,
+                 MIN(CASE
+                         WHEN ABS(swaps.delta0) > $6 AND ABS(swaps.delta1) > $7
+                             THEN ABS(swaps.delta1 / swaps.delta0) END) AS min,
+                 MAX(CASE
+                         WHEN ABS(swaps.delta0) > $6 AND ABS(swaps.delta1) > $7
+                             THEN ABS(swaps.delta1 / swaps.delta0) END)  AS max,
+                 SUM(ABS(swaps.delta1 * swaps.delta0))                                AS k_volume
+          FROM swaps
+                   JOIN pool_keys
+                        ON swaps.pool_key_hash = pool_keys.key_hash
+                   JOIN event_keys ON swaps.event_id = event_keys.id
+                   JOIN blocks ON event_keys.block_number = blocks.number
+          WHERE pool_keys.token0 = $1
+            AND pool_keys.token1 = $2
+            AND blocks.time BETWEEN $3 AND $4
+            AND swaps.delta0 != 0
+            AND swaps.delta1 != 0
+          GROUP BY start
+          ORDER BY start
+      `,
+      values: [
+        token0,
+        token1,
+        start,
+        end,
+        intervalSeconds,
+        delta0Threshold,
+        delta1Threshold,
+      ],
+    });
+
+    return rows;
   }
 
   public getTotalVolumeByToken({
