@@ -10,7 +10,7 @@ import {
 import { z } from "zod";
 import toHex from "../../shared/toHex";
 
-export class GetPoolStates extends EkuboAPIRoute {
+export class ListPoolKeys extends EkuboAPIRoute {
   static route = "/v1/poolKeys";
 
   static schema: OpenAPIRouteSchema = {

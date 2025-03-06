@@ -16,7 +16,7 @@ import {
   GetPairLiquidity,
   ListPairEvents,
 } from "./routes/stats/pair";
-import { GetPoolLiquidity, GetPoolStates } from "./routes/state";
+import { GetPoolLiquidity, ListPoolKeys } from "./routes/state";
 import {
   GetNftState,
   GetPositionNftImage,
@@ -58,7 +58,7 @@ export const router = OpenAPIRouter({
   .get(GetPairInfoVolume.route, GetPairInfoVolume)
   .get(GetPairInfoPools.route, GetPairInfoPools)
   .get(GetPairPriceHistory.route, GetPairPriceHistory)
-  .get(GetPoolStates.route, GetPoolStates)
+  .get(ListPoolKeys.route, ListPoolKeys)
   .get(GetPoolLiquidity.route, GetPoolLiquidity)
   .get(GetPairLiquidity.route, GetPairLiquidity)
   .get(ListPairEvents.route, ListPairEvents)
