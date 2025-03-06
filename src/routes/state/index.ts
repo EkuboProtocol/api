@@ -11,17 +11,17 @@ import { z } from "zod";
 import toHex from "../../shared/toHex";
 
 export class GetPoolStates extends EkuboAPIRoute {
-  static route = "/pools";
+  static route = "/v1/poolKeys";
 
   static schema: OpenAPIRouteSchema = {
-    tags: ["Swap"],
-    summary: "Get pool states",
-    description:
-      "Returns the current state of all the Ekubo pools, including current liquidity and price",
+    tags: ["Meta"],
+    summary: "List pool keys",
+    description: "Returns all the pool keys that have been initialized",
     parameters: {},
     responses: {
       "200": {
-        description: "The current state of all the pools",
+        description:
+          "The pool keys of all the pools that have been initialized",
         contentType: "application/json",
       },
     },
@@ -30,7 +30,7 @@ export class GetPoolStates extends EkuboAPIRoute {
   async handle(_: IRequest, { env }: RequestContext) {
     const queries = await createQueries(env);
 
-    const { rows } = await queries.getAllPoolsWithStates();
+    const { rows } = await queries.listAllPoolKeys();
 
     return json(
       rows.map((pool) => ({
@@ -40,12 +40,11 @@ export class GetPoolStates extends EkuboAPIRoute {
         fee: toHex(pool.fee),
         tick_spacing: Number(pool.tick_spacing),
         extension: toHex(pool.extension),
-        sqrt_ratio: toHex(pool.sqrt_ratio),
-        tick: pool.tick,
-        liquidity: pool.liquidity,
-        lastUpdate: {
-          event_id: pool.last_event_id,
-        },
+        config: toHex(
+          BigInt(pool.tick_spacing) +
+            (BigInt(pool.fee) << 32n) +
+            (BigInt(pool.extension) << 96n),
+        ),
       })),
       {
         headers: {

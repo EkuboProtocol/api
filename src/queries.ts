@@ -15,17 +15,13 @@ interface PositionMetadata {
   minted_tx_hash: string;
 }
 
-export interface BasePoolStateQueryResult {
+export interface ListPoolKeysQueryResult {
   core_address: string;
   token0: string;
   token1: string;
   fee: string;
   tick_spacing: string;
   extension: string;
-  sqrt_ratio: string;
-  tick: number;
-  liquidity: string;
-  last_event_id: string;
 }
 
 export class Queries {
@@ -68,20 +64,15 @@ export class Queries {
     return rows[0];
   }
 
-  public async getAllPoolsWithStates() {
-    return this.client.query<BasePoolStateQueryResult>(`
+  public async listAllPoolKeys() {
+    return this.client.query<ListPoolKeysQueryResult>(`
         SELECT core_address,
                token0,
                token1,
                fee,
                tick_spacing,
-               extension,
-               sqrt_ratio,
-               tick,
-               liquidity,
-               last_event_id
-        FROM pool_states_materialized
-                 JOIN pool_keys ON pool_key_hash = key_hash
+               extension
+        FROM pool_keys
     `);
   }
 
