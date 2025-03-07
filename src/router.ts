@@ -25,6 +25,12 @@ import {
   ListPositionNftEvents,
   ListPositionsByAddress,
 } from "./routes/nft/positions";
+import { GetOrderNftImage, GetOrderNftMetadata } from "./routes/nft/orders";
+import {
+  GetTwammPairState,
+  GetTwammPoolState,
+} from "./routes/twamm/getTwammPoolState";
+import { ListTwapOrders } from "./routes/twamm/orders";
 
 export const router = OpenAPIRouter({
   schema: {
@@ -64,6 +70,11 @@ export const router = OpenAPIRouter({
   .get(ListPositionsByAddress.route, ListPositionsByAddress)
   .get(ListPositionNftEvents.route, ListPositionNftEvents)
   .get(GetPositionNftMetadata.route, GetPositionNftMetadata)
+  .get(GetOrderNftImage.route, GetOrderNftImage)
+  .get(GetOrderNftMetadata.route, GetOrderNftMetadata)
+  .get(GetTwammPoolState.route, GetTwammPoolState)
+  .get(GetTwammPairState.route, GetTwammPairState)
+  .get(ListTwapOrders.route, ListTwapOrders)
   .get(GetPositionNftImage.route, GetPositionNftImage)
   // catch missed routes
   .all("*", () => error(404));

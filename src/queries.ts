@@ -24,6 +24,23 @@ export interface ListPoolKeysQueryResult {
   extension: string;
 }
 
+export interface TwammPoolStateQueryResult {
+  pool_key_hash: string;
+  token0: string;
+  token1: string;
+  fee: string;
+  tick_spacing: string;
+  extension: string;
+  sqrt_ratio: string;
+  tick: number;
+  liquidity: string;
+  last_event_id: string;
+  last_liquidity_update_event_id: string | null;
+  token0_sale_rate: string;
+  token1_sale_rate: string;
+  last_execution_time: Date;
+}
+
 export class Queries {
   private readonly client: Client;
 
@@ -116,26 +133,53 @@ export class Queries {
     return rows[0];
   }
 
-  public async getPositionState(id: number) {
-    const { rows, rowCount } = await this.client.query<{
-      last_owner: string;
+  public async getTwammOrderMetadata(id: number) {
+    const { rows } = await this.client.query<{
+      minted_tx_hash: string;
+      minted_timestamp: Date;
+      start_time: Date;
+      end_time: Date;
+      last_update_time: Date;
+      token0: string;
+      sale_rate0: string;
+      token1: string;
+      sale_rate1: string;
+      fee: string;
     }>({
       text: `
-          SELECT to_address AS last_owner
-          FROM position_transfers pt
+          SELECT event_keys.transaction_hash AS minted_tx_hash,
+                 blocks.time                 AS minted_timestamp,
+                 start_time,
+                 end_time,
+                 last_update_time,
+                 token0,
+                 sale_rate0,
+                 token1,
+                 sale_rate1,
+                 fee
+          FROM position_transfers AS transfer
+                   LEFT JOIN LATERAL (
+              SELECT ou.key_hash           AS pool_key_hash,
+                     ou.start_time         AS start_time,
+                     ou.end_time           AS end_time,
+                     MAX(b.time)           AS last_update_time,
+                     SUM(sale_rate_delta0) AS sale_rate0,
+                     SUM(sale_rate_delta1) AS sale_rate1
+              FROM twamm_order_updates AS ou
+                       JOIN event_keys ek ON event_id = id
+                       JOIN blocks b ON block_number = number
+              WHERE ou.salt = token_id::NUMERIC
+              GROUP BY ou.key_hash, ou.start_time, ou.end_time
+              ) AS order_data ON TRUE
+                   JOIN pool_keys ON order_data.pool_key_hash = key_hash
+                   JOIN event_keys ON transfer.event_id = event_keys.id
+                   JOIN blocks ON event_keys.block_number = blocks.number
           WHERE token_id = $1
-            AND to_address != 0
-          ORDER BY event_id DESC
-          LIMIT 1;
+            AND from_address = 0
       `,
       values: [id],
     });
-
-    if (rowCount !== 1) {
-      return null;
-    }
-
-    return rows[0];
+    return rows;
   }
 
   public async getPositionHistory(id: number) {
@@ -477,6 +521,171 @@ export class Queries {
           GROUP BY token, date;
       `,
       values: [pair?.token0 ?? null, pair?.token1 ?? null, after],
+    });
+  }
+
+  public async getTwammOrdersByAddress(address: bigint, showClosed: boolean) {
+    return this.client.query<{
+      token_id: string;
+      sell_token: string;
+      buy_token: string;
+      start_time: Date;
+      end_time: Date;
+      fee: string;
+      block_time_at_start: Date;
+      last_order_update: Date;
+      last_collect_proceeds: Date | null;
+      total_proceeds_withdrawn: string;
+      total_amount_sold_before_last_update: string;
+    }>({
+      text: `
+          WITH owned_tokens AS (SELECT token_id
+                                FROM position_transfers pt1
+                                WHERE to_address = $1
+                                  AND NOT EXISTS (SELECT 1
+                                                  FROM position_transfers pt2
+                                                  WHERE pt2.token_id = pt1.token_id
+                                                    AND pt2.event_id > pt1.event_id
+                                                    AND (CASE WHEN $2 THEN pt2.to_address != 0 ELSE TRUE END)))
+          SELECT token_id,
+                 sell_token,
+                 buy_token,
+                 start_time,
+                 end_time,
+                 fee,
+                 block_time_at_start,
+                 last_order_update,
+                 lcp.last_collect_proceeds,
+                 tpw.total_proceeds_withdrawn,
+                 tas.total_amount_sold_before_last_update
+          FROM owned_tokens AS ot
+                   JOIN LATERAL (
+              SELECT tou.key_hash,
+                     CASE WHEN tou.sale_rate_delta0 != 0 THEN token0 ELSE token1 END AS sell_token,
+                     CASE WHEN tou.sale_rate_delta0 != 0 THEN token1 ELSE token0 END AS buy_token,
+                     start_time,
+                     end_time,
+                     fee,
+                     MIN(b.time)                                                     AS block_time_at_start,
+                     MAX(b.time)                                                     AS last_order_update
+              FROM twamm_order_updates tou
+                       JOIN pool_keys ON tou.key_hash = pool_keys.key_hash
+                       JOIN event_keys ek ON tou.event_id = ek.id
+                       JOIN blocks b ON ek.block_number = b.number
+              WHERE tou.salt = ot.token_id::NUMERIC
+              GROUP BY 1, 2, 3, 4, 5, 6
+              ) AS distinct_orders ON TRUE
+                   LEFT JOIN LATERAL (
+              SELECT SUM(
+                             CASE WHEN tpw.amount0 != 0 THEN tpw.amount0 ELSE tpw.amount1 END
+                     ) AS total_proceeds_withdrawn
+              FROM twamm_proceeds_withdrawals tpw
+              WHERE tpw.salt = ot.token_id::NUMERIC
+                AND tpw.key_hash = distinct_orders.key_hash
+                AND tpw.start_time = distinct_orders.start_time
+                AND tpw.end_time = distinct_orders.end_time
+              ) AS tpw ON TRUE
+                   LEFT JOIN LATERAL (
+              SELECT SUM(
+                             FLOOR(ouwsp.sale_rate_after_update * ouwsp.current_state_active_seconds /
+                                   pow(2, 32)::NUMERIC)
+                     ) AS total_amount_sold_before_last_update
+              FROM (SELECT tou.event_id,
+                           SUM(
+                           CASE WHEN sale_rate_delta1 != 0 THEN sale_rate_delta1 ELSE sale_rate_delta0 END
+                              ) OVER (
+                               PARTITION BY tou.salt, tou.key_hash, tou.start_time, tou.end_time, tou.owner
+                               ORDER BY tou.event_id
+                               ) AS sale_rate_after_update,
+                           COALESCE(
+                                           LEAD(
+                                           EXTRACT(EPOCH FROM LEAST(GREATEST(b.time, tou.start_time), tou.end_time)))
+                                           OVER (
+                                               PARTITION BY tou.salt, tou.key_hash, tou.start_time, tou.end_time, tou.owner
+                                               ORDER BY tou.event_id
+                                               ) -
+                                           EXTRACT(EPOCH FROM LEAST(GREATEST(b.time, tou.start_time), tou.end_time)),
+                                           0
+                           )     AS current_state_active_seconds
+                    FROM twamm_order_updates tou
+                             JOIN event_keys e ON tou.event_id = e.id
+                             JOIN blocks b ON e.block_number = b.number
+                    WHERE tou.salt = ot.token_id::NUMERIC
+                      AND tou.key_hash = distinct_orders.key_hash
+                      AND tou.start_time = distinct_orders.start_time
+                      AND tou.end_time = distinct_orders.end_time) ouwsp
+              ) AS tas ON TRUE
+                   LEFT JOIN LATERAL (SELECT b2.time AS last_collect_proceeds
+                                      FROM twamm_proceeds_withdrawals tpw
+                                               JOIN event_keys ek2 ON tpw.event_id = ek2.id
+                                               JOIN blocks b2 ON ek2.block_number = b2.number
+                                      WHERE tpw.salt = ot.token_id::NUMERIC
+                                      ORDER BY tpw.event_id DESC
+                                      LIMIT 1) AS lcp ON TRUE
+          WHERE $2
+             OR lcp.last_collect_proceeds IS NULL
+             OR lcp.last_collect_proceeds < distinct_orders.end_time
+          ORDER BY token_id DESC
+
+      `,
+      values: [address, showClosed],
+    });
+  }
+
+  public async getTwammPoolStateByKey({
+    token0,
+    token1,
+    fee,
+  }: {
+    token0: bigint;
+    token1: bigint;
+    fee?: bigint;
+  }) {
+    return this.client.query<
+      Pick<
+        TwammPoolStateQueryResult,
+        "token0_sale_rate" | "token1_sale_rate" | "last_execution_time"
+      >
+    >({
+      text: `
+          SELECT token0_sale_rate,
+                 token1_sale_rate,
+                 tpsm.last_virtual_execution_time AS last_execution_time
+          FROM twamm_pool_states_materialized AS tpsm
+                   JOIN pool_states_materialized psm ON psm.pool_key_hash = tpsm.pool_key_hash
+                   JOIN pool_keys pk ON tpsm.pool_key_hash = pk.key_hash
+          WHERE pk.token0 = $1
+            AND pk.token1 = $2
+            AND pk.fee = COALESCE($3, pk.fee)
+      `,
+      values: [token0, token1, fee ?? null],
+    });
+  }
+
+  public async getSaleRateDeltasByKey({
+    token0,
+    token1,
+    fee,
+  }: {
+    token0: bigint;
+    token1: bigint;
+    fee?: bigint;
+  }) {
+    return this.client.query<{
+      time: Date;
+      net_sale_rate_delta0: string;
+      net_sale_rate_delta1: string;
+    }>({
+      text: `
+          SELECT time, net_sale_rate_delta0, net_sale_rate_delta1
+          FROM twamm_sale_rate_deltas_materialized AS tsrdm
+                   JOIN pool_keys pk ON tsrdm.pool_key_hash = pk.key_hash
+          WHERE pk.token0 = $1
+            AND pk.token1 = $2
+            AND pk.fee = COALESCE($3, pk.fee)
+          ORDER BY time
+      `,
+      values: [token0, token1, fee ?? null],
     });
   }
 
