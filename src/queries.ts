@@ -96,6 +96,7 @@ export class Queries {
               SELECT lower_bound, upper_bound, pool_key_hash
               FROM position_updates AS pu
               WHERE pu.salt = token_id::NUMERIC
+              ORDER BY pu.event_id DESC
               LIMIT 1
               ) AS mint_position_update ON TRUE
                    JOIN pool_keys ON mint_position_update.pool_key_hash = pool_keys.key_hash

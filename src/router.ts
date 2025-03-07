@@ -17,15 +17,14 @@ import {
   ListPairEvents,
 } from "./routes/stats/pair";
 import { GetPoolLiquidity, ListPoolKeys } from "./routes/state";
+import { error } from "itty-router";
+import { GetPairPriceHistory } from "./routes/prices";
 import {
-  GetNftState,
   GetPositionNftImage,
   GetPositionNftMetadata,
   ListPositionNftEvents,
   ListPositionsByAddress,
-} from "./routes/nft";
-import { error } from "itty-router";
-import { GetPairPriceHistory } from "./routes/prices";
+} from "./routes/nft/positions";
 
 export const router = OpenAPIRouter({
   schema: {
@@ -62,7 +61,6 @@ export const router = OpenAPIRouter({
   .get(GetPoolLiquidity.route, GetPoolLiquidity)
   .get(GetPairLiquidity.route, GetPairLiquidity)
   .get(ListPairEvents.route, ListPairEvents)
-  .get(GetNftState.route, GetNftState)
   .get(ListPositionsByAddress.route, ListPositionsByAddress)
   .get(ListPositionNftEvents.route, ListPositionNftEvents)
   .get(GetPositionNftMetadata.route, GetPositionNftMetadata)

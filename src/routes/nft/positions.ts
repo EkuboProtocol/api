@@ -1,86 +1,25 @@
 import { EkuboAPIRoute, RequestContext } from "../../shared/context";
-import { IRequest, json, StatusError } from "itty-router";
-import { getDefaultTokens, getTokenByAddress } from "../meta/tokens";
-import { generateSvg } from "./generateSvg";
-import { MAX_POSITION_TOKEN_ID, parseId } from "./parseId";
-import Decimal from "decimal.js-light";
-
-import { createQueries } from "../../queries";
 import {
   OpenAPIRouteSchema,
   Path,
   Query,
 } from "@cloudflare/itty-router-openapi";
+import { AddressType } from "../../shared/validation/address";
 import { z } from "zod";
-import { AddressType, HexStringType } from "../../shared/validation/address";
+import { IRequest, json, StatusError } from "itty-router";
+import { createQueries } from "../../queries";
 import toHex from "../../shared/toHex";
+import {
+  feeToPercent,
+  formattedPrice,
+  NFTMetadata,
+  tickSpacingToPercent,
+  TokenIdType,
+} from "./format";
+import { parseId } from "./parseId";
 import { checksumAddress } from "viem";
-
-export interface NFTMetadata {
-  name: string;
-
-  description: string;
-
-  image: string;
-
-  attributes: {
-    trait_type: string;
-    value: string;
-  }[];
-}
-
-const BASE = new Decimal("1.000001");
-
-const NUM_DIGITS = 12;
-const MIN_PRICE_RENDER = new Decimal(10).pow(-NUM_DIGITS);
-const MAX_PRICE_RENDER = new Decimal(10).pow(NUM_DIGITS);
-
-Decimal.config({ toExpNeg: -NUM_DIGITS, toExpPos: NUM_DIGITS });
-
-function formattedPrice(
-  tick: number,
-  numeratorDecimals: number,
-  denominatorDecimals: number,
-): string {
-  const p = BASE.pow(tick.toString()).mul(
-    new Decimal(10).pow(denominatorDecimals - numeratorDecimals),
-  );
-
-  if (p.lt(MIN_PRICE_RENDER)) {
-    return "0.0";
-  }
-
-  if (p.gt(MAX_PRICE_RENDER)) {
-    return "∞";
-  }
-
-  return Number(p.toSignificantDigits(12)).toLocaleString("en-US");
-}
-
-const U128 = new Decimal(2).pow(128);
-
-export function feeToPercent(fee: string) {
-  return new Decimal(fee).div(U128).mul(100).toSignificantDigits(2).toString();
-}
-
-export function tickSpacingToPercent(tick_spacing: string) {
-  return BASE.pow(tick_spacing)
-    .sub(1)
-    .mul(100)
-    .toSignificantDigits(2)
-    .toString();
-}
-
-const TokenIdType = z.coerce
-  .number({})
-  .int()
-  .min(1)
-  .max(MAX_POSITION_TOKEN_ID)
-  .openapi({
-    example: 1,
-    title: "TokenID",
-    description: "The ID of a position NFT token",
-  });
+import { getDefaultTokens, getTokenByAddress } from "../meta/tokens";
+import { generateSvg } from "./generateSvg";
 
 export class GetPositionNftMetadata extends EkuboAPIRoute {
   static route = "/positions/nft/:id";
@@ -198,30 +137,35 @@ export class GetPositionNftMetadata extends EkuboAPIRoute {
             ),
           ];
 
+      const isFullRange = Number(positionMetadata.tick_spacing) === 0;
+
       metadata = {
         name: `${numerator.symbol} / ${
           denominator.symbol
         } : ${lowerPrice} - ${upperPrice} : ${feeToPercent(
           positionMetadata.fee,
-        )}%F${tickSpacingToPercent(positionMetadata.tick_spacing)}%TS`,
-        description: `A liquidity position in Ekubo consisting of the ${
-          numerator.name
-        } and ${
-          denominator.name
-        } tokens, active between the prices of ${lowerPrice} ${
-          numerator.symbol
-        } / ${denominator.symbol} to ${upperPrice} ${numerator.symbol} / ${
-          denominator.symbol
-        }. This position charges a ${feeToPercent(
-          positionMetadata.fee,
-        )}% fee on swaps.`,
+        )}%F${isFullRange ? "MAX" : `${tickSpacingToPercent(positionMetadata.tick_spacing)}%TS`}`,
+        description: isFullRange
+          ? `A full range liquidity position in Ekubo consisting of the ${numerator.name} and ${denominator.name} tokens and charging a ${feeToPercent(positionMetadata.fee)}% fee on swaps.`
+          : `A liquidity position in Ekubo consisting of the ${
+              numerator.name
+            } and ${
+              denominator.name
+            } tokens, active between the prices of ${lowerPrice} ${
+              numerator.symbol
+            } / ${denominator.symbol} to ${upperPrice} ${numerator.symbol} / ${
+              denominator.symbol
+            }. This position charges a ${feeToPercent(
+              positionMetadata.fee,
+            )}% fee on swaps.`,
         image,
         attributes: attributesStored,
       };
     } else {
       metadata = {
         name: `Ekubo NFT #${id}`,
-        description: "An NFT that represents a position in Ekubo Protocol",
+        description:
+          "An NFT that represents a position in Ekubo Protocol. Metadata for this token was not found.",
         image,
         attributes: attributesStored,
       };
@@ -232,53 +176,6 @@ export class GetPositionNftMetadata extends EkuboAPIRoute {
         "cache-control": "public,max-age=3600,immutable",
       },
     });
-  }
-}
-
-export class GetNftState extends EkuboAPIRoute {
-  static route = "/:id/state";
-  static schema: OpenAPIRouteSchema = {
-    tags: ["Positions"],
-    summary: "Get NFT State",
-    description: "Returns the last owner of the position",
-    parameters: {
-      id: Path(TokenIdType),
-    },
-    responses: {
-      "200": {
-        description: "The state of the NFT with the given token ID",
-        contentType: "application/json",
-        schema: z.object({
-          last_owner: HexStringType,
-        }),
-      },
-    },
-  };
-
-  async handle({ params: { id: idStr } }: IRequest, { env }: RequestContext) {
-    const id = parseId(idStr);
-    if (id === null) {
-      throw new StatusError(400, "Invalid token ID");
-    }
-
-    const queries = await createQueries(env);
-
-    const state = await queries.getPositionState(id);
-
-    if (state === null) {
-      throw new StatusError(404, `Token ID ${id} not found`);
-    }
-
-    return json(
-      {
-        last_owner: toHex(BigInt(state.last_owner)),
-      },
-      {
-        headers: {
-          "cache-control": "public,max-age=180",
-        },
-      },
-    );
   }
 }
 
