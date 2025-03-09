@@ -44,7 +44,7 @@
     "name": "Ether",
     "symbol": "ETH",
     "decimals": 18,
-    "token_address": "0x0000000000000000000000000000eeEEee000000",
+    "token_address": "0x0000000000000000000000000000000000000000",
     "sort_order": 3,
     "total_supply": null
   },
