@@ -540,13 +540,13 @@ export class Queries {
     }>({
       text: `
           WITH owned_tokens AS (SELECT token_id
-                                FROM position_transfers pt1
+                                FROM order_transfers ot1
                                 WHERE to_address = $1
                                   AND NOT EXISTS (SELECT 1
-                                                  FROM position_transfers pt2
-                                                  WHERE pt2.token_id = pt1.token_id
-                                                    AND pt2.event_id > pt1.event_id
-                                                    AND (CASE WHEN $2 THEN pt2.to_address != 0 ELSE TRUE END)))
+                                                  FROM order_transfers ot2
+                                                  WHERE ot2.token_id = ot1.token_id
+                                                    AND ot2.event_id > ot1.event_id
+                                                    AND (CASE WHEN $2 THEN ot2.to_address != 0 ELSE TRUE END)))
           SELECT token_id,
                  sell_token,
                  buy_token,
