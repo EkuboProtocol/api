@@ -10,6 +10,18 @@ import {
 import { z } from "zod";
 import toHex from "../../shared/toHex";
 
+export function toPoolConfig({
+  fee,
+  tickSpacing,
+  extension,
+}: {
+  fee: bigint;
+  tickSpacing: number;
+  extension: bigint;
+}): `0x${string}` {
+  return toHex(BigInt(tickSpacing) + (fee << 32n) + (extension << 96n), 32);
+}
+
 export class ListPoolKeys extends EkuboAPIRoute {
   static route = "/v1/poolKeys";
 
@@ -34,17 +46,17 @@ export class ListPoolKeys extends EkuboAPIRoute {
 
     return json(
       rows.map((pool) => ({
-        core_address: toHex(pool.core_address),
-        token0: toHex(pool.token0),
-        token1: toHex(pool.token1),
+        core_address: toHex(pool.core_address, 20),
+        token0: toHex(pool.token0, 20),
+        token1: toHex(pool.token1, 20),
         fee: toHex(pool.fee),
         tick_spacing: Number(pool.tick_spacing),
-        extension: toHex(pool.extension),
-        config: toHex(
-          BigInt(pool.tick_spacing) +
-            (BigInt(pool.fee) << 32n) +
-            (BigInt(pool.extension) << 96n),
-        ),
+        extension: toHex(pool.extension, 20),
+        config: toPoolConfig({
+          fee: BigInt(pool.fee),
+          tickSpacing: Number(pool.tick_spacing),
+          extension: BigInt(pool.extension),
+        }),
       })),
       {
         headers: {
