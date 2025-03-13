@@ -1,5 +1,6 @@
 import { z } from "zod";
 import Decimal from "decimal.js-light";
+import { NumericStringType } from "../../shared/validation/address";
 
 export interface NFTMetadata {
   name: string;
@@ -55,13 +56,4 @@ export function tickSpacingToPercent(tick_spacing: string) {
     .toString();
 }
 
-export const TokenIdType = z.coerce
-  .number({})
-  .int()
-  .min(1)
-  .max(Number.MAX_SAFE_INTEGER)
-  .openapi({
-    example: 1,
-    title: "TokenID",
-    description: "The ID of a NFT",
-  });
+export const TokenIdType = NumericStringType;

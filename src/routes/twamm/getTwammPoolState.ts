@@ -3,7 +3,7 @@ import { IRequest, json, StatusError } from "itty-router";
 import { EkuboAPIRoute, RequestContext } from "../../shared/context";
 import {
   DecimalStringType,
-  NumericType,
+  NumericStringType,
   TokenIdentifierType,
 } from "../../shared/validation/address";
 import { z } from "zod";
@@ -37,7 +37,7 @@ export class GetTwammPoolState extends EkuboAPIRoute {
       "Returns the current state of the given TWAMM pool, including the future order expirations",
     parameters: {
       ...SharedGetPairStateParameters,
-      fee: Path(NumericType, { required: true, example: "" }),
+      fee: Path(NumericStringType, { required: true, example: "" }),
     },
     responses: {
       "200": {

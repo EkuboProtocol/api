@@ -16,7 +16,7 @@ import {
   tickSpacingToPercent,
   TokenIdType,
 } from "./format";
-import { parseId } from "./parseId";
+import { parseTokenId } from "./parseTokenId";
 import { checksumAddress } from "viem";
 import { getDefaultTokens, getTokenByAddress } from "../meta/tokens";
 import { generateSvg } from "./generateSvg";
@@ -42,7 +42,7 @@ export class GetPositionNftMetadata extends EkuboAPIRoute {
     { url, params: { id: idStr } }: IRequest,
     { env }: RequestContext,
   ) {
-    const id = parseId(idStr);
+    const id = parseTokenId(idStr);
     if (id === null) {
       throw new StatusError(400, "Invalid token ID");
     }
@@ -197,7 +197,7 @@ export class ListPositionNftEvents extends EkuboAPIRoute {
   };
 
   async handle({ params: { id: idStr } }: IRequest, { env }: RequestContext) {
-    const id = parseId(idStr);
+    const id = parseTokenId(idStr);
     if (id === null) {
       throw new StatusError(400, "Invalid token ID");
     }
@@ -277,7 +277,7 @@ export class GetPositionNftImage extends EkuboAPIRoute {
   };
 
   async handle({ params: { id: idStr } }: IRequest, { env }: RequestContext) {
-    const id = parseId(idStr);
+    const id = parseTokenId(idStr);
     if (id === null) {
       throw new StatusError(400, "Invalid token ID");
     }

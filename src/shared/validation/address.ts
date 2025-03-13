@@ -13,12 +13,12 @@ export const HexStringType = z
   })
   .regex(HEX_STRING_REGEX);
 
-export const NumericType = HexStringType.or(DecimalStringType).openapi({
+export const NumericStringType = HexStringType.or(DecimalStringType).openapi({
   title: "Numeric",
   description: "A number represented in hexadecimal or decimal",
 });
 
-export const AddressType = NumericType.openapi({
+export const AddressType = NumericStringType.openapi({
   title: "Address",
   description: "An address on Ethereum",
 });

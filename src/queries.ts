@@ -112,7 +112,7 @@ export class Queries {
                    LEFT JOIN LATERAL (
               SELECT lower_bound, upper_bound, pool_key_hash
               FROM position_updates AS pu
-              WHERE pu.salt = token_id::NUMERIC
+              WHERE pu.salt = token_id
               ORDER BY pu.event_id DESC
               LIMIT 1
               ) AS mint_position_update ON TRUE
@@ -133,7 +133,7 @@ export class Queries {
     return rows[0];
   }
 
-  public async getTwammOrderMetadata(id: number) {
+  public async getTwammOrderMetadata(tokenId: bigint) {
     const { rows } = await this.client.query<{
       minted_tx_hash: string;
       minted_timestamp: Date;
@@ -168,7 +168,7 @@ export class Queries {
               FROM twamm_order_updates AS ou
                        JOIN event_keys ek ON event_id = id
                        JOIN blocks b ON block_number = number
-              WHERE ou.salt = token_id::NUMERIC
+              WHERE ou.salt = token_id
               GROUP BY ou.key_hash, ou.start_time, ou.end_time
               ) AS order_data ON TRUE
                    JOIN pool_keys ON order_data.pool_key_hash = key_hash
@@ -177,7 +177,7 @@ export class Queries {
           WHERE token_id = $1
             AND from_address = 0
       `,
-      values: [id],
+      values: [tokenId],
     });
     return rows;
   }
@@ -572,7 +572,7 @@ export class Queries {
                        JOIN pool_keys ON tou.key_hash = pool_keys.key_hash
                        JOIN event_keys ek ON tou.event_id = ek.id
                        JOIN blocks b ON ek.block_number = b.number
-              WHERE tou.salt = ot.token_id::NUMERIC
+              WHERE tou.salt = ot.token_id
               GROUP BY 1, 2, 3, 4, 5, 6
               ) AS distinct_orders ON TRUE
                    LEFT JOIN LATERAL (
@@ -580,7 +580,7 @@ export class Queries {
                              CASE WHEN tpw.amount0 != 0 THEN tpw.amount0 ELSE tpw.amount1 END
                      ) AS total_proceeds_withdrawn
               FROM twamm_proceeds_withdrawals tpw
-              WHERE tpw.salt = ot.token_id::NUMERIC
+              WHERE tpw.salt = ot.token_id
                 AND tpw.key_hash = distinct_orders.key_hash
                 AND tpw.start_time = distinct_orders.start_time
                 AND tpw.end_time = distinct_orders.end_time
@@ -610,7 +610,7 @@ export class Queries {
                     FROM twamm_order_updates tou
                              JOIN event_keys e ON tou.event_id = e.id
                              JOIN blocks b ON e.block_number = b.number
-                    WHERE tou.salt = ot.token_id::NUMERIC
+                    WHERE tou.salt = ot.token_id
                       AND tou.key_hash = distinct_orders.key_hash
                       AND tou.start_time = distinct_orders.start_time
                       AND tou.end_time = distinct_orders.end_time) ouwsp
@@ -619,7 +619,7 @@ export class Queries {
                                       FROM twamm_proceeds_withdrawals tpw
                                                JOIN event_keys ek2 ON tpw.event_id = ek2.id
                                                JOIN blocks b2 ON ek2.block_number = b2.number
-                                      WHERE tpw.salt = ot.token_id::NUMERIC
+                                      WHERE tpw.salt = ot.token_id
                                       ORDER BY tpw.event_id DESC
                                       LIMIT 1) AS lcp ON TRUE
           WHERE $2
@@ -984,7 +984,7 @@ export class Queries {
                filtered_owned_tokens AS (SELECT token_id, SUM(liquidity_delta) AS liquidity
                                          FROM owned_tokens
                                                   JOIN position_updates
-                                                       ON token_id::NUMERIC = salt
+                                                       ON token_id = salt
                                          GROUP BY token_id)
           SELECT token_id,
                  event_keys.transaction_hash AS minted_tx_hash,
@@ -1001,7 +1001,7 @@ export class Queries {
                    LEFT JOIN LATERAL (
               SELECT lower_bound, upper_bound, pool_key_hash
               FROM position_updates AS pu
-              WHERE pu.salt = token_id::NUMERIC
+              WHERE pu.salt = token_id
               LIMIT 1
               ) AS mint_position_update ON TRUE
                    LEFT JOIN LATERAL (

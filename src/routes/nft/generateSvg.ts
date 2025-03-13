@@ -2,10 +2,11 @@ import prand, { unsafeUniformIntDistribution } from "pure-rand";
 
 import { Env } from "../../env";
 
-export function generateSvg(id: number, chainId: Env["CHAIN_ID"]): string {
+export function generateSvg(id: bigint, chainId: Env["CHAIN_ID"]): string {
+  const idNum = Number(id % BigInt(Number.MAX_SAFE_INTEGER));
   let generator = prand.xoroshiro128plus(Number(chainId));
   generator = prand.xoroshiro128plus(
-    id + unsafeUniformIntDistribution(0, 2 ** 32 - id, generator),
+    idNum + unsafeUniformIntDistribution(0, 2 ** 32 - idNum, generator),
   );
 
   const randomColor = () =>

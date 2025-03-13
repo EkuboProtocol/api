@@ -5,7 +5,7 @@ import { createQueries } from "../../queries";
 import {
   AddressType,
   DecimalStringType,
-  NumericType,
+  NumericStringType,
 } from "../../shared/validation/address";
 import { z } from "zod";
 import toHex from "../../shared/toHex";
@@ -93,10 +93,10 @@ export class GetPoolLiquidity extends EkuboAPIRoute {
       token1: Path(AddressType, {
         example: "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48",
       }),
-      fee: Path(NumericType, {
+      fee: Path(NumericStringType, {
         example: "1020847100762815390390123822295304634",
       }),
-      tickSpacing: Path(NumericType, { example: "5982" }),
+      tickSpacing: Path(NumericStringType, { example: "5982" }),
       extension: Path(AddressType, { example: "0xabcd" }),
     },
     responses: {
