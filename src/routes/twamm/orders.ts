@@ -7,6 +7,7 @@ import {
 import {
   AddressType,
   DecimalStringType,
+  HexStringType,
 } from "../../shared/validation/address";
 import { z } from "zod";
 import { IRequest, json } from "itty-router";
@@ -44,7 +45,7 @@ const TwammOrderPartInfo = z.object({
 });
 
 const TwammOrderInfo = z.object({
-  token_id: z.number().int().min(1),
+  token_id: HexStringType,
   orders: z.array(TwammOrderPartInfo),
 });
 
@@ -106,8 +107,8 @@ export class ListTwapOrders extends EkuboAPIRoute {
               total_amount_sold_before_last_update,
             },
           ) => {
-            const tokenId = Number(token_id);
-            const order = memo.find((m) => m.token_id === tokenId);
+            const tokenId = BigInt(token_id);
+            const order = memo.find((m) => BigInt(m.token_id) === tokenId);
 
             const additionalOrder = {
               key: {
@@ -128,7 +129,7 @@ export class ListTwapOrders extends EkuboAPIRoute {
 
             if (!order) {
               memo.push({
-                token_id: tokenId,
+                token_id: toHex(BigInt(tokenId)),
                 orders: [additionalOrder],
               });
             } else {

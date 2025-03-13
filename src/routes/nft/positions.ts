@@ -329,7 +329,7 @@ export class ListPositionsByAddress extends EkuboAPIRoute {
     return json(
       {
         data: rows.map((row) => ({
-          id: Number(row.token_id),
+          id: toHex(BigInt(row.token_id)),
           positions_address: toHex(row.positions_address),
           pool_key: {
             token0: toHex(row.token0),
