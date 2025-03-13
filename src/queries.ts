@@ -94,7 +94,7 @@ export class Queries {
   }
 
   public async getPositionMetadata(
-    id: number,
+    tokenId: bigint,
   ): Promise<PositionMetadata | null> {
     const { rows, rowCount } = await this.client.query<PositionMetadata>({
       text: `
@@ -123,7 +123,7 @@ export class Queries {
             AND from_address = 0
           LIMIT 1
       `,
-      values: [id],
+      values: [tokenId],
     });
 
     if (rowCount !== 1) {
@@ -182,7 +182,7 @@ export class Queries {
     return rows;
   }
 
-  public async getPositionHistory(id: number) {
+  public async getPositionHistory(tokenId: bigint) {
     const { rows } = await this.client.query<
       | {
           type: 0;
@@ -280,7 +280,7 @@ export class Queries {
           FROM all_events
           ORDER BY timestamp DESC
       `,
-      values: [id],
+      values: [tokenId],
     });
     return rows;
   }
