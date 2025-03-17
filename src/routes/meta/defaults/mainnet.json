@@ -82,7 +82,7 @@
     "total_supply": 1000000000
   },
   {
-    "name": "StarkNet Token",
+    "name": "Starknet Token",
     "symbol": "STRK",
     "decimals": 18,
     "token_address": "0xCa14007Eff0dB1f8135f4C25B34De49AB0d42766",
