@@ -957,8 +957,8 @@ export class Queries {
             AND (
               volume0_24h != 0
                   OR volume1_24h != 0
-                  OR tvl0_total != 0
-                  OR tvl1_total != 0
+                  OR tvl0_delta_24h != 0
+                  OR tvl1_delta_24h != 0
               );
           ;
       `,
