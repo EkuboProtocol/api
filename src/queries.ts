@@ -915,8 +915,8 @@ export class Queries {
                  JOIN pool_keys pk ON l24.key_hash = pk.key_hash
         WHERE volume0_24h != 0
            OR volume1_24h != 0
-           OR tvl0_total != 0
-           OR tvl1_total != 0
+           OR tvl0_delta_24h != 0
+           OR tvl1_delta_24h != 0
         GROUP BY pk.token0, pk.token1;
     `);
   }
