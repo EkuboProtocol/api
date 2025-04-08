@@ -107,7 +107,7 @@
     "hidden": true
   },
   {
-    "name": "level USD",
+    "name": "Level USD",
     "symbol": "lvlUSD",
     "decimals": 18,
     "token_address": "0x7c1156e515aa1a2e851674120074968c905aaf37",
