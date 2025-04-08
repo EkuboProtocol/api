@@ -105,5 +105,13 @@
     "sort_order": 1,
     "total_supply": 100000000000,
     "hidden": true
+  },
+  {
+    "name": "level USD",
+    "symbol": "lvlUSD",
+    "decimals": 18,
+    "token_address": "0x7c1156e515aa1a2e851674120074968c905aaf37",
+    "sort_order": 3,
+    "total_supply": null
   }
 ]
