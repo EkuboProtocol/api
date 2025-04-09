@@ -15,6 +15,9 @@ on:
 jobs:
   update-token-image:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull_requests: write
     steps:
       - name: Checkout repository
         uses: actions/checkout@v3
