@@ -3,12 +3,8 @@
   "compilerOptions": {
     "target": "ESNext",
     "moduleResolution": "Bundler",
-    "lib": [
-      "ESNext"
-    ],
-    "types": [
-      "@cloudflare/workers-types"
-    ],
+    "lib": ["ESNext"],
+    "types": ["@cloudflare/workers-types"],
     "skipLibCheck": true,
     "strict": true
   }
