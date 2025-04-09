@@ -23,7 +23,7 @@ jobs:
         id: upload_image
         run: |
           RESPONSE=$(curl --request POST \
-            https://api.cloudflare.com/client/v4/accounts/0xPAQaDtnQhBs8IzYRIlNg/images/v1 \
+            https://api.cloudflare.com/client/v4/accounts/${{ secrets.CLOUDFLARE_ACCOUNT_ID }}/images/v1 \
             --header "Authorization: Bearer ${{ secrets.CF_IMAGES_API_TOKEN }}" \
             --form "url=${{ github.event.inputs.image_url }}" \
             --form "requireSignedURLs=false")
