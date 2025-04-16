@@ -113,5 +113,13 @@
     "token_address": "0x7c1156e515aa1a2e851674120074968c905aaf37",
     "sort_order": 3,
     "total_supply": null
+  },
+  {
+    "name": "Elixir deUSD",
+    "symbol": "deUSD",
+    "decimals": 18,
+    "token_address": "0x15700b564ca08d9439c58ca5053166e8317aa138",
+    "sort_order": 3,
+    "total_supply": null
   }
 ]
