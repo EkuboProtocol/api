@@ -129,5 +129,13 @@
     "token_address": "0x00000000eFE302BEAA2b3e6e1b18d08D69a9012a",
     "sort_order": 3,
     "total_supply": null
+  },
+  {
+    "name": "USDe",
+    "symbol": "USDe",
+    "decimals": 18,
+    "token_address": "0x4c9EDD5852cd905f086C759E8383e09bff1E68B3",
+    "sort_order": 3,
+    "total_supply": null
   }
 ]
