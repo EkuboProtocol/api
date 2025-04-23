@@ -137,5 +137,14 @@
     "token_address": "0x4c9EDD5852cd905f086C759E8383e09bff1E68B3",
     "sort_order": 3,
     "total_supply": null
+  },
+  {
+    "symbol": "EUL",
+    "name": "Euler",
+    "token_address": "0xd9Fcd98c322942075A5C3860693e9f4f03AAE07b",
+    "decimals": 18,
+    "hidden": false,
+    "total_supply": null,
+    "sort_order": 1
   }
 ]
