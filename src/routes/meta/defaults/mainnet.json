@@ -139,6 +139,14 @@
     "total_supply": null
   },
   {
+    "name": "BOLD Stablecoin",
+    "symbol": "BOLD",
+    "decimals": 18,
+    "token_address": "0x6440f144b7e50D6a8439336510312d2F54beB01D",
+    "sort_order": 3,
+    "total_supply": null
+  },
+  {
     "symbol": "EUL",
     "name": "Euler",
     "token_address": "0xd9Fcd98c322942075A5C3860693e9f4f03AAE07b",
