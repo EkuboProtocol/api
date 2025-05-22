@@ -157,7 +157,7 @@ export class Queries {
                  token1,
                  sale_rate1,
                  fee
-          FROM position_transfers AS transfer
+          FROM order_transfers AS transfer
                    LEFT JOIN LATERAL (
               SELECT ou.key_hash           AS pool_key_hash,
                      ou.start_time         AS start_time,
