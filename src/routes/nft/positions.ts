@@ -19,7 +19,7 @@ import {
 import { parseTokenId } from "./parseTokenId";
 import { checksumAddress } from "viem";
 import { getDefaultTokens, getTokenByAddress } from "../meta/tokens";
-import { generateSvg } from "./generateSvg";
+import { generatePositionNft } from "./generatePositionNft";
 
 export class GetPositionNftMetadata extends EkuboAPIRoute {
   static route = "/positions/nft/:id";
@@ -282,7 +282,24 @@ export class GetPositionNftImage extends EkuboAPIRoute {
       throw new StatusError(400, "Invalid token ID");
     }
 
-    return new Response(generateSvg(id, env.CHAIN_ID), {
+    const queries = await createQueries(env);
+
+    const positionMetadata = await queries.getPositionMetadata(id);
+
+    if (positionMetadata === null) {
+      throw new StatusError(404, `Token ID ${id} not found`);
+    }
+
+    const allTokens = getDefaultTokens(env);
+
+    const svgString = await generatePositionNft(
+      id,
+      env.CHAIN_ID,
+      allTokens,
+      positionMetadata,
+    );
+
+    return new Response(svgString, {
       status: 200,
       headers: {
         "content-type": "image/svg+xml",

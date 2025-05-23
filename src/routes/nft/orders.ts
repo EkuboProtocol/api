@@ -5,7 +5,8 @@ import { createQueries } from "../../queries";
 import toHex from "../../shared/toHex";
 import { NFTMetadata, TokenIdType } from "./format";
 import { parseTokenId } from "./parseTokenId";
-import { generateSvg } from "./generateSvg";
+import { getDefaultTokens } from "../meta/tokens";
+import { generateDcaOrderNft } from "./generateDcaOrderNft";
 
 export class GetOrderNftMetadata extends EkuboAPIRoute {
   static route = "/orders/nft/:id";
@@ -137,7 +138,24 @@ export class GetOrderNftImage extends EkuboAPIRoute {
       throw new StatusError(400, "Invalid token ID");
     }
 
-    return new Response(generateSvg(id, env.CHAIN_ID), {
+    const queries = await createQueries(env);
+
+    const twammOrderMetadata = await queries.getTwammOrderMetadata(id);
+
+    if (twammOrderMetadata.length === 0) {
+      throw new StatusError(404, `Token ID ${id} not found`);
+    }
+
+    const allTokens = getDefaultTokens(env);
+
+    const svgString = await generateDcaOrderNft(
+      id,
+      env.CHAIN_ID,
+      allTokens,
+      twammOrderMetadata,
+    );
+
+    return new Response(svgString, {
       status: 200,
       headers: {
         "content-type": "image/svg+xml",

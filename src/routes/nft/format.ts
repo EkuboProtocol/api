@@ -22,6 +22,20 @@ const BASE = new Decimal("1.000001");
 const MIN_PRICE_RENDER = new Decimal(10).pow(-NUM_DIGITS);
 const MAX_PRICE_RENDER = new Decimal(10).pow(NUM_DIGITS);
 
+function collapseSubscripts(str: string) {
+  return str.replace(/0{5,99}/, (x) => {
+    if (x.length < 10) {
+      return "0" + String.fromCodePoint(0x2080 + x.length);
+    } else {
+      return (
+        "0" +
+        String.fromCodePoint(0x2080 + Math.floor(x.length / 10)) +
+        String.fromCodePoint(0x2080 + (x.length % 10))
+      );
+    }
+  });
+}
+
 export function formattedPrice(
   tick: number,
   numeratorDecimals: number,
@@ -39,13 +53,18 @@ export function formattedPrice(
     return "∞";
   }
 
-  return Number(p.toSignificantDigits(12)).toLocaleString("en-US");
+  return collapseSubscripts(
+    Number(p.toString()).toLocaleString("en-US", {
+      minimumSignificantDigits: 1,
+      maximumSignificantDigits: 6,
+    }),
+  );
 }
 
-const U128 = new Decimal(2).pow(128);
+const U64 = new Decimal(2).pow(64);
 
 export function feeToPercent(fee: string) {
-  return new Decimal(fee).div(U128).mul(100).toSignificantDigits(2).toString();
+  return new Decimal(fee).div(U64).mul(100).toSignificantDigits(2).toString();
 }
 
 export function tickSpacingToPercent(tick_spacing: string) {
@@ -54,6 +73,22 @@ export function tickSpacingToPercent(tick_spacing: string) {
     .mul(100)
     .toSignificantDigits(2)
     .toString();
+}
+
+export function formatTimeToUTC(date: Date) {
+  let hours = date.getUTCHours();
+  const minutes = date.getUTCMinutes().toString().padStart(2, "0");
+  const seconds = date.getUTCSeconds().toString().padStart(2, "0");
+
+  const ampm = hours >= 12 ? "PM" : "AM";
+  hours = hours % 12;
+  hours = hours ? hours : 12;
+
+  return `${date.getUTCFullYear()}-${(date.getUTCMonth() + 1)
+    .toString()
+    .padStart(2, "0")}-${date.getUTCDate().toString().padStart(2, "0")} ${hours
+    .toString()
+    .padStart(2, "0")}:${minutes}:${seconds} ${ampm} UTC`;
 }
 
 export const TokenIdType = NumericStringType;

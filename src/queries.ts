@@ -2,7 +2,7 @@ import { Client } from "pg";
 import { Env } from "./env";
 import Decimal from "decimal.js-light";
 
-interface PositionMetadata {
+export interface PositionMetadata {
   positions_address: string;
   lower_bound: string;
   upper_bound: string;
@@ -13,6 +13,19 @@ interface PositionMetadata {
   extension: string;
   minted_timestamp: Date;
   minted_tx_hash: string;
+}
+
+export interface TwammOrderMetadata {
+  minted_tx_hash: string;
+  minted_timestamp: Date;
+  start_time: Date;
+  end_time: Date;
+  last_update_time: Date;
+  token0: string;
+  sale_rate0: string;
+  token1: string;
+  sale_rate1: string;
+  fee: string;
 }
 
 export interface ListPoolKeysQueryResult {
@@ -134,18 +147,7 @@ export class Queries {
   }
 
   public async getTwammOrderMetadata(tokenId: bigint) {
-    const { rows } = await this.client.query<{
-      minted_tx_hash: string;
-      minted_timestamp: Date;
-      start_time: Date;
-      end_time: Date;
-      last_update_time: Date;
-      token0: string;
-      sale_rate0: string;
-      token1: string;
-      sale_rate1: string;
-      fee: string;
-    }>({
+    const { rows } = await this.client.query<TwammOrderMetadata>({
       text: `
           SELECT event_keys.transaction_hash AS minted_tx_hash,
                  blocks.time                 AS minted_timestamp,
