@@ -1022,6 +1022,26 @@ export class Queries {
       values: [address, showClosed],
     });
   }
+
+  async listCampaigns() {
+    return this.client.query<{
+      id: string;
+      start_time: Date;
+      end_time: Date;
+      name: string;
+      slug: string;
+      reward_token: string;
+      budget: string;
+    }>(`
+        SELECT start_time,
+               end_time,
+               name,
+               slug,
+               reward_token,
+               budget
+        FROM incentives.campaigns c
+    `);
+  }
 }
 
 export async function createQueries(env: Env) {
