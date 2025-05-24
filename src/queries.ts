@@ -1102,7 +1102,6 @@ export class Queries {
     startTime?: string,
     endTime?: string,
   ) {
-    console.log(startTime, endTime);
     return this.client.query<{
       slug: string;
       amount: string;
@@ -1120,6 +1119,41 @@ export class Queries {
           GROUP BY c.slug
       `,
       values: [locker, salt, startTime ?? null, endTime ?? null],
+    });
+  }
+
+  async listComputedRewardsForAllPositions(
+    ownerAddress: string,
+    startTime?: string,
+    endTime?: string,
+  ) {
+    return this.client.query<{
+      salt: string;
+      slug: string;
+      amount: string;
+    }>({
+      text: `
+          WITH keys AS (SELECT ek.emitter AS locker, token_id::NUMERIC AS salt
+                        FROM position_transfers pt1
+                                 JOIN event_keys ek ON pt1.event_id = ek.id
+                        WHERE to_address = $1
+                          AND NOT EXISTS (SELECT 1
+                                          FROM position_transfers pt2
+                                          WHERE pt2.token_id = pt1.token_id
+                                            AND pt2.event_id > pt1.event_id
+                                            AND pt2.to_address != 0))
+          SELECT k.salt,
+                 c.slug,
+                 SUM(cr.reward_amount) AS amount
+          FROM incentives.campaigns c
+                   JOIN incentives.campaign_reward_periods crp ON crp.campaign_id = c.id
+                   JOIN incentives.computed_rewards cr ON cr.campaign_reward_period_id = crp.id
+                   JOIN keys k ON cr.locker = k.locker AND cr.salt = k.salt
+          WHERE (crp.start_time >= $2::timestamptz OR $2 IS NULL)
+            AND (crp.end_time <= $3::timestamptz OR $3 IS NULL)
+          GROUP BY k.salt, c.slug
+      `,
+      values: [ownerAddress, startTime ?? null, endTime ?? null],
     });
   }
 }

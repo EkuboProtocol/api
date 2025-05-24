@@ -36,7 +36,10 @@ import {
   ListRewardPeriods,
   ListRewardPeriodsForCampaign,
 } from "./routes/incentives/rewardPeriods";
-import { ListRewardsForPosition } from "./routes/incentives/rewards";
+import {
+  ListRewardsForAllPositions,
+  ListRewardsForPosition,
+} from "./routes/incentives/rewards";
 
 export const router = OpenAPIRouter({
   schema: {
@@ -86,5 +89,6 @@ export const router = OpenAPIRouter({
   .get(ListRewardPeriodsForCampaign.route, ListRewardPeriodsForCampaign)
   .get(ListRewardPeriods.route, ListRewardPeriods)
   .get(ListRewardsForPosition.route, ListRewardsForPosition)
+  .get(ListRewardsForAllPositions.route, ListRewardsForAllPositions)
   // catch missed routes
   .all("*", () => error(404));
