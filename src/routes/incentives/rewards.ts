@@ -36,7 +36,7 @@ export const GetRewardsForPositionResponseType = z
     {
       rewards: z.array(RewardType),
     },
-    { description: "The list of rewards for a given position" },
+    { description: "The list of rewards for a specified position" },
   )
   .required({ rewards: true });
 
@@ -46,8 +46,8 @@ export class ListRewardsForPosition extends EkuboAPIRoute {
   public static route = "/rewards/:locker/:salt";
   static schema: OpenAPIRouteSchema = {
     tags: ["Incentives"],
-    summary: "List computed rewards",
-    description: "Returns the computed rewards for a given position",
+    summary: "Get position rewards",
+    description: "Returns the computed rewards for a specified position",
     parameters: {
       locker: Path(AddressType),
       salt: Path(NumericStringType),
