@@ -32,7 +32,11 @@ import {
 } from "./routes/twamm/getTwammPoolState";
 import { ListTwapOrders } from "./routes/twamm/orders";
 import { ListCampaigns } from "./routes/incentives/campaigns";
-import { ListRewardPeriods } from "./routes/incentives/rewards";
+import {
+  ListRewardPeriods,
+  ListRewardPeriodsForCampaign,
+} from "./routes/incentives/rewardPeriods";
+import { ListRewardsForPosition } from "./routes/incentives/rewards";
 
 export const router = OpenAPIRouter({
   schema: {
@@ -79,6 +83,8 @@ export const router = OpenAPIRouter({
   .get(ListTwapOrders.route, ListTwapOrders)
   .get(GetPositionNftImage.route, GetPositionNftImage)
   .get(ListCampaigns.route, ListCampaigns)
+  .get(ListRewardPeriodsForCampaign.route, ListRewardPeriodsForCampaign)
   .get(ListRewardPeriods.route, ListRewardPeriods)
+  .get(ListRewardsForPosition.route, ListRewardsForPosition)
   // catch missed routes
   .all("*", () => error(404));

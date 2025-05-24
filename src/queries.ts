@@ -1043,7 +1043,7 @@ export class Queries {
     `);
   }
 
-  async listRewardsPeriods(slug: string, activeAt?: string) {
+  async listRewardsPeriodsForCampaign(slug: string, activeAt?: string) {
     return this.client.query<{
       token0: string;
       token1: string;
@@ -1066,6 +1066,60 @@ export class Queries {
             AND COALESCE($2::timestamptz, CURRENT_TIMESTAMP) < crp.end_time
       `,
       values: [slug, activeAt ?? null],
+    });
+  }
+
+  async listRewardPeriods(activeAt?: string) {
+    return this.client.query<{
+      slug: string;
+      token0: string;
+      token1: string;
+      start_time: Date;
+      end_time: Date;
+      token0_reward_amount: string;
+      token1_reward_amount: string;
+    }>({
+      text: `
+          SELECT c.slug,
+                 crp.token0,
+                 crp.token1,
+                 crp.start_time,
+                 crp.end_time,
+                 token0_reward_amount,
+                 token1_reward_amount
+          FROM incentives.campaigns c
+                   JOIN incentives.campaign_reward_periods crp ON crp.campaign_id = c.id
+          WHERE COALESCE($1::timestamptz, CURRENT_TIMESTAMP) >= crp.start_time
+            AND COALESCE($1::timestamptz, CURRENT_TIMESTAMP) < crp.end_time
+      `,
+      values: [activeAt ?? null],
+    });
+  }
+
+  async listComputedRewardsForPosition(
+    locker: string,
+    salt: string,
+    startTime?: string,
+    endTime?: string,
+  ) {
+    console.log(startTime, endTime);
+    return this.client.query<{
+      slug: string;
+      amount: string;
+    }>({
+      text: `
+          SELECT c.slug,
+                 SUM(cr.reward_amount) AS amount
+          FROM incentives.campaigns c
+                   JOIN incentives.campaign_reward_periods crp ON crp.campaign_id = c.id
+                   JOIN incentives.computed_rewards cr ON cr.campaign_reward_period_id = crp.id
+          WHERE cr.locker = $1
+            AND cr.salt = $2
+            AND (crp.start_time >= $3::timestamptz OR $3 IS NULL)
+            AND (crp.end_time <= $4::timestamptz OR $4 IS NULL)
+          GROUP BY c.slug
+      `,
+      values: [locker, salt, startTime ?? null, endTime ?? null],
     });
   }
 }

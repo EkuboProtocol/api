@@ -1,66 +1,72 @@
-import { IRequest, json } from "itty-router";
+import { z } from "zod";
 import { EkuboAPIRoute, RequestContext } from "../../shared/context";
 import {
   OpenAPIRouteSchema,
   Path,
   Query,
 } from "@cloudflare/itty-router-openapi";
-import { z } from "zod";
+import { IRequest, json } from "itty-router";
 import { createQueries } from "../../queries";
 import {
   AddressType,
   DecimalStringType,
+  HexStringType,
+  NumericStringType,
 } from "../../shared/validation/address";
-import toHex from "../../shared/toHex";
 
-export const RewardsEntryType = z
+export const RewardType = z
   .object({
-    token0: AddressType,
-    token1: AddressType,
-    rewardAmount0: DecimalStringType,
-    rewardAmount1: DecimalStringType,
-    startTime: z.date(),
-    endTime: z.date(),
+    campaignSlug: z.string(),
+    amount: DecimalStringType,
   })
   .required({
-    startTime: true,
-    endTime: true,
-    rewardAmount0: true,
-    rewardAmount1: true,
+    campaignSlug: true,
+    amount: true,
   });
 
-export const ListRewardsResponseType = z
+export type Reward = z.infer<typeof RewardType>;
+
+export const QualifiedRewardType = RewardType.extend({
+  locker: AddressType,
+  salt: HexStringType,
+}).required({ locker: true, salt: true });
+
+export const GetRewardsForPositionResponseType = z
   .object(
     {
-      periods: z.array(RewardsEntryType),
+      rewards: z.array(RewardType),
     },
-    { description: "Response for list campaign schedule endpoint" },
+    { description: "The list of rewards for a given position" },
   )
-  .required({ periods: true });
+  .required({ rewards: true });
 
-type RewardsEntry = z.infer<typeof RewardsEntryType>;
+export type QualifiedReward = z.infer<typeof QualifiedRewardType>;
 
-export class ListRewardPeriods extends EkuboAPIRoute {
-  public static route = "/campaigns/:slug/rewards";
+export class ListRewardsForPosition extends EkuboAPIRoute {
+  public static route = "/rewards/:locker/:salt";
   static schema: OpenAPIRouteSchema = {
     tags: ["Incentives"],
-    summary: "List rewards",
-    description:
-      "Returns a list of rewards that are distributed for a campaign at a given timestamp",
+    summary: "List computed rewards",
+    description: "Returns the computed rewards for a given position",
     parameters: {
-      slug: Path(z.string(), {
-        description: "The slug of the campaign being queried",
-      }),
-      activeAt: Query(z.string().datetime({ precision: 0 }), {
-        description:
-          "Filter to reward periods that are active at the given time",
+      locker: Path(AddressType),
+      salt: Path(NumericStringType),
+      startTime: Query(z.string().datetime({ precision: 0 }), {
         required: false,
+        description:
+          "Filter to rewards in periods that started at or after this time",
+      }),
+      endTime: Query(z.string().datetime({ precision: 0 }), {
+        required: false,
+        description:
+          "Filter to rewards in periods that ended at or before this time",
       }),
     },
     responses: {
       "200": {
-        description: "The available rewards for the given campaign",
-        schema: ListRewardsResponseType,
+        description:
+          "The computed rewards for each campaign and the specified position",
+        schema: GetRewardsForPositionResponseType,
         contentType: "application/json",
       },
     },
@@ -69,25 +75,23 @@ export class ListRewardPeriods extends EkuboAPIRoute {
   public async handle(request: IRequest, { env }: RequestContext) {
     const queries = await createQueries(env);
 
-    const periods = await queries.listRewardsPeriods(
-      request.params.slug,
-      request.query.activeAt as string,
+    const computedRewards = await queries.listComputedRewardsForPosition(
+      request.params.locker,
+      request.params.salt,
+      request.query.startTime as string | undefined,
+      request.query.endTime as string | undefined,
     );
 
     return json(
       {
-        periods: periods.rows.map(
-          (crp) =>
+        rewards: computedRewards.rows.map(
+          (cr) =>
             ({
-              token0: toHex(crp.token0),
-              token1: toHex(crp.token1),
-              startTime: crp.start_time,
-              endTime: crp.end_time,
-              rewardAmount0: crp.token0_reward_amount,
-              rewardAmount1: crp.token1_reward_amount,
-            }) satisfies RewardsEntry,
+              campaignSlug: cr.slug,
+              amount: cr.amount,
+            }) satisfies Reward,
         ),
-      } satisfies z.infer<typeof ListRewardsResponseType>,
+      } satisfies z.infer<typeof GetRewardsForPositionResponseType>,
       {
         headers: {
           "cache-control": "public,max-age=600,must-revalidate",
