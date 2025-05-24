@@ -1042,6 +1042,32 @@ export class Queries {
         FROM incentives.campaigns c
     `);
   }
+
+  async listRewardsPeriods(slug: string, activeAt?: string) {
+    return this.client.query<{
+      token0: string;
+      token1: string;
+      start_time: Date;
+      end_time: Date;
+      token0_reward_amount: string;
+      token1_reward_amount: string;
+    }>({
+      text: `
+          SELECT crp.token0,
+                 crp.token1,
+                 crp.start_time,
+                 crp.end_time,
+                 token0_reward_amount,
+                 token1_reward_amount
+          FROM incentives.campaigns c
+                   JOIN incentives.campaign_reward_periods crp ON crp.campaign_id = c.id
+          WHERE c.slug = $1
+            AND COALESCE($2::timestamptz, CURRENT_TIMESTAMP) >= crp.start_time
+            AND COALESCE($2::timestamptz, CURRENT_TIMESTAMP) < crp.end_time
+      `,
+      values: [slug, activeAt ?? null],
+    });
+  }
 }
 
 export async function createQueries(env: Env) {
