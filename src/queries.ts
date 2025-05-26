@@ -1156,6 +1156,55 @@ export class Queries {
       values: [ownerAddress, startTime ?? null, endTime ?? null],
     });
   }
+
+  async listAvailableClaimsForAddress(address: string) {
+    return this.client.query<{
+      slug: string | null;
+      owner: string;
+      token: string;
+      root: string;
+      index: number;
+      address: string;
+      amount: string;
+      proof: string[];
+    }>({
+      text: `
+          WITH funded_roots
+                   AS (SELECT ROW_NUMBER() OVER (PARTITION BY if.owner, if.token, if.root ORDER BY event_id DESC) if_no,
+                              if.owner,
+                              if.token,
+                              if.root
+                       FROM incentives_funded if),
+
+               last_funded_roots AS (SELECT owner, token, root
+                                     FROM funded_roots
+                                     WHERE if_no = 1),
+
+               funded_drops AS (SELECT fr.owner, fr.token, gd.root, gd.id
+                                FROM incentives.generated_drop gd
+                                         JOIN last_funded_roots fr ON gd.root = fr.root)
+
+          SELECT (SELECT slug
+                  FROM incentives.campaign_reward_periods crp
+                           JOIN incentives.campaigns c ON crp.campaign_id = c.id
+                  WHERE crp.id IN (SELECT campaign_reward_period_id
+                                   FROM incentives.generated_drop_reward_periods gdrp
+                                   WHERE gdrp.drop_id = gdp.drop_id)
+                  LIMIT 1) AS slug,
+                 owner,
+                 token,
+                 root,
+                 gdp.id    AS index,
+                 address,
+                 amount,
+                 proof::TEXT[]
+          FROM incentives.generated_drop_proof gdp
+                   JOIN funded_drops fd ON gdp.drop_id = fd.id
+          WHERE address = :address
+      `,
+      values: [address],
+    });
+  }
 }
 
 export async function createQueries(env: Env) {
