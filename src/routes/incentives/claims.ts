@@ -53,7 +53,7 @@ export const ListClaimsResponseType = z
   .required({ claims: true });
 
 export class ListClaimsForAddress extends EkuboAPIRoute {
-  public static route = "/rewards/:address/claims";
+  public static route = "/claims/:address";
   static schema: OpenAPIRouteSchema = {
     tags: ["Incentives"],
     summary: "List available claims",
