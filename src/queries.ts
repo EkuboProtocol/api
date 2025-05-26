@@ -1200,7 +1200,7 @@ export class Queries {
                  proof::TEXT[]
           FROM incentives.generated_drop_proof gdp
                    JOIN funded_drops fd ON gdp.drop_id = fd.id
-          WHERE address = :address
+          WHERE address = $1
       `,
       values: [address],
     });
