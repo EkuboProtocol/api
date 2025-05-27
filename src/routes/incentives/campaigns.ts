@@ -14,6 +14,7 @@ export const CampaignType = z
     rewardToken: AddressType,
     startTime: z.date(),
     endTime: z.date(),
+    amountDistributed: z.string(),
   })
   .required({
     slug: true,
@@ -22,6 +23,7 @@ export const CampaignType = z
     budget: true,
     rewardToken: true,
     name: true,
+    amountDistributed: true,
   });
 
 export const ListCampaignsResponseType = z
@@ -67,6 +69,7 @@ export class ListCampaigns extends EkuboAPIRoute {
               endTime: c.end_time,
               name: c.name,
               rewardToken: toHex(c.reward_token),
+              amountDistributed: c.amount_distributed,
             }) satisfies Campaign,
         ),
       } satisfies z.infer<typeof ListCampaignsResponseType>,

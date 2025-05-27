@@ -1025,20 +1025,24 @@ export class Queries {
 
   async listCampaigns() {
     return this.client.query<{
-      id: string;
       start_time: Date;
       end_time: Date;
       name: string;
       slug: string;
       reward_token: string;
       budget: string;
+      amount_distributed: string;
     }>(`
         SELECT start_time,
                end_time,
                name,
                slug,
                reward_token,
-               budget
+               budget,
+               (SELECT SUM(token0_reward_amount) + SUM(token1_reward_amount)
+                FROM incentives.campaign_reward_periods crp
+                WHERE crp.campaign_id = c.id
+                  AND crp.rewards_last_computed_at IS NOT NULL) AS amount_distributed
         FROM incentives.campaigns c
     `);
   }
