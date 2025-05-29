@@ -1031,19 +1031,39 @@ export class Queries {
       slug: string;
       reward_token: string;
       budget: string;
-      amount_distributed: string;
+      rewards: {
+        token0: string;
+        token1: string;
+        distributed: string;
+        total: string;
+      }[];
     }>(`
-        SELECT start_time,
+        WITH rewards_by_token AS (SELECT crp.campaign_id,
+                                         crp.token0,
+                                         crp.token1,
+                                         SUM((CASE
+                                                  WHEN crp.rewards_last_computed_at IS NULL THEN 0
+                                                  ELSE token0_reward_amount + token1_reward_amount END)) AS distributed,
+                                         SUM(token0_reward_amount + token1_reward_amount)                AS total
+                                  FROM incentives.campaign_reward_periods crp
+                                  WHERE crp.rewards_last_computed_at IS NOT NULL
+                                  GROUP BY crp.campaign_id, crp.token0, crp.token1),
+             campaign_rewards AS (SELECT rbt.campaign_id,
+                                         JSONB_AGG(JSONB_BUILD_OBJECT('token0', rbt.token0::TEXT, 'token1',
+                                                                      rbt.token1::TEXT, 'distributed',
+                                                                      rbt.distributed::TEXT, 'total',
+                                                                      rbt.total::TEXT)) AS rewards
+                                  FROM rewards_by_token rbt
+                                  GROUP BY rbt.campaign_id)
+        SELECT slug,
+               start_time,
                end_time,
                name,
-               slug,
                reward_token,
                budget,
-               COALESCE((SELECT SUM(token0_reward_amount) + SUM(token1_reward_amount)
-                         FROM incentives.campaign_reward_periods crp
-                         WHERE crp.campaign_id = c.id
-                           AND crp.rewards_last_computed_at IS NOT NULL), 0::NUMERIC) AS amount_distributed
+               rewards
         FROM incentives.campaigns c
+                 JOIN campaign_rewards cr ON cr.campaign_id = c.id
     `);
   }
 

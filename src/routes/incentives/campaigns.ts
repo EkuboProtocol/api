@@ -4,7 +4,10 @@ import { OpenAPIRouteSchema } from "@cloudflare/itty-router-openapi";
 import { z } from "zod";
 import { createQueries } from "../../queries";
 import toHex from "../../shared/toHex";
-import { AddressType } from "../../shared/validation/address";
+import {
+  AddressType,
+  DecimalStringType,
+} from "../../shared/validation/address";
 
 export const CampaignType = z
   .object({
@@ -14,16 +17,30 @@ export const CampaignType = z
     rewardToken: AddressType,
     startTime: z.date(),
     endTime: z.date(),
-    amountDistributed: z.string(),
+    pairs: z.array(
+      z
+        .object({
+          token0: AddressType,
+          token1: AddressType,
+          distributed: DecimalStringType,
+          total: DecimalStringType,
+        })
+        .required({
+          token0: true,
+          token1: true,
+          distributed: true,
+          total: true,
+        }),
+    ),
   })
   .required({
     slug: true,
-    startTime: true,
-    endTime: true,
+    name: true,
     budget: true,
     rewardToken: true,
-    name: true,
-    amountDistributed: true,
+    startTime: true,
+    endTime: true,
+    pairs: true,
   });
 
 export const ListCampaignsResponseType = z
@@ -69,7 +86,12 @@ export class ListCampaigns extends EkuboAPIRoute {
               endTime: c.end_time,
               name: c.name,
               rewardToken: toHex(c.reward_token),
-              amountDistributed: c.amount_distributed,
+              pairs: c.rewards.map((p) => ({
+                token0: toHex(p.token0),
+                token1: toHex(p.token1),
+                total: p.total,
+                distributed: p.distributed,
+              })),
             }) satisfies Campaign,
         ),
       } satisfies z.infer<typeof ListCampaignsResponseType>,
