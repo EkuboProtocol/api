@@ -904,6 +904,7 @@ export class Queries {
       tvl1_delta_24h: string;
       depth0: string;
       depth1: string;
+      min_depth_percent: number | null;
     }>(`
         SELECT pk.token0,
                pk.token1,
@@ -916,7 +917,8 @@ export class Queries {
                SUM(tvl0_delta_24h)               AS tvl0_delta_24h,
                SUM(tvl1_delta_24h)               AS tvl1_delta_24h,
                COALESCE(SUM(depth0), 0::NUMERIC) AS depth0,
-               COALESCE(SUM(depth1), 0::NUMERIC) AS depth1
+               COALESCE(SUM(depth1), 0::NUMERIC) AS depth1,
+               MIN(depth_percent)                AS min_depth_percent
         FROM last_24h_pool_stats_materialized l24
                  JOIN pool_keys pk ON l24.key_hash = pk.key_hash
                  LEFT JOIN pool_market_depth pmd ON pk.key_hash = pmd.pool_key_hash
@@ -944,6 +946,7 @@ export class Queries {
       tvl1_delta_24h: string;
       depth0: string;
       depth1: string;
+      depth_percent: number | null;
     }>({
       text: `
           SELECT p.fee,
@@ -959,7 +962,8 @@ export class Queries {
                  tvl0_delta_24h,
                  tvl1_delta_24h,
                  COALESCE(depth0, 0::NUMERIC) AS depth0,
-                 COALESCE(depth1, 0::NUMERIC) AS depth1
+                 COALESCE(depth1, 0::NUMERIC) AS depth1,
+                 depth_percent
           FROM last_24h_pool_stats_materialized l24
                    JOIN pool_keys p ON l24.key_hash = p.key_hash
                    LEFT JOIN pool_market_depth pmd ON p.key_hash = pmd.pool_key_hash
