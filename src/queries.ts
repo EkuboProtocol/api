@@ -902,19 +902,24 @@ export class Queries {
       tvl1_total: string;
       tvl0_delta_24h: string;
       tvl1_delta_24h: string;
+      depth0: string;
+      depth1: string;
     }>(`
         SELECT pk.token0,
                pk.token1,
-               SUM(volume0_24h)    AS volume0_24h,
-               SUM(volume1_24h)    AS volume1_24h,
-               SUM(fees0_24h)      AS fees0_24h,
-               SUM(fees1_24h)      AS fees1_24h,
-               SUM(tvl0_total)     AS tvl0_total,
-               SUM(tvl1_total)     AS tvl1_total,
-               SUM(tvl0_delta_24h) AS tvl0_delta_24h,
-               SUM(tvl1_delta_24h) AS tvl1_delta_24h
+               SUM(volume0_24h)                  AS volume0_24h,
+               SUM(volume1_24h)                  AS volume1_24h,
+               SUM(fees0_24h)                    AS fees0_24h,
+               SUM(fees1_24h)                    AS fees1_24h,
+               SUM(tvl0_total)                   AS tvl0_total,
+               SUM(tvl1_total)                   AS tvl1_total,
+               SUM(tvl0_delta_24h)               AS tvl0_delta_24h,
+               SUM(tvl1_delta_24h)               AS tvl1_delta_24h,
+               COALESCE(SUM(depth0), 0::NUMERIC) AS depth0,
+               COALESCE(SUM(depth1), 0::NUMERIC) AS depth1
         FROM last_24h_pool_stats_materialized l24
                  JOIN pool_keys pk ON l24.key_hash = pk.key_hash
+                 LEFT JOIN pool_market_depth pmd ON pk.key_hash = pmd.pool_key_hash
         WHERE volume0_24h != 0
            OR volume1_24h != 0
            OR tvl0_delta_24h != 0
@@ -937,6 +942,8 @@ export class Queries {
       tvl1_total: string;
       tvl0_delta_24h: string;
       tvl1_delta_24h: string;
+      depth0: string;
+      depth1: string;
     }>({
       text: `
           SELECT p.fee,
@@ -950,10 +957,12 @@ export class Queries {
                  tvl0_total,
                  tvl1_total,
                  tvl0_delta_24h,
-                 tvl1_delta_24h
+                 tvl1_delta_24h,
+                 COALESCE(depth0, 0::NUMERIC) AS depth0,
+                 COALESCE(depth1, 0::NUMERIC) AS depth1
           FROM last_24h_pool_stats_materialized l24
                    JOIN pool_keys p ON l24.key_hash = p.key_hash
-
+                   LEFT JOIN pool_market_depth pmd ON p.key_hash = pmd.pool_key_hash
           WHERE p.token0 = $1
             AND p.token1 = $2
             AND (
