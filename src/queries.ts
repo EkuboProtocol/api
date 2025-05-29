@@ -1039,10 +1039,10 @@ export class Queries {
                slug,
                reward_token,
                budget,
-               (SELECT SUM(token0_reward_amount) + SUM(token1_reward_amount)
-                FROM incentives.campaign_reward_periods crp
-                WHERE crp.campaign_id = c.id
-                  AND crp.rewards_last_computed_at IS NOT NULL) AS amount_distributed
+               COALESCE((SELECT SUM(token0_reward_amount) + SUM(token1_reward_amount)
+                         FROM incentives.campaign_reward_periods crp
+                         WHERE crp.campaign_id = c.id
+                           AND crp.rewards_last_computed_at IS NOT NULL), 0::NUMERIC) AS amount_distributed
         FROM incentives.campaigns c
     `);
   }
