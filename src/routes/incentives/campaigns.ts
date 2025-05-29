@@ -23,13 +23,13 @@ export const CampaignType = z
           token0: AddressType,
           token1: AddressType,
           distributed: DecimalStringType,
-          total: DecimalStringType,
+          scheduled: DecimalStringType,
         })
         .required({
           token0: true,
           token1: true,
           distributed: true,
-          total: true,
+          scheduled: true,
         }),
     ),
   })
@@ -89,7 +89,7 @@ export class ListCampaigns extends EkuboAPIRoute {
               pairs: c.rewards.map((p) => ({
                 token0: toHex(p.token0),
                 token1: toHex(p.token1),
-                total: p.total,
+                scheduled: p.scheduled,
                 distributed: p.distributed,
               })),
             }) satisfies Campaign,

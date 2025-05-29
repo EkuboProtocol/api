@@ -1035,7 +1035,7 @@ export class Queries {
         token0: string;
         token1: string;
         distributed: string;
-        total: string;
+        scheduled: string;
       }[];
     }>(`
         WITH rewards_by_token AS (SELECT crp.campaign_id,
@@ -1044,15 +1044,14 @@ export class Queries {
                                          SUM((CASE
                                                   WHEN crp.rewards_last_computed_at IS NULL THEN 0
                                                   ELSE token0_reward_amount + token1_reward_amount END)) AS distributed,
-                                         SUM(token0_reward_amount + token1_reward_amount)                AS total
+                                         SUM(token0_reward_amount + token1_reward_amount)                AS scheduled
                                   FROM incentives.campaign_reward_periods crp
-                                  WHERE crp.rewards_last_computed_at IS NOT NULL
                                   GROUP BY crp.campaign_id, crp.token0, crp.token1),
              campaign_rewards AS (SELECT rbt.campaign_id,
                                          JSONB_AGG(JSONB_BUILD_OBJECT('token0', rbt.token0::TEXT, 'token1',
                                                                       rbt.token1::TEXT, 'distributed',
-                                                                      rbt.distributed::TEXT, 'total',
-                                                                      rbt.total::TEXT)) AS rewards
+                                                                      rbt.distributed::TEXT, 'scheduled',
+                                                                      rbt.scheduled::TEXT)) AS rewards
                                   FROM rewards_by_token rbt
                                   GROUP BY rbt.campaign_id)
         SELECT slug,
