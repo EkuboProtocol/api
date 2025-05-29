@@ -12,6 +12,22 @@ export async function generateDcaOrderNft(
 ) {
   const firstOrderMetadata = twammOrderMetadatas[0];
 
+  const dates = twammOrderMetadatas.reduce<null | [Date, Date]>(
+    (memo, value) => {
+      const startTime =
+        value.minted_timestamp > value.start_time
+          ? value.minted_timestamp
+          : value.start_time;
+      if (!memo) return [startTime, value.end_time];
+
+      return [
+        startTime < memo[0] ? startTime : memo[0],
+        value.end_time > memo[1] ? value.end_time : memo[1],
+      ];
+    },
+    null,
+  );
+
   const [sellTokenAddress, buyTokenAddress] =
     BigInt(firstOrderMetadata.sale_rate0) > 0n
       ? [firstOrderMetadata.token0, firstOrderMetadata.token1]
@@ -32,7 +48,7 @@ export async function generateDcaOrderNft(
     sellTokenSymbol: sellToken?.symbol,
     buyTokenSymbol: buyToken?.symbol,
 
-    formattedEndTime: formatTimeToUTC(firstOrderMetadata.end_time),
-    formattedStartTime: formatTimeToUTC(firstOrderMetadata.start_time),
+    formattedStartTime: formatTimeToUTC(dates?.[0] ?? new Date(0)),
+    formattedEndTime: formatTimeToUTC(dates?.[1] ?? new Date()),
   });
 }
