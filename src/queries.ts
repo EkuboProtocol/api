@@ -190,6 +190,7 @@ export class Queries {
           type: 0;
           transaction_hash: string;
           timestamp: string;
+          block_number: number;
           from_address: string;
           to_address: string;
           liquidity_delta: null;
@@ -200,6 +201,7 @@ export class Queries {
           type: 1;
           transaction_hash: string;
           timestamp: string;
+          block_number: number;
           from_address: null;
           to_address: null;
           liquidity_delta: string;
@@ -210,6 +212,7 @@ export class Queries {
           type: 2;
           transaction_hash: string;
           timestamp: string;
+          block_number: number;
           from_address: null;
           to_address: null;
           liquidity_delta: null;
@@ -220,6 +223,7 @@ export class Queries {
       text: `
           WITH transfers AS (SELECT transaction_hash,
                                     time AS timestamp,
+                                    block_number,
                                     from_address,
                                     to_address
                              FROM position_transfers
@@ -230,6 +234,7 @@ export class Queries {
                                AND to_address != 0),
                updates AS (SELECT transaction_hash,
                                   time AS timestamp,
+                                  block_number,
                                   liquidity_delta,
                                   delta0,
                                   delta1
@@ -241,6 +246,7 @@ export class Queries {
                              AND from_address = 0),
                fee_collections AS (SELECT transaction_hash,
                                           time AS timestamp,
+                                          block_number,
                                           delta0,
                                           delta1
                                    FROM position_transfers AS pt
@@ -252,6 +258,7 @@ export class Queries {
                all_events AS (SELECT 0    AS type,
                                      transaction_hash,
                                      timestamp,
+                                     block_number,
                                      from_address,
                                      to_address,
                                      NULL AS liquidity_delta,
@@ -262,6 +269,7 @@ export class Queries {
                               SELECT 1    AS type,
                                      transaction_hash,
                                      timestamp,
+                                     block_number,
                                      NULL AS from_address,
                                      NULL AS to_address,
                                      liquidity_delta,
@@ -272,6 +280,7 @@ export class Queries {
                               SELECT 2    AS type,
                                      transaction_hash,
                                      timestamp,
+                                     block_number,
                                      NULL AS from_address,
                                      NULL AS to_address,
                                      NULL AS liquidity_delta,
