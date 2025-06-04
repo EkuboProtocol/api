@@ -1096,6 +1096,7 @@ export class Queries {
       end_time: Date;
       token0_reward_amount: string;
       token1_reward_amount: string;
+      realized_volatility: number;
     }>({
       text: `
           SELECT crp.token0,
@@ -1103,7 +1104,8 @@ export class Queries {
                  crp.start_time,
                  crp.end_time,
                  token0_reward_amount,
-                 token1_reward_amount
+                 token1_reward_amount,
+                 realized_volatility
           FROM incentives.campaigns c
                    JOIN incentives.campaign_reward_periods crp ON crp.campaign_id = c.id
           WHERE c.slug = $1
@@ -1123,6 +1125,7 @@ export class Queries {
       end_time: Date;
       token0_reward_amount: string;
       token1_reward_amount: string;
+      realized_volatility: number;
     }>({
       text: `
           SELECT c.slug,
@@ -1131,7 +1134,8 @@ export class Queries {
                  crp.start_time,
                  crp.end_time,
                  token0_reward_amount,
-                 token1_reward_amount
+                 token1_reward_amount,
+                 realized_volatility
           FROM incentives.campaigns c
                    JOIN incentives.campaign_reward_periods crp ON crp.campaign_id = c.id
           WHERE COALESCE($1::timestamptz, CURRENT_TIMESTAMP) >= crp.start_time
