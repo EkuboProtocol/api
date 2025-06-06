@@ -61,6 +61,11 @@ export class ListRewardsForPosition extends EkuboAPIRoute {
         description:
           "Filter to rewards in periods that ended at or before this time",
       }),
+      excludeDropped: Query(z.boolean(), {
+        required: false,
+        description:
+          "Filter out rewards from periods that are already included in a drop",
+      }),
     },
     responses: {
       "200": {
@@ -80,6 +85,7 @@ export class ListRewardsForPosition extends EkuboAPIRoute {
       request.params.salt,
       request.query.startTime as string | undefined,
       request.query.endTime as string | undefined,
+      request.query.excludeDropped as boolean | undefined,
     );
 
     return json(
@@ -132,6 +138,11 @@ export class ListRewardsForAllPositions extends EkuboAPIRoute {
         description:
           "Filter to rewards in periods that ended at or before this time",
       }),
+      excludeDropped: Query(z.boolean(), {
+        required: false,
+        description:
+          "Filter out rewards from periods that are already included in a drop",
+      }),
     },
     responses: {
       "200": {
@@ -149,6 +160,7 @@ export class ListRewardsForAllPositions extends EkuboAPIRoute {
       request.params.ownerAddress,
       request.query.startTime as string | undefined,
       request.query.endTime as string | undefined,
+      request.query.excludeDropped as boolean | undefined,
     );
 
     return json(
