@@ -1088,11 +1088,7 @@ export class Queries {
     `);
   }
 
-  async listRewardsPeriodsForCampaign(
-    slug: string,
-    activeAt?: string,
-    excludeDropped?: boolean,
-  ) {
+  async listRewardsPeriodsForCampaign(slug: string, activeAt?: string) {
     return this.client.query<{
       token0: string;
       token1: string;
@@ -1115,19 +1111,12 @@ export class Queries {
           WHERE c.slug = $1
             AND COALESCE($2::timestamptz, CURRENT_TIMESTAMP) >= crp.start_time
             AND COALESCE($2::timestamptz, CURRENT_TIMESTAMP) < crp.end_time
-            AND (
-              $3 IS NOT TRUE 
-              OR crp.id NOT IN (
-                SELECT campaign_reward_period_id 
-                FROM incentives.generated_drop_reward_periods
-              )
-            )
       `,
-      values: [slug, activeAt ?? null, excludeDropped ?? false],
+      values: [slug, activeAt ?? null],
     });
   }
 
-  async listRewardPeriods(activeAt?: string, excludeDropped?: boolean) {
+  async listRewardPeriods(activeAt?: string) {
     return this.client.query<{
       slug: string;
       token0: string;
@@ -1151,15 +1140,8 @@ export class Queries {
                    JOIN incentives.campaign_reward_periods crp ON crp.campaign_id = c.id
           WHERE COALESCE($1::timestamptz, CURRENT_TIMESTAMP) >= crp.start_time
             AND COALESCE($1::timestamptz, CURRENT_TIMESTAMP) < crp.end_time
-            AND (
-              $2 IS NOT TRUE 
-              OR crp.id NOT IN (
-                SELECT campaign_reward_period_id 
-                FROM incentives.generated_drop_reward_periods
-              )
-            )
       `,
-      values: [activeAt ?? null, excludeDropped ?? false],
+      values: [activeAt ?? null],
     });
   }
 

@@ -59,11 +59,6 @@ export class ListRewardPeriodsForCampaign extends EkuboAPIRoute {
           "Filter to reward periods that are active at the specified time",
         required: false,
       }),
-      excludeDropped: Query(z.boolean(), {
-        description:
-          "Filter out reward periods that are already included in a drop",
-        required: false,
-      }),
     },
     responses: {
       "200": {
@@ -80,7 +75,6 @@ export class ListRewardPeriodsForCampaign extends EkuboAPIRoute {
     const periods = await queries.listRewardsPeriodsForCampaign(
       request.params.slug,
       request.query.activeAt as string | undefined,
-      request.query.excludeDropped as boolean | undefined,
     );
 
     return json(
@@ -135,11 +129,6 @@ export class ListRewardPeriods extends EkuboAPIRoute {
           "Filter to reward periods that are active at the specified time",
         required: false,
       }),
-      excludeDropped: Query(z.boolean(), {
-        description:
-          "Filter out reward periods that are already included in a drop",
-        required: false,
-      }),
     },
     responses: {
       "200": {
@@ -155,7 +144,6 @@ export class ListRewardPeriods extends EkuboAPIRoute {
 
     const periods = await queries.listRewardPeriods(
       request.query.activeAt as string | undefined,
-      request.query.excludeDropped as boolean | undefined,
     );
 
     return json(
