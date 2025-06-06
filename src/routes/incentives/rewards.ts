@@ -61,7 +61,7 @@ export class ListRewardsForPosition extends EkuboAPIRoute {
         description:
           "Filter to rewards in periods that ended at or before this time",
       }),
-      excludeDropped: Query(z.boolean(), {
+      excludeDropped: Query(z.coerce.boolean(), {
         required: false,
         description:
           "Filter out rewards from periods that are already included in a drop",
@@ -138,7 +138,7 @@ export class ListRewardsForAllPositions extends EkuboAPIRoute {
         description:
           "Filter to rewards in periods that ended at or before this time",
       }),
-      excludeDropped: Query(z.boolean(), {
+      excludeDropped: Query(z.coerce.boolean(), {
         required: false,
         description:
           "Filter out rewards from periods that are already included in a drop",
