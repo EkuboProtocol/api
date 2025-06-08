@@ -1167,12 +1167,12 @@ export class Queries {
             AND (crp.start_time >= $3::timestamptz OR $3 IS NULL)
             AND (crp.end_time <= $4::timestamptz OR $4 IS NULL)
             AND (
-              $5 IS NOT TRUE 
-              OR crp.id NOT IN (
-                SELECT campaign_reward_period_id 
-                FROM incentives.generated_drop_reward_periods
+              $5 IS NOT TRUE
+                  OR crp.id NOT IN (SELECT gdrp.campaign_reward_period_id
+                                    FROM incentives.generated_drop_reward_periods gdrp
+                                             JOIN incentives.generated_drop gd ON gdrp.drop_id = gd.id
+                                             JOIN incentives_funded i ON gd.root = i.root)
               )
-            )
           GROUP BY c.slug
       `,
       values: [
@@ -1216,12 +1216,12 @@ export class Queries {
           WHERE (crp.start_time >= $2::timestamptz OR $2 IS NULL)
             AND (crp.end_time <= $3::timestamptz OR $3 IS NULL)
             AND (
-              $4 IS NOT TRUE 
-              OR crp.id NOT IN (
-                SELECT campaign_reward_period_id 
-                FROM incentives.generated_drop_reward_periods
+              $4 IS NOT TRUE
+                  OR crp.id NOT IN (SELECT gdrp.campaign_reward_period_id
+                                    FROM incentives.generated_drop_reward_periods gdrp
+                                             JOIN incentives.generated_drop gd ON gdrp.drop_id = gd.id
+                                             JOIN incentives_funded i ON gd.root = i.root)
               )
-            )
           GROUP BY k.salt, c.slug
       `,
       values: [
