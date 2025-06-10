@@ -75,7 +75,7 @@ export async function generatePositionNft(
           ? "DCA"
           : extensionValue === BigInt(env.ORACLE_ADDRESS)
             ? "Oracle"
-            : extensionValue === BigInt(env.MEV_RESISTANT_ADDRESS)
+            : extensionValue === BigInt(env.MEV_RESIST_ADDRESS)
               ? "Mev-resist"
               : undefined,
   });

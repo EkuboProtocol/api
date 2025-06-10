@@ -7,7 +7,7 @@ export interface Env {
 
   readonly TWAMM_ADDRESS: string;
 
-  readonly MEV_RESISTANT_ADDRESS: string;
+  readonly MEV_RESIST_ADDRESS: string;
 
   readonly ADDITIONAL_TOKEN_LISTS?: string;
 
