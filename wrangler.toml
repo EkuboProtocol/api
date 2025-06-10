@@ -11,6 +11,9 @@ cpu_ms = 5000
 
 [vars]
 CHAIN_ID = "1"
+ORACLE_ADDRESS = "0x51d02A5948496a67827242EaBc5725531342527C"
+TWAMM_ADDRESS = "0xd4279c050da1f5c5b2830558c7a08e57e12b54ec"
+MEV_RESIST_ADDRESS = "0x551D4b73A66EC2FF39f625cFB4805651307ab1DB"
 # only used for running the api locally
 PG_CONNECTION_STRING = "postgresql://postgres:postgres@localhost:5432/eth_mainnet"
 
@@ -18,17 +21,16 @@ PG_CONNECTION_STRING = "postgresql://postgres:postgres@localhost:5432/eth_mainne
 hyperdrive = [
     { binding = "HYPERDRIVE", id = "1fc62b7bd745410ea6da4849cf2def2e" }
 ]
-vars = { CHAIN_ID = "11155111" }
+vars = { CHAIN_ID = "11155111", ORACLE_ADDRESS = "0x51d02A5948496a67827242EaBc5725531342527C", TWAMM_ADDRESS = "0xd4279c050da1f5c5b2830558c7a08e57e12b54ec", MEV_RESIST_ADDRESS = "0x551D4b73A66EC2FF39f625cFB4805651307ab1DB" }
 routes = [
     { pattern = "eth-sepolia-api.ekubo.org", custom_domain = true }
 ]
-
 
 [env.mainnet]
 hyperdrive = [
     { binding = "HYPERDRIVE", id = "04a121d0804b4451b6cdf894c9b61b56" }
 ]
-vars = { CHAIN_ID = "1" }
+vars = { CHAIN_ID = "1", ORACLE_ADDRESS = "0x51d02A5948496a67827242EaBc5725531342527C", TWAMM_ADDRESS = "0xd4279c050da1f5c5b2830558c7a08e57e12b54ec", MEV_RESIST_ADDRESS = "0x551D4b73A66EC2FF39f625cFB4805651307ab1DB" }
 routes = [
     { pattern = "eth-mainnet-api.ekubo.org", custom_domain = true }
 ]

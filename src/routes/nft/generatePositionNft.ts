@@ -6,15 +6,10 @@ import {
 import { getTokenByAddress, TokenInfo } from "../meta/tokens";
 import { PositionMetadata, TwammOrderMetadata } from "../../queries";
 import { feeToPercent, formattedPrice, tickSpacingToPercent } from "./format";
-import {
-  ORACLE_ADDRESSES,
-  ORACLE_ADDRESSES_VALUE,
-  TWAMM_ADDRESSES_VALUE,
-} from "../../shared/constants";
 
 export async function generatePositionNft(
   id: bigint,
-  chainId: Env["CHAIN_ID"],
+  env: Env,
   tokens: TokenInfo[],
   positionMetadata: PositionMetadata,
 ): Promise<string> {
@@ -23,8 +18,11 @@ export async function generatePositionNft(
 
   const reversed = token0 && token1 && token0.sort_order >= token1.sort_order;
 
+  const isFullRange = Number(positionMetadata.tick_spacing) === 0;
+  const extensionValue = BigInt(positionMetadata.extension);
+
   const [formattedMinPrice, formattedMaxPrice] =
-    !token0 || !token1
+    !token0 || !token1 || isFullRange
       ? [undefined, undefined]
       : reversed
         ? [
@@ -52,10 +50,7 @@ export async function generatePositionNft(
             )} ${token1.symbol} / ${token0.symbol}`,
           ];
 
-  const isFullRange = Number(positionMetadata.tick_spacing) === 0;
-  const extensionValue = BigInt(positionMetadata.extension);
-
-  return await generatePositionSvg(id, chainId, {
+  return await generatePositionSvg(id, env.CHAIN_ID, {
     token0Symbol: token0?.symbol,
     token1Symbol: token1?.symbol,
 
@@ -76,10 +71,12 @@ export async function generatePositionNft(
         ? isFullRange
           ? "Full-range"
           : undefined
-        : extensionValue === TWAMM_ADDRESSES_VALUE
+        : extensionValue === BigInt(env.TWAMM_ADDRESS)
           ? "DCA"
-          : extensionValue === ORACLE_ADDRESSES_VALUE
+          : extensionValue === BigInt(env.ORACLE_ADDRESS)
             ? "Oracle"
-            : undefined,
+            : extensionValue === BigInt(env.MEV_RESISTANT_ADDRESS)
+              ? "Mev-resist"
+              : undefined,
   });
 }
