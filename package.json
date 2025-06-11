@@ -20,7 +20,7 @@
     "check-ts": "tsc --noEmit"
   },
   "dependencies": {
-    "@ekubo/position-svg-generator": "^0.0.6",
+    "@ekubo/position-svg-generator": "^0.0.7",
     "@uniswap/default-token-list": "^13.35.0",
     "viem": "^2.22.10"
   }

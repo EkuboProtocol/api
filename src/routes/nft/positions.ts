@@ -298,7 +298,7 @@ export class GetPositionNftImage extends EkuboAPIRoute {
 
     const svgString = await generatePositionNft(
       id,
-      env.CHAIN_ID,
+      env,
       allTokens,
       positionMetadata,
     );
