@@ -9,6 +9,7 @@ import {
   HexStringType,
 } from "../../shared/validation/address";
 import toHex from "../../shared/toHex";
+import { checksumAddress } from "viem";
 
 export const ClaimType = z
   .object({
@@ -84,14 +85,14 @@ export class ListClaimsForAddress extends EkuboAPIRoute {
             ({
               campaign: c.slug,
               claim: {
-                account: toHex(c.address),
+                account: checksumAddress(toHex(c.address, 20)),
                 amount: c.amount,
                 index: c.index,
               },
               key: {
-                owner: toHex(c.owner),
-                root: toHex(c.root),
-                token: toHex(c.token),
+                owner: checksumAddress(toHex(c.owner, 20)),
+                root: toHex(c.root, 32),
+                token: checksumAddress(toHex(c.token, 20)),
               },
               proof: c.proof.map((p) => toHex(p, 32)),
             }) satisfies z.infer<typeof ClaimEntryType>,

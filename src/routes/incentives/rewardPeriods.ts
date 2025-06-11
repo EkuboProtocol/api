@@ -21,6 +21,7 @@ export const RewardsEntryType = z
     rewardAmount1: DecimalStringType,
     startTime: z.date(),
     endTime: z.date(),
+    realizedVolatility: z.number().min(0),
   })
   .required({
     token0: true,
@@ -87,6 +88,7 @@ export class ListRewardPeriodsForCampaign extends EkuboAPIRoute {
               endTime: crp.end_time,
               rewardAmount0: crp.token0_reward_amount,
               rewardAmount1: crp.token1_reward_amount,
+              realizedVolatility: crp.realized_volatility,
             }) satisfies RewardsEntry,
         ),
       } satisfies z.infer<typeof ListRewardsForCampaignResponseType>,
@@ -156,6 +158,7 @@ export class ListRewardPeriods extends EkuboAPIRoute {
               endTime: crp.end_time,
               rewardAmount0: crp.token0_reward_amount,
               rewardAmount1: crp.token1_reward_amount,
+              realizedVolatility: crp.realized_volatility,
             }) satisfies QualifiedRewardsEntry,
         ),
       } satisfies z.infer<typeof ListRewardsForCampaignResponseType>,

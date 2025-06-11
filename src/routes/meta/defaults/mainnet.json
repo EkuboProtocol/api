@@ -162,5 +162,13 @@
     "decimals": 18,
     "total_supply": null,
     "sort_order": 4
+  },
+  {
+    "symbol": "sUSDe",
+    "name": "Staked USDe",
+    "token_address": "0x9D39A5DE30e57443BfF2A8307A4256c8797A3497",
+    "decimals": 18,
+    "total_supply": null,
+    "sort_order": 4
   }
 ]

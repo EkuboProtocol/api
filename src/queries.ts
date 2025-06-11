@@ -1096,6 +1096,7 @@ export class Queries {
       end_time: Date;
       token0_reward_amount: string;
       token1_reward_amount: string;
+      realized_volatility: number;
     }>({
       text: `
           SELECT crp.token0,
@@ -1103,7 +1104,8 @@ export class Queries {
                  crp.start_time,
                  crp.end_time,
                  token0_reward_amount,
-                 token1_reward_amount
+                 token1_reward_amount,
+                 realized_volatility
           FROM incentives.campaigns c
                    JOIN incentives.campaign_reward_periods crp ON crp.campaign_id = c.id
           WHERE c.slug = $1
@@ -1123,6 +1125,7 @@ export class Queries {
       end_time: Date;
       token0_reward_amount: string;
       token1_reward_amount: string;
+      realized_volatility: number;
     }>({
       text: `
           SELECT c.slug,
@@ -1131,7 +1134,8 @@ export class Queries {
                  crp.start_time,
                  crp.end_time,
                  token0_reward_amount,
-                 token1_reward_amount
+                 token1_reward_amount,
+                 realized_volatility
           FROM incentives.campaigns c
                    JOIN incentives.campaign_reward_periods crp ON crp.campaign_id = c.id
           WHERE COALESCE($1::timestamptz, CURRENT_TIMESTAMP) >= crp.start_time
@@ -1146,6 +1150,7 @@ export class Queries {
     salt: string,
     startTime?: string,
     endTime?: string,
+    excludeDropped?: boolean,
   ) {
     return this.client.query<{
       slug: string;
@@ -1161,9 +1166,22 @@ export class Queries {
             AND cr.salt = $2
             AND (crp.start_time >= $3::timestamptz OR $3 IS NULL)
             AND (crp.end_time <= $4::timestamptz OR $4 IS NULL)
+            AND (
+              $5 IS NOT TRUE
+                  OR crp.id NOT IN (SELECT gdrp.campaign_reward_period_id
+                                    FROM incentives.generated_drop_reward_periods gdrp
+                                             JOIN incentives.generated_drop gd ON gdrp.drop_id = gd.id
+                                             JOIN incentives_funded i ON gd.root = i.root)
+              )
           GROUP BY c.slug
       `,
-      values: [locker, salt, startTime ?? null, endTime ?? null],
+      values: [
+        locker,
+        salt,
+        startTime ?? null,
+        endTime ?? null,
+        excludeDropped ?? false,
+      ],
     });
   }
 
@@ -1171,6 +1189,7 @@ export class Queries {
     ownerAddress: string,
     startTime?: string,
     endTime?: string,
+    excludeDropped?: boolean,
   ) {
     return this.client.query<{
       salt: string;
@@ -1196,9 +1215,21 @@ export class Queries {
                    JOIN keys k ON cr.locker = k.locker AND cr.salt = k.salt
           WHERE (crp.start_time >= $2::timestamptz OR $2 IS NULL)
             AND (crp.end_time <= $3::timestamptz OR $3 IS NULL)
+            AND (
+              $4 IS NOT TRUE
+                  OR crp.id NOT IN (SELECT gdrp.campaign_reward_period_id
+                                    FROM incentives.generated_drop_reward_periods gdrp
+                                             JOIN incentives.generated_drop gd ON gdrp.drop_id = gd.id
+                                             JOIN incentives_funded i ON gd.root = i.root)
+              )
           GROUP BY k.salt, c.slug
       `,
-      values: [ownerAddress, startTime ?? null, endTime ?? null],
+      values: [
+        ownerAddress,
+        startTime ?? null,
+        endTime ?? null,
+        excludeDropped ?? false,
+      ],
     });
   }
 
