@@ -69,14 +69,14 @@ export async function generatePositionNft(
     type:
       extensionValue === 0n
         ? isFullRange
-          ? "Full-range"
+          ? "full_range"
           : undefined
         : extensionValue === BigInt(env.TWAMM_ADDRESS)
-          ? "DCA"
+          ? "dca"
           : extensionValue === BigInt(env.ORACLE_ADDRESS)
-            ? "Oracle"
+            ? "oracle"
             : extensionValue === BigInt(env.MEV_RESIST_ADDRESS)
-              ? "Mev-resist"
+              ? "mev_resist"
               : undefined,
   });
 }
