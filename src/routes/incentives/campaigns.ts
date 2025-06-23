@@ -17,6 +17,7 @@ export const CampaignType = z
     rewardToken: AddressType,
     startTime: z.date(),
     endTime: z.date(),
+    nextDropTime: z.date(),
     pairs: z.array(
       z
         .object({
@@ -40,6 +41,7 @@ export const CampaignType = z
     rewardToken: true,
     startTime: true,
     endTime: true,
+    nextDropTime: true,
     pairs: true,
   });
 
@@ -86,6 +88,7 @@ export class ListCampaigns extends EkuboAPIRoute {
               endTime: c.end_time,
               name: c.name,
               rewardToken: toHex(c.reward_token),
+              nextDropTime: c.next_drop_time,
               pairs: c.rewards.map((p) => ({
                 token0: toHex(p.token0),
                 token1: toHex(p.token1),

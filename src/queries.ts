@@ -1053,6 +1053,7 @@ export class Queries {
       slug: string;
       reward_token: string;
       budget: string;
+      next_drop_time: Date;
       rewards: {
         token0: string;
         token1: string;
@@ -1060,31 +1061,51 @@ export class Queries {
         scheduled: string;
       }[];
     }>(`
-        WITH rewards_by_token AS (SELECT crp.campaign_id,
-                                         crp.token0,
-                                         crp.token1,
-                                         SUM((CASE
-                                                  WHEN crp.rewards_last_computed_at IS NULL THEN 0
-                                                  ELSE token0_reward_amount + token1_reward_amount END)) AS distributed,
-                                         SUM(token0_reward_amount + token1_reward_amount)                AS scheduled
-                                  FROM incentives.campaign_reward_periods crp
-                                  GROUP BY crp.campaign_id, crp.token0, crp.token1),
-             campaign_rewards AS (SELECT rbt.campaign_id,
-                                         JSONB_AGG(JSONB_BUILD_OBJECT('token0', rbt.token0::TEXT, 'token1',
-                                                                      rbt.token1::TEXT, 'distributed',
-                                                                      rbt.distributed::TEXT, 'scheduled',
-                                                                      rbt.scheduled::TEXT)) AS rewards
-                                  FROM rewards_by_token rbt
-                                  GROUP BY rbt.campaign_id)
-        SELECT slug,
-               start_time,
-               end_time,
-               name,
-               reward_token,
-               budget,
-               rewards
-        FROM incentives.campaigns c
-                 JOIN campaign_rewards cr ON cr.campaign_id = c.id
+        WITH rewards_by_token AS (
+          SELECT
+            crp.campaign_id,
+            crp.token0,
+            crp.token1,
+            sum((
+              CASE WHEN crp.rewards_last_computed_at IS NULL THEN
+                0
+              ELSE
+                token0_reward_amount + token1_reward_amount
+              END)) AS distributed,
+            sum(token0_reward_amount + token1_reward_amount) AS scheduled
+          FROM
+            incentives.campaign_reward_periods crp
+          GROUP BY
+            crp.campaign_id,
+            crp.token0,
+            crp.token1
+        ),
+        campaign_rewards AS (
+          SELECT
+            rbt.campaign_id,
+            jsonb_agg(jsonb_build_object('token0', rbt.token0::text, 'token1', rbt.token1::text, 'distributed', rbt.distributed::text, 'scheduled', rbt.scheduled::text)) AS rewards
+          FROM
+            rewards_by_token rbt
+          GROUP BY
+            rbt.campaign_id
+        )
+        SELECT
+          slug,
+          start_time,
+          end_time,
+          name,
+          reward_token,
+          budget,
+          rewards,
+          (
+            CASE WHEN CURRENT_TIMESTAMP < c.end_time THEN
+              date_bin (c.distribution_cadence, CURRENT_TIMESTAMP + c.distribution_cadence - interval '12 hours', c.start_time) + INTERVAL '12 hours'
+            ELSE
+              NULL
+            END) AS next_drop_time
+        FROM
+          incentives.campaigns c
+          JOIN campaign_rewards cr ON cr.campaign_id = c.id
     `);
   }
 
