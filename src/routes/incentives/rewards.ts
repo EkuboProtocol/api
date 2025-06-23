@@ -19,10 +19,12 @@ export const RewardType = z
   .object({
     campaignSlug: z.string(),
     amount: DecimalStringType,
+    pending: DecimalStringType,
   })
   .required({
     campaignSlug: true,
     amount: true,
+    pending: true,
   });
 
 export type Reward = z.infer<typeof RewardType>;
@@ -95,6 +97,7 @@ export class ListRewardsForPosition extends EkuboAPIRoute {
             ({
               campaignSlug: cr.slug,
               amount: cr.amount,
+              pending: cr.pending,
             }) satisfies Reward,
         ),
       } satisfies z.infer<typeof GetRewardsForPositionResponseType>,
@@ -171,6 +174,7 @@ export class ListRewardsForAllPositions extends EkuboAPIRoute {
               tokenId: toHex(cr.salt),
               campaignSlug: cr.slug,
               amount: cr.amount,
+              pending: cr.pending,
             }) satisfies QualifiedReward,
         ),
       } satisfies z.infer<typeof ListRewardsForAllPositionsResponseType>,

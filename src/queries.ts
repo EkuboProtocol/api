@@ -1155,24 +1155,21 @@ export class Queries {
     return this.client.query<{
       slug: string;
       amount: string;
+      pending: string;
     }>({
       text: `
           SELECT c.slug,
-                 SUM(cr.reward_amount) AS amount
+                 SUM(cr.reward_amount) AS amount,
+                 SUM(CASE WHEN gdrp.drop_id IS NULL THEN cr.reward_amount ELSE 0 END) AS pending
           FROM incentives.campaigns c
                    JOIN incentives.campaign_reward_periods crp ON crp.campaign_id = c.id
                    JOIN incentives.computed_rewards cr ON cr.campaign_reward_period_id = crp.id
+                   LEFT JOIN incentives.generated_drop_reward_periods gdrp on crp.id = gdrp.campaign_reward_period_id
           WHERE cr.locker = $1
             AND cr.salt = $2
             AND (crp.start_time >= $3::timestamptz OR $3 IS NULL)
             AND (crp.end_time <= $4::timestamptz OR $4 IS NULL)
-            AND (
-              $5 IS NOT TRUE
-                  OR crp.id NOT IN (SELECT gdrp.campaign_reward_period_id
-                                    FROM incentives.generated_drop_reward_periods gdrp
-                                             JOIN incentives.generated_drop gd ON gdrp.drop_id = gd.id
-                                             JOIN incentives_funded i ON gd.root = i.root)
-              )
+            AND ($5 IS NOT TRUE OR gdrp.drop_id IS NULL)
           GROUP BY c.slug
       `,
       values: [
@@ -1195,6 +1192,7 @@ export class Queries {
       salt: string;
       slug: string;
       amount: string;
+      pending: string;
     }>({
       text: `
           WITH keys AS (SELECT ek.emitter AS locker, token_id::NUMERIC AS salt
@@ -1208,20 +1206,16 @@ export class Queries {
                                             AND pt2.to_address != 0))
           SELECT k.salt,
                  c.slug,
-                 SUM(cr.reward_amount) AS amount
+                 SUM(cr.reward_amount) AS amount,
+                 SUM(CASE WHEN gdrp.drop_id IS NULL THEN cr.reward_amount ELSE 0 END) AS pending
           FROM incentives.campaigns c
                    JOIN incentives.campaign_reward_periods crp ON crp.campaign_id = c.id
                    JOIN incentives.computed_rewards cr ON cr.campaign_reward_period_id = crp.id
                    JOIN keys k ON cr.locker = k.locker AND cr.salt = k.salt
+                   LEFT JOIN incentives.generated_drop_reward_periods gdrp on crp.id = gdrp.campaign_reward_period_id
           WHERE (crp.start_time >= $2::timestamptz OR $2 IS NULL)
             AND (crp.end_time <= $3::timestamptz OR $3 IS NULL)
-            AND (
-              $4 IS NOT TRUE
-                  OR crp.id NOT IN (SELECT gdrp.campaign_reward_period_id
-                                    FROM incentives.generated_drop_reward_periods gdrp
-                                             JOIN incentives.generated_drop gd ON gdrp.drop_id = gd.id
-                                             JOIN incentives_funded i ON gd.root = i.root)
-              )
+            AND ($4 IS NOT TRUE OR gdrp.drop_id IS NULL)
           GROUP BY k.salt, c.slug
       `,
       values: [
