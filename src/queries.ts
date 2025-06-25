@@ -1060,36 +1060,40 @@ export class Queries {
         token1: string;
         distributed: string;
         scheduled: string;
-        next_24h: string;
-        prev_24h: string;
+        daily_rewards: string;
       }[];
     }>(`
-        WITH rewards_by_token AS (
+        WITH campaign_info AS (
+          SELECT
+            crp.campaign_id,
+            LEAST (CURRENT_TIMESTAMP + INTERVAL '24 hours', max(end_time)) AS latest_end_time
+          FROM
+            incentives.campaign_reward_periods crp
+          GROUP BY
+            campaign_id
+        ),
+        rewards_by_token AS (
           SELECT
             crp.campaign_id,
             crp.token0,
             crp.token1,
-            sum((
+            sum(
               CASE WHEN crp.rewards_last_computed_at IS NULL THEN
                 0
               ELSE
                 token0_reward_amount + token1_reward_amount
-              END)) AS distributed,
+              END) AS distributed,
             sum(
-              CASE WHEN crp.end_time BETWEEN CURRENT_TIMESTAMP - interval '24 hours' AND CURRENT_TIMESTAMP THEN
+              CASE WHEN crp.end_time <= ci.latest_end_time
+                AND crp.end_time > (ci.latest_end_time - INTERVAL '24 hours') THEN
                 token0_reward_amount + token1_reward_amount
               ELSE
                 0
-              END) AS prev_24h,
-            sum(
-              CASE WHEN crp.end_time BETWEEN CURRENT_TIMESTAMP AND CURRENT_TIMESTAMP + interval '24 hours' THEN
-                token0_reward_amount + token1_reward_amount
-              ELSE
-                0
-              END) AS next_24h,
+              END) AS daily_rewards,
             sum(token0_reward_amount + token1_reward_amount) AS scheduled
           FROM
             incentives.campaign_reward_periods crp
+            LEFT JOIN campaign_info ci ON crp.campaign_id = ci.campaign_id
           GROUP BY
             crp.campaign_id,
             crp.token0,
@@ -1098,9 +1102,10 @@ export class Queries {
         campaign_rewards AS (
           SELECT
             rbt.campaign_id,
-            jsonb_agg(jsonb_build_object('token0', rbt.token0::text, 'token1', rbt.token1::text, 'distributed', rbt.distributed::text, 'scheduled', rbt.scheduled::text, 'next_24h', rbt.next_24h::text, 'prev_24h', rbt.prev_24h::text)) AS rewards
+            jsonb_agg(jsonb_build_object('token0', rbt.token0::text, 'token1', rbt.token1::text, 'distributed', rbt.distributed::text, 'scheduled', rbt.scheduled::text, 'daily_rewards', rbt.daily_rewards::text)) AS rewards
           FROM
             rewards_by_token rbt
+            JOIN incentives.campaigns c ON rbt.campaign_id = c.id
           GROUP BY
             rbt.campaign_id
         )
