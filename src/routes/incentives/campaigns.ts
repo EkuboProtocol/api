@@ -24,6 +24,8 @@ export const CampaignType = z
           token1: AddressType,
           distributed: DecimalStringType,
           scheduled: DecimalStringType,
+          prev_24h: DecimalStringType,
+          next_24h: DecimalStringType,
         })
         .required({
           token0: true,
@@ -91,6 +93,8 @@ export class ListCampaigns extends EkuboAPIRoute {
                 token1: toHex(p.token1),
                 scheduled: p.scheduled,
                 distributed: p.distributed,
+                prev_24h: p.prev_24h,
+                next_24h: p.next_24h,
               })),
             }) satisfies Campaign,
         ),

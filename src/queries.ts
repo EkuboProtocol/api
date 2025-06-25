@@ -1060,6 +1060,8 @@ export class Queries {
         token1: string;
         distributed: string;
         scheduled: string;
+        next_24h: string;
+        prev_24h: string;
       }[];
     }>(`
         WITH rewards_by_token AS (
@@ -1073,6 +1075,18 @@ export class Queries {
               ELSE
                 token0_reward_amount + token1_reward_amount
               END)) AS distributed,
+            sum(
+              CASE WHEN crp.end_time BETWEEN CURRENT_TIMESTAMP - interval '24 hours' AND CURRENT_TIMESTAMP THEN
+                token0_reward_amount + token1_reward_amount
+              ELSE
+                0
+              END) AS prev_24h,
+            sum(
+              CASE WHEN crp.end_time BETWEEN CURRENT_TIMESTAMP AND CURRENT_TIMESTAMP + interval '24 hours' THEN
+                token0_reward_amount + token1_reward_amount
+              ELSE
+                0
+              END) AS next_24h,
             sum(token0_reward_amount + token1_reward_amount) AS scheduled
           FROM
             incentives.campaign_reward_periods crp
@@ -1084,7 +1098,7 @@ export class Queries {
         campaign_rewards AS (
           SELECT
             rbt.campaign_id,
-            jsonb_agg(jsonb_build_object('token0', rbt.token0::text, 'token1', rbt.token1::text, 'distributed', rbt.distributed::text, 'scheduled', rbt.scheduled::text)) AS rewards
+            jsonb_agg(jsonb_build_object('token0', rbt.token0::text, 'token1', rbt.token1::text, 'distributed', rbt.distributed::text, 'scheduled', rbt.scheduled::text, 'next_24h', rbt.next_24h::text, 'prev_24h', rbt.prev_24h::text)) AS rewards
           FROM
             rewards_by_token rbt
           GROUP BY
