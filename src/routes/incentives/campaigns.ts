@@ -13,10 +13,9 @@ export const CampaignType = z
   .object({
     slug: z.string(),
     name: z.string(),
-    budget: z.string(),
     rewardToken: AddressType,
     startTime: z.date(),
-    endTime: z.date(),
+    endTime: z.date().nullable(),
     nextDropTime: z.date(),
     pairs: z.array(
       z
@@ -37,7 +36,6 @@ export const CampaignType = z
   .required({
     slug: true,
     name: true,
-    budget: true,
     rewardToken: true,
     startTime: true,
     endTime: true,
@@ -83,7 +81,6 @@ export class ListCampaigns extends EkuboAPIRoute {
           (c) =>
             ({
               slug: c.slug,
-              budget: c.budget,
               startTime: c.start_time,
               endTime: c.end_time,
               name: c.name,

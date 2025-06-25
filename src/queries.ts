@@ -1050,11 +1050,10 @@ export class Queries {
   async listCampaigns() {
     return this.client.query<{
       start_time: Date;
-      end_time: Date;
+      end_time: Date | null;
       name: string;
       slug: string;
       reward_token: string;
-      budget: string;
       next_drop_time: Date;
       rewards: {
         token0: string;
@@ -1097,7 +1096,6 @@ export class Queries {
           end_time,
           name,
           reward_token,
-          budget,
           rewards,
           (
             CASE WHEN CURRENT_TIMESTAMP < c.end_time THEN
