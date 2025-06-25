@@ -1066,11 +1066,13 @@ export class Queries {
         WITH campaign_info AS (
           SELECT
             crp.campaign_id,
-            LEAST (CURRENT_TIMESTAMP + INTERVAL '24 hours', max(end_time)) AS latest_end_time
+            GREATEST (c.start_time + INTERVAL '24 hours', LEAST (CURRENT_TIMESTAMP + INTERVAL '24 hours', max(crp.end_time))) AS latest_end_time
           FROM
             incentives.campaign_reward_periods crp
+            JOIN incentives.campaigns c ON crp.campaign_id = c.id
           GROUP BY
-            campaign_id
+            campaign_id,
+            c.start_time
         ),
         rewards_by_token AS (
           SELECT
@@ -1093,7 +1095,7 @@ export class Queries {
             sum(token0_reward_amount + token1_reward_amount) AS scheduled
           FROM
             incentives.campaign_reward_periods crp
-            LEFT JOIN campaign_info ci ON crp.campaign_id = ci.campaign_id
+            JOIN campaign_info ci ON crp.campaign_id = ci.campaign_id
           GROUP BY
             crp.campaign_id,
             crp.token0,
