@@ -47,6 +47,7 @@ export class ListPoolKeys extends EkuboAPIRoute {
     return json(
       rows.map((pool) => ({
         core_address: toHex(pool.core_address, 20),
+        pool_id: toHex(pool.pool_id, 32),
         token0: toHex(pool.token0, 20),
         token1: toHex(pool.token1, 20),
         fee: toHex(pool.fee),

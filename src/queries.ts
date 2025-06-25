@@ -30,6 +30,7 @@ export interface TwammOrderMetadata {
 
 export interface ListPoolKeysQueryResult {
   core_address: string;
+  pool_id: string;
   token0: string;
   token1: string;
   fee: string;
@@ -97,6 +98,7 @@ export class Queries {
   public async listAllPoolKeys() {
     return this.client.query<ListPoolKeysQueryResult>(`
         SELECT core_address,
+               pool_id,
                token0,
                token1,
                fee,
