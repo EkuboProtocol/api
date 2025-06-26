@@ -1119,7 +1119,7 @@ export class Queries {
           reward_token,
           rewards,
           (
-            CASE WHEN CURRENT_TIMESTAMP < c.end_time THEN
+            CASE WHEN c.end_time IS NULL OR CURRENT_TIMESTAMP < c.end_time THEN
               date_bin (c.distribution_cadence, CURRENT_TIMESTAMP + c.distribution_cadence - interval '12 hours', c.start_time) + INTERVAL '12 hours'
             ELSE
               NULL
