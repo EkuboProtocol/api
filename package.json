@@ -21,7 +21,7 @@
   },
   "dependencies": {
     "@ekubo/position-svg-generator": "^0.0.8",
-    "@uniswap/default-token-list": "^13.35.0",
+    "@uniswap/default-token-list": "^13.37.0",
     "viem": "^2.22.10"
   }
 }
