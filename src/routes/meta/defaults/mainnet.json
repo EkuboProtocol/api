@@ -16,6 +16,22 @@
     "total_supply": null
   },
   {
+    "name": "Savings USDS",
+    "symbol": "sUSDS",
+    "decimals": 18,
+    "token_address": "0xa3931d71877C0E7a3148CB7Eb4463524FEc27fbD",
+    "sort_order": 3,
+    "total_supply": null
+  },
+  {
+    "symbol": "USDS",
+    "name": "USDS Stablecoin",
+    "token_address": "0xdC035D45d973E3EC169d2276DDab16f1e407384F",
+    "decimals": 18,
+    "total_supply": null,
+    "sort_order": 4
+  },
+  {
     "name": "EURC",
     "symbol": "EURC",
     "decimals": 6,
