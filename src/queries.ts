@@ -1061,6 +1061,7 @@ export class Queries {
         distributed: string;
         scheduled: string;
         daily_rewards: string;
+        realized_volatility: number;
       }[];
     }>(`
         WITH campaign_info AS (
@@ -1092,7 +1093,14 @@ export class Queries {
               ELSE
                 0
               END) AS daily_rewards,
-            sum(token0_reward_amount + token1_reward_amount) AS scheduled
+            sum(token0_reward_amount + token1_reward_amount) AS scheduled,
+            avg(
+              CASE WHEN crp.end_time <= ci.latest_end_time
+                AND crp.end_time > (ci.latest_end_time - INTERVAL '24 hours') THEN
+                crp.realized_volatility
+              ELSE
+                NULL
+              END) AS realized_volatility
           FROM
             incentives.campaign_reward_periods crp
             JOIN campaign_info ci ON crp.campaign_id = ci.campaign_id
@@ -1104,7 +1112,16 @@ export class Queries {
         campaign_rewards AS (
           SELECT
             rbt.campaign_id,
-            jsonb_agg(jsonb_build_object('token0', rbt.token0::text, 'token1', rbt.token1::text, 'distributed', rbt.distributed::text, 'scheduled', rbt.scheduled::text, 'daily_rewards', rbt.daily_rewards::text)) AS rewards
+            jsonb_agg(
+              jsonb_build_object(
+                'token0',               rbt.token0::text,
+                'token1',               rbt.token1::text,
+                'distributed',          rbt.distributed::text,
+                'scheduled',            rbt.scheduled::text,
+                'daily_rewards',        rbt.daily_rewards::text,
+                'realized_volatility',  rbt.realized_volatility::numeric
+              )
+            ) AS rewards
           FROM
             rewards_by_token rbt
             JOIN incentives.campaigns c ON rbt.campaign_id = c.id

@@ -25,6 +25,7 @@ export const CampaignType = z
           distributed: DecimalStringType,
           scheduled: DecimalStringType,
           daily_rewards: DecimalStringType,
+          realized_volatility: z.number().min(0),
         })
         .required({
           token0: true,
@@ -93,6 +94,7 @@ export class ListCampaigns extends EkuboAPIRoute {
                 scheduled: p.scheduled,
                 distributed: p.distributed,
                 daily_rewards: p.daily_rewards,
+                realized_volatility: p.realized_volatility,
               })),
             }) satisfies Campaign,
         ),
