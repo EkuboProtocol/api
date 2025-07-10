@@ -25,13 +25,15 @@ export const CampaignType = z
           distributed: DecimalStringType,
           scheduled: DecimalStringType,
           daily_rewards: DecimalStringType,
-          realized_volatility: z.number().min(0),
+          realized_volatility: z.number().min(0).nullable(),
         })
         .required({
           token0: true,
           token1: true,
           distributed: true,
           scheduled: true,
+          daily_rewards: true,
+          realized_volatility: true,
         }),
     ),
   })
