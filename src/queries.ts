@@ -996,6 +996,7 @@ export class Queries {
     return this.client.query<
       PositionMetadata & {
         token_id: string;
+        is_closed: boolean;
       }
     >({
       text: `
@@ -1022,7 +1023,8 @@ export class Queries {
                  extension,
                  lower_bound,
                  upper_bound,
-                 blocks.time                 AS minted_timestamp
+                 blocks.time                 AS minted_timestamp,
+                 (ot.liquidity <= 0)         AS is_closed
           FROM filtered_owned_tokens AS ot
                    LEFT JOIN LATERAL (
               SELECT lower_bound, upper_bound, pool_key_hash

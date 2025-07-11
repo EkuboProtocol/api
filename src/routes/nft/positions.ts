@@ -366,6 +366,7 @@ export class ListPositionsByAddress extends EkuboAPIRoute {
           metadata_url: `${origin}/positions/nft/${row.token_id}`,
           image: `${origin}/positions/nft/${row.token_id}/image.svg`,
           minted_timestamp: row.minted_timestamp.getTime(),
+          is_closed: row.is_closed,
         })),
       },
       {
