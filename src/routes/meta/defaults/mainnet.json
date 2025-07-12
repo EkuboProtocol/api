@@ -186,5 +186,13 @@
     "decimals": 18,
     "total_supply": null,
     "sort_order": 4
+  },
+  {
+    "symbol": "GHO",
+    "name": "GHO token",
+    "token_address": "0x40d16fc0246ad3160ccc09b8d0d3a2cd28ae6c2f",
+    "decimals": 18,
+    "total_supply": null,
+    "sort_order": 4
   }
 ]
