@@ -917,27 +917,44 @@ export class Queries {
       depth1: string;
       min_depth_percent: number | null;
     }>(`
-        SELECT pk.token0,
-               pk.token1,
-               SUM(volume0_24h)                  AS volume0_24h,
-               SUM(volume1_24h)                  AS volume1_24h,
-               SUM(fees0_24h)                    AS fees0_24h,
-               SUM(fees1_24h)                    AS fees1_24h,
-               SUM(tvl0_total)                   AS tvl0_total,
-               SUM(tvl1_total)                   AS tvl1_total,
-               SUM(tvl0_delta_24h)               AS tvl0_delta_24h,
-               SUM(tvl1_delta_24h)               AS tvl1_delta_24h,
-               COALESCE(SUM(depth0), 0::NUMERIC) AS depth0,
-               COALESCE(SUM(depth1), 0::NUMERIC) AS depth1,
-               MIN(depth_percent)                AS min_depth_percent
-        FROM last_24h_pool_stats_materialized l24
-                 JOIN pool_keys pk ON l24.key_hash = pk.key_hash
-                 LEFT JOIN pool_market_depth pmd ON pk.key_hash = pmd.pool_key_hash
-        WHERE volume0_24h != 0
-           OR volume1_24h != 0
-           OR tvl0_delta_24h != 0
-           OR tvl1_delta_24h != 0
-        GROUP BY pk.token0, pk.token1;
+      SELECT
+        pk.token0,
+        pk.token1,
+        sum(volume0_24h) AS volume0_24h,
+        sum(volume1_24h) AS volume1_24h,
+        sum(fees0_24h) AS fees0_24h,
+        sum(fees1_24h) AS fees1_24h,
+        sum(tvl0_total) AS tvl0_total,
+        sum(tvl1_total) AS tvl1_total,
+        sum(tvl0_delta_24h) AS tvl0_delta_24h,
+        sum(tvl1_delta_24h) AS tvl1_delta_24h,
+        coalesce(sum(depth0), 0::numeric) AS depth0,
+        coalesce(sum(depth1), 0::numeric) AS depth1,
+        min(depth_percent) AS min_depth_percent
+      FROM
+        last_24h_pool_stats_materialized l24
+        JOIN pool_keys pk ON l24.key_hash = pk.key_hash
+        LEFT JOIN token_pair_realized_volatility tprv ON pk.token0 = tprv.token0
+          AND pk.token1 = tprv.token1
+        LEFT JOIN LATERAL (
+          SELECT
+            *
+          FROM
+            pool_market_depth pmd
+          WHERE
+            pk.key_hash = pmd.pool_key_hash
+            AND tprv.realized_volatility >= pmd.depth_percent
+          ORDER BY
+            depth_percent DESC
+          LIMIT 1) AS pmd ON TRUE
+      WHERE
+        volume0_24h != 0
+        OR volume1_24h != 0
+        OR tvl0_delta_24h != 0
+        OR tvl1_delta_24h != 0
+      GROUP BY
+        pk.token0,
+        pk.token1;
     `);
   }
 
@@ -960,33 +977,45 @@ export class Queries {
       depth_percent: number | null;
     }>({
       text: `
-          SELECT p.fee,
-                 p.tick_spacing,
-                 p.core_address,
-                 p.extension,
-                 volume0_24h,
-                 volume1_24h,
-                 fees0_24h,
-                 fees1_24h,
-                 tvl0_total,
-                 tvl1_total,
-                 tvl0_delta_24h,
-                 tvl1_delta_24h,
-                 COALESCE(depth0, 0::NUMERIC) AS depth0,
-                 COALESCE(depth1, 0::NUMERIC) AS depth1,
-                 depth_percent
-          FROM last_24h_pool_stats_materialized l24
-                   JOIN pool_keys p ON l24.key_hash = p.key_hash
-                   LEFT JOIN pool_market_depth pmd ON p.key_hash = pmd.pool_key_hash
-          WHERE p.token0 = $1
-            AND p.token1 = $2
-            AND (
-              volume0_24h != 0
-                  OR volume1_24h != 0
-                  OR tvl0_delta_24h != 0
-                  OR tvl1_delta_24h != 0
-              );
-          ;
+        SELECT
+          p.fee,
+          p.tick_spacing,
+          p.core_address,
+          p.extension,
+          volume0_24h,
+          volume1_24h,
+          fees0_24h,
+          fees1_24h,
+          tvl0_total,
+          tvl1_total,
+          tvl0_delta_24h,
+          tvl1_delta_24h,
+          coalesce(depth0, 0::numeric) AS depth0,
+          coalesce(depth1, 0::numeric) AS depth1,
+          depth_percent
+        FROM
+          last_24h_pool_stats_materialized l24
+          JOIN pool_keys p ON l24.key_hash = p.key_hash
+          LEFT JOIN token_pair_realized_volatility tprv ON p.token0 = tprv.token0
+            AND p.token1 = tprv.token1
+          LEFT JOIN LATERAL (
+            SELECT
+              *
+            FROM
+              pool_market_depth pmd
+            WHERE
+              p.key_hash = pmd.pool_key_hash
+              AND tprv.realized_volatility >= pmd.depth_percent
+            ORDER BY
+              depth_percent DESC
+            LIMIT 1) AS pmd ON TRUE
+        WHERE
+          p.token0 = $1
+          AND p.token1 = $2
+          AND (volume0_24h != 0
+            OR volume1_24h != 0
+            OR tvl0_delta_24h != 0
+            OR tvl1_delta_24h != 0);
       `,
       values: [pair.token0, pair.token1],
     });
