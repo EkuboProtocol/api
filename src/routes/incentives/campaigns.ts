@@ -22,6 +22,8 @@ export const CampaignType = z
         .object({
           token0: AddressType,
           token1: AddressType,
+          depth0: DecimalStringType.nullable(),
+          depth1: DecimalStringType.nullable(),
           distributed: DecimalStringType,
           scheduled: DecimalStringType,
           daily_rewards: DecimalStringType,
@@ -30,6 +32,8 @@ export const CampaignType = z
         .required({
           token0: true,
           token1: true,
+          depth0: true,
+          depth1: true,
           distributed: true,
           scheduled: true,
           daily_rewards: true,
@@ -93,6 +97,8 @@ export class ListCampaigns extends EkuboAPIRoute {
               pairs: c.rewards.map((p) => ({
                 token0: toHex(p.token0),
                 token1: toHex(p.token1),
+                depth0: p.depth0,
+                depth1: p.depth1,
                 scheduled: p.scheduled,
                 distributed: p.distributed,
                 daily_rewards: p.daily_rewards,

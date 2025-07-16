@@ -1087,6 +1087,8 @@ export class Queries {
       reward_token: string;
       next_drop_time: Date;
       rewards: {
+        depth0: string | null;
+        depth1: string | null;
         token0: string;
         token1: string;
         distributed: string;
@@ -1140,22 +1142,43 @@ export class Queries {
             crp.token0,
             crp.token1
         ),
+        depth_per_campaign_pair AS (
+          SELECT
+            rbt.campaign_id,
+            rbt.token0,
+            rbt.token1,
+            sum(pd.depth0) AS depth0,
+            sum(pd.depth1) AS depth1
+          FROM
+            rewards_by_token rbt
+            LEFT JOIN LATERAL (
+              SELECT
+                max(depth0) AS depth0,
+                max(depth1) AS depth1
+              FROM
+                pool_market_depth pmd
+                JOIN pool_keys pk ON pmd.pool_key_hash = pk.key_hash
+              WHERE
+                pmd.depth_percent <= rbt.realized_volatility
+                AND pk.token0 = rbt.token0
+                AND pk.token1 = rbt.token1
+              GROUP BY
+                pool_key_hash) AS pd ON TRUE
+            GROUP BY
+              rbt.campaign_id,
+              rbt.token0,
+              rbt.token1
+        ),
         campaign_rewards AS (
           SELECT
             rbt.campaign_id,
-            jsonb_agg(
-              jsonb_build_object(
-                'token0',               rbt.token0::text,
-                'token1',               rbt.token1::text,
-                'distributed',          rbt.distributed::text,
-                'scheduled',            rbt.scheduled::text,
-                'daily_rewards',        rbt.daily_rewards::text,
-                'realized_volatility',  rbt.realized_volatility::numeric
-              )
-            ) AS rewards
+            jsonb_agg(jsonb_build_object('token0', rbt.token0::text, 'token1', rbt.token1::text, 'distributed', rbt.distributed::text, 'scheduled', rbt.scheduled::text, 'daily_rewards', rbt.daily_rewards::text, 'realized_volatility', rbt.realized_volatility::numeric, 'depth0', dpcp.depth0::text, 'depth1', dpcp.depth1::text)) AS rewards
           FROM
             rewards_by_token rbt
             JOIN incentives.campaigns c ON rbt.campaign_id = c.id
+            LEFT JOIN depth_per_campaign_pair dpcp ON rbt.campaign_id = dpcp.campaign_id
+              AND rbt.token0 = dpcp.token0
+              AND rbt.token1 = dpcp.token1
           GROUP BY
             rbt.campaign_id
         )
@@ -1167,7 +1190,8 @@ export class Queries {
           reward_token,
           rewards,
           (
-            CASE WHEN c.end_time IS NULL OR CURRENT_TIMESTAMP < c.end_time THEN
+            CASE WHEN c.end_time IS NULL
+              OR CURRENT_TIMESTAMP < c.end_time THEN
               date_bin (c.distribution_cadence, CURRENT_TIMESTAMP + c.distribution_cadence - interval '12 hours', c.start_time) + INTERVAL '12 hours'
             ELSE
               NULL
