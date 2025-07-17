@@ -1089,6 +1089,7 @@ export class Queries {
       rewards: {
         depth0: string | null;
         depth1: string | null;
+        depth_percent: number | null;
         token0: string;
         token1: string;
         distributed: string;
@@ -1147,12 +1148,14 @@ export class Queries {
             rbt.campaign_id,
             rbt.token0,
             rbt.token1,
+            max(depth_percent) AS depth_percent,
             sum(pd.depth0) AS depth0,
             sum(pd.depth1) AS depth1
           FROM
             rewards_by_token rbt
             LEFT JOIN LATERAL (
               SELECT
+                max(depth_percent) as depth_percent,
                 max(depth0) AS depth0,
                 max(depth1) AS depth1
               FROM
@@ -1172,7 +1175,7 @@ export class Queries {
         campaign_rewards AS (
           SELECT
             rbt.campaign_id,
-            jsonb_agg(jsonb_build_object('token0', rbt.token0::text, 'token1', rbt.token1::text, 'distributed', rbt.distributed::text, 'scheduled', rbt.scheduled::text, 'daily_rewards', rbt.daily_rewards::text, 'realized_volatility', rbt.realized_volatility::numeric, 'depth0', dpcp.depth0::text, 'depth1', dpcp.depth1::text)) AS rewards
+            jsonb_agg(jsonb_build_object('token0', rbt.token0::text, 'token1', rbt.token1::text, 'distributed', rbt.distributed::text, 'scheduled', rbt.scheduled::text, 'daily_rewards', rbt.daily_rewards::text, 'realized_volatility', rbt.realized_volatility::numeric, 'depth_percent', dpcp.depth_percent, 'depth0', dpcp.depth0::text, 'depth1', dpcp.depth1::text)) AS rewards
           FROM
             rewards_by_token rbt
             JOIN incentives.campaigns c ON rbt.campaign_id = c.id
