@@ -1159,7 +1159,7 @@ export class Queries {
                 pool_market_depth pmd
                 JOIN pool_keys pk ON pmd.pool_key_hash = pk.key_hash
               WHERE
-                pmd.depth_percent <= rbt.realized_volatility
+                pmd.depth_percent <= rbt.realized_volatility * 2
                 AND pk.token0 = rbt.token0
                 AND pk.token1 = rbt.token1
               GROUP BY
