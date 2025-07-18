@@ -1095,6 +1095,8 @@ export class Queries {
         distributed: string;
         scheduled: string;
         daily_rewards: string;
+        daily_rewards_token0: string;
+        daily_rewards_token1: string;
         realized_volatility: number;
       }[];
     }>(`
@@ -1120,6 +1122,20 @@ export class Queries {
               ELSE
                 token0_reward_amount + token1_reward_amount
               END) AS distributed,
+            sum(
+              CASE WHEN crp.end_time <= ci.latest_end_time
+                AND crp.end_time > (ci.latest_end_time - INTERVAL '24 hours') THEN
+                token0_reward_amount
+              ELSE
+                0
+              END) AS daily_rewards_token0,
+            sum(
+              CASE WHEN crp.end_time <= ci.latest_end_time
+                AND crp.end_time > (ci.latest_end_time - INTERVAL '24 hours') THEN
+                token1_reward_amount
+              ELSE
+                0
+              END) AS daily_rewards_token1,
             sum(
               CASE WHEN crp.end_time <= ci.latest_end_time
                 AND crp.end_time > (ci.latest_end_time - INTERVAL '24 hours') THEN
@@ -1175,7 +1191,21 @@ export class Queries {
         campaign_rewards AS (
           SELECT
             rbt.campaign_id,
-            jsonb_agg(jsonb_build_object('token0', rbt.token0::text, 'token1', rbt.token1::text, 'distributed', rbt.distributed::text, 'scheduled', rbt.scheduled::text, 'daily_rewards', rbt.daily_rewards::text, 'realized_volatility', rbt.realized_volatility::numeric, 'depth_percent', dpcp.depth_percent, 'depth0', dpcp.depth0::text, 'depth1', dpcp.depth1::text)) AS rewards
+            jsonb_agg(
+              jsonb_build_object(
+                'token0', rbt.token0::text,
+                'token1', rbt.token1::text,
+                'distributed', rbt.distributed::text,
+                'scheduled', rbt.scheduled::text,
+                'daily_rewards', rbt.daily_rewards::text,
+                'daily_rewards_token0', rbt.daily_rewards_token0::text,
+                'daily_rewards_token1', rbt.daily_rewards_token1::text,
+                'realized_volatility', rbt.realized_volatility::numeric,
+                'depth_percent', dpcp.depth_percent,
+                'depth0', dpcp.depth0::text,
+                'depth1', dpcp.depth1::text
+              )
+            ) AS rewards
           FROM
             rewards_by_token rbt
             JOIN incentives.campaigns c ON rbt.campaign_id = c.id

@@ -28,6 +28,8 @@ export const CampaignType = z
           distributed: DecimalStringType,
           scheduled: DecimalStringType,
           daily_rewards: DecimalStringType,
+          daily_rewards_token0: DecimalStringType,
+          daily_rewards_token1: DecimalStringType,
           realized_volatility: z.number().min(0).nullable(),
         })
         .required({
@@ -38,6 +40,8 @@ export const CampaignType = z
           distributed: true,
           scheduled: true,
           daily_rewards: true,
+          daily_rewards_token0: true,
+          daily_rewards_token1: true,
           realized_volatility: true,
         }),
     ),
@@ -104,6 +108,8 @@ export class ListCampaigns extends EkuboAPIRoute {
                 scheduled: p.scheduled,
                 distributed: p.distributed,
                 daily_rewards: p.daily_rewards,
+                daily_rewards_token0: p.daily_rewards_token0,
+                daily_rewards_token1: p.daily_rewards_token1,
                 realized_volatility: p.realized_volatility,
               })),
             }) satisfies Campaign,
