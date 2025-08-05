@@ -20,7 +20,7 @@ export default {
     const preflightResponse = preflight(request);
     if (preflightResponse) return preflightResponse;
 
-    const cacheable = request.method.toLowerCase() === "get";
+    const cacheable = false;
     // check cache hits for request
     // we do this outside of the router because we do not want to RE-CACHE a successful response by including the cache logic in the router handler
     if (cacheable) {

@@ -79,6 +79,27 @@ export class Queries {
     return rows[0];
   }
 
+  public async getBlockAtOrAfter(timestamp: string) {
+    const { rows } = await this.client.query<{
+      number: string;
+      timestamp: string;
+    }>({
+      text: `
+        SELECT
+          number,
+          hash,
+          time AS timestamp
+        FROM blocks
+        WHERE time >= $1
+        ORDER BY time ASC
+        LIMIT 1
+      `,
+      values: [timestamp],
+    });
+    if (rows.length !== 1) return null;
+    return rows[0];
+  }
+
   public async getBlock(blockNumber: number) {
     const { rows } = await this.client.query<{
       number: string;

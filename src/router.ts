@@ -1,7 +1,7 @@
 import { OpenAPIRouter } from "@cloudflare/itty-router-openapi";
 import { version } from "../package.json";
 import { ListTokens } from "./routes/meta/tokens";
-import { GetBlock } from "./routes/meta/blocks";
+import { GetBlock, GetClosestBlock } from "./routes/meta/blocks";
 import {
   GetOverviewPairs,
   GetOverviewRevenue,
@@ -63,6 +63,7 @@ export const router = OpenAPIRouter({
   docs_url: null as unknown as undefined,
 })
   .get(ListTokens.route, ListTokens)
+  .get(GetClosestBlock.route, GetClosestBlock)
   .get(GetBlock.route, GetBlock)
   .get(GetOverviewPairs.route, GetOverviewPairs)
   .get(GetOverviewRevenue.route, GetOverviewRevenue)
