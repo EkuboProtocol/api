@@ -49,6 +49,15 @@
     "hidden": true
   },
   {
+    "name": "ebUSD Stablecoin",
+    "symbol": "ebUSD",
+    "decimals": 18,
+    "token_address": "0x09fD37d9AA613789c517e76DF1c53aEce2b60Df4",
+    "sort_order": 4,
+    "total_supply": null,
+    "hidden": true
+  },
+  {
     "name": "Tether USD",
     "symbol": "USDT",
     "decimals": 6,
