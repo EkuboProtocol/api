@@ -203,5 +203,13 @@
     "decimals": 18,
     "total_supply": null,
     "sort_order": 4
+  },
+  {
+    "symbol": "PROVE",
+    "name": "Succinct",
+    "token_address": "0x6BEF15D938d4E72056AC92Ea4bDD0D76B1C4ad29",
+    "decimals": 18,
+    "total_supply": null,
+    "sort_order": 1
   }
 ]
