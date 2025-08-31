@@ -211,5 +211,14 @@
     "decimals": 18,
     "total_supply": null,
     "sort_order": 1
+  },
+  {
+    "symbol": "gEKUBO-26Q2",
+    "name": "Ekubo Protocol Apr/1/2026",
+    "token_address": "0x0c93b16cb1D8691E629514Fc98f02cbaD340Da3C",
+    "decimals": 18,
+    "total_supply": null,
+    "sort_order": 2,
+    "hidden": true
   }
 ]
