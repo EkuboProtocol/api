@@ -220,5 +220,13 @@
     "total_supply": null,
     "sort_order": 2,
     "hidden": true
+  },
+  {
+    "symbol": "ENA",
+    "name": "Ethena",
+    "token_address": "0x57e114B691Db790C35207b2e685D4A43181e6061",
+    "decimals": 18,
+    "total_supply": 15000000000,
+    "sort_order": 1
   }
 ]
