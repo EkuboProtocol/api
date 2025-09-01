@@ -219,7 +219,7 @@
     "decimals": 18,
     "total_supply": null,
     "sort_order": 2,
-    "hidden": true
+    "hidden": false
   },
   {
     "symbol": "ENA",
