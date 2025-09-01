@@ -8,6 +8,7 @@ import {
   AddressType,
   DecimalStringType,
 } from "../../shared/validation/address";
+import { checksumAddress } from "viem";
 
 export const CampaignType = z
   .object({
@@ -17,6 +18,7 @@ export const CampaignType = z
     startTime: z.date(),
     endTime: z.date().nullable(),
     nextDropTime: z.date(),
+    allowedExtensions: z.array(AddressType),
     pairs: z.array(
       z
         .object({
@@ -99,6 +101,9 @@ export class ListCampaigns extends EkuboAPIRoute {
               name: c.name,
               rewardToken: toHex(c.reward_token),
               nextDropTime: c.next_drop_time,
+              allowedExtensions: c.allowed_extensions.map((a) =>
+                checksumAddress(toHex(a, 20)),
+              ),
               pairs: c.rewards.map((p) => ({
                 token0: toHex(p.token0),
                 token1: toHex(p.token1),

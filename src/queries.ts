@@ -1107,6 +1107,7 @@ export class Queries {
       slug: string;
       reward_token: string;
       next_drop_time: Date;
+      allowed_extensions: string[];
       rewards: {
         depth0: string | null;
         depth1: string | null;
@@ -1243,6 +1244,7 @@ export class Queries {
           name,
           reward_token,
           rewards,
+          c.allowed_extensions::text[] as allowed_extensions,
           (
             CASE WHEN c.end_time IS NULL
               OR CURRENT_TIMESTAMP < c.end_time THEN
