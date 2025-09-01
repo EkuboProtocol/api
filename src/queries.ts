@@ -1203,6 +1203,7 @@ export class Queries {
                 pmd.depth_percent <= rbt.realized_volatility * 2
                 AND pk.token0 = rbt.token0
                 AND pk.token1 = rbt.token1
+                AND pk.extension IN (SELECT UNNEST(allowed_extensions) FROM incentives.campaigns c WHERE c.id = rbt.campaign_id)
               GROUP BY
                 pool_key_hash) AS pd ON TRUE
             GROUP BY
