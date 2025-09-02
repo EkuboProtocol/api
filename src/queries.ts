@@ -1247,7 +1247,9 @@ export class Queries {
           rewards,
           c.allowed_extensions::text[] as allowed_extensions,
           (
-            CASE WHEN c.end_time IS NULL
+            CASE 
+            WHEN CURRENT_TIMESTAMP < c.start_time THEN c.start_time + c.distribution_cadence + interval '12 hours'
+            WHEN c.end_time IS NULL
               OR CURRENT_TIMESTAMP < c.end_time THEN
               date_bin (c.distribution_cadence, CURRENT_TIMESTAMP + c.distribution_cadence - interval '12 hours', c.start_time) + INTERVAL '12 hours'
             ELSE
