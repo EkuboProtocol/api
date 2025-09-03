@@ -2,7 +2,6 @@ import { EkuboAPIRoute, RequestContext } from "../../shared/context";
 import { IRequest, json, StatusError } from "itty-router";
 import {
   getDefaultTokens,
-  getTokenByAddress,
   getTokenParsedAddressByIdentifier,
 } from "../meta/tokens";
 import Decimal from "decimal.js-light";
@@ -14,10 +13,7 @@ import {
   Query,
 } from "@cloudflare/itty-router-openapi";
 import { z } from "zod";
-import {
-  ETH_V2_TOKEN_ADDRESS,
-  ETH_V2_TOKEN_ADDRESS_VALUE,
-} from "../../shared/constants";
+import { ETH_V2_TOKEN_ADDRESS_VALUE } from "../../shared/constants";
 
 export class GetPairPriceHistory extends EkuboAPIRoute {
   static route = "/price/:baseToken/:quoteToken/history";

@@ -41,6 +41,7 @@ import {
   ListRewardsForPosition,
 } from "./routes/incentives/rewards";
 import { ListClaimsForAddress } from "./routes/incentives/claims";
+import { Get0xQuote } from "./routes/quote";
 
 export const router = OpenAPIRouter({
   schema: {
@@ -93,5 +94,6 @@ export const router = OpenAPIRouter({
   .get(ListRewardsForPosition.route, ListRewardsForPosition)
   .get(ListRewardsForAllPositions.route, ListRewardsForAllPositions)
   .get(ListClaimsForAddress.route, ListClaimsForAddress)
+  .get(Get0xQuote.route, Get0xQuote)
   // catch missed routes
   .all("*", () => error(404));
