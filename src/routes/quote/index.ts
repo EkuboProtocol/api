@@ -41,7 +41,7 @@ export class Get0xQuote extends EkuboAPIRoute {
         description: "Output token",
       }),
       sellAmount: Query(NumericStringType, { required: true }),
-      receiver: Query(HexStringType, { required: true }),
+      receiver: Query(HexStringType, { required: false }),
       slippageBps: Query(DecimalStringType, { required: false }),
     },
     responses: {
@@ -63,7 +63,7 @@ export class Get0xQuote extends EkuboAPIRoute {
     const zeroXClient = getZeroXClient(env);
 
     try {
-      const quote = await zeroXClient.swap.allowanceHolder.getQuote.query({
+      const commonArgs = {
         chainId: 1,
         buyToken:
           BigInt(query.buyToken as string) === ETH_V2_TOKEN_ADDRESS_VALUE
@@ -74,9 +74,15 @@ export class Get0xQuote extends EkuboAPIRoute {
             ? "0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE"
             : (query.sellToken as string),
         sellAmount: query.sellAmount as string,
-        taker: query.receiver as string,
         slippageBps: Number(query.slippageBps),
-      });
+      };
+
+      const quote = await (query.receiver !== undefined
+        ? zeroXClient.swap.allowanceHolder.getQuote.query({
+            ...commonArgs,
+            taker: query.receiver as string,
+          })
+        : zeroXClient.swap.allowanceHolder.getPrice.query(commonArgs));
 
       return json(quote, {
         headers: {
