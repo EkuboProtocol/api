@@ -964,7 +964,7 @@ export class Queries {
             pool_market_depth pmd
           WHERE
             pk.key_hash = pmd.pool_key_hash
-            AND tprv.realized_volatility >= pmd.depth_percent
+            AND GREATEST(tprv.realized_volatility, 0.001) >= pmd.depth_percent
           ORDER BY
             depth_percent DESC
           LIMIT 1) AS pmd ON TRUE
@@ -1026,7 +1026,7 @@ export class Queries {
               pool_market_depth pmd
             WHERE
               p.key_hash = pmd.pool_key_hash
-              AND tprv.realized_volatility >= pmd.depth_percent
+              AND GREATEST(tprv.realized_volatility, 0.001) >= pmd.depth_percent
             ORDER BY
               depth_percent DESC
             LIMIT 1) AS pmd ON TRUE
