@@ -236,5 +236,13 @@
     "decimals": 18,
     "total_supply": null,
     "sort_order": 1
+  },
+  {
+    "name": "Curve.Fi USD",
+    "symbol": "crvUSD",
+    "decimals": 18,
+    "token_address": "0xf939E0A03FB07F59A73314E73794Be0E57ac1b4E",
+    "sort_order": 4,
+    "total_supply": null
   }
 ]
