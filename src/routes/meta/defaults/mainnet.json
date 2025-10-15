@@ -244,5 +244,13 @@
     "token_address": "0xf939E0A03FB07F59A73314E73794Be0E57ac1b4E",
     "sort_order": 4,
     "total_supply": null
+  },
+  {
+    "symbol": "YB",
+    "name": "Yield Basis",
+    "token_address": "0x01791F726B4103694969820be083196cC7c045fF",
+    "decimals": 18,
+    "total_supply": null,
+    "sort_order": 3
   }
 ]
