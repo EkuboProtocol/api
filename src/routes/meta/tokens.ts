@@ -7,15 +7,18 @@ import { IRequest, json, StatusError } from "itty-router";
 import { z } from "zod";
 import { Env } from "../../env";
 import { EkuboAPIRoute, RequestContext } from "../../shared/context";
-import { NumericStringType } from "../../shared/validation/address";
+import {
+  AddressType,
+  NumericStringType,
+} from "../../shared/validation/address";
 import { createQueries, Queries, RawErc20TokenRow } from "../../queries";
+import toHex from "../../shared/toHex";
 
 const ADDRESS_REGEX = /^0x[a-fA-F0-9]+$/;
 const DECIMAL_REGEX = /^\d+(?:e\d+)?$/i;
 
 export const TokenType = z
   .object({
-    chainId: NumericStringType,
     name: z
       .string({
         description: "Name of the token",
@@ -63,7 +66,6 @@ export const TokenType = z
     logo_url: z.optional(z.string().url()),
   })
   .required({
-    chainId: true,
     token_address: true,
     name: true,
     symbol: true,
@@ -79,11 +81,10 @@ function buildTokenInfo(row: RawErc20TokenRow): TokenInfo {
   const decimals = Number(row.token_decimals);
 
   const token: TokenInfo = {
-    chainId: row.chain_id,
     name: row.token_name,
     symbol: row.token_symbol,
     decimals,
-    token_address: row.token_address,
+    token_address: toHex(BigInt(row.token_address), 20),
     sort_order: row.sort_order,
     visibility_priority: row.visibility_priority,
     logo_url: row.logo_url,
@@ -94,30 +95,6 @@ function buildTokenInfo(row: RawErc20TokenRow): TokenInfo {
   };
 
   return token;
-}
-
-export async function listTokens(
-  queries: Queries,
-  options: {
-    chainId: bigint;
-    pageSize?: number;
-    start?: number;
-    minVisibilityPriority?: number;
-  },
-): Promise<TokenInfo[]> {
-  const chainId = options.chainId;
-  const minVisibilityPriority = options?.minVisibilityPriority ?? 0;
-  const pageSize = options?.pageSize ?? 1000;
-  const start = options?.start ?? 0;
-
-  const rows = await queries.listErc20Tokens({
-    chainId,
-    minVisibilityPriority,
-    pageSize,
-    start,
-  });
-
-  return rows.map(buildTokenInfo);
 }
 
 export async function getTokenByAddress(
@@ -159,11 +136,14 @@ export class ListTokens extends EkuboAPIRoute {
     summary: "List tokens",
     description: "Get a list of tokens for the given chain ID",
     parameters: {
-      chainId: Path(NumericStringType, { required: true }),
+      chainId: Path(
+        z.coerce.number().int().min(1).max(Number.MAX_SAFE_INTEGER),
+        { required: true },
+      ),
       pageSize: Query(z.coerce.number().int().min(1).max(10_000), {
         default: 1000,
       }),
-      start: Query(z.coerce.number().int().min(0)),
+      afterToken: Query(AddressType, { required: false }),
       minVisibilityPriority: Query(z.coerce.number().max(100).min(0).int(), {
         required: false,
       }),
@@ -184,14 +164,19 @@ export class ListTokens extends EkuboAPIRoute {
       request.query.minVisibilityPriority ?? 0,
     );
     const pageSize = Number(request.query.pageSize ?? 1000);
-    const start = Number(request.query.start ?? 0);
+    const afterToken =
+      typeof request.query.afterToken === "string"
+        ? BigInt(request.query.afterToken)
+        : null;
 
-    const tokens = await listTokens(queries, {
+    const rows = await queries.listErc20Tokens({
       chainId,
       minVisibilityPriority,
       pageSize,
-      start,
+      afterToken,
     });
+
+    const tokens = rows.map(buildTokenInfo);
 
     return json(tokens, {
       headers: {

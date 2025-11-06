@@ -20,7 +20,7 @@ export const NumericStringType = HexStringType.or(DecimalStringType).openapi({
 
 export const AddressType = NumericStringType.openapi({
   title: "Address",
-  description: "An address on Ethereum",
+  description: "An address on the specified blockchain network",
 });
 
 export const TokenSymbolType = z

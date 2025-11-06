@@ -57,7 +57,6 @@ export interface TwammPoolStateQueryResult {
 }
 
 export interface RawErc20TokenRow {
-  chain_id: string;
   token_address: string;
   token_symbol: string;
   token_name: string;
@@ -87,25 +86,24 @@ export class Queries {
     chainId,
     minVisibilityPriority,
     pageSize,
-    start,
+    afterToken,
   }: {
     chainId: bigint;
     minVisibilityPriority: number;
     pageSize: number;
-    start: number;
+    afterToken: bigint | null;
   }) {
     const { rows } = await this.client.query<RawErc20TokenRow>({
       text: `
         SELECT 
-          chain_id,
           token_address, token_symbol, token_name, token_decimals,
           logo_url, visibility_priority, sort_order, total_supply
         FROM erc20_tokens
-        WHERE chain_id = $1 AND visibility_priority >= $2
-        ORDER BY visibility_priority DESC, token_symbol
-        LIMIT $3 OFFSET $4
+        WHERE chain_id = $1 AND visibility_priority >= $2 AND (token_address > $4::numeric OR $4 IS NULL)
+        ORDER BY visibility_priority DESC, token_address
+        LIMIT $3
       `,
-      values: [chainId, minVisibilityPriority, pageSize, start],
+      values: [chainId, minVisibilityPriority, pageSize, afterToken],
     });
     return rows;
   }
