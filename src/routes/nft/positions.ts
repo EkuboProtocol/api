@@ -17,7 +17,6 @@ import {
   TokenIdType,
 } from "./format";
 import { parseTokenId } from "./parseTokenId";
-import { checksumAddress } from "viem";
 import { getDefaultTokens, getTokenByAddress } from "../meta/tokens";
 import { generatePositionNft } from "./generatePositionNft";
 
@@ -71,11 +70,11 @@ export class GetPositionNftMetadata extends EkuboAPIRoute {
       },
       {
         trait_type: "token0",
-        value: checksumAddress(toHex(positionMetadata.token0)),
+        value: toHex(positionMetadata.token0),
       },
       {
         trait_type: "token1",
-        value: checksumAddress(toHex(positionMetadata.token1)),
+        value: toHex(positionMetadata.token1),
       },
       { trait_type: "fee", value: positionMetadata.fee.toString() },
       {
@@ -84,7 +83,7 @@ export class GetPositionNftMetadata extends EkuboAPIRoute {
       },
       {
         trait_type: "extension",
-        value: checksumAddress(toHex(positionMetadata.extension)),
+        value: toHex(positionMetadata.extension),
       },
       {
         trait_type: "tick_lower",

@@ -1,16 +1,12 @@
 import { OpenAPIRouteSchema } from "@cloudflare/itty-router-openapi";
 import { IRequest, json } from "itty-router";
-import { Env } from "../../env";
 import { z } from "zod";
 import { EkuboAPIRoute, RequestContext } from "../../shared/context";
-
-import MAINNET_TOKENS from "./defaults/mainnet.json";
-import SEPOLIA_TOKENS from "./defaults/sepolia.json";
-import UNISWAP_DEFAULT_LIST from "@uniswap/default-token-list";
-import LOGOS from "./defaults/logos.json";
+import { NumericStringType } from "../../shared/validation/address";
 
 export const TokenType = z
   .object({
+    chainId: NumericStringType,
     name: z
       .string({
         description: "Name of the token",
@@ -71,78 +67,6 @@ export const TokenType = z
   });
 
 export type TokenInfo = z.infer<typeof TokenType>;
-
-const SEPOLIA_CHAIN_ID = 11155111;
-const MAINNET_CHAIN_ID = 1;
-
-const TOKENS: { [chainId: number]: TokenInfo[] | null } = {};
-
-export function getDefaultTokens(env: Env): TokenInfo[] {
-  const ci = Number(env.CHAIN_ID);
-  if (TOKENS[ci]) return TOKENS[ci];
-
-  const tokens: TokenInfo[] =
-    Number(env.CHAIN_ID) === SEPOLIA_CHAIN_ID
-      ? SEPOLIA_TOKENS
-      : Number(env.CHAIN_ID) === MAINNET_CHAIN_ID
-        ? MAINNET_TOKENS
-        : [];
-
-  UNISWAP_DEFAULT_LIST.tokens.forEach((tNew) => {
-    if (tNew.chainId !== ci) return;
-
-    // can't find a copy in the list already
-    if (
-      !tokens.find(
-        (tOld) =>
-          BigInt(tOld.token_address) === BigInt(tNew.address) ||
-          tOld.symbol.toLowerCase() === tNew.symbol.toLowerCase(),
-      )
-    ) {
-      tokens.push({
-        symbol: tNew.symbol,
-        name: tNew.name,
-        token_address: tNew.address,
-        decimals: tNew.decimals,
-        hidden: false,
-        logo_url: tNew.logoURI,
-        total_supply: null,
-        sort_order: 1,
-      });
-    }
-  });
-
-  tokens.forEach((t) => {
-    t.logo_url =
-      (LOGOS as { [symbol: string]: string })[t.symbol] ?? t.logo_url;
-  });
-
-  return (TOKENS[ci] = tokens);
-}
-
-export function getTokenByAddress(
-  tokens: TokenInfo[],
-  address: string | bigint,
-): TokenInfo | undefined {
-  return tokens?.find((x) => BigInt(x.token_address) === BigInt(address));
-}
-
-export function getTokenParsedAddressByIdentifier(
-  tokens: TokenInfo[],
-  identifier: string,
-): bigint | undefined {
-  if (/^0x[a-fA-F0-9]+$/.test(identifier) || /^\d+$/.test(identifier)) {
-    return BigInt(identifier);
-  }
-
-  const foundTokenBySymbol = tokens.find(
-    (x) => x.symbol.toLowerCase() === identifier.toLowerCase(),
-  );
-
-  return foundTokenBySymbol !== undefined
-    ? BigInt(foundTokenBySymbol.token_address)
-    : undefined;
-}
 
 export class ListTokens extends EkuboAPIRoute {
   static route = "/tokens";

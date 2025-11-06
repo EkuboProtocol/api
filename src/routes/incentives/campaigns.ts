@@ -8,7 +8,6 @@ import {
   AddressType,
   DecimalStringType,
 } from "../../shared/validation/address";
-import { checksumAddress } from "viem";
 
 export const CampaignType = z
   .object({

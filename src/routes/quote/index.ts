@@ -1,6 +1,7 @@
 import { EkuboAPIRoute, RequestContext } from "../../shared/context";
 import { IRequest, json, StatusError } from "itty-router";
 import {
+  AddressType,
   DecimalStringType,
   HexStringType,
   NumericStringType,
@@ -32,11 +33,11 @@ export class Get0xQuote extends EkuboAPIRoute {
     summary: "Get 0x quote",
     description: "Get finalized quote from 0x",
     parameters: {
-      buyToken: Query(z.string(), {
+      buyToken: Query(AddressType, {
         required: true,
         description: "Input token",
       }),
-      sellToken: Query(z.coerce.string(), {
+      sellToken: Query(AddressType, {
         required: true,
         description: "Output token",
       }),
