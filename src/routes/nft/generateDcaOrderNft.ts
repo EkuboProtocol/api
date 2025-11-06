@@ -1,16 +1,22 @@
 import { generateDCAOrderSvg } from "@ekubo/position-svg-generator";
-import { Env } from "../../env";
-import { getTokenByAddress, TokenInfo } from "../meta/tokens";
-import { TwammOrderMetadata } from "../../queries";
+import { getTokenByAddress } from "../meta/tokens";
+import { Queries, TwammOrderMetadata } from "../../queries";
 import { formatTimeToUTC } from "./format";
 
 export async function generateDcaOrderNft(
   id: bigint,
-  chainId: Env["CHAIN_ID"],
-  tokens: TokenInfo[],
+  chainId: string,
+  queries: Queries,
   twammOrderMetadatas: TwammOrderMetadata[],
 ) {
   const firstOrderMetadata = twammOrderMetadatas[0];
+
+  let numericChainId: bigint;
+  try {
+    numericChainId = BigInt(chainId);
+  } catch {
+    throw new Error(`Invalid chain ID provided: "${chainId}"`);
+  }
 
   const dates = twammOrderMetadatas.reduce<null | [Date, Date]>(
     (memo, value) => {
@@ -33,10 +39,10 @@ export async function generateDcaOrderNft(
       ? [firstOrderMetadata.token0, firstOrderMetadata.token1]
       : [firstOrderMetadata.token1, firstOrderMetadata.token0];
 
-  const [sellToken, buyToken] = [
-    getTokenByAddress(tokens, sellTokenAddress),
-    getTokenByAddress(tokens, buyTokenAddress),
-  ];
+  const [sellToken, buyToken] = await Promise.all([
+    getTokenByAddress(queries, numericChainId, sellTokenAddress),
+    getTokenByAddress(queries, numericChainId, buyTokenAddress),
+  ]);
 
   return await generateDCAOrderSvg(id, chainId, {
     sellTokenAddress,

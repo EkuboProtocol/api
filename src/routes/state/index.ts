@@ -46,13 +46,14 @@ export class ListPoolKeys extends EkuboAPIRoute {
 
     return json(
       rows.map((pool) => ({
-        core_address: toHex(pool.core_address, 20),
+        chain_id: pool.chain_id,
+        core_address: toHex(pool.core_address),
         pool_id: toHex(pool.pool_id, 32),
-        token0: toHex(pool.token0, 20),
-        token1: toHex(pool.token1, 20),
+        token0: toHex(pool.token0),
+        token1: toHex(pool.token1),
         fee: toHex(pool.fee),
         tick_spacing: Number(pool.tick_spacing),
-        extension: toHex(pool.extension, 20),
+        extension: toHex(pool.extension),
         config: toPoolConfig({
           fee: BigInt(pool.fee),
           tickSpacing: Number(pool.tick_spacing),

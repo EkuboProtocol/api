@@ -3,18 +3,28 @@ import {
   generateDCAOrderSvg,
   generatePositionSvg,
 } from "@ekubo/position-svg-generator";
-import { getTokenByAddress, TokenInfo } from "../meta/tokens";
-import { PositionMetadata, TwammOrderMetadata } from "../../queries";
+import { getTokenByAddress } from "../meta/tokens";
+import { PositionMetadata, Queries } from "../../queries";
 import { feeToPercent, formattedPrice, tickSpacingToPercent } from "./format";
 
 export async function generatePositionNft(
   id: bigint,
+  chainId: string,
   env: Env,
-  tokens: TokenInfo[],
+  queries: Queries,
   positionMetadata: PositionMetadata,
 ): Promise<string> {
-  const token0 = getTokenByAddress(tokens, positionMetadata.token0);
-  const token1 = getTokenByAddress(tokens, positionMetadata.token1);
+  let numericChainId: bigint;
+  try {
+    numericChainId = BigInt(chainId);
+  } catch {
+    throw new Error(`Invalid chain ID provided: "${chainId}"`);
+  }
+
+  const [token0, token1] = await Promise.all([
+    getTokenByAddress(queries, numericChainId, positionMetadata.token0),
+    getTokenByAddress(queries, numericChainId, positionMetadata.token1),
+  ]);
 
   const reversed = token0 && token1 && token0.sort_order >= token1.sort_order;
 
@@ -50,7 +60,7 @@ export async function generatePositionNft(
             )} ${token1.symbol} / ${token0.symbol}`,
           ];
 
-  return await generatePositionSvg(id, env.CHAIN_ID, {
+  return await generatePositionSvg(id, chainId, {
     token0Symbol: token0?.symbol,
     token1Symbol: token1?.symbol,
 

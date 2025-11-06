@@ -100,9 +100,7 @@ export class ListCampaigns extends EkuboAPIRoute {
               name: c.name,
               rewardToken: toHex(c.reward_token),
               nextDropTime: c.next_drop_time,
-              allowedExtensions: c.allowed_extensions.map((a) =>
-                checksumAddress(toHex(a, 20)),
-              ),
+              allowedExtensions: c.allowed_extensions.map((a) => toHex(a)),
               pairs: c.rewards.map((p) => ({
                 token0: toHex(p.token0),
                 token1: toHex(p.token1),

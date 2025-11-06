@@ -1,11 +1,11 @@
 import { EkuboAPIRoute, RequestContext } from "../../shared/context";
 import { IRequest, json, StatusError } from "itty-router";
-import {
-  getDefaultTokens,
-  getTokenParsedAddressByIdentifier,
-} from "../meta/tokens";
+import { getTokenByUserSpecifiedIdentifier } from "../meta/tokens";
 import Decimal from "decimal.js-light";
-import { TokenIdentifierType } from "../../shared/validation/address";
+import {
+  NumericStringType,
+  TokenIdentifierType,
+} from "../../shared/validation/address";
 import { createQueries } from "../../queries";
 import {
   OpenAPIRouteSchema,
@@ -16,7 +16,7 @@ import { z } from "zod";
 import { ETH_V2_TOKEN_ADDRESS_VALUE } from "../../shared/constants";
 
 export class GetPairPriceHistory extends EkuboAPIRoute {
-  static route = "/price/:baseToken/:quoteToken/history";
+  static route = "/price/:chainId/:baseToken/:quoteToken/history";
 
   static schema: OpenAPIRouteSchema = {
     tags: ["Prices"],
@@ -25,6 +25,7 @@ export class GetPairPriceHistory extends EkuboAPIRoute {
     parameters: {
       baseToken: Path(TokenIdentifierType, { example: "ETH" }),
       quoteToken: Path(TokenIdentifierType, { example: "USDC" }),
+      chainId: Path(NumericStringType, { example: "1" }),
       interval: Query(z.coerce.number().int().min(60), { required: false }),
     },
     responses: {
@@ -37,24 +38,39 @@ export class GetPairPriceHistory extends EkuboAPIRoute {
 
   async handle({ params, query }: IRequest, { env }: RequestContext) {
     const queries = await createQueries(env);
-    const allTokens = getDefaultTokens(env);
 
-    const baseToken = getTokenParsedAddressByIdentifier(
-      allTokens,
-      params.baseToken,
-    );
-    const quoteToken = getTokenParsedAddressByIdentifier(
-      allTokens,
-      params.quoteToken,
-    );
+    const chainIdParam = params.chainId;
+    let chainId: bigint;
+    try {
+      chainId = BigInt(chainIdParam);
+    } catch {
+      throw new StatusError(400, "Invalid chain ID");
+    }
 
-    if (baseToken === undefined || quoteToken === undefined) {
+    const [baseToken, quoteToken] = await Promise.all([
+      getTokenByUserSpecifiedIdentifier(queries, chainId, params.baseToken),
+      getTokenByUserSpecifiedIdentifier(queries, chainId, params.quoteToken),
+    ]);
+
+    if (!baseToken || !quoteToken) {
       throw new StatusError(400, "Base token or quote token invalid");
     }
 
-    if (baseToken === quoteToken) {
+    if (baseToken.token_address === quoteToken.token_address) {
       throw new StatusError(400, "Base token cannot be equal to quote token");
     }
+
+    const baseTokenAddress = BigInt(baseToken.token_address);
+    const quoteTokenAddress = BigInt(quoteToken.token_address);
+
+    const baseBeforeQuote = baseTokenAddress < quoteTokenAddress;
+
+    const token0Address = baseBeforeQuote
+      ? baseTokenAddress
+      : quoteTokenAddress;
+    const token1Address = baseBeforeQuote
+      ? quoteTokenAddress
+      : baseTokenAddress;
 
     let intervalSeconds: number;
     let start: Date;
@@ -96,24 +112,19 @@ export class GetPairPriceHistory extends EkuboAPIRoute {
       throw new StatusError(400, "Interval too small for the range");
     }
 
-    const [token0, token1] =
-      baseToken < quoteToken
-        ? [baseToken, quoteToken]
-        : [quoteToken, baseToken];
-
     // convert 1e15 eth to the threshold for token0 by multiplying 1e15 eth by the price in per eth
     const price0 =
       (
         await queries.getVolumeWeightedPrice({
           baseToken: ETH_V2_TOKEN_ADDRESS_VALUE,
-          quoteToken: token0,
+          quoteToken: token0Address,
         })
       )?.price ?? new Decimal(0);
     const price1 =
       (
         await queries.getVolumeWeightedPrice({
           baseToken: ETH_V2_TOKEN_ADDRESS_VALUE,
-          quoteToken: token1,
+          quoteToken: token1Address,
         })
       )?.price ?? new Decimal(0);
 
@@ -122,8 +133,8 @@ export class GetPairPriceHistory extends EkuboAPIRoute {
     const threshold1 = BigInt(thresholdEth.mul(price1).toFixed(0));
 
     const queryData = await queries.getPriceHistory({
-      token0,
-      token1,
+      token0: token0Address,
+      token1: token1Address,
       start,
       end,
       intervalSeconds,
@@ -145,7 +156,7 @@ export class GetPairPriceHistory extends EkuboAPIRoute {
         end: end.getTime(),
         interval: intervalSeconds,
         data:
-          baseToken < quoteToken
+          baseBeforeQuote
             ? formattedData
             : formattedData.map((d) => ({
                 ...d,

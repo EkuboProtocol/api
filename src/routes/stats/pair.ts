@@ -1,17 +1,21 @@
 import { EkuboAPIRoute, RequestContext } from "../../shared/context";
-import { IRequest, json } from "itty-router";
-import { TokenIdentifierType } from "../../shared/validation/address";
+import { IRequest, json, StatusError } from "itty-router";
+import {
+  NumericStringType,
+  TokenIdentifierType,
+} from "../../shared/validation/address";
 import { OpenAPIRouteSchema, Path } from "@cloudflare/itty-router-openapi";
 import { parseOutTokens } from "../../shared/parseOutTokens";
 
 export class GetPairInfo extends EkuboAPIRoute {
-  static route = "/pair/:tokenA/:tokenB";
+  static route = "/pair/:chainId/:tokenA/:tokenB";
 
   static schema: OpenAPIRouteSchema = {
     tags: ["Stats"],
     summary: "Get pair stats",
     description: "Returns high level stats for a given trading pair",
     parameters: {
+      chainId: Path(NumericStringType),
       tokenA: Path(TokenIdentifierType),
       tokenB: Path(TokenIdentifierType),
     },
@@ -24,7 +28,15 @@ export class GetPairInfo extends EkuboAPIRoute {
   };
 
   async handle(request: IRequest, { env }: RequestContext) {
-    const { queries, pair } = await parseOutTokens(env, request.params);
+    const chainIdParam = request.params.chainId;
+    let chainId: bigint;
+    try {
+      chainId = BigInt(chainIdParam);
+    } catch {
+      throw new StatusError(400, "Invalid chain ID");
+    }
+
+    const { queries, pair } = await parseOutTokens(env, request.params, chainId);
 
     const timestamp = Date.now();
     const thirtyDaysAgo = new Date(timestamp - 1000 * 60 * 60 * 24 * 30);
@@ -49,6 +61,7 @@ export class GetPairInfo extends EkuboAPIRoute {
 
     return json(
       {
+        chain_id: chainId.toString(),
         timestamp,
         tvlByToken,
         volumeByToken,
@@ -68,13 +81,14 @@ export class GetPairInfo extends EkuboAPIRoute {
 }
 
 export class GetPairInfoTvl extends EkuboAPIRoute {
-  static route = "/pair/:tokenA/:tokenB/tvl";
+  static route = "/pair/:chainId/:tokenA/:tokenB/tvl";
 
   static schema: OpenAPIRouteSchema = {
     tags: ["Stats"],
     summary: "Get pair TVL",
     description: "Returns TVL stats for the pair",
     parameters: {
+      chainId: Path(NumericStringType),
       tokenA: Path(TokenIdentifierType),
       tokenB: Path(TokenIdentifierType),
     },
@@ -87,7 +101,15 @@ export class GetPairInfoTvl extends EkuboAPIRoute {
   };
 
   async handle(request: IRequest, { env }: RequestContext) {
-    const { queries, pair } = await parseOutTokens(env, request.params);
+    const chainIdParam = request.params.chainId;
+    let chainId: bigint;
+    try {
+      chainId = BigInt(chainIdParam);
+    } catch {
+      throw new StatusError(400, "Invalid chain ID");
+    }
+
+    const { queries, pair } = await parseOutTokens(env, request.params, chainId);
 
     const timestamp = Date.now();
     const thirtyDaysAgo = new Date(timestamp - 1000 * 60 * 60 * 24 * 30);
@@ -100,6 +122,7 @@ export class GetPairInfoTvl extends EkuboAPIRoute {
 
     return json(
       {
+        chain_id: chainId.toString(),
         tvlByToken,
         tvlDeltaByTokenByDate,
       },
@@ -113,13 +136,14 @@ export class GetPairInfoTvl extends EkuboAPIRoute {
 }
 
 export class GetPairInfoVolume extends EkuboAPIRoute {
-  static route = "/pair/:tokenA/:tokenB/volume";
+  static route = "/pair/:chainId/:tokenA/:tokenB/volume";
 
   static schema: OpenAPIRouteSchema = {
     tags: ["Stats"],
     summary: "Get pair volume",
     description: "Returns volume stats for a given trading pair",
     parameters: {
+      chainId: Path(NumericStringType),
       tokenA: Path(TokenIdentifierType),
       tokenB: Path(TokenIdentifierType),
     },
@@ -132,7 +156,19 @@ export class GetPairInfoVolume extends EkuboAPIRoute {
   };
 
   async handle(request: IRequest, { env }: RequestContext) {
-    const { queries, pair } = await parseOutTokens(env, request.params);
+    const chainIdParam = request.params.chainId;
+    let chainId: bigint;
+    try {
+      chainId = BigInt(chainIdParam);
+    } catch {
+      throw new StatusError(400, "Invalid chain ID");
+    }
+
+    const { queries, pair } = await parseOutTokens(
+      env,
+      request.params,
+      chainId,
+    );
 
     const timestamp = Date.now();
     const thirtyDaysAgo = new Date(timestamp - 1000 * 60 * 60 * 24 * 30);
@@ -150,6 +186,7 @@ export class GetPairInfoVolume extends EkuboAPIRoute {
 
     return json(
       {
+        chain_id: chainId.toString(),
         volumeByToken,
         volumeByTokenByDate,
         volumeByToken_24h,
@@ -164,13 +201,14 @@ export class GetPairInfoVolume extends EkuboAPIRoute {
 }
 
 export class GetPairInfoPools extends EkuboAPIRoute {
-  static route = "/pair/:tokenA/:tokenB/pools";
+  static route = "/pair/:chainId/:tokenA/:tokenB/pools";
 
   static schema: OpenAPIRouteSchema = {
     tags: ["Stats"],
     summary: "Get pools of pair",
     description: "Returns pool info for a pair",
     parameters: {
+      chainId: Path(NumericStringType),
       tokenA: Path(TokenIdentifierType),
       tokenB: Path(TokenIdentifierType),
     },
@@ -183,12 +221,21 @@ export class GetPairInfoPools extends EkuboAPIRoute {
   };
 
   async handle(request: IRequest, { env }: RequestContext) {
-    const { queries, pair } = await parseOutTokens(env, request.params);
+    const chainIdParam = request.params.chainId;
+    let chainId: bigint;
+    try {
+      chainId = BigInt(chainIdParam);
+    } catch {
+      throw new StatusError(400, "Invalid chain ID");
+    }
+
+    const { queries, pair } = await parseOutTokens(env, request.params, chainId);
 
     const { rows: topPools } = await queries.getTopPools(pair);
 
     return json(
       {
+        chain_id: chainId.toString(),
         topPools,
       },
       {

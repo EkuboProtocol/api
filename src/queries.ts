@@ -29,6 +29,7 @@ export interface TwammOrderMetadata {
 }
 
 export interface ListPoolKeysQueryResult {
+  chain_id: string;
   core_address: string;
   pool_id: string;
   token0: string;
@@ -55,11 +56,135 @@ export interface TwammPoolStateQueryResult {
   last_execution_time: Date;
 }
 
+export interface RawErc20TokenRow {
+  chain_id: string;
+  token_address: string;
+  token_symbol: string;
+  token_name: string;
+  token_decimals: number;
+  logo_url: string;
+  visibility_priority: number;
+  sort_order: number;
+  total_supply: string | null;
+}
+
+export interface RawErc20TokenBridgeRow {
+  source_chain_id: string;
+  source_token_address: string;
+  source_bridge_address: string;
+  dest_chain_id: string;
+  dest_token_address: string;
+}
+
 export class Queries {
   private readonly client: Client;
 
   constructor(client: Client) {
     this.client = client;
+  }
+
+  public async listErc20Tokens({
+    chainId,
+    minVisibilityPriority,
+    pageSize,
+    start,
+  }: {
+    chainId: bigint;
+    minVisibilityPriority: number;
+    pageSize: number;
+    start: number;
+  }) {
+    const { rows } = await this.client.query<RawErc20TokenRow>({
+      text: `
+        SELECT 
+          chain_id,
+          token_address, token_symbol, token_name, token_decimals,
+          logo_url, visibility_priority, sort_order, total_supply
+        FROM erc20_tokens
+        WHERE chain_id = $1 AND visibility_priority >= $2
+        ORDER BY visibility_priority DESC, token_symbol
+        LIMIT $3 OFFSET $4
+      `,
+      values: [chainId, minVisibilityPriority, pageSize, start],
+    });
+    return rows;
+  }
+
+  public async getErc20TokenByAddress({
+    chainId,
+    tokenAddress,
+  }: {
+    chainId: bigint;
+    tokenAddress: bigint;
+  }) {
+    const { rows } = await this.client.query<RawErc20TokenRow>({
+      text: `
+        SELECT 
+          chain_id,
+          token_address,
+          token_symbol,
+          token_name,
+          token_decimals,
+          logo_url,
+          visibility_priority,
+          sort_order,
+          total_supply
+        FROM erc20_tokens
+        WHERE chain_id = $1 AND token_address = $2
+        LIMIT 1
+      `,
+      values: [chainId, tokenAddress],
+    });
+
+    return rows.length > 0 ? rows[0] : null;
+  }
+
+  public async getErc20TokenByIdentifier({
+    chainId,
+    identifier,
+  }: {
+    chainId: bigint;
+    identifier: string;
+  }) {
+    const { rows } = await this.client.query<RawErc20TokenRow>({
+      text: `
+        SELECT 
+          chain_id,
+          token_address,
+          token_symbol,
+          token_name,
+          token_decimals,
+          logo_url,
+          visibility_priority,
+          sort_order,
+          total_supply
+        FROM erc20_tokens
+        WHERE chain_id = $1
+          AND token_symbol = $2
+        ORDER BY visibility_priority DESC, token_symbol
+        LIMIT 1
+      `,
+      values: [chainId, identifier],
+    });
+
+    return rows.length > 0 ? rows[0] : null;
+  }
+
+  public async listErc20TokenBridgeRelationships(chainId: bigint) {
+    const { rows } = await this.client.query<RawErc20TokenBridgeRow>({
+      text: `
+        SELECT source_chain_id, source_token_address, source_bridge_address,
+               dest_chain_id, dest_token_address
+        FROM erc20_tokens_bridge_relationships
+        WHERE source_chain_id = $1
+    `,
+      values: [chainId],
+    });
+    return rows;
+  }
+
+  public async close() {
+    await this.client.end();
   }
 
   public async getLatestBlock() {
@@ -118,7 +243,8 @@ export class Queries {
 
   public async listAllPoolKeys() {
     return this.client.query<ListPoolKeysQueryResult>(`
-        SELECT core_address,
+        SELECT chain_id,
+               core_address,
                pool_id,
                token0,
                token1,

@@ -5,7 +5,6 @@ import { createQueries } from "../../queries";
 import toHex from "../../shared/toHex";
 import { NFTMetadata, TokenIdType } from "./format";
 import { parseTokenId } from "./parseTokenId";
-import { getDefaultTokens } from "../meta/tokens";
 import { generateDcaOrderNft } from "./generateDcaOrderNft";
 
 export class GetOrderNftMetadata extends EkuboAPIRoute {
@@ -146,12 +145,10 @@ export class GetOrderNftImage extends EkuboAPIRoute {
       throw new StatusError(404, `Token ID ${id} not found`);
     }
 
-    const allTokens = getDefaultTokens(env);
-
     const svgString = await generateDcaOrderNft(
       id,
       env.CHAIN_ID,
-      allTokens,
+      queries,
       twammOrderMetadata,
     );
 
