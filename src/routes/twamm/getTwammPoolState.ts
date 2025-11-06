@@ -2,6 +2,7 @@ import { OpenAPIRouteSchema, Path } from "@cloudflare/itty-router-openapi";
 import { IRequest, json, StatusError } from "itty-router";
 import { EkuboAPIRoute, RequestContext } from "../../shared/context";
 import {
+  ChainIdType,
   DecimalStringType,
   NumericStringType,
   TokenIdentifierType,
@@ -23,6 +24,7 @@ const GetTwammStateResponseType = z.object({
 type TwammStateResponseType = z.infer<typeof GetTwammStateResponseType>;
 
 const SharedGetPairStateParameters = {
+  chainId: Path(ChainIdType, { required: true }),
   tokenA: Path(TokenIdentifierType, { required: true, example: "ETH" }),
   tokenB: Path(TokenIdentifierType, { required: true, example: "USDC" }),
 };
@@ -52,7 +54,11 @@ export class GetTwammPoolState extends EkuboAPIRoute {
     const {
       queries,
       pair: { token0, token1 },
-    } = await parseOutTokens(env, request.params);
+    } = await parseOutTokens(
+      env,
+      request.params,
+      BigInt(request.params.chainId),
+    );
 
     const fee = BigInt(request.params.fee);
 
@@ -109,7 +115,7 @@ export class GetTwammPoolState extends EkuboAPIRoute {
 }
 
 export class GetTwammPairState extends EkuboAPIRoute {
-  static route = "/twap/pair/:tokenA/:tokenB";
+  static route = "/twap/pair/:chainId/:tokenA/:tokenB";
 
   static schema: OpenAPIRouteSchema = {
     tags: ["TWAP"],
@@ -130,7 +136,11 @@ export class GetTwammPairState extends EkuboAPIRoute {
     const {
       queries,
       pair: { token0, token1 },
-    } = await parseOutTokens(env, request.params);
+    } = await parseOutTokens(
+      env,
+      request.params,
+      BigInt(request.params.chainId),
+    );
 
     const [{ rows: stateResults }, { rows: saleRateDeltas }] =
       await Promise.all([

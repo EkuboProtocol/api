@@ -34,3 +34,9 @@ export const TokenSymbolType = z
   });
 
 export const TokenIdentifierType = AddressType.or(TokenSymbolType);
+
+export const ChainIdType = z.coerce
+  .number()
+  .int()
+  .min(1)
+  .max(Number.MAX_SAFE_INTEGER);

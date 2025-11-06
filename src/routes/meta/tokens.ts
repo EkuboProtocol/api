@@ -3,14 +3,10 @@ import {
   Path,
   Query,
 } from "@cloudflare/itty-router-openapi";
-import { IRequest, json, StatusError } from "itty-router";
+import { IRequest, json } from "itty-router";
 import { z } from "zod";
-import { Env } from "../../env";
 import { EkuboAPIRoute, RequestContext } from "../../shared/context";
-import {
-  AddressType,
-  NumericStringType,
-} from "../../shared/validation/address";
+import { AddressType, ChainIdType } from "../../shared/validation/address";
 import { createQueries, Queries, RawErc20TokenRow } from "../../queries";
 import toHex from "../../shared/toHex";
 
@@ -136,10 +132,7 @@ export class ListTokens extends EkuboAPIRoute {
     summary: "List tokens",
     description: "Get a list of tokens for the given chain ID",
     parameters: {
-      chainId: Path(
-        z.coerce.number().int().min(1).max(Number.MAX_SAFE_INTEGER),
-        { required: true },
-      ),
+      chainId: Path(ChainIdType, { required: true }),
       pageSize: Query(z.coerce.number().int().min(1).max(10_000), {
         default: 1000,
       }),
