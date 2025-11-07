@@ -35,7 +35,7 @@ export const TokenType = z
       .min(0)
       .max(78)
       .int(),
-    token_address: z.string({
+    address: z.string({
       description: "The address of the token for the specified chain",
     }),
     visibility_priority: z
@@ -62,7 +62,7 @@ export const TokenType = z
     logo_url: z.optional(z.string().url()),
   })
   .required({
-    token_address: true,
+    address: true,
     name: true,
     symbol: true,
     decimals: true,
@@ -76,11 +76,11 @@ export type TokenInfo = z.infer<typeof TokenType>;
 function buildTokenInfo(row: RawErc20TokenRow): TokenInfo {
   const decimals = Number(row.token_decimals);
 
-  const token: TokenInfo = {
+  return {
     name: row.token_name,
     symbol: row.token_symbol,
     decimals,
-    token_address: toHex(BigInt(row.token_address), 20),
+    address: toHex(BigInt(row.token_address), 20),
     sort_order: row.sort_order,
     visibility_priority: row.visibility_priority,
     logo_url: row.logo_url,
@@ -89,8 +89,6 @@ function buildTokenInfo(row: RawErc20TokenRow): TokenInfo {
         ? Number(row.total_supply) / Math.pow(10, decimals)
         : null,
   };
-
-  return token;
 }
 
 export async function getTokenByAddress(
