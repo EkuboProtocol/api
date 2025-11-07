@@ -1,5 +1,3 @@
-import { z } from "zod";
-import Decimal from "decimal.js-light";
 import { NumericStringType } from "../../shared/validation/address";
 
 export interface NFTMetadata {
@@ -16,11 +14,10 @@ export interface NFTMetadata {
 }
 
 export const NUM_DIGITS = 12;
-Decimal.config({ toExpNeg: -NUM_DIGITS, toExpPos: NUM_DIGITS });
 
-const BASE = new Decimal("1.000001");
-const MIN_PRICE_RENDER = new Decimal(10).pow(-NUM_DIGITS);
-const MAX_PRICE_RENDER = new Decimal(10).pow(NUM_DIGITS);
+const BASE = 1.000001;
+const MIN_PRICE_RENDER = 10 ** -NUM_DIGITS;
+const MAX_PRICE_RENDER = 10 ** NUM_DIGITS;
 
 function collapseSubscripts(str: string) {
   return str.replace(/0{5,99}/, (x) => {
@@ -41,15 +38,13 @@ export function formattedPrice(
   numeratorDecimals: number,
   denominatorDecimals: number,
 ): string {
-  const p = BASE.pow(tick.toString()).mul(
-    new Decimal(10).pow(denominatorDecimals - numeratorDecimals),
-  );
+  const p = BASE ** tick * 10 ** (denominatorDecimals - numeratorDecimals);
 
-  if (p.lt(MIN_PRICE_RENDER)) {
+  if (p < MIN_PRICE_RENDER) {
     return "0.0";
   }
 
-  if (p.gt(MAX_PRICE_RENDER)) {
+  if (p > MAX_PRICE_RENDER) {
     return "∞";
   }
 
@@ -61,18 +56,12 @@ export function formattedPrice(
   );
 }
 
-const U64 = new Decimal(2).pow(64);
-
-export function feeToPercent(fee: string) {
-  return new Decimal(fee).div(U64).mul(100).toSignificantDigits(2).toString();
+export function feeToPercent(fee: string, feeDenominator: number): string {
+  return ((Number(fee) / feeDenominator) * 100).toPrecision(3);
 }
 
-export function tickSpacingToPercent(tick_spacing: string) {
-  return BASE.pow(tick_spacing)
-    .sub(1)
-    .mul(100)
-    .toSignificantDigits(2)
-    .toString();
+export function tickSpacingToPercent(tick_spacing: string): string {
+  return ((BASE ** Number(tick_spacing) - 1) * 100).toPrecision(3);
 }
 
 export function formatTimeToUTC(date: Date) {

@@ -1,10 +1,7 @@
 import { createCors, error, IRequest, json, StatusError } from "itty-router";
 import { Env } from "./env";
-import Decimal from "decimal.js-light";
 import { RequestContext } from "./shared/context";
 import { router } from "./router";
-
-Decimal.set({ precision: 39 });
 
 const cache = caches.default;
 

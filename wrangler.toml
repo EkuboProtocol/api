@@ -14,11 +14,11 @@ cpu_ms = 5000
 PG_CONNECTION_STRING = "postgresql://postgres:postgres@localhost:5432/postgres"
 ZERO_X_API_KEY = "9bdd43e7-e8bd-4a54-b9e0-64340c1eb681"
 
-[env.dev]
+[env.prod]
 hyperdrive = [
     { binding = "HYPERDRIVE", id = "04a121d0804b4451b6cdf894c9b61b56" },
 ]
-routes = [{ pattern = "dev-api.ekubo.org", custom_domain = true }]
+routes = [{ pattern = "prod-api.ekubo.org", custom_domain = true }]
 
 [observability]
 enabled = true

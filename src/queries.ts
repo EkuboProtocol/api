@@ -1,6 +1,5 @@
 import { Client } from "pg";
 import { Env } from "./env";
-import Decimal from "decimal.js-light";
 
 export interface PositionMetadata {
   positions_address: string;
@@ -857,9 +856,8 @@ export class Queries {
     quoteToken: bigint;
     endTime?: Date;
     numHours?: number;
-  }): Promise<{ price: Decimal; k_volume: bigint } | null> {
-    if (baseToken === quoteToken)
-      return { price: new Decimal(1), k_volume: 1n << 128n };
+  }): Promise<{ price: number; k_volume: bigint } | null> {
+    if (baseToken === quoteToken) return { price: 1, k_volume: 1n << 128n };
 
     const [token0, token1] =
       baseToken < quoteToken
@@ -889,8 +887,8 @@ export class Queries {
 
     const price =
       baseToken < quoteToken
-        ? new Decimal(total).div(k_volume)
-        : new Decimal(k_volume).div(total);
+        ? Number(total) / Number(k_volume)
+        : Number(k_volume) / Number(total);
     return { price, k_volume: BigInt(k_volume) };
   }
 

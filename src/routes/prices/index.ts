@@ -1,7 +1,6 @@
 import { EkuboAPIRoute, RequestContext } from "../../shared/context";
 import { IRequest, json, StatusError } from "itty-router";
 import { getTokenByUserSpecifiedIdentifier } from "../meta/tokens";
-import Decimal from "decimal.js-light";
 import {
   NumericStringType,
   TokenIdentifierType,
@@ -119,14 +118,14 @@ export class GetPairPriceHistory extends EkuboAPIRoute {
           baseToken: ETH_V2_TOKEN_ADDRESS_VALUE,
           quoteToken: token0Address,
         })
-      )?.price ?? new Decimal(0);
+      )?.price ?? 0;
     const price1 =
       (
         await queries.getVolumeWeightedPrice({
           baseToken: ETH_V2_TOKEN_ADDRESS_VALUE,
           quoteToken: token1Address,
         })
-      )?.price ?? new Decimal(0);
+      )?.price ?? 0;
 
     const thresholdEth = new Decimal(1e16);
     const threshold0 = BigInt(thresholdEth.mul(price0).toFixed(0));
@@ -155,16 +154,15 @@ export class GetPairPriceHistory extends EkuboAPIRoute {
         start: start.getTime(),
         end: end.getTime(),
         interval: intervalSeconds,
-        data:
-          baseBeforeQuote
-            ? formattedData
-            : formattedData.map((d) => ({
-                ...d,
-                vwap: 1 / d.vwap,
-                max: 1 / d.min,
-                min: 1 / d.max,
-                k_volume: d.k_volume,
-              })),
+        data: baseBeforeQuote
+          ? formattedData
+          : formattedData.map((d) => ({
+              ...d,
+              vwap: 1 / d.vwap,
+              max: 1 / d.min,
+              min: 1 / d.max,
+              k_volume: d.k_volume,
+            })),
       },
       {
         headers: {
