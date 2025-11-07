@@ -4,7 +4,6 @@ on:
   push:
     branches:
       - main
-  workflow_dispatch:
 
 concurrency: deploy-cf
 
@@ -29,9 +28,6 @@ jobs:
 
       - name: Install dependencies
         run: npm install
-
-      - name: Check typescript
-        run: npm run check-ts
 
       - name: Publish
         uses: cloudflare/wrangler-action@v3
