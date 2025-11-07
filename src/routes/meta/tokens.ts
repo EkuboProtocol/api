@@ -3,7 +3,7 @@ import {
   Path,
   Query,
 } from "@cloudflare/itty-router-openapi";
-import { IRequest, json } from "itty-router";
+import { IRequest, json, StatusError } from "itty-router";
 import { z } from "zod";
 import { EkuboAPIRoute, RequestContext } from "../../shared/context";
 import { AddressType, ChainIdType } from "../../shared/validation/address";
@@ -135,7 +135,7 @@ export class ListTokens extends EkuboAPIRoute {
         default: 1000,
       }),
       afterToken: Query(AddressType, { required: false }),
-      minVisibilityPriority: Query(z.coerce.number().max(100).min(0).int(), {
+      minVisibilityPriority: Query(z.coerce.number().max(100).min(-100).int(), {
         required: false,
       }),
     },
@@ -149,8 +149,8 @@ export class ListTokens extends EkuboAPIRoute {
   };
 
   async handle(request: IRequest, { env }: RequestContext) {
-    const queries = await createQueries(env);
     const chainId = BigInt(request.params.chainId);
+    const queries = await createQueries(env);
     const minVisibilityPriority = Number(
       request.query.minVisibilityPriority ?? 0,
     );
@@ -172,6 +172,49 @@ export class ListTokens extends EkuboAPIRoute {
     return json(tokens, {
       headers: {
         "cache-control": `public, max-age=600`,
+      },
+    });
+  }
+}
+
+export class GetToken extends EkuboAPIRoute {
+  static route = "/tokens/:chainId/:tokenAddress";
+
+  static schema: OpenAPIRouteSchema = {
+    tags: ["Meta"],
+    summary: "Get token",
+    description: "Returns metadata for a specific token on the given chain",
+    parameters: {
+      chainId: Path(ChainIdType, { required: true }),
+      tokenAddress: Path(AddressType, { required: true }),
+    },
+    responses: {
+      "200": {
+        description: "Token information",
+        schema: TokenType,
+        contentType: "application/json",
+      },
+      "404": {
+        description: "Token not found",
+        contentType: "application/json",
+      },
+    },
+  };
+
+  async handle(request: IRequest, { env }: RequestContext) {
+    const chainId = BigInt(request.params.chainId);
+    const tokenAddress = request.params.tokenAddress;
+    const queries = await createQueries(env);
+
+    const token = await getTokenByAddress(queries, chainId, tokenAddress);
+
+    if (!token) {
+      throw new StatusError(404, "Token not found");
+    }
+
+    return json(token, {
+      headers: {
+        "cache-control": "public, max-age=43200",
       },
     });
   }

@@ -1,10 +1,15 @@
 import { z } from "zod";
 import { EkuboAPIRoute, RequestContext } from "../../shared/context";
-import { OpenAPIRouteSchema, Path } from "@cloudflare/itty-router-openapi";
+import {
+  OpenAPIRouteSchema,
+  Path,
+  Query,
+} from "@cloudflare/itty-router-openapi";
 import { IRequest, json } from "itty-router";
 import { createQueries } from "../../queries";
 import {
   AddressType,
+  ChainIdType,
   DecimalStringType,
   HexStringType,
 } from "../../shared/validation/address";
@@ -60,6 +65,10 @@ export class ListClaimsForAddress extends EkuboAPIRoute {
     description: "Returns all the claims available for the address",
     parameters: {
       address: Path(AddressType),
+      chainId: Query(ChainIdType, {
+        required: false,
+        description: "Restrict claims to the specified chain ID",
+      }),
     },
     responses: {
       "200": {
@@ -71,10 +80,15 @@ export class ListClaimsForAddress extends EkuboAPIRoute {
   };
 
   public async handle(request: IRequest, { env }: RequestContext) {
+    const chainId =
+      typeof request.query.chainId === "string"
+        ? BigInt(request.query.chainId)
+        : null;
     const queries = await createQueries(env);
 
     const claims = await queries.listAvailableClaimsForAddress(
       request.params.address,
+      chainId,
     );
 
     return json(

@@ -1,6 +1,6 @@
 import { IRequest, json } from "itty-router";
 import { EkuboAPIRoute, RequestContext } from "../../shared/context";
-import { OpenAPIRouteSchema } from "@cloudflare/itty-router-openapi";
+import { OpenAPIRouteSchema, Query } from "@cloudflare/itty-router-openapi";
 import { z } from "zod";
 import { createQueries } from "../../queries";
 import toHex from "../../shared/toHex";
@@ -8,6 +8,7 @@ import {
   AddressType,
   DecimalStringType,
 } from "../../shared/validation/address";
+import { ChainIdType } from "../../shared/validation/address";
 
 export const CampaignType = z
   .object({
@@ -74,7 +75,12 @@ export class ListCampaigns extends EkuboAPIRoute {
     tags: ["Incentives"],
     summary: "List campaigns",
     description: "List all the liquidity incentive campaigns",
-    parameters: {},
+    parameters: {
+      chainId: Query(ChainIdType, {
+        required: false,
+        description: "Restrict campaigns to the specified chain ID",
+      }),
+    },
     responses: {
       "200": {
         description: "The list of campaigns",
@@ -84,10 +90,14 @@ export class ListCampaigns extends EkuboAPIRoute {
     },
   };
 
-  public async handle(_: IRequest, { env }: RequestContext) {
+  public async handle(request: IRequest, { env }: RequestContext) {
+    const chainId =
+      typeof request.query.chainId === "string"
+        ? BigInt(request.query.chainId)
+        : null;
     const queries = await createQueries(env);
 
-    const campaigns = await queries.listCampaigns();
+    const campaigns = await queries.listCampaigns(chainId);
 
     return json(
       {

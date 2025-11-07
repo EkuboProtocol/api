@@ -29,10 +29,11 @@ export class GetPairInfo extends EkuboAPIRoute {
   };
 
   async handle(request: IRequest, { env }: RequestContext) {
+    const chainId = BigInt(request.params.chainId);
     const { queries, pair } = await parseOutTokens(
       env,
       request.params,
-      BigInt(request.params.chainId),
+      chainId,
     );
 
     const timestamp = Date.now();
@@ -47,13 +48,13 @@ export class GetPairInfo extends EkuboAPIRoute {
       { rows: revenueByTokenByDate },
       { rows: topPools },
     ] = await Promise.all([
-      queries.getTvlByToken(pair),
-      queries.getTotalVolumeByToken({ pair }),
-      queries.getRevenueByToken({ pair }),
-      queries.getTvlDeltaByTokenByDate(thirtyDaysAgo, pair),
-      queries.getVolumeByTokenByDate(thirtyDaysAgo, pair),
-      queries.getRevenueByTokenByDate(thirtyDaysAgo, pair),
-      queries.getTopPools(pair),
+      queries.getTvlByToken(pair, chainId),
+      queries.getTotalVolumeByToken({ pair, chainId }),
+      queries.getRevenueByToken({ pair, chainId }),
+      queries.getTvlDeltaByTokenByDate(thirtyDaysAgo, pair, chainId),
+      queries.getVolumeByTokenByDate(thirtyDaysAgo, pair, chainId),
+      queries.getRevenueByTokenByDate(thirtyDaysAgo, pair, chainId),
+      queries.getTopPools(pair, chainId),
     ]);
 
     return json(
@@ -97,10 +98,11 @@ export class GetPairInfoTvl extends EkuboAPIRoute {
   };
 
   async handle(request: IRequest, { env }: RequestContext) {
+    const chainId = BigInt(request.params.chainId);
     const { queries, pair } = await parseOutTokens(
       env,
       request.params,
-      BigInt(request.params.chainId),
+      chainId,
     );
 
     const timestamp = Date.now();
@@ -108,8 +110,8 @@ export class GetPairInfoTvl extends EkuboAPIRoute {
 
     const [{ rows: tvlByToken }, { rows: tvlDeltaByTokenByDate }] =
       await Promise.all([
-        queries.getTvlByToken(pair),
-        queries.getTvlDeltaByTokenByDate(thirtyDaysAgo, pair),
+        queries.getTvlByToken(pair, chainId),
+        queries.getTvlDeltaByTokenByDate(thirtyDaysAgo, pair, chainId),
       ]);
 
     return json(
@@ -147,10 +149,11 @@ export class GetPairInfoVolume extends EkuboAPIRoute {
   };
 
   async handle(request: IRequest, { env }: RequestContext) {
+    const chainId = BigInt(request.params.chainId);
     const { queries, pair } = await parseOutTokens(
       env,
       request.params,
-      BigInt(request.params.chainId),
+      chainId,
     );
 
     const timestamp = Date.now();
@@ -162,9 +165,13 @@ export class GetPairInfoVolume extends EkuboAPIRoute {
       { rows: volumeByTokenByDate },
       { rows: volumeByToken_24h },
     ] = await Promise.all([
-      queries.getTotalVolumeByToken({ pair }),
-      queries.getVolumeByTokenByDate(thirtyDaysAgo, pair),
-      queries.getTotalVolumeByToken({ since: twentyFourHoursAgo, pair }),
+      queries.getTotalVolumeByToken({ pair, chainId }),
+      queries.getVolumeByTokenByDate(thirtyDaysAgo, pair, chainId),
+      queries.getTotalVolumeByToken({
+        since: twentyFourHoursAgo,
+        pair,
+        chainId,
+      }),
     ]);
 
     return json(
@@ -204,13 +211,14 @@ export class GetPairInfoPools extends EkuboAPIRoute {
   };
 
   async handle(request: IRequest, { env }: RequestContext) {
+    const chainId = BigInt(request.params.chainId);
     const { queries, pair } = await parseOutTokens(
       env,
       request.params,
-      BigInt(request.params.chainId),
+      chainId,
     );
 
-    const { rows: topPools } = await queries.getTopPools(pair);
+    const { rows: topPools } = await queries.getTopPools(pair, chainId);
 
     return json(
       {
@@ -246,13 +254,17 @@ export class GetPairLiquidity extends EkuboAPIRoute {
   };
 
   async handle(request: IRequest, { env }: RequestContext) {
+    const chainId = BigInt(request.params.chainId);
     const { queries, pair } = await parseOutTokens(
       env,
       request.params,
-      BigInt(request.params.chainId),
+      chainId,
     );
 
-    const data = await queries.getPairLiquidityGraph(pair);
+    const data = await queries.getPairLiquidityGraph({
+      ...pair,
+      chainId,
+    });
 
     return json(
       {
@@ -287,15 +299,17 @@ export class ListPairEvents extends EkuboAPIRoute {
   };
 
   async handle(request: IRequest, { env }: RequestContext) {
+    const chainId = BigInt(request.params.chainId);
     const { queries, pair } = await parseOutTokens(
       env,
       request.params,
-      BigInt(request.params.chainId),
+      chainId,
     );
 
     const { rows } = await queries.getPairEvents({
       ...pair,
       limit: 100,
+      chainId,
     });
 
     return json(

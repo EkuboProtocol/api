@@ -56,7 +56,10 @@ export function formattedPrice(
   );
 }
 
-export function feeToPercent(fee: string, feeDenominator: number): string {
+export function feeToPercent(
+  fee: string,
+  feeDenominator: number = 1_000_000_000,
+): string {
   return ((Number(fee) / feeDenominator) * 100).toPrecision(3);
 }
 

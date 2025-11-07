@@ -2,6 +2,7 @@ import { EkuboAPIRoute, RequestContext } from "../../shared/context";
 import { IRequest, json, StatusError } from "itty-router";
 import {
   AddressType,
+  ChainIdType,
   DecimalStringType,
   HexStringType,
   NumericStringType,
@@ -13,12 +14,11 @@ import {
 } from "@cloudflare/itty-router-openapi";
 import { z } from "zod";
 import { createClientV2 } from "@0x/swap-ts-sdk";
-import { Env } from "../../env";
 import { ETH_V2_TOKEN_ADDRESS_VALUE } from "../../shared/constants";
 
 let zeroXCachedClient: ReturnType<typeof createClientV2> | null = null;
 
-function getZeroXClient(env: Env) {
+function getZeroXClient(env: { ZERO_X_API_KEY: string }) {
   if (!zeroXCachedClient) {
     zeroXCachedClient = createClientV2({ apiKey: env.ZERO_X_API_KEY });
   }
@@ -44,6 +44,10 @@ export class Get0xQuote extends EkuboAPIRoute {
       sellAmount: Query(NumericStringType, { required: true }),
       receiver: Query(HexStringType, { required: false }),
       slippageBps: Query(DecimalStringType, { required: false }),
+      chainId: Query(ChainIdType, {
+        required: false,
+        description: "Target chain ID for the quote (only 1 is supported)",
+      }),
     },
     responses: {
       "200": {
@@ -53,11 +57,13 @@ export class Get0xQuote extends EkuboAPIRoute {
     },
   };
 
-  async handle({ params, query }: IRequest, { env }: RequestContext) {
-    if (env.CHAIN_ID !== "1") {
+  async handle({ query }: IRequest, { env }: RequestContext) {
+    const requestedChainId =
+      typeof query.chainId === "string" ? BigInt(query.chainId) : 1n;
+    if (requestedChainId !== 1n) {
       throw new StatusError(
         400,
-        `0x quotes not supported for chain ID ${env.CHAIN_ID}`,
+        `0x quotes not supported for chain ID ${requestedChainId.toString()}`,
       );
     }
 
@@ -65,7 +71,7 @@ export class Get0xQuote extends EkuboAPIRoute {
 
     try {
       const commonArgs = {
-        chainId: 1,
+        chainId: Number(requestedChainId),
         buyToken:
           BigInt(query.buyToken as string) === ETH_V2_TOKEN_ADDRESS_VALUE
             ? "0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE"

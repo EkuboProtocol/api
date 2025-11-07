@@ -36,15 +36,8 @@ export class GetPairPriceHistory extends EkuboAPIRoute {
   };
 
   async handle({ params, query }: IRequest, { env }: RequestContext) {
+    const chainId = BigInt(params.chainId);
     const queries = await createQueries(env);
-
-    const chainIdParam = params.chainId;
-    let chainId: bigint;
-    try {
-      chainId = BigInt(chainIdParam);
-    } catch {
-      throw new StatusError(400, "Invalid chain ID");
-    }
 
     const [baseToken, quoteToken] = await Promise.all([
       getTokenByUserSpecifiedIdentifier(queries, chainId, params.baseToken),
@@ -117,6 +110,7 @@ export class GetPairPriceHistory extends EkuboAPIRoute {
         await queries.getVolumeWeightedPrice({
           baseToken: ETH_V2_TOKEN_ADDRESS_VALUE,
           quoteToken: token0Address,
+          chainId,
         })
       )?.price ?? 0;
     const price1 =
@@ -124,12 +118,13 @@ export class GetPairPriceHistory extends EkuboAPIRoute {
         await queries.getVolumeWeightedPrice({
           baseToken: ETH_V2_TOKEN_ADDRESS_VALUE,
           quoteToken: token1Address,
+          chainId,
         })
       )?.price ?? 0;
 
-    const thresholdEth = new Decimal(1e16);
-    const threshold0 = BigInt(thresholdEth.mul(price0).toFixed(0));
-    const threshold1 = BigInt(thresholdEth.mul(price1).toFixed(0));
+    const thresholdEth = 1e16;
+    const threshold0 = BigInt(Math.max(0, Math.round(thresholdEth * price0)));
+    const threshold1 = BigInt(Math.max(0, Math.round(thresholdEth * price1)));
 
     const queryData = await queries.getPriceHistory({
       token0: token0Address,
@@ -139,6 +134,7 @@ export class GetPairPriceHistory extends EkuboAPIRoute {
       intervalSeconds,
       delta0Threshold: threshold0,
       delta1Threshold: threshold1,
+      chainId,
     });
 
     const formattedData = queryData.map((d) => ({

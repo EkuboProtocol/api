@@ -9,6 +9,7 @@ import { z } from "zod";
 import { createQueries } from "../../queries";
 import {
   AddressType,
+  ChainIdType,
   DecimalStringType,
 } from "../../shared/validation/address";
 import toHex from "../../shared/toHex";
@@ -59,6 +60,10 @@ export class ListRewardPeriodsForCampaign extends EkuboAPIRoute {
           "Filter to reward periods that are active at the specified time",
         required: false,
       }),
+      chainId: Query(ChainIdType, {
+        required: false,
+        description: "Restrict results to a specific chain ID",
+      }),
     },
     responses: {
       "200": {
@@ -70,11 +75,16 @@ export class ListRewardPeriodsForCampaign extends EkuboAPIRoute {
   };
 
   public async handle(request: IRequest, { env }: RequestContext) {
+    const chainId =
+      typeof request.query.chainId === "string"
+        ? BigInt(request.query.chainId)
+        : null;
     const queries = await createQueries(env);
 
     const periods = await queries.listRewardsPeriodsForCampaign(
       request.params.slug,
       request.query.activeAt as string | undefined,
+      chainId,
     );
 
     return json(
@@ -129,6 +139,10 @@ export class ListRewardPeriods extends EkuboAPIRoute {
           "Filter to reward periods that are active at the specified time",
         required: false,
       }),
+      chainId: Query(ChainIdType, {
+        required: false,
+        description: "Restrict results to a specific chain ID",
+      }),
     },
     responses: {
       "200": {
@@ -140,10 +154,15 @@ export class ListRewardPeriods extends EkuboAPIRoute {
   };
 
   public async handle(request: IRequest, { env }: RequestContext) {
+    const chainId =
+      typeof request.query.chainId === "string"
+        ? BigInt(request.query.chainId)
+        : null;
     const queries = await createQueries(env);
 
     const periods = await queries.listRewardPeriods(
       request.query.activeAt as string | undefined,
+      chainId,
     );
 
     return json(

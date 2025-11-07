@@ -6,6 +6,7 @@ import {
 } from "@cloudflare/itty-router-openapi";
 import {
   AddressType,
+  ChainIdType,
   DecimalStringType,
   HexStringType,
 } from "../../shared/validation/address";
@@ -65,6 +66,10 @@ export class ListTwapOrders extends EkuboAPIRoute {
         description:
           "Whether to show orders that have zero active sell rate as part of the response",
       }),
+      chainId: Query(ChainIdType, {
+        required: false,
+        description: "Restrict results to a specific chain ID",
+      }),
     },
     responses: {
       "200": {
@@ -84,9 +89,15 @@ export class ListTwapOrders extends EkuboAPIRoute {
     const address = BigInt(params.address);
     const showClosed = query.showClosed === "true";
 
+    const chainId =
+      typeof query.chainId === "string" ? BigInt(query.chainId) : null;
     const queries = await createQueries(env);
 
-    const { rows } = await queries.getTwammOrdersByAddress(address, showClosed);
+    const { rows } = await queries.getTwammOrdersByAddress(
+      address,
+      showClosed,
+      chainId,
+    );
 
     return json(
       {

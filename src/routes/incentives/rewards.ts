@@ -9,6 +9,7 @@ import { IRequest, json } from "itty-router";
 import { createQueries } from "../../queries";
 import {
   AddressType,
+  ChainIdType,
   DecimalStringType,
   HexStringType,
   NumericStringType,
@@ -68,6 +69,10 @@ export class ListRewardsForPosition extends EkuboAPIRoute {
         description:
           "Filter out rewards from periods that are already included in a drop",
       }),
+      chainId: Query(ChainIdType, {
+        required: false,
+        description: "Restrict results to a specific chain ID",
+      }),
     },
     responses: {
       "200": {
@@ -80,6 +85,10 @@ export class ListRewardsForPosition extends EkuboAPIRoute {
   };
 
   public async handle(request: IRequest, { env }: RequestContext) {
+    const chainId =
+      typeof request.query.chainId === "string"
+        ? BigInt(request.query.chainId)
+        : null;
     const queries = await createQueries(env);
 
     const computedRewards = await queries.listComputedRewardsForPosition(
@@ -88,6 +97,7 @@ export class ListRewardsForPosition extends EkuboAPIRoute {
       request.query.startTime as string | undefined,
       request.query.endTime as string | undefined,
       request.query.excludeDropped as boolean | undefined,
+      chainId,
     );
 
     return json(
@@ -146,6 +156,10 @@ export class ListRewardsForAllPositions extends EkuboAPIRoute {
         description:
           "Filter out rewards from periods that are already included in a drop",
       }),
+      chainId: Query(ChainIdType, {
+        required: false,
+        description: "Restrict results to a specific chain ID",
+      }),
     },
     responses: {
       "200": {
@@ -157,6 +171,10 @@ export class ListRewardsForAllPositions extends EkuboAPIRoute {
   };
 
   public async handle(request: IRequest, { env }: RequestContext) {
+    const chainId =
+      typeof request.query.chainId === "string"
+        ? BigInt(request.query.chainId)
+        : null;
     const queries = await createQueries(env);
 
     const computedRewards = await queries.listComputedRewardsForAllPositions(
@@ -164,6 +182,7 @@ export class ListRewardsForAllPositions extends EkuboAPIRoute {
       request.query.startTime as string | undefined,
       request.query.endTime as string | undefined,
       request.query.excludeDropped as boolean | undefined,
+      chainId,
     );
 
     return json(

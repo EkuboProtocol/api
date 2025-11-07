@@ -4,6 +4,7 @@ import { EkuboAPIRoute, RequestContext } from "../../shared/context";
 import { createQueries } from "../../queries";
 import {
   AddressType,
+  ChainIdType,
   DecimalStringType,
   NumericStringType,
 } from "../../shared/validation/address";
@@ -23,13 +24,15 @@ export function toPoolConfig({
 }
 
 export class ListPoolKeys extends EkuboAPIRoute {
-  static route = "/v1/poolKeys";
+  static route = "/v1/:chainId/poolKeys";
 
   static schema: OpenAPIRouteSchema = {
     tags: ["Meta"],
     summary: "List pool keys",
     description: "Returns all the pool keys that have been initialized",
-    parameters: {},
+    parameters: {
+      chainId: Path(ChainIdType, { required: true }),
+    },
     responses: {
       "200": {
         description:
@@ -39,10 +42,11 @@ export class ListPoolKeys extends EkuboAPIRoute {
     },
   };
 
-  async handle(_: IRequest, { env }: RequestContext) {
+  async handle(request: IRequest, { env }: RequestContext) {
+    const chainId = BigInt(request.params.chainId);
     const queries = await createQueries(env);
 
-    const { rows } = await queries.listAllPoolKeys();
+    const { rows } = await queries.listAllPoolKeys(chainId);
 
     return json(
       rows.map((pool) => ({
@@ -80,7 +84,7 @@ type LiquidityResponseType = z.infer<typeof LiquidityResponseSchema>;
 
 export class GetPoolLiquidity extends EkuboAPIRoute {
   static route =
-    "/pools/:coreAddress/:token0/:token1/:fee/:tickSpacing/:extension/liquidity";
+    "/pools/:chainId/:coreAddress/:token0/:token1/:fee/:tickSpacing/:extension/liquidity";
 
   static schema: OpenAPIRouteSchema = {
     tags: ["Swap"],
@@ -88,6 +92,7 @@ export class GetPoolLiquidity extends EkuboAPIRoute {
     description:
       "Returns the liquidity delta for each tick for the given pool key hash",
     parameters: {
+      chainId: Path(ChainIdType, { required: true }),
       coreAddress: Path(AddressType, { example: "0xabcd" }),
       token0: Path(AddressType, {
         example: "0x0000000000000000000000000000000000000000",
@@ -112,21 +117,33 @@ export class GetPoolLiquidity extends EkuboAPIRoute {
 
   async handle(
     {
-      params: { coreAddress, token0, token1, fee, tickSpacing, extension },
+      params: {
+        chainId: chainIdParam,
+        coreAddress,
+        token0,
+        token1,
+        fee,
+        tickSpacing,
+        extension,
+      },
     }: IRequest,
     { env }: RequestContext,
   ) {
+    const chainId = BigInt(chainIdParam);
     const queries = await createQueries(env);
 
     const rows: LiquidityResponseType = (
-      await queries.getPoolLiquidityGraph({
-        coreAddress: BigInt(coreAddress),
-        token0: BigInt(token0),
-        token1: BigInt(token1),
-        fee: BigInt(fee),
-        tickSpacing: Number(tickSpacing),
-        extension: BigInt(extension),
-      })
+      await queries.getPoolLiquidityGraph(
+        {
+          coreAddress: BigInt(coreAddress),
+          token0: BigInt(token0),
+          token1: BigInt(token1),
+          fee: BigInt(fee),
+          tickSpacing: Number(tickSpacing),
+          extension: BigInt(extension),
+        },
+        chainId,
+      )
     ).rows;
 
     return json(

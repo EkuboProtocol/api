@@ -1,8 +1,4 @@
-import { Env } from "../../env";
-import {
-  generateDCAOrderSvg,
-  generatePositionSvg,
-} from "@ekubo/position-svg-generator";
+import { generatePositionSvg } from "@ekubo/position-svg-generator";
 import { getTokenByAddress } from "../meta/tokens";
 import { PositionMetadata, Queries } from "../../queries";
 import { feeToPercent, formattedPrice, tickSpacingToPercent } from "./format";
@@ -10,7 +6,6 @@ import { feeToPercent, formattedPrice, tickSpacingToPercent } from "./format";
 export async function generatePositionNft(
   id: bigint,
   chainId: string,
-  env: Env,
   queries: Queries,
   positionMetadata: PositionMetadata,
 ): Promise<string> {
@@ -30,6 +25,32 @@ export async function generatePositionNft(
 
   const isFullRange = Number(positionMetadata.tick_spacing) === 0;
   const extensionValue = BigInt(positionMetadata.extension);
+
+  const poolClassification = await queries.getPoolClassification({
+    chainId: numericChainId,
+    token0: BigInt(positionMetadata.token0),
+    token1: BigInt(positionMetadata.token1),
+    fee: BigInt(positionMetadata.fee),
+    tickSpacing: Number(positionMetadata.tick_spacing),
+    extension: extensionValue,
+  });
+
+  let poolType:
+    | "dca"
+    | "oracle"
+    | "mev_capture"
+    | "full_range"
+    | undefined;
+
+  if (poolClassification?.is_twamm) {
+    poolType = "dca";
+  } else if (poolClassification?.is_oracle) {
+    poolType = "oracle";
+  } else if (poolClassification?.is_mev_capture) {
+    poolType = "mev_capture";
+  } else if (extensionValue === 0n && isFullRange) {
+    poolType = "full_range";
+  }
 
   const [formattedMinPrice, formattedMaxPrice] =
     !token0 || !token1 || isFullRange
@@ -60,7 +81,7 @@ export async function generatePositionNft(
             )} ${token1.symbol} / ${token0.symbol}`,
           ];
 
-  return await generatePositionSvg(id, chainId, {
+  return generatePositionSvg(id, chainId, {
     token0Symbol: token0?.symbol,
     token1Symbol: token1?.symbol,
 
@@ -73,20 +94,9 @@ export async function generatePositionNft(
     formattedFeePercent: `${feeToPercent(positionMetadata.fee)}%`,
     formattedTickSpacingPercent: `${tickSpacingToPercent(positionMetadata.tick_spacing)}%`,
 
-    formattedMinPrice: formattedMinPrice,
-    formattedMaxPrice: formattedMaxPrice,
+    formattedMinPrice,
+    formattedMaxPrice,
 
-    type:
-      extensionValue === 0n
-        ? isFullRange
-          ? "full_range"
-          : undefined
-        : extensionValue === BigInt(env.TWAMM_ADDRESS)
-          ? "dca"
-          : extensionValue === BigInt(env.ORACLE_ADDRESS)
-            ? "oracle"
-            : extensionValue === BigInt(env.MEV_CAPTURE_ADDRESS)
-              ? "mev_capture"
-              : undefined,
+    type: poolType,
   });
 }

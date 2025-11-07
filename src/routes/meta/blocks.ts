@@ -7,14 +7,16 @@ import {
 } from "@cloudflare/itty-router-openapi";
 import { z } from "zod";
 import { createQueries } from "../../queries";
+import { ChainIdType } from "../../shared/validation/address";
 
 export class GetBlock extends EkuboAPIRoute {
-  public static route = "/blocks/:blockTag";
+  public static route = "/blocks/:chainId/:blockTag";
   static schema: OpenAPIRouteSchema = {
     tags: ["Meta"],
     summary: "Get block",
     description: "Get information about a particular block ingested by the API",
     parameters: {
+      chainId: Path(ChainIdType, { required: true }),
       blockTag: Path(
         z.coerce.number().int().min(160_000).or(z.literal("latest")),
         {
@@ -39,6 +41,7 @@ export class GetBlock extends EkuboAPIRoute {
   };
 
   public async handle(request: IRequest, { env }: RequestContext) {
+    const chainId = BigInt(request.params.chainId);
     const queries = await createQueries(env);
 
     const blockTag =
@@ -46,8 +49,8 @@ export class GetBlock extends EkuboAPIRoute {
         ? "latest"
         : Number(request.params.blockTag);
     const block = await (blockTag === "latest"
-      ? queries.getLatestBlock()
-      : queries.getBlock(blockTag));
+      ? queries.getLatestBlock(chainId)
+      : queries.getBlock(blockTag, chainId));
 
     if (block === null) {
       throw new StatusError(404, `Block "${blockTag}" not found`);
@@ -71,13 +74,14 @@ export class GetBlock extends EkuboAPIRoute {
 }
 
 export class GetClosestBlock extends EkuboAPIRoute {
-  public static route = "/blocks/closest";
+  public static route = "/blocks/:chainId/closest";
   static schema: OpenAPIRouteSchema = {
     tags: ["Meta"],
     summary: "Get the block closest to a given timestamp",
     description:
       "Returns the block whose timestamp is nearest to the provided timestamp",
     parameters: {
+      chainId: Path(ChainIdType, { required: true }),
       timestamp: Query(z.string().datetime({ precision: 0 }), {
         required: true,
         description: "timestamp to find the closest block for",
@@ -99,10 +103,12 @@ export class GetClosestBlock extends EkuboAPIRoute {
   };
 
   public async handle(request: IRequest, { env }: RequestContext) {
+    const chainId = BigInt(request.params.chainId);
     const queries = await createQueries(env);
 
     const block = await queries.getBlockAtOrAfter(
       request.query.timestamp as string,
+      chainId,
     );
 
     if (block === null) {

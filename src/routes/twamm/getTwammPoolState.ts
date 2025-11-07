@@ -30,7 +30,7 @@ const SharedGetPairStateParameters = {
 };
 
 export class GetTwammPoolState extends EkuboAPIRoute {
-  static route = "/twap/pools/:tokenA/:tokenB/:fee";
+  static route = "/twap/pools/:chainId/:tokenA/:tokenB/:fee";
 
   static schema: OpenAPIRouteSchema = {
     tags: ["TWAP"],
@@ -76,11 +76,13 @@ export class GetTwammPoolState extends EkuboAPIRoute {
           token0,
           token1,
           fee,
+          chainId: BigInt(request.params.chainId),
         }),
         queries.getSaleRateDeltasByKey({
           token0,
           token1,
           fee,
+          chainId: BigInt(request.params.chainId),
         }),
       ]);
     if (stateResults.length !== 1) {
@@ -147,10 +149,12 @@ export class GetTwammPairState extends EkuboAPIRoute {
         queries.getTwammPoolStateByKey({
           token0,
           token1,
+          chainId: BigInt(request.params.chainId),
         }),
         queries.getSaleRateDeltasByKey({
           token0,
           token1,
+          chainId: BigInt(request.params.chainId),
         }),
       ]);
 

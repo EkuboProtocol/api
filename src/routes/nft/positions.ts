@@ -6,6 +6,7 @@ import {
 } from "@cloudflare/itty-router-openapi";
 import {
   AddressType,
+  ChainIdType,
   NumericStringType,
 } from "../../shared/validation/address";
 import { z } from "zod";
@@ -48,26 +49,21 @@ export class GetPositionNftMetadata extends EkuboAPIRoute {
   ) {
     const id = BigInt(idStr);
 
-    let chainId: bigint;
-    try {
-      chainId = BigInt(chainIdParam);
-    } catch {
-      throw new StatusError(400, "Invalid chain ID");
-    }
+    const chainId = BigInt(chainIdParam);
     const chainIdString = chainId.toString();
 
     const queries = await createQueries(env);
 
     let metadata: NFTMetadata;
 
-    const positionMetadata = await queries.getPositionMetadata(id);
+    const positionMetadata = await queries.getPositionMetadata(id, chainId);
 
     if (positionMetadata === null) {
       throw new StatusError(404, `Token ID ${id} not found`);
     }
 
     const origin = new URL(url).origin;
-    const image = `${origin}/positions/nft/${id}/image.svg`;
+    const image = `${origin}/positions/${chainIdString}/nft/${id}/image.svg`;
 
     const attributesStored: NFTMetadata["attributes"] = [
       {
@@ -217,20 +213,15 @@ export class ListPositionNftEvents extends EkuboAPIRoute {
     { env }: RequestContext,
   ) {
     const id = BigInt(idStr);
-
-    try {
-      BigInt(chainIdParam);
-    } catch {
-      throw new StatusError(400, "Invalid chain ID");
-    }
+    const chainId = BigInt(chainIdParam);
 
     const queries = await createQueries(env);
 
-    if (!(await queries.getPositionMetadata(id))) {
+    if (!(await queries.getPositionMetadata(id, chainId))) {
       throw new StatusError(404, "Token ID not found");
     }
 
-    const history = await queries.getPositionHistory(id);
+    const history = await queries.getPositionHistory(id, chainId);
 
     return json(
       {
@@ -286,13 +277,14 @@ export class ListPositionNftEvents extends EkuboAPIRoute {
 }
 
 export class GetPositionNftImage extends EkuboAPIRoute {
-  static route = "/positions/nft/:id/image.svg";
+  static route = "/positions/:chainId/nft/:id/image.svg";
 
   static schema: OpenAPIRouteSchema = {
     tags: ["Positions"],
     summary: "Get NFT Image",
     description: "Returns the generated art for the given position NFT ID",
     parameters: {
+      chainId: Path(NumericStringType),
       id: Path(TokenIdType),
     },
     responses: {
@@ -303,12 +295,16 @@ export class GetPositionNftImage extends EkuboAPIRoute {
     },
   };
 
-  async handle({ params: { id: idStr } }: IRequest, { env }: RequestContext) {
+  async handle(
+    { params: { id: idStr, chainId: chainIdParam } }: IRequest,
+    { env }: RequestContext,
+  ) {
     const id = BigInt(idStr);
+    const chainId = BigInt(chainIdParam);
 
     const queries = await createQueries(env);
 
-    const positionMetadata = await queries.getPositionMetadata(id);
+    const positionMetadata = await queries.getPositionMetadata(id, chainId);
 
     if (positionMetadata === null) {
       throw new StatusError(404, `Token ID ${id} not found`);
@@ -316,7 +312,7 @@ export class GetPositionNftImage extends EkuboAPIRoute {
 
     const svgString = await generatePositionNft(
       id,
-      env,
+      chainIdParam,
       queries,
       positionMetadata,
     );
@@ -343,6 +339,10 @@ export class ListPositionsByAddress extends EkuboAPIRoute {
         description: "The address for which to list positions",
       }),
       showClosed: Query(z.coerce.boolean()),
+      chainId: Query(ChainIdType, {
+        required: false,
+        description: "Restrict results to a specific chain ID",
+      }),
     },
     responses: {
       "200": {
@@ -359,33 +359,43 @@ export class ListPositionsByAddress extends EkuboAPIRoute {
     const address = BigInt(addressStr);
 
     const showClosed = query?.showClosed === "true";
+    const chainId =
+      typeof query?.chainId === "string" ? BigInt(query.chainId) : null;
 
     const queries = await createQueries(env);
-    const { rows } = await queries.getPositionsByAddress(address, showClosed);
+    const { rows } = await queries.getPositionsByAddress(
+      address,
+      showClosed,
+      chainId,
+    );
 
     const origin = new URL(url).origin;
 
     return json(
       {
-        data: rows.map((row) => ({
-          id: toHex(BigInt(row.token_id)),
-          positions_address: toHex(row.positions_address),
-          pool_key: {
-            token0: toHex(row.token0),
-            token1: toHex(row.token1),
-            fee: toHex(row.fee),
-            tick_spacing: toHex(row.tick_spacing),
-            extension: toHex(row.extension),
-          },
-          bounds: {
-            lower: Number(row.lower_bound),
-            upper: Number(row.upper_bound),
-          },
-          metadata_url: `${origin}/positions/nft/${row.token_id}`,
-          image: `${origin}/positions/nft/${row.token_id}/image.svg`,
-          minted_timestamp: row.minted_timestamp.getTime(),
-          is_closed: row.is_closed,
-        })),
+        data: rows.map((row) => {
+          const chainIdValue = row.chain_id?.toString() ?? "";
+          return {
+            id: toHex(BigInt(row.token_id)),
+            chain_id: chainIdValue,
+            positions_address: toHex(row.positions_address),
+            pool_key: {
+              token0: toHex(row.token0),
+              token1: toHex(row.token1),
+              fee: toHex(row.fee),
+              tick_spacing: toHex(row.tick_spacing),
+              extension: toHex(row.extension),
+            },
+            bounds: {
+              lower: Number(row.lower_bound),
+              upper: Number(row.upper_bound),
+            },
+            metadata_url: `${origin}/positions/${chainIdValue}/nft/${row.token_id}`,
+            image: `${origin}/positions/${chainIdValue}/nft/${row.token_id}/image.svg`,
+            minted_timestamp: row.minted_timestamp.getTime(),
+            is_closed: row.is_closed,
+          };
+        }),
       },
       {
         headers: {

@@ -1,14 +1,18 @@
 import { IRequest, json } from "itty-router";
 import { EkuboAPIRoute, RequestContext } from "../../shared/context";
 import { createQueries } from "../../queries";
-import { OpenAPIRouteSchema } from "@cloudflare/itty-router-openapi";
+import { OpenAPIRouteSchema, Path } from "@cloudflare/itty-router-openapi";
+import { ChainIdType } from "../../shared/validation/address";
 
 export class GetOverviewPairs extends EkuboAPIRoute {
-  static route = "/overview/pairs";
+  static route = "/overview/:chainId/pairs";
   static schema: OpenAPIRouteSchema = {
     tags: ["Stats"],
     summary: "Get pairs",
     description: "Returns stats for the top pairs",
+    parameters: {
+      chainId: Path(ChainIdType, { required: true }),
+    },
     responses: {
       "200": {
         description: "The stats for the protocols top pairs",
@@ -17,10 +21,11 @@ export class GetOverviewPairs extends EkuboAPIRoute {
     },
   };
 
-  async handle(_: IRequest, { env }: RequestContext) {
+  async handle(request: IRequest, { env }: RequestContext) {
+    const chainId = BigInt(request.params.chainId);
     const queries = await createQueries(env);
 
-    const { rows: topPairs } = await queries.getTopPairs();
+    const { rows: topPairs } = await queries.getTopPairs(chainId);
 
     return json(
       {
@@ -36,11 +41,14 @@ export class GetOverviewPairs extends EkuboAPIRoute {
 }
 
 export class GetOverviewRevenue extends EkuboAPIRoute {
-  static route = "/overview/revenue";
+  static route = "/overview/:chainId/revenue";
   static schema: OpenAPIRouteSchema = {
     tags: ["Stats"],
     summary: "Get revenue",
     description: "Returns the revenue stats for the protocol",
+    parameters: {
+      chainId: Path(ChainIdType, { required: true }),
+    },
     responses: {
       "200": {
         description: "The revenue stats for the protocol",
@@ -49,11 +57,12 @@ export class GetOverviewRevenue extends EkuboAPIRoute {
     },
   };
 
-  async handle(_: IRequest, { env }: RequestContext) {
+  async handle(request: IRequest, { env }: RequestContext) {
     const timestamp = Date.now();
     const twentyFourHoursAgo = new Date(timestamp - 1000 * 60 * 60 * 24);
     const thirtyDaysAgo = new Date(timestamp - 1000 * 60 * 60 * 24 * 30);
 
+    const chainId = BigInt(request.params.chainId);
     const queries = await createQueries(env);
 
     const [
@@ -61,9 +70,9 @@ export class GetOverviewRevenue extends EkuboAPIRoute {
       { rows: revenueByTokenByDate },
       { rows: revenueByToken_24h },
     ] = await Promise.all([
-      queries.getRevenueByToken({}),
-      queries.getRevenueByTokenByDate(thirtyDaysAgo),
-      queries.getRevenueByToken({ since: twentyFourHoursAgo }),
+      queries.getRevenueByToken({ chainId }),
+      queries.getRevenueByTokenByDate(thirtyDaysAgo, undefined, chainId),
+      queries.getRevenueByToken({ since: twentyFourHoursAgo, chainId }),
     ]);
 
     return json(
@@ -82,11 +91,14 @@ export class GetOverviewRevenue extends EkuboAPIRoute {
 }
 
 export class GetOverviewVolume extends EkuboAPIRoute {
-  static route = "/overview/volume";
+  static route = "/overview/:chainId/volume";
   static schema: OpenAPIRouteSchema = {
     tags: ["Stats"],
     summary: "Get volume",
     description: "Returns the volume portion of the overview",
+    parameters: {
+      chainId: Path(ChainIdType, { required: true }),
+    },
     responses: {
       "200": {
         description: "The volume stats for the protocol",
@@ -95,11 +107,12 @@ export class GetOverviewVolume extends EkuboAPIRoute {
     },
   };
 
-  async handle(_: IRequest, { env }: RequestContext) {
+  async handle(request: IRequest, { env }: RequestContext) {
     const timestamp = Date.now();
     const twentyFourHoursAgo = new Date(timestamp - 1000 * 60 * 60 * 24);
     const thirtyDaysAgo = new Date(timestamp - 1000 * 60 * 60 * 24 * 30);
 
+    const chainId = BigInt(request.params.chainId);
     const queries = await createQueries(env);
 
     const [
@@ -107,9 +120,9 @@ export class GetOverviewVolume extends EkuboAPIRoute {
       { rows: volumeByTokenByDate },
       { rows: volumeByToken_24h },
     ] = await Promise.all([
-      queries.getTotalVolumeByToken({}),
-      queries.getVolumeByTokenByDate(thirtyDaysAgo),
-      queries.getTotalVolumeByToken({ since: twentyFourHoursAgo }),
+      queries.getTotalVolumeByToken({ chainId }),
+      queries.getVolumeByTokenByDate(thirtyDaysAgo, undefined, chainId),
+      queries.getTotalVolumeByToken({ since: twentyFourHoursAgo, chainId }),
     ]);
 
     return json(
@@ -128,11 +141,14 @@ export class GetOverviewVolume extends EkuboAPIRoute {
 }
 
 export class GetOverviewTvl extends EkuboAPIRoute {
-  static route = "/overview/tvl";
+  static route = "/overview/:chainId/tvl";
   static schema: OpenAPIRouteSchema = {
     tags: ["Stats"],
     summary: "Get TVL",
     description: "Returns the TVL portion of the overview",
+    parameters: {
+      chainId: Path(ChainIdType, { required: true }),
+    },
     responses: {
       "200": {
         description: "The TVL stats",
@@ -141,16 +157,17 @@ export class GetOverviewTvl extends EkuboAPIRoute {
     },
   };
 
-  async handle(_: IRequest, { env }: RequestContext) {
+  async handle(request: IRequest, { env }: RequestContext) {
     const timestamp = Date.now();
     const thirtyDaysAgo = new Date(timestamp - 1000 * 60 * 60 * 24 * 30);
 
+    const chainId = BigInt(request.params.chainId);
     const queries = await createQueries(env);
 
     const [{ rows: tvlByToken }, { rows: tvlDeltaByTokenByDate }] =
       await Promise.all([
-        queries.getTvlByToken(),
-        queries.getTvlDeltaByTokenByDate(thirtyDaysAgo),
+        queries.getTvlByToken(undefined, chainId),
+        queries.getTvlDeltaByTokenByDate(thirtyDaysAgo, undefined, chainId),
       ]);
 
     return json(
