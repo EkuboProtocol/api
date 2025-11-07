@@ -66,18 +66,10 @@ export interface RawErc20TokenRow {
   total_supply: string | null;
 }
 
-export interface RawErc20TokenBridgeRow {
-  source_chain_id: string;
-  source_token_address: string;
-  source_bridge_address: string;
-  dest_chain_id: string;
-  dest_token_address: string;
-}
-
 export class Queries {
   private readonly client: Client;
 
-  constructor(client: Client) {
+  private constructor(client: Client) {
     this.client = client;
   }
 
@@ -117,7 +109,6 @@ export class Queries {
     const { rows } = await this.client.query<RawErc20TokenRow>({
       text: `
         SELECT 
-          chain_id,
           token_address,
           token_symbol,
           token_name,
@@ -146,7 +137,6 @@ export class Queries {
     const { rows } = await this.client.query<RawErc20TokenRow>({
       text: `
         SELECT 
-          chain_id,
           token_address,
           token_symbol,
           token_name,
@@ -165,23 +155,6 @@ export class Queries {
     });
 
     return rows.length > 0 ? rows[0] : null;
-  }
-
-  public async listErc20TokenBridgeRelationships(chainId: bigint) {
-    const { rows } = await this.client.query<RawErc20TokenBridgeRow>({
-      text: `
-        SELECT source_chain_id, source_token_address, source_bridge_address,
-               dest_chain_id, dest_token_address
-        FROM erc20_tokens_bridge_relationships
-        WHERE source_chain_id = $1
-    `,
-      values: [chainId],
-    });
-    return rows;
-  }
-
-  public async close() {
-    await this.client.end();
   }
 
   public async getLatestBlock() {
@@ -867,10 +840,9 @@ export class Queries {
     const { rows } = await this.client.query<{
       total: string | null;
       k_volume: string | null;
-      swap_count: number;
     }>({
       text: `
-          SELECT SUM(total) AS total, SUM(k_volume) AS k_volume, SUM(swap_count) AS swap_count
+          SELECT SUM(total) AS total, SUM(k_volume) AS k_volume
           FROM hourly_price_data
           WHERE token0 = $1
             AND token1 = $2
@@ -881,7 +853,7 @@ export class Queries {
 
     if (rows.length !== 1) return null;
 
-    const { total, k_volume, swap_count } = rows[0];
+    const { total, k_volume } = rows[0];
 
     if (!total || !k_volume || !swap_count) return null;
 

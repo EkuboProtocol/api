@@ -13,8 +13,7 @@ jobs:
     strategy:
       matrix:
         include:
-          - network_name: mainnet
-          - network_name: sepolia
+          - deploy_env: prod
 
     runs-on: ubuntu-latest
     name: Deploy to Cloudflare
@@ -25,7 +24,7 @@ jobs:
       - name: Use Node.js
         uses: actions/setup-node@v3
         with:
-          node-version: 18
+          node-version: 24
           cache: npm
 
       - name: Install dependencies
@@ -40,4 +39,4 @@ jobs:
           apiToken: ${{ secrets.CF_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           command: |
-            deploy --env ${{ matrix.network_name }} --minify
+            deploy --env ${{ matrix.deploy_env }} --minify
