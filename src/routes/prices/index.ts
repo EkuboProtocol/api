@@ -55,12 +55,12 @@ export class GetPairPriceHistory extends EkuboAPIRoute {
       throw new StatusError(400, "Base token or quote token invalid");
     }
 
-    if (baseToken.token_address === quoteToken.token_address) {
+    if (baseToken.address === quoteToken.address) {
       throw new StatusError(400, "Base token cannot be equal to quote token");
     }
 
-    const baseTokenAddress = BigInt(baseToken.token_address);
-    const quoteTokenAddress = BigInt(quoteToken.token_address);
+    const baseTokenAddress = BigInt(baseToken.address);
+    const quoteTokenAddress = BigInt(quoteToken.address);
 
     const baseBeforeQuote = baseTokenAddress < quoteTokenAddress;
 

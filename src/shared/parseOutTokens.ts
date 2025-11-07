@@ -27,12 +27,12 @@ export async function parseOutTokens(
   if (!tokenB) {
     throw new StatusError(400, `Invalid token identifier: "${params.tokenB}"`);
   }
-  if (tokenA.token_address === tokenB.token_address) {
+  if (tokenA.address === tokenB.address) {
     throw new StatusError(400, `tokenA cannot be equal to tokenB`);
   }
 
-  const tokenAAddress = BigInt(tokenA.token_address);
-  const tokenBAddress = BigInt(tokenB.token_address);
+  const tokenAAddress = BigInt(tokenA.address);
+  const tokenBAddress = BigInt(tokenB.address);
 
   const [token0, token1] =
     tokenAAddress < tokenBAddress
