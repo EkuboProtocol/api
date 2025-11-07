@@ -1,4 +1,4 @@
-name = "ekubo-api"
+name = "ekubo-api-v2"
 main = "src/index.ts"
 compatibility_flags = ["nodejs_compat"]
 compatibility_date = "2024-09-23"
@@ -16,7 +16,7 @@ ZERO_X_API_KEY = "9bdd43e7-e8bd-4a54-b9e0-64340c1eb681"
 
 [env.prod]
 hyperdrive = [
-    { binding = "HYPERDRIVE", id = "04a121d0804b4451b6cdf894c9b61b56" },
+    { binding = "HYPERDRIVE", id = "1042cba8de344664a676b33fdfc7efaf" },
 ]
 routes = [{ pattern = "prod-api.ekubo.org", custom_domain = true }]
 

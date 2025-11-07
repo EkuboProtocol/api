@@ -1,6 +1,13 @@
 import { EkuboAPIRoute, RequestContext } from "../../shared/context";
-import { OpenAPIRouteSchema, Path, Query } from "@cloudflare/itty-router-openapi";
-import { AddressType, NumericStringType } from "../../shared/validation/address";
+import {
+  OpenAPIRouteSchema,
+  Path,
+  Query,
+} from "@cloudflare/itty-router-openapi";
+import {
+  AddressType,
+  NumericStringType,
+} from "../../shared/validation/address";
 import { z } from "zod";
 import { IRequest, json, StatusError } from "itty-router";
 import { createQueries } from "../../queries";
@@ -12,7 +19,6 @@ import {
   tickSpacingToPercent,
   TokenIdType,
 } from "./format";
-import { parseTokenId } from "./parseTokenId";
 import { getTokenByAddress } from "../meta/tokens";
 import { generatePositionNft } from "./generatePositionNft";
 
@@ -40,10 +46,7 @@ export class GetPositionNftMetadata extends EkuboAPIRoute {
     { url, params: { id: idStr, chainId: chainIdParam } }: IRequest,
     { env }: RequestContext,
   ) {
-    const id = parseTokenId(idStr);
-    if (id === null) {
-      throw new StatusError(400, "Invalid token ID");
-    }
+    const id = BigInt(idStr);
 
     let chainId: bigint;
     try {
@@ -66,7 +69,7 @@ export class GetPositionNftMetadata extends EkuboAPIRoute {
     const origin = new URL(url).origin;
     const image = `${origin}/positions/nft/${id}/image.svg`;
 
-  const attributesStored: NFTMetadata["attributes"] = [
+    const attributesStored: NFTMetadata["attributes"] = [
       {
         trait_type: "positions_address",
         value: toHex(positionMetadata.positions_address),
@@ -102,13 +105,13 @@ export class GetPositionNftMetadata extends EkuboAPIRoute {
       },
       {
         trait_type: "minted_timestamp",
-      value: positionMetadata.minted_timestamp.getTime().toString(),
-    },
-  ];
-  attributesStored.push({
-    trait_type: "chain_id",
-    value: chainIdString,
-  });
+        value: positionMetadata.minted_timestamp.getTime().toString(),
+      },
+    ];
+    attributesStored.push({
+      trait_type: "chain_id",
+      value: chainIdString,
+    });
 
     const [token0, token1] = await Promise.all([
       getTokenByAddress(queries, chainId, positionMetadata.token0),
@@ -213,10 +216,7 @@ export class ListPositionNftEvents extends EkuboAPIRoute {
     { params: { id: idStr, chainId: chainIdParam } }: IRequest,
     { env }: RequestContext,
   ) {
-    const id = parseTokenId(idStr);
-    if (id === null) {
-      throw new StatusError(400, "Invalid token ID");
-    }
+    const id = BigInt(idStr);
 
     try {
       BigInt(chainIdParam);
@@ -304,10 +304,7 @@ export class GetPositionNftImage extends EkuboAPIRoute {
   };
 
   async handle({ params: { id: idStr } }: IRequest, { env }: RequestContext) {
-    const id = parseTokenId(idStr);
-    if (id === null) {
-      throw new StatusError(400, "Invalid token ID");
-    }
+    const id = BigInt(idStr);
 
     const queries = await createQueries(env);
 

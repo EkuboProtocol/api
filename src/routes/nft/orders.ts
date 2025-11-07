@@ -4,7 +4,6 @@ import { IRequest, json, StatusError } from "itty-router";
 import { createQueries } from "../../queries";
 import toHex from "../../shared/toHex";
 import { NFTMetadata, TokenIdType } from "./format";
-import { parseTokenId } from "./parseTokenId";
 import { generateDcaOrderNft } from "./generateDcaOrderNft";
 
 export class GetOrderNftMetadata extends EkuboAPIRoute {
@@ -28,10 +27,7 @@ export class GetOrderNftMetadata extends EkuboAPIRoute {
     { url, params: { id: idStr } }: IRequest,
     { env }: RequestContext,
   ) {
-    const id = parseTokenId(idStr);
-    if (id === null) {
-      throw new StatusError(400, "Invalid token ID");
-    }
+    const id = BigInt(idStr);
 
     const queries = await createQueries(env);
 
@@ -132,10 +128,7 @@ export class GetOrderNftImage extends EkuboAPIRoute {
   };
 
   async handle({ params: { id: idStr } }: IRequest, { env }: RequestContext) {
-    const id = parseTokenId(idStr);
-    if (id === null) {
-      throw new StatusError(400, "Invalid token ID");
-    }
+    const id = BigInt(idStr);
 
     const queries = await createQueries(env);
 
