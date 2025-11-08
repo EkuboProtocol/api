@@ -8,6 +8,7 @@ export interface PositionMetadata {
   token0: string;
   token1: string;
   fee: string;
+  fee_denominator: string;
   tick_spacing: string;
   extension: string;
   minted_timestamp: Date;
@@ -39,7 +40,7 @@ export interface ListPoolKeysQueryResult {
 }
 
 export interface TwammPoolStateQueryResult {
-  pool_key_hash: string;
+  pool_key_id: string;
   token0: string;
   token1: string;
   fee: string;
@@ -233,42 +234,50 @@ export class Queries {
   }
 
   public async getPositionMetadata(
-    tokenId: bigint,
     chainId: bigint,
+    nftAddress: bigint,
+    tokenId: bigint,
   ): Promise<PositionMetadata | null> {
     const { rows, rowCount } = await this.client.query<PositionMetadata>({
       text: `
-          SELECT event_keys.transaction_hash AS minted_tx_hash,
-                 mint_position_update.lower_bound,
-                 mint_position_update.upper_bound,
-                 event_keys.emitter          AS positions_address,
-                 pool_keys.token0,
-                 pool_keys.token1,
-                 pool_keys.fee,
-                 pool_keys.tick_spacing,
-                 pool_keys.pool_extension AS extension,
-                 blocks.block_time          AS minted_timestamp
-          FROM nonfungible_token_transfers AS nft
-                   LEFT JOIN LATERAL (
-              SELECT lower_bound, upper_bound, pool_key_hash
-              FROM position_updates AS pu
-              WHERE pu.salt = nft.token_id
-                AND pu.chain_id = $2
-              ORDER BY pu.event_id DESC
-              LIMIT 1
-              ) AS mint_position_update ON TRUE
-                  JOIN pool_keys ON mint_position_update.pool_key_hash = pool_keys.key_hash
-                 AND pool_keys.chain_id = $2
-                  JOIN event_keys ON nft.event_id = event_keys.id
-                 AND event_keys.chain_id = $2
-                  JOIN blocks ON event_keys.block_number = blocks.block_number
-                 AND blocks.chain_id = $2
-          WHERE nft.token_id = $1
-            AND from_address = 0
-            AND nft.chain_id = $2
-          LIMIT 1
+        SELECT
+          transaction_hash AS minted_tx_hash,
+          mint_position_update.lower_bound,
+          mint_position_update.upper_bound,
+          emitter AS positions_address,
+          pk.token0,
+          pk.token1,
+          pk.fee,
+          pk.fee_denominator,
+          pk.tick_spacing,
+          pk.pool_extension AS extension,
+          b.block_time AS minted_timestamp
+        FROM
+          nonfungible_token_transfers AS nft
+          JOIN blocks b USING (block_number, chain_id)
+          JOIN LATERAL (
+            SELECT
+              lower_bound,
+              upper_bound,
+              pool_key_id
+            FROM
+              position_updates AS pu
+            WHERE
+              pu.salt = nft.token_id
+              AND pu.locker = nft.emitter
+              AND pu.chain_id = $2
+            ORDER BY
+              pu.event_id DESC
+            LIMIT 1) AS mint_position_update ON TRUE
+          JOIN pool_keys pk USING (pool_key_id)
+        WHERE
+          nft.token_id = $1
+          AND from_address = 0
+          AND nft.chain_id = $2
+          AND nft.emitter = $3
+        LIMIT 1
       `,
-      values: [tokenId, chainId],
+      values: [tokenId, chainId, nftAddress],
     });
 
     if (rowCount !== 1) {
@@ -281,7 +290,7 @@ export class Queries {
   public async getTwammOrderMetadata(tokenId: bigint, chainId: bigint) {
     const { rows } = await this.client.query<TwammOrderMetadata>({
       text: `
-          SELECT event_keys.transaction_hash AS minted_tx_hash,
+          SELECT transaction_hash AS minted_tx_hash,
                  blocks.block_time          AS minted_timestamp,
                  start_time,
                  end_time,
@@ -293,26 +302,22 @@ export class Queries {
                  fee
           FROM nonfungible_token_transfers AS transfer
                    LEFT JOIN LATERAL (
-              SELECT ou.key_hash           AS pool_key_hash,
+              SELECT ou.pool_key_id           AS pool_key_id,
                      ou.start_time         AS start_time,
                      ou.end_time           AS end_time,
                      MAX(b.block_time)     AS last_update_time,
                      SUM(sale_rate_delta0) AS sale_rate0,
                      SUM(sale_rate_delta1) AS sale_rate1
               FROM twamm_order_updates AS ou
-                       JOIN event_keys ek ON event_id = id
                        JOIN blocks b ON ou.block_number = b.block_number
                                      AND b.chain_id = $2
               WHERE ou.salt = transfer.token_id
                 AND ou.chain_id = $2
-              GROUP BY ou.key_hash, ou.start_time, ou.end_time
+              GROUP BY ou.pool_key_id, ou.start_time, ou.end_time
               ) AS order_data ON TRUE
-                  JOIN pool_keys ON order_data.pool_key_hash = key_hash
+                  JOIN pool_keys ON order_data.pool_key_id = pool_keys.pool_key_id
                  AND pool_keys.chain_id = $2
-                  JOIN event_keys ON transfer.event_id = event_keys.id
-                 AND event_keys.chain_id = $2
-                  JOIN blocks ON event_keys.block_number = blocks.block_number
-                 AND blocks.chain_id = $2
+                  JOIN blocks ON transfer.block_number = blocks.block_number AND blocks.chain_id = $2
           WHERE transfer.token_id = $1
             AND from_address = 0
             AND transfer.chain_id = $2
@@ -464,7 +469,7 @@ export class Queries {
       text: `
           SELECT tick, SUM(net_liquidity_delta_diff) AS net_liquidity_delta_diff
           FROM per_pool_per_tick_liquidity_incremental_view
-                   JOIN pool_keys ON pool_key_hash = key_hash
+                   JOIN pool_keys ON pool_key_id = pool_key_id
           WHERE net_liquidity_delta_diff != 0
             AND token0 = $1
             AND token1 = $2
@@ -495,7 +500,7 @@ export class Queries {
       text: `
           SELECT tick, net_liquidity_delta_diff
           FROM per_pool_per_tick_liquidity_incremental_view
-          WHERE pool_key_hash = (SELECT key_hash
+          WHERE pool_key_id = (SELECT pool_key_id
                                  FROM pool_keys
                                  WHERE core_address = $1
                                    AND token0 = $2
@@ -615,14 +620,14 @@ export class Queries {
                                   ORDER BY id
                                   LIMIT 1),
 
-               relevant_pool_keys AS (SELECT key_hash, fee, pool_extension AS extension, tick_spacing, core_address
+               relevant_pool_keys AS (SELECT pool_key_id, fee, pool_extension AS extension, tick_spacing, core_address
                                       FROM pool_keys
                                       WHERE token0 = $1
                                         AND token1 = $2
                                         AND chain_id = $3),
 
                relevant_swaps AS (SELECT 0                           AS type,
-                                         relevant_pool_keys.key_hash AS pool_key_hash,
+                                         relevant_pool_keys.pool_key_id AS pool_key_id,
                                         relevant_pool_keys.fee,
                                         relevant_pool_keys.tick_spacing,
                                         relevant_pool_keys.extension,
@@ -634,7 +639,7 @@ export class Queries {
                                          delta0,
                                          delta1
                                   FROM swaps
-                                          JOIN relevant_pool_keys ON key_hash = pool_key_hash
+                                          JOIN relevant_pool_keys ON pool_key_id = pool_key_id
                                           JOIN event_keys ON swaps.event_id = event_keys.id
                                           JOIN blocks ON event_keys.block_number = blocks.block_number,
                                        earliest_event
@@ -643,7 +648,7 @@ export class Queries {
                                     AND event_keys.chain_id = $3
                                     AND blocks.chain_id = $3),
                relevant_updates AS (SELECT 1                           AS type,
-                                           relevant_pool_keys.key_hash AS pool_key_hash,
+                                           relevant_pool_keys.pool_key_id AS pool_key_id,
                                            relevant_pool_keys.fee,
                                           relevant_pool_keys.tick_spacing,
                                           relevant_pool_keys.extension,
@@ -656,7 +661,7 @@ export class Queries {
                                            delta1
                                     FROM position_updates
                                              JOIN relevant_pool_keys
-                                                  ON key_hash = pool_key_hash
+                                                  ON pool_key_id = pool_key_id
                                              JOIN event_keys ON position_updates.event_id = event_keys.id
                                              JOIN blocks ON event_keys.block_number = blocks.block_number,
                                          earliest_event
@@ -694,7 +699,7 @@ export class Queries {
             SELECT hrbt.token,
                    SUM(revenue) AS revenue
             FROM hourly_revenue_by_token hrbt
-                     JOIN pool_keys pk ON pk.key_hash = hrbt.key_hash
+                     JOIN pool_keys pk ON pk.pool_key_id = hrbt.pool_key_id
             WHERE hour >= $1
               AND pk.chain_id = COALESCE($2, pk.chain_id)
             GROUP BY hrbt.token
@@ -708,7 +713,7 @@ export class Queries {
           SELECT hrbt.token,
                  SUM(revenue) AS revenue
           FROM hourly_revenue_by_token hrbt
-                   JOIN pool_keys pk ON pk.key_hash = hrbt.key_hash
+                   JOIN pool_keys pk ON pk.pool_key_id = hrbt.pool_key_id
           WHERE hrbt.hour >= $1
             AND pk.token0 = $2
             AND pk.token1 = $3
@@ -728,7 +733,7 @@ export class Queries {
           SELECT htd.token,
                  SUM(delta) AS balance
           FROM hourly_tvl_delta_by_token htd
-                   JOIN pool_keys pk ON pk.key_hash = htd.key_hash
+                   JOIN pool_keys pk ON pk.pool_key_id = htd.pool_key_id
           WHERE pk.token0 = COALESCE($1, pk.token0)
             AND pk.token1 = COALESCE($2, pk.token1)
             AND pk.chain_id = COALESCE($3, pk.chain_id)
@@ -749,7 +754,7 @@ export class Queries {
                  DATE_TRUNC('day', hour, 'UTC') AS date,
                  SUM(delta)                     AS delta
           FROM hourly_tvl_delta_by_token htd
-                   JOIN pool_keys pk ON pk.key_hash = htd.key_hash
+                   JOIN pool_keys pk ON pk.pool_key_id = htd.pool_key_id
           WHERE hour >= $3
             AND pk.token0 = COALESCE($1, pk.token0)
             AND pk.token1 = COALESCE($2, pk.token1)
@@ -802,7 +807,7 @@ export class Queries {
                  tas.total_amount_sold_before_last_update
           FROM owned_tokens AS ot
                    JOIN LATERAL (
-              SELECT tou.key_hash,
+              SELECT tou.pool_key_id,
                      CASE WHEN tou.sale_rate_delta0 != 0 THEN token0 ELSE token1 END AS sell_token,
                      CASE WHEN tou.sale_rate_delta0 != 0 THEN token1 ELSE token0 END AS buy_token,
                      start_time,
@@ -811,7 +816,7 @@ export class Queries {
 	                     MIN(b.block_time)                                               AS block_time_at_start,
 	                     MAX(b.block_time)                                               AS last_order_update
               FROM twamm_order_updates tou
-                       JOIN pool_keys ON tou.key_hash = pool_keys.key_hash
+                       JOIN pool_keys ON tou.pool_key_id = pool_keys.pool_key_id
                        JOIN event_keys ek ON tou.event_id = ek.id
                        JOIN blocks b ON ek.block_number = b.block_number
               WHERE tou.salt = ot.token_id
@@ -827,7 +832,7 @@ export class Queries {
                      ) AS total_proceeds_withdrawn
               FROM twamm_proceeds_withdrawals tpw
               WHERE tpw.salt = ot.token_id
-                AND tpw.key_hash = distinct_orders.key_hash
+                AND tpw.pool_key_id = distinct_orders.pool_key_id
                 AND tpw.start_time = distinct_orders.start_time
                 AND tpw.end_time = distinct_orders.end_time
                 AND tpw.chain_id = COALESCE($3, tpw.chain_id)
@@ -841,14 +846,14 @@ export class Queries {
                            SUM(
                            CASE WHEN sale_rate_delta1 != 0 THEN sale_rate_delta1 ELSE sale_rate_delta0 END
                               ) OVER (
-                               PARTITION BY tou.salt, tou.key_hash, tou.start_time, tou.end_time, tou.owner
+                               PARTITION BY tou.salt, tou.pool_key_id, tou.start_time, tou.end_time, tou.owner
                                ORDER BY tou.event_id
                                ) AS sale_rate_after_update,
                            COALESCE(
                                            LEAD(
                                            EXTRACT(EPOCH FROM LEAST(GREATEST(b.block_time, tou.start_time), tou.end_time)))
                                            OVER (
-                                               PARTITION BY tou.salt, tou.key_hash, tou.start_time, tou.end_time, tou.owner
+                                               PARTITION BY tou.salt, tou.pool_key_id, tou.start_time, tou.end_time, tou.owner
                                                ORDER BY tou.event_id
                                                ) -
                                            EXTRACT(EPOCH FROM LEAST(GREATEST(b.block_time, tou.start_time), tou.end_time)),
@@ -858,7 +863,7 @@ export class Queries {
                         JOIN event_keys e ON tou.event_id = e.id
                         JOIN blocks b ON e.block_number = b.block_number
                     WHERE tou.salt = ot.token_id
-                      AND tou.key_hash = distinct_orders.key_hash
+                      AND tou.pool_key_id = distinct_orders.pool_key_id
                       AND tou.start_time = distinct_orders.start_time
                       AND tou.end_time = distinct_orders.end_time
                       AND tou.chain_id = COALESCE($3, tou.chain_id)
@@ -907,8 +912,8 @@ export class Queries {
                  token1_sale_rate,
                  tpsm.last_virtual_execution_time AS last_execution_time
           FROM twamm_pool_states_materialized AS tpsm
-                   JOIN pool_states_materialized psm ON psm.pool_key_hash = tpsm.pool_key_hash
-                   JOIN pool_keys pk ON tpsm.pool_key_hash = pk.key_hash
+                   JOIN pool_states_materialized psm ON psm.pool_key_id = tpsm.pool_key_id
+                   JOIN pool_keys pk ON tpsm.pool_key_id = pk.pool_key_id
           WHERE pk.token0 = $1
             AND pk.token1 = $2
             AND pk.fee = COALESCE($3, pk.fee)
@@ -937,7 +942,7 @@ export class Queries {
       text: `
           SELECT time, net_sale_rate_delta0, net_sale_rate_delta1
           FROM twamm_sale_rate_deltas_materialized AS tsrdm
-                   JOIN pool_keys pk ON tsrdm.pool_key_hash = pk.key_hash
+                   JOIN pool_keys pk ON tsrdm.pool_key_id = pk.pool_key_id
           WHERE pk.token0 = $1
             AND pk.token1 = $2
             AND pk.fee = COALESCE($3, pk.fee)
@@ -1036,7 +1041,7 @@ export class Queries {
                  SUM(ABS(swaps.delta1 * swaps.delta0))                                AS k_volume
           FROM swaps
                    JOIN pool_keys
-                        ON swaps.pool_key_hash = pool_keys.key_hash
+                        ON swaps.pool_key_id = pool_keys.pool_key_id
                    JOIN event_keys ON swaps.event_id = event_keys.id
                    JOIN blocks ON event_keys.block_number = blocks.block_number
           WHERE pool_keys.token0 = $1
@@ -1081,7 +1086,7 @@ export class Queries {
                  SUM(volume) AS volume,
                  SUM(fees)   AS fees
           FROM hourly_volume_by_token hvbt
-                   JOIN pool_keys pk ON pk.key_hash = hvbt.key_hash
+                   JOIN pool_keys pk ON pk.pool_key_id = hvbt.pool_key_id
           WHERE hour >= $3
             AND pk.token0 = COALESCE($1, pk.token0)
             AND pk.token1 = COALESCE($2, pk.token1)
@@ -1109,7 +1114,7 @@ export class Queries {
                  SUM(volume)                    AS volume,
                  SUM(fees)                      AS fees
           FROM hourly_volume_by_token hvbt
-                   JOIN pool_keys pk ON pk.key_hash = hvbt.key_hash
+                   JOIN pool_keys pk ON pk.pool_key_id = hvbt.pool_key_id
           WHERE hour >= $3
             AND pk.token0 = COALESCE($1, pk.token0)
             AND pk.token1 = COALESCE($2, pk.token1)
@@ -1132,7 +1137,7 @@ export class Queries {
                    DATE_TRUNC('day', hour, 'UTC'),
                    SUM(revenue) AS revenue
             FROM hourly_revenue_by_token hrbt
-                     JOIN pool_keys pk ON pk.key_hash = hrbt.key_hash
+                     JOIN pool_keys pk ON pk.pool_key_id = hrbt.pool_key_id
             WHERE hour >= $1
               AND pk.chain_id = COALESCE($2, pk.chain_id)
             GROUP BY 1, 2
@@ -1147,7 +1152,7 @@ export class Queries {
                  DATE_TRUNC('day', hour, 'UTC'),
                  SUM(revenue) AS revenue
           FROM hourly_revenue_by_token hrbt
-                   JOIN pool_keys pk ON pk.key_hash = hrbt.key_hash
+                   JOIN pool_keys pk ON pk.pool_key_id = hrbt.pool_key_id
           WHERE hour >= $1
             AND pk.token0 = $2
             AND pk.token1 = $3
@@ -1192,16 +1197,16 @@ export class Queries {
         min(depth_percent) AS min_depth_percent
       FROM
         last_24h_pool_stats_materialized l24
-        JOIN pool_keys pk ON l24.key_hash = pk.key_hash
+        JOIN pool_keys pk ON l24.pool_key_id = pk.pool_key_id
         LEFT JOIN token_pair_realized_volatility tprv ON pk.token0 = tprv.token0
           AND pk.token1 = tprv.token1
         LEFT JOIN LATERAL (
           SELECT
             *
           FROM
-            pool_market_depth pmd
+            pool_market_depth_materialized pmd
           WHERE
-            pk.key_hash = pmd.pool_key_hash
+            pk.pool_key_id = pmd.pool_key_id
             AND GREATEST(tprv.realized_volatility, 0.001) >= pmd.depth_percent
           ORDER BY
             depth_percent DESC
@@ -1262,16 +1267,16 @@ export class Queries {
           depth_percent
         FROM
           last_24h_pool_stats_materialized l24
-          JOIN pool_keys p ON l24.key_hash = p.key_hash
+          JOIN pool_keys p ON l24.pool_key_id = p.pool_key_id
           LEFT JOIN token_pair_realized_volatility tprv ON p.token0 = tprv.token0
             AND p.token1 = tprv.token1
           LEFT JOIN LATERAL (
             SELECT
               *
             FROM
-              pool_market_depth pmd
+              pool_market_depth_materialized pmd
             WHERE
-              p.key_hash = pmd.pool_key_hash
+              p.pool_key_id = pmd.pool_key_id
               AND GREATEST(tprv.realized_volatility, 0.001) >= pmd.depth_percent
             ORDER BY
               depth_percent DESC
@@ -1333,7 +1338,7 @@ export class Queries {
                  (ot.liquidity <= 0)         AS is_closed
           FROM filtered_owned_tokens AS ot
                    LEFT JOIN LATERAL (
-              SELECT lower_bound, upper_bound, pool_key_hash
+              SELECT lower_bound, upper_bound, pool_key_id
               FROM position_updates AS pu
               WHERE pu.salt = token_id
               LIMIT 1
@@ -1346,7 +1351,7 @@ export class Queries {
               LIMIT 1
               ) AS mint_tx ON TRUE
                    JOIN event_keys ON mint_tx.event_id = event_keys.id
-                  JOIN pool_keys ON mint_position_update.pool_key_hash = pool_keys.key_hash
+                  JOIN pool_keys ON mint_position_update.pool_key_id = pool_keys.pool_key_id
                   JOIN blocks ON event_keys.block_number = blocks.block_number
           WHERE ($2 OR ot.liquidity > 0)
             AND event_keys.chain_id = COALESCE($3, event_keys.chain_id)
@@ -1456,20 +1461,20 @@ export class Queries {
               MAX(depth_percent) AS depth_percent,
               MAX(depth0) AS depth0,
               MAX(depth1) AS depth1
-            FROM pool_market_depth pmd
-            JOIN pool_keys pk ON pmd.pool_key_hash = pk.key_hash
+            FROM pool_market_depth_materialized pmd
+            JOIN pool_keys pk ON pmd.pool_key_id = pk.pool_key_id
             WHERE
               pmd.depth_percent <= rbt.realized_volatility * 2
               AND pk.token0 = rbt.token0
               AND pk.token1 = rbt.token1
               AND pk.chain_id = COALESCE($1, pk.chain_id)
-              AND pk.extension IN (
+              AND pk.pool_extension IN (
                 SELECT UNNEST(allowed_extensions)
                 FROM incentives.campaigns c
                 WHERE c.id = rbt.campaign_id
                   AND c.chain_id = COALESCE($1, c.chain_id)
               )
-            GROUP BY pool_key_hash
+            GROUP BY pk.pool_key_id
           ) AS pd ON TRUE
           GROUP BY rbt.campaign_id, rbt.token0, rbt.token1
         ),
@@ -1560,10 +1565,7 @@ export class Queries {
     });
   }
 
-  async listRewardPeriods(
-    activeAt?: string,
-    chainId: bigint | null = null,
-  ) {
+  async listRewardPeriods(activeAt?: string, chainId: bigint | null = null) {
     return this.client.query<{
       slug: string;
       token0: string;

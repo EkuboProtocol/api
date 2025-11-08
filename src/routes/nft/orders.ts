@@ -5,12 +5,7 @@ import { createQueries } from "../../queries";
 import toHex from "../../shared/toHex";
 import { NFTMetadata, TokenIdType } from "./format";
 import { generateDcaOrderNft } from "./generateDcaOrderNft";
-import {
-  AddressType,
-  DecimalStringType,
-  HexStringType,
-  NumericStringType,
-} from "../../shared/validation/address";
+import { NumericStringType } from "../../shared/validation/address";
 
 export class GetOrderNftMetadata extends EkuboAPIRoute {
   static route = "/orders/:chainId/nft/:id";
@@ -41,10 +36,7 @@ export class GetOrderNftMetadata extends EkuboAPIRoute {
 
     let metadata: NFTMetadata;
 
-    const twammOrderMetadata = await queries.getTwammOrderMetadata(
-      id,
-      chainId,
-    );
+    const twammOrderMetadata = await queries.getTwammOrderMetadata(id, chainId);
 
     if (!twammOrderMetadata?.length) {
       throw new StatusError(404, `Token ID ${id} not found`);
@@ -148,10 +140,7 @@ export class GetOrderNftImage extends EkuboAPIRoute {
 
     const queries = await createQueries(env);
 
-    const twammOrderMetadata = await queries.getTwammOrderMetadata(
-      id,
-      chainId,
-    );
+    const twammOrderMetadata = await queries.getTwammOrderMetadata(id, chainId);
 
     if (twammOrderMetadata.length === 0) {
       throw new StatusError(404, `Token ID ${id} not found`);

@@ -58,13 +58,23 @@ export function formattedPrice(
 
 export function feeToPercent(
   fee: string,
-  feeDenominator: number = 1_000_000_000,
+  feeDenominator: string,
+  locale: string = "en-US",
 ): string {
-  return ((Number(fee) / feeDenominator) * 100).toPrecision(3);
+  return (Number(fee) / Number(feeDenominator)).toLocaleString(locale, {
+    maximumSignificantDigits: 3,
+    style: "percent",
+  });
 }
 
-export function tickSpacingToPercent(tick_spacing: string): string {
-  return ((BASE ** Number(tick_spacing) - 1) * 100).toPrecision(3);
+export function tickSpacingToPercent(
+  tick_spacing: string,
+  locale: string = "en-US",
+): string {
+  return (BASE ** Number(tick_spacing) - 1).toLocaleString(locale, {
+    maximumSignificantDigits: 3,
+    style: "percent",
+  });
 }
 
 export function formatTimeToUTC(date: Date) {

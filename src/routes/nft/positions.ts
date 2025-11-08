@@ -24,7 +24,7 @@ import { getTokenByAddress } from "../meta/tokens";
 import { generatePositionNft } from "./generatePositionNft";
 
 export class GetPositionNftMetadata extends EkuboAPIRoute {
-  static route = "/positions/:chainId/nft/:id";
+  static route = "/positions/:chainId/:nftAddress/:id";
   static schema: OpenAPIRouteSchema = {
     tags: ["Positions"],
     summary: "Get NFT Metadata",
@@ -32,6 +32,9 @@ export class GetPositionNftMetadata extends EkuboAPIRoute {
     parameters: {
       chainId: Path(NumericStringType, {
         description: "Chain ID for which to generate metadata",
+      }),
+      nftAddress: Path(AddressType, {
+        description: "The address of the Positions NFT contract",
       }),
       id: Path(TokenIdType),
     },
@@ -44,7 +47,7 @@ export class GetPositionNftMetadata extends EkuboAPIRoute {
   };
 
   async handle(
-    { url, params: { id: idStr, chainId: chainIdParam } }: IRequest,
+    { url, params: { id: idStr, chainId: chainIdParam, nftAddress } }: IRequest,
     { env }: RequestContext,
   ) {
     const id = BigInt(idStr);
@@ -56,14 +59,18 @@ export class GetPositionNftMetadata extends EkuboAPIRoute {
 
     let metadata: NFTMetadata;
 
-    const positionMetadata = await queries.getPositionMetadata(id, chainId);
+    const positionMetadata = await queries.getPositionMetadata(
+      chainId,
+      BigInt(nftAddress),
+      id,
+    );
 
     if (positionMetadata === null) {
       throw new StatusError(404, `Token ID ${id} not found`);
     }
 
     const origin = new URL(url).origin;
-    const image = `${origin}/positions/${chainIdString}/nft/${id}/image.svg`;
+    const image = `${origin}/positions/${chainIdString}/${nftAddress}/${id}/image.svg`;
 
     const attributesStored: NFTMetadata["attributes"] = [
       {
@@ -153,9 +160,10 @@ export class GetPositionNftMetadata extends EkuboAPIRoute {
           denominator.symbol
         } : ${lowerPrice} - ${upperPrice} : ${feeToPercent(
           positionMetadata.fee,
-        )}%F${isFullRange ? "MAX" : `${tickSpacingToPercent(positionMetadata.tick_spacing)}%TS`}`,
+          positionMetadata.fee_denominator,
+        )}F${isFullRange ? "MAX" : `${tickSpacingToPercent(positionMetadata.tick_spacing)}TS`}`,
         description: isFullRange
-          ? `A full range liquidity position in Ekubo consisting of the ${numerator.name} and ${denominator.name} tokens and charging a ${feeToPercent(positionMetadata.fee)}% fee on swaps.`
+          ? `A full range liquidity position in Ekubo consisting of the ${numerator.name} and ${denominator.name} tokens and charging a ${feeToPercent(positionMetadata.fee, positionMetadata.fee_denominator)} fee on swaps.`
           : `A liquidity position in Ekubo consisting of the ${
               numerator.name
             } and ${
@@ -166,7 +174,8 @@ export class GetPositionNftMetadata extends EkuboAPIRoute {
               denominator.symbol
             }. This position charges a ${feeToPercent(
               positionMetadata.fee,
-            )}% fee on swaps.`,
+              positionMetadata.fee_denominator,
+            )} fee on swaps.`,
         image,
         attributes: attributesStored,
       };
@@ -189,7 +198,7 @@ export class GetPositionNftMetadata extends EkuboAPIRoute {
 }
 
 export class ListPositionNftEvents extends EkuboAPIRoute {
-  static route = "/positions/:chainId/nft/:id/history";
+  static route = "/positions/:chainId/:nftAddress/:id/history";
   static schema: OpenAPIRouteSchema = {
     tags: ["Positions"],
     summary: "List position history",
@@ -197,6 +206,9 @@ export class ListPositionNftEvents extends EkuboAPIRoute {
     parameters: {
       chainId: Path(NumericStringType, {
         description: "Chain ID for which to list events",
+      }),
+      nftAddress: Path(AddressType, {
+        description: "The address of the Positions NFT contract",
       }),
       id: Path(TokenIdType),
     },
@@ -209,7 +221,7 @@ export class ListPositionNftEvents extends EkuboAPIRoute {
   };
 
   async handle(
-    { params: { id: idStr, chainId: chainIdParam } }: IRequest,
+    { params: { id: idStr, chainId: chainIdParam, nftAddress } }: IRequest,
     { env }: RequestContext,
   ) {
     const id = BigInt(idStr);
@@ -217,7 +229,7 @@ export class ListPositionNftEvents extends EkuboAPIRoute {
 
     const queries = await createQueries(env);
 
-    if (!(await queries.getPositionMetadata(id, chainId))) {
+    if (!(await queries.getPositionMetadata(chainId, BigInt(nftAddress), id))) {
       throw new StatusError(404, "Token ID not found");
     }
 
@@ -277,7 +289,7 @@ export class ListPositionNftEvents extends EkuboAPIRoute {
 }
 
 export class GetPositionNftImage extends EkuboAPIRoute {
-  static route = "/positions/:chainId/nft/:id/image.svg";
+  static route = "/positions/:chainId/:nftAddress/:id/image.svg";
 
   static schema: OpenAPIRouteSchema = {
     tags: ["Positions"],
@@ -285,6 +297,9 @@ export class GetPositionNftImage extends EkuboAPIRoute {
     description: "Returns the generated art for the given position NFT ID",
     parameters: {
       chainId: Path(NumericStringType),
+      nftAddress: Path(AddressType, {
+        description: "The address of the Positions NFT contract",
+      }),
       id: Path(TokenIdType),
     },
     responses: {
@@ -296,7 +311,7 @@ export class GetPositionNftImage extends EkuboAPIRoute {
   };
 
   async handle(
-    { params: { id: idStr, chainId: chainIdParam } }: IRequest,
+    { params: { id: idStr, chainId: chainIdParam, nftAddress } }: IRequest,
     { env }: RequestContext,
   ) {
     const id = BigInt(idStr);
@@ -304,7 +319,11 @@ export class GetPositionNftImage extends EkuboAPIRoute {
 
     const queries = await createQueries(env);
 
-    const positionMetadata = await queries.getPositionMetadata(id, chainId);
+    const positionMetadata = await queries.getPositionMetadata(
+      chainId,
+      BigInt(nftAddress),
+      id,
+    );
 
     if (positionMetadata === null) {
       throw new StatusError(404, `Token ID ${id} not found`);
