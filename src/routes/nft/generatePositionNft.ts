@@ -35,12 +35,7 @@ export async function generatePositionNft(
     extension: extensionValue,
   });
 
-  let poolType:
-    | "dca"
-    | "oracle"
-    | "mev_capture"
-    | "full_range"
-    | undefined;
+  let poolType: "dca" | "oracle" | "mev_capture" | "full_range" | undefined;
 
   if (poolClassification?.is_twamm) {
     poolType = "dca";
@@ -91,8 +86,13 @@ export async function generatePositionNft(
     token0Src: token0?.logo_url,
     token1Src: token1?.logo_url,
 
-    formattedFeePercent: `${feeToPercent(positionMetadata.fee)}%`,
-    formattedTickSpacingPercent: `${tickSpacingToPercent(positionMetadata.tick_spacing)}%`,
+    formattedFeePercent: feeToPercent(
+      positionMetadata.fee,
+      positionMetadata.fee_denominator,
+    ),
+    formattedTickSpacingPercent: tickSpacingToPercent(
+      positionMetadata.tick_spacing,
+    ),
 
     formattedMinPrice,
     formattedMaxPrice,
