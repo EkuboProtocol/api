@@ -71,7 +71,7 @@ export class GetOverviewRevenue extends EkuboAPIRoute {
       { rows: revenueByToken_24h },
     ] = await Promise.all([
       queries.getRevenueByToken({ chainId }),
-      queries.getRevenueByTokenByDate(thirtyDaysAgo, undefined, chainId),
+      queries.getRevenueByTokenByDate(chainId, thirtyDaysAgo),
       queries.getRevenueByToken({ since: twentyFourHoursAgo, chainId }),
     ]);
 
@@ -121,7 +121,7 @@ export class GetOverviewVolume extends EkuboAPIRoute {
       { rows: volumeByToken_24h },
     ] = await Promise.all([
       queries.getTotalVolumeByToken({ chainId }),
-      queries.getVolumeByTokenByDate(thirtyDaysAgo, undefined, chainId),
+      queries.getVolumeByTokenByDate(chainId, thirtyDaysAgo),
       queries.getTotalVolumeByToken({ since: twentyFourHoursAgo, chainId }),
     ]);
 

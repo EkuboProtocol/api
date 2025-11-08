@@ -1094,9 +1094,9 @@ export class Queries {
   }
 
   public async getVolumeByTokenByDate(
+    chainId: bigint,
     after: Date,
     pair?: { token0: bigint; token1: bigint },
-    chainId: bigint | null = null,
   ) {
     return this.client.query<{
       token: string;
@@ -1122,15 +1122,15 @@ export class Queries {
   }
 
   public async getRevenueByTokenByDate(
+    chainId: bigint,
     after: Date,
     pair?: { token0: bigint; token1: bigint },
-    chainId: bigint | null = null,
   ) {
     if (!pair) {
       return this.client.query<{ token: string; volume: string }>({
         text: `
             SELECT hrbt.token,
-                   DATE_TRUNC('day', hour, 'UTC'),
+                   DATE_TRUNC('day', hour, 'UTC') as date,
                    SUM(revenue) AS revenue
             FROM hourly_revenue_by_token hrbt
                      JOIN pool_keys pk ON pk.pool_key_id = hrbt.pool_key_id
@@ -1145,7 +1145,7 @@ export class Queries {
     return this.client.query<{ token: string; volume: string }>({
       text: `
           SELECT token,
-                 DATE_TRUNC('day', hour, 'UTC'),
+                 DATE_TRUNC('day', hour, 'UTC') as date,
                  SUM(revenue) AS revenue
           FROM hourly_revenue_by_token hrbt
                    JOIN pool_keys pk ON pk.pool_key_id = hrbt.pool_key_id
@@ -1194,7 +1194,7 @@ export class Queries {
       FROM
         last_24h_pool_stats_materialized l24
         JOIN pool_keys pk ON l24.pool_key_id = pk.pool_key_id
-        LEFT JOIN token_pair_realized_volatility tprv ON pk.token0 = tprv.token0
+        LEFT JOIN token_pair_realized_volatility_materialized tprv ON pk.token0 = tprv.token0
           AND pk.token1 = tprv.token1
         LEFT JOIN LATERAL (
           SELECT
@@ -1224,8 +1224,8 @@ export class Queries {
   }
 
   public async getTopPools(
+    chainId: bigint,
     pair: { token0: bigint; token1: bigint },
-    chainId: bigint | null = null,
   ) {
     return this.client.query<{
       fee: string;
@@ -1264,7 +1264,7 @@ export class Queries {
         FROM
           last_24h_pool_stats_materialized l24
           JOIN pool_keys p ON l24.pool_key_id = p.pool_key_id
-          LEFT JOIN token_pair_realized_volatility tprv ON p.token0 = tprv.token0
+          LEFT JOIN token_pair_realized_volatility_materialized tprv ON p.token0 = tprv.token0
             AND p.token1 = tprv.token1
           LEFT JOIN LATERAL (
             SELECT
@@ -1304,27 +1304,27 @@ export class Queries {
       }
     >({
       text: `
-        SELECT nfp.chain_id,
-              nft_address,
-              core_address,
-              COALESCE(nlm.locker, nfp.nft_address) AS positions_address,
-              token_id,
-              token0,
-              token1,
-              fee,
-              tick_spacing,
-              pool_extension                        AS "extension",
-              lower_bound,
-              upper_bound,
-              liquidity
-        FROM nonfungible_token_positions_view AS nfp
-                LEFT JOIN nft_locker_mappings nlm USING (chain_id, nft_address)
-                JOIN pool_keys USING (pool_key_id)
-        WHERE nfp.chain_id = COALESCE($3, nfp.chain_id)
-          AND ($2 OR nfp.liquidity != 0)
-          AND (current_owner = $1
-            OR ($2 AND previous_owner = $1))
-        ORDER BY last_transfer_event_id DESC;
+SELECT nfp.chain_id,
+       nft_address,
+       core_address,
+       COALESCE(nlm.locker, nfp.nft_address) AS positions_address,
+       token_id,
+       token0,
+       token1,
+       fee,
+       tick_spacing,
+       pool_extension                        AS "extension",
+       lower_bound,
+       upper_bound,
+       liquidity
+FROM nonfungible_token_positions_view AS nfp
+         LEFT JOIN nft_locker_mappings nlm USING (chain_id, nft_address)
+         JOIN pool_keys USING (pool_key_id)
+WHERE nfp.chain_id = COALESCE($3, nfp.chain_id)
+  AND ($2 OR nfp.liquidity != 0)
+  AND (current_owner = $1
+    OR ($2 AND previous_owner = $1))
+ORDER BY last_transfer_event_id DESC;
       `,
       values: [address, showClosed, chainId],
     });

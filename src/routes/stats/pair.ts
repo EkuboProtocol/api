@@ -52,9 +52,9 @@ export class GetPairInfo extends EkuboAPIRoute {
       queries.getTotalVolumeByToken({ pair, chainId }),
       queries.getRevenueByToken({ pair, chainId }),
       queries.getTvlDeltaByTokenByDate(thirtyDaysAgo, pair, chainId),
-      queries.getVolumeByTokenByDate(thirtyDaysAgo, pair, chainId),
-      queries.getRevenueByTokenByDate(thirtyDaysAgo, pair, chainId),
-      queries.getTopPools(pair, chainId),
+      queries.getVolumeByTokenByDate(chainId, thirtyDaysAgo, pair),
+      queries.getRevenueByTokenByDate(chainId, thirtyDaysAgo, pair),
+      queries.getTopPools(chainId, pair),
     ]);
 
     return json(
@@ -166,7 +166,7 @@ export class GetPairInfoVolume extends EkuboAPIRoute {
       { rows: volumeByToken_24h },
     ] = await Promise.all([
       queries.getTotalVolumeByToken({ pair, chainId }),
-      queries.getVolumeByTokenByDate(thirtyDaysAgo, pair, chainId),
+      queries.getVolumeByTokenByDate(chainId, thirtyDaysAgo, pair),
       queries.getTotalVolumeByToken({
         since: twentyFourHoursAgo,
         pair,
@@ -218,7 +218,7 @@ export class GetPairInfoPools extends EkuboAPIRoute {
       chainId,
     );
 
-    const { rows: topPools } = await queries.getTopPools(pair, chainId);
+    const { rows: topPools } = await queries.getTopPools(chainId, pair);
 
     return json(
       {
