@@ -11,13 +11,9 @@ export interface PositionMetadata {
   fee_denominator: string;
   tick_spacing: string;
   extension: string;
-  minted_timestamp: Date;
-  minted_tx_hash: string;
 }
 
 export interface TwammOrderMetadata {
-  minted_tx_hash: string;
-  minted_timestamp: Date;
   start_time: Date;
   end_time: Date;
   last_update_time: Date;
@@ -1301,63 +1297,34 @@ export class Queries {
   ) {
     return this.client.query<
       PositionMetadata & {
-        token_id: string;
-        is_closed: boolean;
         chain_id: string;
+        token_id: string;
+        liquidity: string;
+        nft_address: string;
       }
     >({
       text: `
-          WITH owned_tokens AS (SELECT token_id
-                                FROM nonfungible_token_transfers pt1
-                                WHERE to_address = $1
-                                  AND pt1.chain_id = COALESCE($3, pt1.chain_id)
-                                  AND NOT EXISTS (SELECT 1
-                                                  FROM nonfungible_token_transfers pt2
-                                                  WHERE pt2.token_id = pt1.token_id
-                                                    AND pt2.event_id > pt1.event_id
-                                                    AND pt2.chain_id = COALESCE($3, pt2.chain_id)
-                                                    AND (CASE WHEN $2 THEN pt2.to_address != 0 ELSE TRUE END))),
-               filtered_owned_tokens AS (SELECT token_id, SUM(liquidity_delta) AS liquidity
-                                         FROM owned_tokens
-                                                  JOIN position_updates
-                                                       ON token_id = salt
-                                                       AND position_updates.chain_id = COALESCE($3, position_updates.chain_id)
-                                         GROUP BY token_id)
-          SELECT token_id,
-                 pool_keys.chain_id,
-                 event_keys.transaction_hash AS minted_tx_hash,
-                 event_keys.emitter as positions_address,
-                 token0,
-                 token1,
-                 fee,
-                 tick_spacing,
-                 extension,
-                 lower_bound,
-                 upper_bound,
-                 blocks.block_time          AS minted_timestamp,
-                 (ot.liquidity <= 0)         AS is_closed
-          FROM filtered_owned_tokens AS ot
-                   LEFT JOIN LATERAL (
-              SELECT lower_bound, upper_bound, pool_key_id
-              FROM position_updates AS pu
-              WHERE pu.salt = token_id
-              LIMIT 1
-              ) AS mint_position_update ON TRUE
-                   LEFT JOIN LATERAL (
-              SELECT event_id
-              FROM nonfungible_token_transfers AS nft
-              WHERE nft.token_id = ot.token_id
-              ORDER BY event_id
-              LIMIT 1
-              ) AS mint_tx ON TRUE
-                   JOIN event_keys ON mint_tx.event_id = event_keys.id
-                  JOIN pool_keys ON mint_position_update.pool_key_id = pool_keys.pool_key_id
-                  JOIN blocks ON event_keys.block_number = blocks.block_number
-          WHERE ($2 OR ot.liquidity > 0)
-            AND event_keys.chain_id = COALESCE($3, event_keys.chain_id)
-            AND pool_keys.chain_id = COALESCE($3, pool_keys.chain_id)
-            AND blocks.chain_id = COALESCE($3, blocks.chain_id)
-          ORDER BY blocks.block_time DESC
+        SELECT nfp.chain_id,
+              nft_address,
+              core_address,
+              COALESCE(nlm.locker, nfp.nft_address) AS positions_address,
+              token_id,
+              token0,
+              token1,
+              fee,
+              tick_spacing,
+              pool_extension                        AS "extension",
+              lower_bound,
+              upper_bound,
+              liquidity
+        FROM nonfungible_token_positions_view AS nfp
+                LEFT JOIN nft_locker_mappings nlm USING (chain_id, nft_address)
+                JOIN pool_keys USING (pool_key_id)
+        WHERE nfp.chain_id = COALESCE($3, nfp.chain_id)
+          AND ($2 OR nfp.liquidity != 0)
+          AND (current_owner = $1
+            OR ($2 AND previous_owner = $1))
+        ORDER BY last_transfer_event_id DESC;
       `,
       values: [address, showClosed, chainId],
     });

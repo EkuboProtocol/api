@@ -388,15 +388,17 @@ export class ListPositionsByAddress extends EkuboAPIRoute {
       chainId,
     );
 
+    console.log(address, showClosed, chainId, rows);
+
     const origin = new URL(url).origin;
 
     return json(
       {
         data: rows.map((row) => {
-          const chainIdValue = row.chain_id?.toString() ?? "";
+          console.log(row);
           return {
             id: toHex(BigInt(row.token_id)),
-            chain_id: chainIdValue,
+            chain_id: row.chain_id,
             positions_address: toHex(row.positions_address),
             pool_key: {
               token0: toHex(row.token0),
@@ -409,10 +411,9 @@ export class ListPositionsByAddress extends EkuboAPIRoute {
               lower: Number(row.lower_bound),
               upper: Number(row.upper_bound),
             },
-            metadata_url: `${origin}/positions/${chainIdValue}/nft/${row.token_id}`,
-            image: `${origin}/positions/${chainIdValue}/nft/${row.token_id}/image.svg`,
-            minted_timestamp: row.minted_timestamp.getTime(),
-            is_closed: row.is_closed,
+            metadata_url: `${origin}/positions/${row.chain_id}/${row.nft_address}/${row.token_id}`,
+            image: `${origin}/positions/${row.chain_id}/${row.nft_address}/${row.token_id}/image.svg`,
+            liquidity: row.liquidity,
           };
         }),
       },
