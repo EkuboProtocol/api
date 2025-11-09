@@ -1,7 +1,46 @@
-import { Client } from "pg";
+import postgres, { type Sql } from "postgres";
 import { Env } from "./env";
 
+type QueryConfig = {
+  text: string;
+  values?: ReadonlyArray<unknown>;
+};
+
+interface QueryResult<TRow> {
+  rows: TRow[];
+  rowCount: number;
+}
+
+interface QueryClient {
+  query<TRow>(config: QueryConfig): Promise<QueryResult<TRow>>;
+}
+
+class PostgresQueryClient implements QueryClient {
+  private readonly sql: Sql;
+
+  constructor(sql: Sql) {
+    this.sql = sql;
+  }
+
+  public async query<TRow>({
+    text,
+    values,
+  }: QueryConfig): Promise<QueryResult<TRow>> {
+    const params = values != null ? [...values] : [];
+    const result = await this.sql.unsafe<TRow[]>(text, params as any[]);
+    const rows = result as TRow[];
+    const count =
+      typeof (result as unknown as { count?: number }).count === "number"
+        ? (result as unknown as { count: number }).count
+        : rows.length;
+
+    return { rows, rowCount: count };
+  }
+}
+
 export interface PositionMetadata {
+  minted_tx_hash: string;
+  minted_timestamp: Date;
   positions_address: string;
   lower_bound: string;
   upper_bound: string;
@@ -14,6 +53,8 @@ export interface PositionMetadata {
 }
 
 export interface TwammOrderMetadata {
+  minted_tx_hash: string;
+  minted_timestamp: Date;
   start_time: Date;
   end_time: Date;
   last_update_time: Date;
@@ -64,9 +105,9 @@ export interface RawErc20TokenRow {
 }
 
 export class Queries {
-  private readonly client: Client;
+  private readonly client: QueryClient;
 
-  constructor(client: Client) {
+  constructor(client: QueryClient) {
     this.client = client;
   }
 
@@ -1728,11 +1769,20 @@ ORDER BY last_transfer_event_id DESC;
 }
 
 export async function createQueries(env: Env) {
-  const client = new Client({
-    connectionString:
-      env.HYPERDRIVE?.connectionString ?? env.PG_CONNECTION_STRING,
-    ssl: !!env.HYPERDRIVE,
-  });
-  await client.connect();
-  return new Queries(client);
+  const connectionString =
+    env.HYPERDRIVE?.connectionString ?? env.PG_CONNECTION_STRING;
+  const options = env.HYPERDRIVE
+    ? {
+        ssl: { rejectUnauthorized: false },
+      }
+    : undefined;
+
+  const sql =
+    connectionString !== undefined
+      ? postgres(connectionString, options)
+      : options
+      ? postgres(options)
+      : postgres();
+
+  return new Queries(new PostgresQueryClient(sql));
 }

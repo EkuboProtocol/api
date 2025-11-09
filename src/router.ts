@@ -9,7 +9,6 @@ import {
   GetOverviewVolume,
 } from "./routes/stats/overview";
 import {
-  GetPairInfo,
   GetPairInfoPools,
   GetPairInfoTvl,
   GetPairInfoVolume,
@@ -71,7 +70,6 @@ export const router = OpenAPIRouter({
   .get(GetOverviewRevenue.route, GetOverviewRevenue)
   .get(GetOverviewTvl.route, GetOverviewTvl)
   .get(GetOverviewVolume.route, GetOverviewVolume)
-  .get(GetPairInfo.route, GetPairInfo)
   .get(GetPairInfoTvl.route, GetPairInfoTvl)
   .get(GetPairInfoVolume.route, GetPairInfoVolume)
   .get(GetPairInfoPools.route, GetPairInfoPools)
