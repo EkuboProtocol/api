@@ -1771,18 +1771,20 @@ ORDER BY last_transfer_event_id DESC;
 export async function createQueries(env: Env) {
   const connectionString =
     env.HYPERDRIVE?.connectionString ?? env.PG_CONNECTION_STRING;
-  const options = env.HYPERDRIVE
-    ? {
-        ssl: { rejectUnauthorized: false },
-      }
-    : undefined;
 
-  const sql =
-    connectionString !== undefined
-      ? postgres(connectionString, options)
-      : options
-      ? postgres(options)
-      : postgres();
+  if (!connectionString)
+    throw new Error(
+      "Env does not have either PG_CONNECTION_STRING or HYPERDRIVE",
+    );
 
-  return new Queries(new PostgresQueryClient(sql));
+  const options = {
+    // Limit the connections for the Worker request to 5 due to Workers' limits on concurrent external connections
+    max: 1,
+    // If you are not using array types in your Postgres schema, disable `fetch_types` to avoid an additional round-trip (unnecessary latency)
+    fetch_types: false,
+  };
+
+  return new Queries(
+    new PostgresQueryClient(postgres(connectionString, options)),
+  );
 }
