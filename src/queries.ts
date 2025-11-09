@@ -26,7 +26,9 @@ class PostgresQueryClient implements QueryClient {
     text,
     values,
   }: QueryConfig): Promise<QueryResult<TRow>> {
-    const params = values != null ? [...values] : [];
+    const params = (values != null ? [...values] : []).map((v) =>
+      typeof v === "bigint" ? v.toString() : v,
+    );
     const result = await this.sql.unsafe<TRow[]>(text, params as any[]);
     const rows = result as TRow[];
     const count =
