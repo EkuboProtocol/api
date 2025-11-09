@@ -166,8 +166,8 @@ export class GetOverviewTvl extends EkuboAPIRoute {
 
     const [{ rows: tvlByToken }, { rows: tvlDeltaByTokenByDate }] =
       await Promise.all([
-        queries.getTvlByToken(undefined, chainId),
-        queries.getTvlDeltaByTokenByDate(thirtyDaysAgo, undefined, chainId),
+        queries.getTvlByToken(chainId),
+        queries.getTvlDeltaByTokenByDate(chainId, thirtyDaysAgo),
       ]);
 
     return json(

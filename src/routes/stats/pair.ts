@@ -48,7 +48,7 @@ export class GetPairInfo extends EkuboAPIRoute {
       { rows: revenueByTokenByDate },
       { rows: topPools },
     ] = await Promise.all([
-      queries.getTvlByToken(pair, chainId),
+      queries.getTvlByToken(chainId, pair),
       queries.getTotalVolumeByToken({ pair, chainId }),
       queries.getRevenueByToken({ pair, chainId }),
       queries.getTvlDeltaByTokenByDate(thirtyDaysAgo, pair, chainId),
@@ -110,8 +110,8 @@ export class GetPairInfoTvl extends EkuboAPIRoute {
 
     const [{ rows: tvlByToken }, { rows: tvlDeltaByTokenByDate }] =
       await Promise.all([
-        queries.getTvlByToken(pair, chainId),
-        queries.getTvlDeltaByTokenByDate(thirtyDaysAgo, pair, chainId),
+        queries.getTvlByToken(chainId, pair),
+        queries.getTvlDeltaByTokenByDate(chainId, thirtyDaysAgo, pair),
       ]);
 
     return json(
@@ -168,9 +168,9 @@ export class GetPairInfoVolume extends EkuboAPIRoute {
       queries.getTotalVolumeByToken({ pair, chainId }),
       queries.getVolumeByTokenByDate(chainId, thirtyDaysAgo, pair),
       queries.getTotalVolumeByToken({
+        chainId,
         since: twentyFourHoursAgo,
         pair,
-        chainId,
       }),
     ]);
 

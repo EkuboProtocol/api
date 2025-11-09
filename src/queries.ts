@@ -721,28 +721,44 @@ export class Queries {
   }
 
   public getTvlByToken(
+    chainId: bigint,
     pair?: { token0: bigint; token1: bigint },
-    chainId?: bigint | null,
   ) {
     return this.client.query<{ token: string; balance: string }>({
       text: `
-          SELECT htd.token,
-                 SUM(delta) AS balance
-          FROM hourly_tvl_delta_by_token htd
-                   JOIN pool_keys pk ON pk.pool_key_id = htd.pool_key_id
-          WHERE pk.token0 = COALESCE($1, pk.token0)
-            AND pk.token1 = COALESCE($2, pk.token1)
-            AND pk.chain_id = COALESCE($3, pk.chain_id)
-          GROUP BY htd.token;
+          WITH summed0 AS (SELECT pk.token0          AS token,
+                        SUM(ptvl.balance0) AS balance
+                 FROM pool_tvl ptvl
+                          JOIN pool_keys pk USING (pool_key_id)
+                 WHERE pk.token0 = COALESCE($1, pk.token0)
+                   AND pk.token1 = COALESCE($2, pk.token1)
+                   AND pk.chain_id = $3
+                 GROUP BY pk.token0),
+              summed1 AS (SELECT pk.token1          AS token,
+                                  SUM(ptvl.balance1) AS balance
+                          FROM pool_tvl ptvl
+                                    JOIN pool_keys pk USING (pool_key_id)
+                          WHERE pk.token0 = COALESCE($1, pk.token0)
+                            AND pk.token1 = COALESCE($2, pk.token1)
+                            AND pk.chain_id = $3
+                          GROUP BY pk.token1),
+              all_balances AS (SELECT *
+                                FROM summed0
+                                UNION ALL
+                                SELECT *
+                                FROM summed1)
+          SELECT token, SUM(balance) AS balance
+          FROM all_balances
+          GROUP BY token;
       `,
       values: [pair?.token0 ?? null, pair?.token1 ?? null, chainId],
     });
   }
 
   public getTvlDeltaByTokenByDate(
+    chainId: bigint,
     after: Date,
     pair?: { token0: bigint; token1: bigint },
-    chainId?: bigint | null,
   ) {
     return this.client.query<{ token: string; date: string; balance: string }>({
       text: `
@@ -754,7 +770,7 @@ export class Queries {
           WHERE hour >= $3
             AND pk.token0 = COALESCE($1, pk.token0)
             AND pk.token1 = COALESCE($2, pk.token1)
-            AND pk.chain_id = COALESCE($4, pk.chain_id)
+            AND pk.chain_id = $4
           GROUP BY htd.token, date;
       `,
       values: [pair?.token0 ?? null, pair?.token1 ?? null, after, chainId],
@@ -1068,13 +1084,13 @@ export class Queries {
   }
 
   public getTotalVolumeByToken({
+    chainId,
     since = new Date(0),
     pair,
-    chainId = null,
   }: {
+    chainId: bigint;
     since?: Date;
     pair?: { token0: bigint; token1: bigint };
-    chainId?: bigint | null;
   }) {
     return this.client.query<{ token: string; volume: string }>({
       text: `
@@ -1086,7 +1102,7 @@ export class Queries {
           WHERE hour >= $3
             AND pk.token0 = COALESCE($1, pk.token0)
             AND pk.token1 = COALESCE($2, pk.token1)
-            AND pk.chain_id = COALESCE($4, pk.chain_id)
+            AND pk.chain_id = $4
           GROUP BY hvbt.token
       `,
       values: [pair?.token0 ?? null, pair?.token1 ?? null, since, chainId],
@@ -1114,7 +1130,7 @@ export class Queries {
           WHERE hour >= $3
             AND pk.token0 = COALESCE($1, pk.token0)
             AND pk.token1 = COALESCE($2, pk.token1)
-            AND pk.chain_id = COALESCE($4, pk.chain_id)
+            AND pk.chain_id = $4
           GROUP BY hvbt.token, date
       `,
       values: [pair?.token0 ?? null, pair?.token1 ?? null, after, chainId],
@@ -1135,13 +1151,14 @@ export class Queries {
             FROM hourly_revenue_by_token hrbt
                      JOIN pool_keys pk ON pk.pool_key_id = hrbt.pool_key_id
             WHERE hour >= $1
-              AND pk.chain_id = COALESCE($2, pk.chain_id)
+              AND pk.chain_id = $2
             GROUP BY 1, 2
             ORDER BY 1, 2;
         `,
         values: [after, chainId],
       });
     }
+
     return this.client.query<{ token: string; volume: string }>({
       text: `
           SELECT token,
@@ -1152,7 +1169,7 @@ export class Queries {
           WHERE hour >= $1
             AND pk.token0 = $2
             AND pk.token1 = $3
-            AND pk.chain_id = COALESCE($4, pk.chain_id)
+            AND pk.chain_id = $4
           GROUP BY 1, 2
           ORDER BY 1, 2;
       `,
