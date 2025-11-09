@@ -6,7 +6,7 @@ import {
   formatTimeToUTC,
   formattedPrice,
   tickSpacingToPercent,
-} from "../format";
+} from "./format";
 
 describe("formattedPrice", () => {
   it("returns 0.0 when price is below the render threshold", () => {
@@ -34,15 +34,17 @@ describe("formattedPrice", () => {
 
 describe("feeToPercent", () => {
   it("returns a three-significant-digit percentage", () => {
-    expect(feeToPercent("5", 1_000)).toBe("0.500");
-    expect(feeToPercent("175", 10_000)).toBe("1.75");
+    expect(feeToPercent("5", "1000")).toBe("0.5%");
+    expect(feeToPercent("175", "10000")).toBe("1.75%");
+    expect(feeToPercent("1755", "10000")).toBe("17.6%");
+    expect(feeToPercent("1748", "100000")).toBe("1.75%");
   });
 });
 
 describe("tickSpacingToPercent", () => {
   it("converts tick spacing into a percentage precision delta", () => {
-    expect(tickSpacingToPercent("10")).toBe("0.00100");
-    expect(tickSpacingToPercent("50")).toBe("0.00500");
+    expect(tickSpacingToPercent("10")).toBe("0.001%");
+    expect(tickSpacingToPercent("50")).toBe("0.005%");
   });
 });
 
