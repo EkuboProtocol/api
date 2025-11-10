@@ -57,7 +57,7 @@ export interface TwammPoolStateQueryResult {
 }
 
 export interface RawErc20TokenRow {
-  chain_id: string;
+  chain_id: bigint;
   token_address: string;
   token_symbol: string;
   token_name: string;
