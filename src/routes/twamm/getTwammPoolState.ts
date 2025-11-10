@@ -70,21 +70,20 @@ export class GetTwammPoolState extends EkuboAPIRoute {
       throw new StatusError(400, "`tokenA` cannot be same as `tokenB`");
     }
 
-    const [{ rows: stateResults }, { rows: saleRateDeltas }] =
-      await Promise.all([
-        queries.getTwammPoolStateByKey({
-          token0,
-          token1,
-          fee,
-          chainId: BigInt(request.params.chainId),
-        }),
-        queries.getSaleRateDeltasByKey({
-          token0,
-          token1,
-          fee,
-          chainId: BigInt(request.params.chainId),
-        }),
-      ]);
+    const [stateResults, saleRateDeltas] = await Promise.all([
+      queries.getTwammPoolStateByKey({
+        token0,
+        token1,
+        fee,
+        chainId: BigInt(request.params.chainId),
+      }),
+      queries.getSaleRateDeltasByKey({
+        token0,
+        token1,
+        fee,
+        chainId: BigInt(request.params.chainId),
+      }),
+    ]);
     if (stateResults.length !== 1) {
       throw new StatusError(404, "Pool not found");
     }
@@ -144,19 +143,18 @@ export class GetTwammPairState extends EkuboAPIRoute {
       BigInt(request.params.chainId),
     );
 
-    const [{ rows: stateResults }, { rows: saleRateDeltas }] =
-      await Promise.all([
-        queries.getTwammPoolStateByKey({
-          token0,
-          token1,
-          chainId: BigInt(request.params.chainId),
-        }),
-        queries.getSaleRateDeltasByKey({
-          token0,
-          token1,
-          chainId: BigInt(request.params.chainId),
-        }),
-      ]);
+    const [stateResults, saleRateDeltas] = await Promise.all([
+      queries.getTwammPoolStateByKey({
+        token0,
+        token1,
+        chainId: BigInt(request.params.chainId),
+      }),
+      queries.getSaleRateDeltasByKey({
+        token0,
+        token1,
+        chainId: BigInt(request.params.chainId),
+      }),
+    ]);
 
     return json(
       <TwammStateResponseType>{

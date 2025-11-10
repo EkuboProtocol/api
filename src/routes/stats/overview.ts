@@ -25,7 +25,7 @@ export class GetOverviewPairs extends EkuboAPIRoute {
     const chainId = BigInt(request.params.chainId);
     const queries = await createQueries(env);
 
-    const { rows: topPairs } = await queries.getTopPairs(chainId);
+    const topPairs = await queries.getTopPairs(chainId);
 
     return json(
       {
@@ -66,9 +66,9 @@ export class GetOverviewRevenue extends EkuboAPIRoute {
     const queries = await createQueries(env);
 
     const [
-      { rows: revenueByToken },
-      { rows: revenueByTokenByDate },
-      { rows: revenueByToken_24h },
+      revenueByToken,
+      revenueByTokenByDate,
+      revenueByToken_24h,
     ] = await Promise.all([
       queries.getRevenueByToken({ chainId }),
       queries.getRevenueByTokenByDate(chainId, thirtyDaysAgo),
@@ -115,15 +115,12 @@ export class GetOverviewVolume extends EkuboAPIRoute {
     const chainId = BigInt(request.params.chainId);
     const queries = await createQueries(env);
 
-    const [
-      { rows: volumeByToken },
-      { rows: volumeByTokenByDate },
-      { rows: volumeByToken_24h },
-    ] = await Promise.all([
-      queries.getTotalVolumeByToken({ chainId }),
-      queries.getVolumeByTokenByDate(chainId, thirtyDaysAgo),
-      queries.getTotalVolumeByToken({ since: twentyFourHoursAgo, chainId }),
-    ]);
+    const [volumeByToken, volumeByTokenByDate, volumeByToken_24h] =
+      await Promise.all([
+        queries.getTotalVolumeByToken({ chainId }),
+        queries.getVolumeByTokenByDate(chainId, thirtyDaysAgo),
+        queries.getTotalVolumeByToken({ since: twentyFourHoursAgo, chainId }),
+      ]);
 
     return json(
       {
@@ -164,11 +161,10 @@ export class GetOverviewTvl extends EkuboAPIRoute {
     const chainId = BigInt(request.params.chainId);
     const queries = await createQueries(env);
 
-    const [{ rows: tvlByToken }, { rows: tvlDeltaByTokenByDate }] =
-      await Promise.all([
-        queries.getTvlByToken(chainId),
-        queries.getTvlDeltaByTokenByDate(chainId, thirtyDaysAgo),
-      ]);
+    const [tvlByToken, tvlDeltaByTokenByDate] = await Promise.all([
+      queries.getTvlByToken(chainId),
+      queries.getTvlDeltaByTokenByDate(chainId, thirtyDaysAgo),
+    ]);
 
     return json(
       {

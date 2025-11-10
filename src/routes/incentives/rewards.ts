@@ -102,7 +102,7 @@ export class ListRewardsForPosition extends EkuboAPIRoute {
 
     return json(
       {
-        rewards: computedRewards.rows.map(
+        rewards: computedRewards.map(
           (cr) =>
             ({
               campaignSlug: cr.slug,
@@ -187,7 +187,7 @@ export class ListRewardsForAllPositions extends EkuboAPIRoute {
 
     return json(
       {
-        rewards: computedRewards.rows.map(
+        rewards: computedRewards.map(
           (cr) =>
             ({
               tokenId: toHex(cr.salt),

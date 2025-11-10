@@ -382,7 +382,7 @@ export class ListPositionsByAddress extends EkuboAPIRoute {
       typeof query?.chainId === "string" ? BigInt(query.chainId) : null;
 
     const queries = await createQueries(env);
-    const { rows } = await queries.getPositionsByAddress(
+    const rows = await queries.getPositionsByAddress(
       address,
       showClosed,
       chainId,

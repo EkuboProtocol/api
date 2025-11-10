@@ -93,7 +93,7 @@ export class ListTwapOrders extends EkuboAPIRoute {
       typeof query.chainId === "string" ? BigInt(query.chainId) : null;
     const queries = await createQueries(env);
 
-    const { rows } = await queries.getTwammOrdersByAddress(
+    const rows = await queries.getTwammOrdersByAddress(
       address,
       showClosed,
       chainId,

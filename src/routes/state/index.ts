@@ -46,7 +46,7 @@ export class ListPoolKeys extends EkuboAPIRoute {
     const chainId = BigInt(request.params.chainId);
     const queries = await createQueries(env);
 
-    const { rows } = await queries.listAllPoolKeys(chainId);
+    const rows = await queries.listAllPoolKeys(chainId);
 
     return json(
       rows.map((pool) => ({
@@ -132,19 +132,17 @@ export class GetPoolLiquidity extends EkuboAPIRoute {
     const chainId = BigInt(chainIdParam);
     const queries = await createQueries(env);
 
-    const rows: LiquidityResponseType = (
-      await queries.getPoolLiquidityGraph(
-        {
-          coreAddress: BigInt(coreAddress),
-          token0: BigInt(token0),
-          token1: BigInt(token1),
-          fee: BigInt(fee),
-          tickSpacing: Number(tickSpacing),
-          extension: BigInt(extension),
-        },
-        chainId,
-      )
-    ).rows;
+    const rows: LiquidityResponseType = await queries.getPoolLiquidityGraph(
+      {
+        coreAddress: BigInt(coreAddress),
+        token0: BigInt(token0),
+        token1: BigInt(token1),
+        fee: BigInt(fee),
+        tickSpacing: Number(tickSpacing),
+        extension: BigInt(extension),
+      },
+      chainId,
+    );
 
     return json(
       {

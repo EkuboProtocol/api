@@ -101,7 +101,7 @@ export class ListCampaigns extends EkuboAPIRoute {
 
     return json(
       {
-        campaigns: campaigns.rows.map(
+        campaigns: campaigns.map(
           (c) =>
             ({
               slug: c.slug,

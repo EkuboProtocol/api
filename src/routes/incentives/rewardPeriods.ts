@@ -89,7 +89,7 @@ export class ListRewardPeriodsForCampaign extends EkuboAPIRoute {
 
     return json(
       {
-        periods: periods.rows.map(
+        periods: periods.map(
           (crp) =>
             ({
               token0: toHex(crp.token0),
@@ -167,7 +167,7 @@ export class ListRewardPeriods extends EkuboAPIRoute {
 
     return json(
       {
-        periods: periods.rows.map(
+        periods: periods.map(
           (crp) =>
             ({
               slug: crp.slug,

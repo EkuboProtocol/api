@@ -93,7 +93,7 @@ export class ListClaimsForAddress extends EkuboAPIRoute {
 
     return json(
       {
-        claims: claims.rows.map(
+        claims: claims.map(
           (c) =>
             ({
               campaign: c.slug,

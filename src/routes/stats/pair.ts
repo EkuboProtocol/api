@@ -39,11 +39,10 @@ export class GetPairInfoTvl extends EkuboAPIRoute {
     const timestamp = Date.now();
     const thirtyDaysAgo = new Date(timestamp - 1000 * 60 * 60 * 24 * 30);
 
-    const [{ rows: tvlByToken }, { rows: tvlDeltaByTokenByDate }] =
-      await Promise.all([
-        queries.getTvlByToken(chainId, pair),
-        queries.getTvlDeltaByTokenByDate(chainId, thirtyDaysAgo, pair),
-      ]);
+    const [tvlByToken, tvlDeltaByTokenByDate] = await Promise.all([
+      queries.getTvlByToken(chainId, pair),
+      queries.getTvlDeltaByTokenByDate(chainId, thirtyDaysAgo, pair),
+    ]);
 
     return json(
       {
@@ -91,19 +90,16 @@ export class GetPairInfoVolume extends EkuboAPIRoute {
     const thirtyDaysAgo = new Date(timestamp - 1000 * 60 * 60 * 24 * 30);
     const twentyFourHoursAgo = new Date(timestamp - 1000 * 60 * 60 * 24);
 
-    const [
-      { rows: volumeByToken },
-      { rows: volumeByTokenByDate },
-      { rows: volumeByToken_24h },
-    ] = await Promise.all([
-      queries.getTotalVolumeByToken({ pair, chainId }),
-      queries.getVolumeByTokenByDate(chainId, thirtyDaysAgo, pair),
-      queries.getTotalVolumeByToken({
-        chainId,
-        since: twentyFourHoursAgo,
-        pair,
-      }),
-    ]);
+    const [volumeByToken, volumeByTokenByDate, volumeByToken_24h] =
+      await Promise.all([
+        queries.getTotalVolumeByToken({ pair, chainId }),
+        queries.getVolumeByTokenByDate(chainId, thirtyDaysAgo, pair),
+        queries.getTotalVolumeByToken({
+          chainId,
+          since: twentyFourHoursAgo,
+          pair,
+        }),
+      ]);
 
     return json(
       {
@@ -149,7 +145,7 @@ export class GetPairInfoPools extends EkuboAPIRoute {
       chainId,
     );
 
-    const { rows: topPools } = await queries.getTopPools(chainId, pair);
+    const topPools = await queries.getTopPools(chainId, pair);
 
     return json(
       {
@@ -237,7 +233,7 @@ export class ListPairEvents extends EkuboAPIRoute {
       chainId,
     );
 
-    const { rows } = await queries.getPairEvents({
+    const rows = await queries.getPairEvents({
       ...pair,
       limit: 100,
       chainId,
