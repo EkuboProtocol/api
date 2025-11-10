@@ -35,4 +35,11 @@ export const TokenSymbolType = z
 
 export const TokenIdentifierType = AddressType.or(TokenSymbolType);
 
-export const ChainIdType = NumericStringType;
+export const ChainIdType = z.coerce
+  .bigint()
+  .min(1n)
+  .max(1n << 63n)
+  .openapi({
+    title: "Chain ID",
+    description: "The ID of the network that is being fetched",
+  });
