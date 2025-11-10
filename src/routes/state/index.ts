@@ -1,4 +1,8 @@
-import { OpenAPIRouteSchema, Path } from "@cloudflare/itty-router-openapi";
+import {
+  OpenAPIRouteSchema,
+  Path,
+  Query,
+} from "@cloudflare/itty-router-openapi";
 import { IRequest, json } from "itty-router";
 import { EkuboAPIRoute, RequestContext } from "../../shared/context";
 import { createQueries } from "../../queries";
@@ -11,27 +15,15 @@ import {
 import { z } from "zod";
 import toHex from "../../shared/toHex";
 
-export function toPoolConfig({
-  fee,
-  tickSpacing,
-  extension,
-}: {
-  fee: bigint;
-  tickSpacing: number;
-  extension: bigint;
-}): `0x${string}` {
-  return toHex(BigInt(tickSpacing) + (fee << 32n) + (extension << 96n), 32);
-}
-
 export class ListPoolKeys extends EkuboAPIRoute {
-  static route = "/v1/:chainId/poolKeys";
+  static route = "/v1/poolKeys";
 
   static schema: OpenAPIRouteSchema = {
     tags: ["Meta"],
     summary: "List pool keys",
     description: "Returns all the pool keys that have been initialized",
     parameters: {
-      chainId: Path(ChainIdType, { required: true }),
+      chainId: Query(ChainIdType, { required: false }),
     },
     responses: {
       "200": {
@@ -43,14 +35,18 @@ export class ListPoolKeys extends EkuboAPIRoute {
   };
 
   async handle(request: IRequest, { env }: RequestContext) {
-    const chainId = BigInt(request.params.chainId);
+    const chainId =
+      typeof request.query.chainId === "string"
+        ? BigInt(request.query.chainId)
+        : null;
+
     const queries = await createQueries(env);
 
     const rows = await queries.listAllPoolKeys(chainId);
 
     return json(
       rows.map((pool) => ({
-        chain_id: pool.chain_id,
+        chain_id: toHex(pool.chain_id),
         core_address: toHex(pool.core_address),
         pool_id: toHex(pool.pool_id, 32),
         token0: toHex(pool.token0),
@@ -58,11 +54,6 @@ export class ListPoolKeys extends EkuboAPIRoute {
         fee: toHex(pool.fee),
         tick_spacing: Number(pool.tick_spacing),
         extension: toHex(pool.extension),
-        config: toPoolConfig({
-          fee: BigInt(pool.fee),
-          tickSpacing: Number(pool.tick_spacing),
-          extension: BigInt(pool.extension),
-        }),
       })),
       {
         headers: {
@@ -118,7 +109,7 @@ export class GetPoolLiquidity extends EkuboAPIRoute {
   async handle(
     {
       params: {
-        chainId: chainIdParam,
+        chainId,
         coreAddress,
         token0,
         token1,
@@ -129,7 +120,6 @@ export class GetPoolLiquidity extends EkuboAPIRoute {
     }: IRequest,
     { env }: RequestContext,
   ) {
-    const chainId = BigInt(chainIdParam);
     const queries = await createQueries(env);
 
     const rows: LiquidityResponseType = await queries.getPoolLiquidityGraph(
@@ -141,7 +131,7 @@ export class GetPoolLiquidity extends EkuboAPIRoute {
         tickSpacing: Number(tickSpacing),
         extension: BigInt(extension),
       },
-      chainId,
+      BigInt(chainId),
     );
 
     return json(

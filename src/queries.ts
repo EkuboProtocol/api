@@ -216,8 +216,7 @@ export class Queries {
     return rows[0];
   }
 
-  public async listAllPoolKeys(chainId?: bigint | null) {
-    const chainIdParam = chainId?.toString() ?? null;
+  public async listAllPoolKeys(chainId: bigint | null) {
     const rows = await this.sql<ListPoolKeysQueryResult[]>`
       SELECT chain_id,
              core_address,
@@ -228,7 +227,7 @@ export class Queries {
              tick_spacing,
              pool_extension AS extension
       FROM pool_keys
-      WHERE chain_id = COALESCE(${chainIdParam}, chain_id)
+      WHERE chain_id = COALESCE(${chainId}, chain_id)
     `;
     return rows;
   }
@@ -696,7 +695,6 @@ export class Queries {
     pair?: { token0: bigint; token1: bigint };
     chainId?: bigint | null;
   }) {
-    const chainIdParam = chainId?.toString() ?? null;
     if (!pair) {
       return this.sql<{ token: string; revenue: string }[]>`
         SELECT hrbt.token,
@@ -704,7 +702,7 @@ export class Queries {
         FROM hourly_revenue_by_token hrbt
                  JOIN pool_keys pk ON pk.pool_key_id = hrbt.pool_key_id
         WHERE hour >= ${since}
-          AND pk.chain_id = COALESCE(${chainIdParam}, pk.chain_id)
+          AND pk.chain_id = COALESCE(${chainId ?? null}, pk.chain_id)
         GROUP BY hrbt.token
       `;
     }
@@ -717,7 +715,7 @@ export class Queries {
       WHERE hrbt.hour >= ${since}
         AND pk.token0 = ${pair.token0.toString()}
         AND pk.token1 = ${pair.token1.toString()}
-        AND pk.chain_id = COALESCE(${chainIdParam}, pk.chain_id)
+        AND pk.chain_id = COALESCE(${chainId ?? null}, pk.chain_id)
       GROUP BY hrbt.token
     `;
   }
@@ -788,7 +786,6 @@ export class Queries {
     showClosed: boolean,
     chainId?: bigint | null,
   ) {
-    const chainIdParam = chainId?.toString() ?? null;
     return this.sql<
       {
         token_id: string;
@@ -808,13 +805,13 @@ export class Queries {
         SELECT token_id
         FROM nonfungible_token_transfers ot1
         WHERE to_address = ${address.toString()}
-          AND ot1.chain_id = COALESCE(${chainIdParam}, ot1.chain_id)
+          AND ot1.chain_id = COALESCE(${chainId ?? null}, ot1.chain_id)
           AND NOT EXISTS (
             SELECT 1
             FROM nonfungible_token_transfers ot2
             WHERE ot2.token_id = ot1.token_id
               AND ot2.event_id > ot1.event_id
-              AND ot2.chain_id = COALESCE(${chainIdParam}, ot2.chain_id)
+              AND ot2.chain_id = COALESCE(${chainId ?? null}, ot2.chain_id)
               AND (CASE WHEN ${showClosed} THEN ot2.to_address != 0 ELSE TRUE END)
           )
       )
@@ -844,10 +841,10 @@ export class Queries {
                    JOIN event_keys ek ON tou.event_id = ek.id
                    JOIN blocks b ON ek.block_number = b.block_number
           WHERE tou.salt = ot.token_id
-            AND tou.chain_id = COALESCE(${chainIdParam}, tou.chain_id)
-            AND pool_keys.chain_id = COALESCE(${chainIdParam}, pool_keys.chain_id)
-            AND ek.chain_id = COALESCE(${chainIdParam}, ek.chain_id)
-            AND b.chain_id = COALESCE(${chainIdParam}, b.chain_id)
+            AND tou.chain_id = COALESCE(${chainId ?? null}, tou.chain_id)
+            AND pool_keys.chain_id = COALESCE(${chainId ?? null}, pool_keys.chain_id)
+            AND ek.chain_id = COALESCE(${chainId ?? null}, ek.chain_id)
+            AND b.chain_id = COALESCE(${chainId ?? null}, b.chain_id)
           GROUP BY 1, 2, 3, 4, 5, 6
         ) AS distinct_orders ON TRUE
                LEFT JOIN LATERAL (
@@ -859,7 +856,7 @@ export class Queries {
             AND tpw.pool_key_id = distinct_orders.pool_key_id
             AND tpw.start_time = distinct_orders.start_time
             AND tpw.end_time = distinct_orders.end_time
-            AND tpw.chain_id = COALESCE(${chainIdParam}, tpw.chain_id)
+            AND tpw.chain_id = COALESCE(${chainId ?? null}, tpw.chain_id)
         ) AS tpw ON TRUE
                LEFT JOIN LATERAL (
           SELECT SUM(
@@ -904,9 +901,9 @@ export class Queries {
                    AND tou.pool_key_id = distinct_orders.pool_key_id
                    AND tou.start_time = distinct_orders.start_time
                    AND tou.end_time = distinct_orders.end_time
-                   AND tou.chain_id = COALESCE(${chainIdParam}, tou.chain_id)
-                   AND e.chain_id = COALESCE(${chainIdParam}, e.chain_id)
-                   AND b.chain_id = COALESCE(${chainIdParam}, b.chain_id)
+                   AND tou.chain_id = COALESCE(${chainId ?? null}, tou.chain_id)
+                   AND e.chain_id = COALESCE(${chainId ?? null}, e.chain_id)
+                   AND b.chain_id = COALESCE(${chainId ?? null}, b.chain_id)
                ) ouwsp
         ) AS tas ON TRUE
                LEFT JOIN LATERAL (
@@ -915,9 +912,9 @@ export class Queries {
                    JOIN event_keys ek2 ON tpw.event_id = ek2.id
                    JOIN blocks b2 ON ek2.block_number = b2.block_number
           WHERE tpw.salt = ot.token_id
-            AND tpw.chain_id = COALESCE(${chainIdParam}, tpw.chain_id)
-            AND ek2.chain_id = COALESCE(${chainIdParam}, ek2.chain_id)
-            AND b2.chain_id = COALESCE(${chainIdParam}, b2.chain_id)
+            AND tpw.chain_id = COALESCE(${chainId ?? null}, tpw.chain_id)
+            AND ek2.chain_id = COALESCE(${chainId ?? null}, ek2.chain_id)
+            AND b2.chain_id = COALESCE(${chainId ?? null}, b2.chain_id)
           ORDER BY tpw.event_id DESC
           LIMIT 1
         ) AS lcp ON TRUE
@@ -940,7 +937,6 @@ export class Queries {
     chainId?: bigint | null;
   }) {
     const feeParam = fee?.toString() ?? null;
-    const chainIdParam = chainId?.toString() ?? null;
     return this.sql<
       Pick<
         TwammPoolStateQueryResult,
@@ -956,7 +952,7 @@ export class Queries {
       WHERE pk.token0 = ${token0.toString()}
         AND pk.token1 = ${token1.toString()}
         AND pk.fee = COALESCE(${feeParam}, pk.fee)
-        AND pk.chain_id = COALESCE(${chainIdParam}, pk.chain_id)
+        AND pk.chain_id = COALESCE(${chainId ?? null}, pk.chain_id)
     `;
   }
 
@@ -972,7 +968,6 @@ export class Queries {
     chainId?: bigint | null;
   }) {
     const feeParam = fee?.toString() ?? null;
-    const chainIdParam = chainId?.toString() ?? null;
     return this.sql<
       {
         time: Date;
@@ -986,7 +981,7 @@ export class Queries {
       WHERE pk.token0 = ${token0.toString()}
         AND pk.token1 = ${token1.toString()}
         AND pk.fee = COALESCE(${feeParam}, pk.fee)
-        AND pk.chain_id = COALESCE(${chainIdParam}, pk.chain_id)
+        AND pk.chain_id = COALESCE(${chainId ?? null}, pk.chain_id)
       ORDER BY time
     `;
   }
@@ -1026,7 +1021,7 @@ export class Queries {
               'UTC'
             )
             AND DATE_TRUNC('hour', ${endTime}::timestamptz, 'UTC')
-        AND chain_id = COALESCE(${chainId?.toString() ?? null}, chain_id)
+        AND chain_id = COALESCE(${chainId ?? null}, chain_id)
     `;
 
     if (rows.length !== 1) return null;
@@ -1063,7 +1058,6 @@ export class Queries {
   }) {
     if (token0 >= token1) throw new Error("invalid token0 and token1");
 
-    const chainIdParam = chainId?.toString() ?? null;
     const rows = await this.sql<
       {
         start: string;
@@ -1102,10 +1096,10 @@ export class Queries {
         AND blocks.block_time BETWEEN ${start} AND ${end}
         AND swaps.delta0 != 0
         AND swaps.delta1 != 0
-        AND pool_keys.chain_id = COALESCE(${chainIdParam}, pool_keys.chain_id)
-        AND swaps.chain_id = COALESCE(${chainIdParam}, swaps.chain_id)
-        AND event_keys.chain_id = COALESCE(${chainIdParam}, event_keys.chain_id)
-        AND blocks.chain_id = COALESCE(${chainIdParam}, blocks.chain_id)
+        AND pool_keys.chain_id = COALESCE(${chainId ?? null}, pool_keys.chain_id)
+        AND swaps.chain_id = COALESCE(${chainId ?? null}, swaps.chain_id)
+        AND event_keys.chain_id = COALESCE(${chainId ?? null}, event_keys.chain_id)
+        AND blocks.chain_id = COALESCE(${chainId ?? null}, blocks.chain_id)
       GROUP BY start
       ORDER BY start
     `;
@@ -1122,8 +1116,6 @@ export class Queries {
     since?: Date;
     pair?: { token0: bigint; token1: bigint };
   }) {
-    const token0 = pair?.token0?.toString() ?? null;
-    const token1 = pair?.token1?.toString() ?? null;
     return this.sql<{ token: string; volume: string }[]>`
       SELECT hvbt.token,
              SUM(volume) AS volume,
@@ -1131,8 +1123,8 @@ export class Queries {
       FROM hourly_volume_by_token hvbt
                JOIN pool_keys pk ON pk.pool_key_id = hvbt.pool_key_id
       WHERE hour >= ${since}
-        AND pk.token0 = COALESCE(${token0}, pk.token0)
-        AND pk.token1 = COALESCE(${token1}, pk.token1)
+        AND pk.token0 = COALESCE(${pair?.token0?.toString() ?? null}, pk.token0)
+        AND pk.token1 = COALESCE(${pair?.token1?.toString() ?? null}, pk.token1)
         AND pk.chain_id = ${chainId}
       GROUP BY hvbt.token
     `;
@@ -1143,8 +1135,6 @@ export class Queries {
     after: Date,
     pair?: { token0: bigint; token1: bigint },
   ) {
-    const token0 = pair?.token0?.toString() ?? null;
-    const token1 = pair?.token1?.toString() ?? null;
     return this.sql<
       {
         token: string;
@@ -1160,8 +1150,8 @@ export class Queries {
       FROM hourly_volume_by_token hvbt
                JOIN pool_keys pk ON pk.pool_key_id = hvbt.pool_key_id
       WHERE hour >= ${after}
-        AND pk.token0 = COALESCE(${token0}, pk.token0)
-        AND pk.token1 = COALESCE(${token1}, pk.token1)
+        AND pk.token0 = COALESCE(${pair?.token0?.toString() ?? null}, pk.token0)
+        AND pk.token1 = COALESCE(${pair?.token1?.toString() ?? null}, pk.token1)
         AND pk.chain_id = ${chainId}
       GROUP BY hvbt.token, date
     `;
@@ -1251,7 +1241,7 @@ export class Queries {
           LIMIT 1
         ) AS pmd ON TRUE
       WHERE
-        pk.chain_id = COALESCE(${chainId?.toString() ?? null}, pk.chain_id)
+        pk.chain_id = COALESCE(${chainId ?? null}, pk.chain_id)
         AND (
           volume0_24h != 0
           OR volume1_24h != 0
@@ -1344,27 +1334,27 @@ export class Queries {
         nft_address: string;
       })[]
     >`
-SELECT nfp.chain_id,
-       nft_address,
-       core_address,
-       COALESCE(nlm.locker, nfp.nft_address) AS positions_address,
-       token_id,
-       token0,
-       token1,
-       fee,
-       tick_spacing,
-       pool_extension                        AS "extension",
-       lower_bound,
-       upper_bound,
-       liquidity
-FROM nonfungible_token_positions_view AS nfp
-         LEFT JOIN nft_locker_mappings nlm USING (chain_id, nft_address)
-         JOIN pool_keys USING (pool_key_id)
-WHERE nfp.chain_id = COALESCE(${chainId?.toString() ?? null}, nfp.chain_id)
-  AND (${showClosed} OR nfp.liquidity != 0)
-  AND (current_owner = ${address.toString()}
-    OR (${showClosed} AND previous_owner = ${address.toString()}))
-ORDER BY last_transfer_event_id DESC;
+      SELECT nfp.chain_id,
+            nft_address,
+            core_address,
+            COALESCE(nlm.locker, nfp.nft_address) AS positions_address,
+            token_id,
+            token0,
+            token1,
+            fee,
+            tick_spacing,
+            pool_extension                        AS "extension",
+            lower_bound,
+            upper_bound,
+            liquidity
+      FROM nonfungible_token_positions_view AS nfp
+              LEFT JOIN nft_locker_mappings nlm USING (chain_id, nft_address)
+              JOIN pool_keys USING (pool_key_id)
+      WHERE nfp.chain_id = COALESCE(${chainId ?? null}, nfp.chain_id)
+        AND (${showClosed} OR nfp.liquidity != 0)
+        AND (current_owner = ${address.toString()}
+          OR (${showClosed} AND previous_owner = ${address.toString()}))
+      ORDER BY last_transfer_event_id DESC;
     `;
   }
 
@@ -1402,7 +1392,7 @@ ORDER BY last_transfer_event_id DESC;
             ) AS latest_end_time
           FROM incentives.campaign_reward_periods crp
           JOIN incentives.campaigns c ON crp.campaign_id = c.id
-          WHERE c.chain_id = COALESCE(${chainId?.toString() ?? null}, c.chain_id)
+          WHERE c.chain_id = COALESCE(${chainId ?? null}, c.chain_id)
           GROUP BY crp.campaign_id, c.start_time
         ),
         rewards_by_token AS (
@@ -1473,12 +1463,12 @@ ORDER BY last_transfer_event_id DESC;
               pmd.depth_percent <= rbt.realized_volatility * 2
               AND pk.token0 = rbt.token0
               AND pk.token1 = rbt.token1
-              AND pk.chain_id = COALESCE(${chainId?.toString() ?? null}, pk.chain_id)
+              AND pk.chain_id = COALESCE(${chainId ?? null}, pk.chain_id)
               AND pk.pool_extension IN (
                 SELECT UNNEST(allowed_extensions)
                 FROM incentives.campaigns c
                 WHERE c.id = rbt.campaign_id
-                  AND c.chain_id = COALESCE(${chainId?.toString() ?? null}, c.chain_id)
+                  AND c.chain_id = COALESCE(${chainId ?? null}, c.chain_id)
               )
             GROUP BY pk.pool_key_id
           ) AS pd ON TRUE
@@ -1507,7 +1497,7 @@ ORDER BY last_transfer_event_id DESC;
           LEFT JOIN depth_per_campaign_pair dpcp ON rbt.campaign_id = dpcp.campaign_id
             AND rbt.token0 = dpcp.token0
             AND rbt.token1 = dpcp.token1
-          WHERE c.chain_id = COALESCE(${chainId?.toString() ?? null}, c.chain_id)
+          WHERE c.chain_id = COALESCE(${chainId ?? null}, c.chain_id)
           GROUP BY rbt.campaign_id
         )
         SELECT
@@ -1532,7 +1522,7 @@ ORDER BY last_transfer_event_id DESC;
           campaign_rewards.rewards
         FROM incentives.campaigns c
         JOIN campaign_rewards ON campaign_rewards.campaign_id = c.id
-        WHERE c.chain_id = COALESCE(${chainId?.toString() ?? null}, c.chain_id)
+        WHERE c.chain_id = COALESCE(${chainId ?? null}, c.chain_id)
     `;
   }
 
@@ -1564,7 +1554,7 @@ ORDER BY last_transfer_event_id DESC;
       WHERE c.slug = ${slug}
         AND COALESCE(${activeAt ?? null}::timestamptz, CURRENT_TIMESTAMP) >= crp.start_time
         AND COALESCE(${activeAt ?? null}::timestamptz, CURRENT_TIMESTAMP) < crp.end_time
-        AND c.chain_id = COALESCE(${chainId?.toString() ?? null}, c.chain_id)
+        AND c.chain_id = COALESCE(${chainId ?? null}, c.chain_id)
     `;
   }
 
@@ -1593,7 +1583,7 @@ ORDER BY last_transfer_event_id DESC;
                JOIN incentives.campaign_reward_periods crp ON crp.campaign_id = c.id
       WHERE COALESCE(${activeAt ?? null}::timestamptz, CURRENT_TIMESTAMP) >= crp.start_time
         AND COALESCE(${activeAt ?? null}::timestamptz, CURRENT_TIMESTAMP) < crp.end_time
-        AND c.chain_id = COALESCE(${chainId?.toString() ?? null}, c.chain_id)
+        AND c.chain_id = COALESCE(${chainId ?? null}, c.chain_id)
     `;
   }
 
@@ -1636,7 +1626,6 @@ ORDER BY last_transfer_event_id DESC;
     excludeDropped?: boolean,
     chainId: bigint | null = null,
   ) {
-    const chainIdParam = chainId?.toString() ?? null;
     return this.sql<
       {
         salt: string;
@@ -1650,15 +1639,15 @@ ORDER BY last_transfer_event_id DESC;
         FROM nonfungible_token_transfers pt1
                  JOIN event_keys ek ON pt1.event_id = ek.id
         WHERE to_address = ${ownerAddress}
-          AND pt1.chain_id = COALESCE(${chainIdParam}, pt1.chain_id)
-          AND ek.chain_id = COALESCE(${chainIdParam}, ek.chain_id)
+          AND pt1.chain_id = COALESCE(${chainId ?? null}, pt1.chain_id)
+          AND ek.chain_id = COALESCE(${chainId ?? null}, ek.chain_id)
           AND NOT EXISTS (
             SELECT 1
             FROM nonfungible_token_transfers pt2
             WHERE pt2.token_id = pt1.token_id
               AND pt2.event_id > pt1.event_id
               AND pt2.to_address != 0
-              AND pt2.chain_id = COALESCE(${chainIdParam}, pt2.chain_id)
+              AND pt2.chain_id = COALESCE(${chainId ?? null}, pt2.chain_id)
           )
       )
       SELECT k.salt,
@@ -1673,7 +1662,7 @@ ORDER BY last_transfer_event_id DESC;
       WHERE (crp.start_time >= ${startTime ?? null}::timestamptz OR ${startTime ?? null} IS NULL)
         AND (crp.end_time <= ${endTime ?? null}::timestamptz OR ${endTime ?? null} IS NULL)
         AND (${excludeDropped ?? false} IS NOT TRUE OR gdrp.drop_id IS NULL)
-        AND c.chain_id = COALESCE(${chainIdParam}, c.chain_id)
+        AND c.chain_id = COALESCE(${chainId ?? null}, c.chain_id)
       GROUP BY k.salt, c.slug
     `;
   }

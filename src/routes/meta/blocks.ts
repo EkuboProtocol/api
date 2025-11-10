@@ -84,7 +84,9 @@ export class GetClosestBlock extends EkuboAPIRoute {
       chainId: Path(ChainIdType, { required: true }),
       timestamp: Query(z.string().datetime({ precision: 0 }), {
         required: true,
-        description: "timestamp to find the closest block for",
+        example: "2025-11-10T00:00:00Z",
+        description:
+          "Timestamp to find the closest block for in the ISO string format",
       }),
     },
     responses: {
