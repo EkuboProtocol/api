@@ -15,6 +15,7 @@ const DECIMAL_REGEX = /^\d+(?:e\d+)?$/i;
 
 export const TokenType = z
   .object({
+    chain_id: z.string(),
     name: z
       .string({
         description: "Name of the token",
@@ -62,6 +63,7 @@ export const TokenType = z
     logo_url: z.optional(z.string().url()),
   })
   .required({
+    chain_id: true,
     address: true,
     name: true,
     symbol: true,
@@ -77,6 +79,7 @@ function buildTokenInfo(row: RawErc20TokenRow): TokenInfo {
   const decimals = Number(row.token_decimals);
 
   return {
+    chain_id: row.chain_id,
     name: row.token_name,
     symbol: row.token_symbol,
     decimals,

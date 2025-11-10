@@ -57,6 +57,7 @@ export interface TwammPoolStateQueryResult {
 }
 
 export interface RawErc20TokenRow {
+  chain_id: string;
   token_address: string;
   token_symbol: string;
   token_name: string;
@@ -92,7 +93,7 @@ export class Queries {
 
     const rows = await this.sql<RawErc20TokenRow[]>`
       SELECT 
-        token_address, token_symbol, token_name, token_decimals,
+        chain_id, token_address, token_symbol, token_name, token_decimals,
         logo_url, visibility_priority, sort_order, total_supply
       FROM erc20_tokens
       WHERE chain_id = ${chainId}
@@ -113,6 +114,7 @@ export class Queries {
   }) {
     const rows = await this.sql<RawErc20TokenRow[]>`
       SELECT 
+        chain_id,
         token_address,
         token_symbol,
         token_name,
@@ -123,8 +125,7 @@ export class Queries {
         total_supply
       FROM erc20_tokens
       WHERE chain_id = ${chainId}
-        AND token_address = ${tokenAddress.toString()}
-      LIMIT 1
+        AND token_address = ${tokenAddress.toString()};
     `;
 
     return rows.length > 0 ? rows[0] : null;
@@ -138,7 +139,8 @@ export class Queries {
     identifier: string;
   }) {
     const rows = await this.sql<RawErc20TokenRow[]>`
-      SELECT 
+      SELECT
+        chain_id,
         token_address,
         token_symbol,
         token_name,
