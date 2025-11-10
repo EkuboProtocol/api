@@ -79,7 +79,7 @@ function buildTokenInfo(row: RawErc20TokenRow): TokenInfo {
   const decimals = Number(row.token_decimals);
 
   return {
-    chain_id: row.chain_id,
+    chain_id: toHex(row.chain_id),
     name: row.token_name,
     symbol: row.token_symbol,
     decimals,
