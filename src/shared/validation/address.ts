@@ -23,17 +23,7 @@ export const AddressType = NumericStringType.openapi({
   description: "An address on the specified blockchain network",
 });
 
-export const TokenSymbolType = z
-  .string()
-  .min(1)
-  .max(31)
-  .regex(/^\w+$/)
-  .openapi({
-    title: "Symbol",
-    description: "The symbol for a token",
-  });
-
-export const TokenIdentifierType = AddressType.or(TokenSymbolType);
+export const TokenIdentifierType = AddressType;
 
 export const ChainIdType = z.coerce
   .bigint()

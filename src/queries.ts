@@ -144,34 +144,6 @@ export class Queries {
     return rows.length > 0 ? rows[0] : null;
   }
 
-  public async getErc20TokenByIdentifier({
-    chainId,
-    identifier,
-  }: {
-    chainId: bigint;
-    identifier: string;
-  }) {
-    const rows = await this.sql<RawErc20TokenRow[]>`
-      SELECT
-        chain_id,
-        token_address,
-        token_symbol,
-        token_name,
-        token_decimals,
-        logo_url,
-        visibility_priority,
-        sort_order,
-        total_supply
-      FROM erc20_tokens
-      WHERE chain_id = ${chainId}
-        AND token_symbol = ${identifier}
-      ORDER BY visibility_priority DESC, token_symbol
-      LIMIT 1
-    `;
-
-    return rows.length > 0 ? rows[0] : null;
-  }
-
   public async getLatestBlock(chainId: bigint) {
     const rows = await this.sql<
       {

@@ -10,9 +10,6 @@ import { AddressType, ChainIdType } from "../../shared/validation/address";
 import { createQueries, Queries, RawErc20TokenRow } from "../../queries";
 import toHex from "../../shared/toHex";
 
-const ADDRESS_REGEX = /^0x[a-fA-F0-9]+$/;
-const DECIMAL_REGEX = /^\d+(?:e\d+)?$/i;
-
 export const TokenType = z
   .object({
     chain_id: z.string(),
@@ -107,6 +104,9 @@ export async function getTokenByAddress(
   return row ? buildTokenInfo(row) : null;
 }
 
+const ADDRESS_REGEX = /^0x[a-fA-F0-9]+$/;
+const DECIMAL_REGEX = /^\d+$/;
+
 export async function getTokenByUserSpecifiedIdentifier(
   queries: Queries,
   chainId: bigint,
@@ -118,12 +118,7 @@ export async function getTokenByUserSpecifiedIdentifier(
     return getTokenByAddress(queries, chainId, trimmed);
   }
 
-  const row = await queries.getErc20TokenByIdentifier({
-    chainId,
-    identifier: trimmed,
-  });
-
-  return row ? buildTokenInfo(row) : null;
+  return null;
 }
 
 export class ListTokens extends EkuboAPIRoute {

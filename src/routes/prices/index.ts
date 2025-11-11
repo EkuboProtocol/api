@@ -22,8 +22,10 @@ export class GetPairPriceHistory extends EkuboAPIRoute {
     summary: "Get price history",
     description: "Get the VWAP-based price history for the given pair",
     parameters: {
-      baseToken: Path(TokenIdentifierType, { example: "ETH" }),
-      quoteToken: Path(TokenIdentifierType, { example: "USDC" }),
+      baseToken: Path(TokenIdentifierType, { example: "0x0" }),
+      quoteToken: Path(TokenIdentifierType, {
+        example: "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48",
+      }),
       chainId: Path(NumericStringType, { example: "1" }),
       interval: Query(z.coerce.number().int().min(60), { required: false }),
     },

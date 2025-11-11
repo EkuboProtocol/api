@@ -25,8 +25,11 @@ type TwammStateResponseType = z.infer<typeof GetTwammStateResponseType>;
 
 const SharedGetPairStateParameters = {
   chainId: Path(ChainIdType, { required: true }),
-  tokenA: Path(TokenIdentifierType, { required: true, example: "ETH" }),
-  tokenB: Path(TokenIdentifierType, { required: true, example: "USDC" }),
+  tokenA: Path(TokenIdentifierType, { required: true, example: "0x0" }),
+  tokenB: Path(TokenIdentifierType, {
+    required: true,
+    example: "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48",
+  }),
 };
 
 export class GetTwammPoolState extends EkuboAPIRoute {
