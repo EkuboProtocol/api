@@ -76,29 +76,42 @@ export class Queries {
   }
 
   public async listErc20Tokens({
-    chainId,
     minVisibilityPriority,
     pageSize,
     afterToken,
+    chainId,
+    search,
   }: {
-    chainId: bigint;
     minVisibilityPriority: number;
     pageSize: number;
     afterToken: bigint | null;
+    chainId?: bigint | null;
+    search?: string;
   }) {
     const afterTokenCondition =
       afterToken === null
         ? this.sql`TRUE`
         : this.sql`token_address > ${afterToken.toString()}`;
+    const trimmedSearch = search?.trim();
+    const searchCondition =
+      trimmedSearch && trimmedSearch.length > 0
+        ? this
+            .sql`(token_symbol ILIKE ${trimmedSearch + "%"} OR token_symbol ILIKE ${"%" + trimmedSearch})`
+        : this.sql`TRUE`;
+
+    const chainIdCondition = chainId
+      ? this.sql`chain_id = ${chainId}`
+      : this.sql`TRUE`;
 
     const rows = await this.sql<RawErc20TokenRow[]>`
       SELECT 
         chain_id, token_address, token_symbol, token_name, token_decimals,
         logo_url, visibility_priority, sort_order, total_supply
       FROM erc20_tokens
-      WHERE chain_id = ${chainId}
+      WHERE ${chainIdCondition}
         AND visibility_priority >= ${minVisibilityPriority}
         AND ${afterTokenCondition}
+        AND ${searchCondition}
       ORDER BY visibility_priority DESC, token_address
       LIMIT ${pageSize}
     `;
@@ -1211,48 +1224,39 @@ export class Queries {
         min_depth_percent: number | null;
       }[]
     >`
-      SELECT
-        pk.token0,
-        pk.token1,
-        sum(volume0_24h) AS volume0_24h,
-        sum(volume1_24h) AS volume1_24h,
-        sum(fees0_24h) AS fees0_24h,
-        sum(fees1_24h) AS fees1_24h,
-        sum(tvl0_total) AS tvl0_total,
-        sum(tvl1_total) AS tvl1_total,
-        sum(tvl0_delta_24h) AS tvl0_delta_24h,
-        sum(tvl1_delta_24h) AS tvl1_delta_24h,
-        coalesce(sum(depth0), 0::numeric) AS depth0,
-        coalesce(sum(depth1), 0::numeric) AS depth1,
-        min(depth_percent) AS min_depth_percent
-      FROM
-        last_24h_pool_stats_materialized l24
-        JOIN pool_keys pk ON l24.pool_key_id = pk.pool_key_id
-        LEFT JOIN token_pair_realized_volatility_materialized tprv ON pk.token0 = tprv.token0
-          AND pk.token1 = tprv.token1
-        LEFT JOIN LATERAL (
-          SELECT
-            *
-          FROM
-            pool_market_depth_materialized pmd
-          WHERE
-            pk.pool_key_id = pmd.pool_key_id
+      SELECT pk.token0,
+            pk.token1,
+            SUM(volume0_24h)                  AS volume0_24h,
+            SUM(volume1_24h)                  AS volume1_24h,
+            SUM(fees0_24h)                    AS fees0_24h,
+            SUM(fees1_24h)                    AS fees1_24h,
+            SUM(tvl0_total)                   AS tvl0_total,
+            SUM(tvl1_total)                   AS tvl1_total,
+            SUM(tvl0_delta_24h)               AS tvl0_delta_24h,
+            SUM(tvl1_delta_24h)               AS tvl1_delta_24h,
+            COALESCE(SUM(depth0), 0::NUMERIC) AS depth0,
+            COALESCE(SUM(depth1), 0::NUMERIC) AS depth1,
+            MIN(depth_percent)                AS min_depth_percent
+      FROM last_24h_pool_stats_materialized l24
+              JOIN pool_keys pk ON l24.pool_key_id = pk.pool_key_id
+              LEFT JOIN token_pair_realized_volatility_materialized tprv
+                        ON pk.chain_id = tprv.chain_id AND pk.token0 = tprv.token0 AND pk.token1 = tprv.token1
+              LEFT JOIN LATERAL (
+          SELECT *
+          FROM pool_market_depth_materialized pmd
+          WHERE pk.pool_key_id = pmd.pool_key_id
             AND GREATEST(tprv.realized_volatility, 0.001) >= pmd.depth_percent
-          ORDER BY
-            depth_percent DESC
+          ORDER BY depth_percent DESC
           LIMIT 1
-        ) AS pmd ON TRUE
-      WHERE
-        pk.chain_id = COALESCE(${chainId ?? null}, pk.chain_id)
+          ) AS pmd ON TRUE
+      WHERE pk.chain_id = COALESCE(${chainId ?? null}, pk.chain_id)
         AND (
           volume0_24h != 0
-          OR volume1_24h != 0
-          OR tvl0_delta_24h != 0
-          OR tvl1_delta_24h != 0
-        )
-      GROUP BY
-        pk.token0,
-        pk.token1
+              OR volume1_24h != 0
+              OR tvl0_delta_24h != 0
+              OR tvl1_delta_24h != 0
+          )
+      GROUP BY pk.token0, pk.token1
     `;
   }
 
@@ -1298,8 +1302,7 @@ export class Queries {
       FROM
         last_24h_pool_stats_materialized l24
         JOIN pool_keys p ON l24.pool_key_id = p.pool_key_id
-        LEFT JOIN token_pair_realized_volatility_materialized tprv ON p.token0 = tprv.token0
-          AND p.token1 = tprv.token1
+        LEFT JOIN token_pair_realized_volatility_materialized tprv ON p.chain_id = tprv.chain_id AND p.token0 = tprv.token0 AND p.token1 = tprv.token1
         LEFT JOIN LATERAL (
           SELECT
             *

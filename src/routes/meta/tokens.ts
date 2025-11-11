@@ -127,13 +127,17 @@ export async function getTokenByUserSpecifiedIdentifier(
 }
 
 export class ListTokens extends EkuboAPIRoute {
-  static route = "/tokens/:chainId";
+  static route = "/tokens";
   static schema: OpenAPIRouteSchema = {
     tags: ["Meta"],
     summary: "List tokens",
     description: "Get a list of tokens for the given chain ID",
     parameters: {
-      chainId: Path(ChainIdType, { required: true }),
+      chainId: Query(ChainIdType, { required: false }),
+      search: Query(
+        z.string({ description: "Token symbol search" }).min(1).max(32),
+        { required: false },
+      ),
       pageSize: Query(z.coerce.number().int().min(1).max(10_000), {
         default: 1000,
       }),
@@ -152,7 +156,9 @@ export class ListTokens extends EkuboAPIRoute {
   };
 
   async handle(request: IRequest, { env }: RequestContext) {
-    const chainId = BigInt(request.params.chainId);
+    const chainId = request.query.chainId
+      ? ChainIdType.parse(request.query.chainId)
+      : null;
     const queries = await createQueries(env);
     const minVisibilityPriority = Number(
       request.query.minVisibilityPriority ?? 0,
@@ -163,11 +169,17 @@ export class ListTokens extends EkuboAPIRoute {
         ? BigInt(request.query.afterToken)
         : null;
 
+    const search =
+      typeof request.query.search === "string"
+        ? request.query.search.trim()
+        : undefined;
+
     const rows = await queries.listErc20Tokens({
       chainId,
       minVisibilityPriority,
       pageSize,
       afterToken,
+      search: search === "" ? undefined : search,
     });
 
     const tokens = rows.map(buildTokenInfo);
