@@ -456,12 +456,12 @@ export class Queries {
       }[]
     >`
       SELECT tick, SUM(net_liquidity_delta_diff) AS net_liquidity_delta_diff
-      FROM per_pool_per_tick_liquidity_incremental_view
-               JOIN pool_keys ON pool_key_id = pool_key_id
+      FROM per_pool_per_tick_liquidity
+              JOIN pool_keys USING (pool_key_id)
       WHERE net_liquidity_delta_diff != 0
         AND token0 = ${token0.toString()}
         AND token1 = ${token1.toString()}
-        AND pool_keys.chain_id = ${chainId}
+        AND chain_id = ${chainId}
       GROUP BY tick
       ORDER BY tick
     `;
@@ -469,6 +469,7 @@ export class Queries {
   }
 
   public getPoolLiquidityGraph(
+    chainId: bigint,
     key: {
       coreAddress: bigint;
       token0: bigint;
@@ -477,7 +478,6 @@ export class Queries {
       tickSpacing: number;
       extension: bigint;
     },
-    chainId: bigint,
   ) {
     return this.sql<
       {
@@ -486,19 +486,16 @@ export class Queries {
       }[]
     >`
       SELECT tick, net_liquidity_delta_diff
-      FROM per_pool_per_tick_liquidity_incremental_view
-      WHERE pool_key_id = (
-        SELECT pool_key_id
-        FROM pool_keys
-        WHERE core_address = ${key.coreAddress.toString()}
-          AND token0 = ${key.token0.toString()}
-          AND token1 = ${key.token1.toString()}
-          AND fee = ${key.fee.toString()}
-          AND tick_spacing = ${key.tickSpacing}
-          AND extension = ${key.extension.toString()}
-          AND chain_id = ${chainId}
-        LIMIT 1
-      )
+      FROM per_pool_per_tick_liquidity
+      WHERE pool_key_id = (SELECT pool_key_id
+                          FROM pool_keys
+                          WHERE chain_id = ${chainId}
+                            AND core_address = ${key.coreAddress.toString()}
+                            AND token0 = ${key.token0.toString()}
+                            AND token1 = ${key.token1.toString()}
+                            AND fee = ${key.fee.toString()}
+                            AND tick_spacing = ${key.tickSpacing}
+                            AND pool_extension = ${key.extension.toString()})
       ORDER BY tick
     `;
   }
@@ -1178,7 +1175,7 @@ export class Queries {
     `;
   }
 
-  public async getTopPairs(chainId: bigint | null = null) {
+  public async getTopPairs(chainId: bigint) {
     return this.sql<
       {
         token0: string;
@@ -1196,21 +1193,24 @@ export class Queries {
         min_depth_percent: number | null;
       }[]
     >`
-      SELECT pk.token0,
-            pk.token1,
-            SUM(volume0_24h)                  AS volume0_24h,
-            SUM(volume1_24h)                  AS volume1_24h,
-            SUM(fees0_24h)                    AS fees0_24h,
-            SUM(fees1_24h)                    AS fees1_24h,
-            SUM(tvl0_total)                   AS tvl0_total,
-            SUM(tvl1_total)                   AS tvl1_total,
-            SUM(tvl0_delta_24h)               AS tvl0_delta_24h,
-            SUM(tvl1_delta_24h)               AS tvl1_delta_24h,
-            COALESCE(SUM(depth0), 0::NUMERIC) AS depth0,
-            COALESCE(SUM(depth1), 0::NUMERIC) AS depth1,
-            MIN(depth_percent)                AS min_depth_percent
+      SELECT
+          pk.token0,
+          pk.token1,
+          SUM(volume0_24h)                  AS volume0_24h,
+          SUM(volume1_24h)                  AS volume1_24h,
+          SUM(fees0_24h)                    AS fees0_24h,
+          SUM(fees1_24h)                    AS fees1_24h,
+          SUM(tvl0_total)                   AS tvl0_total,
+          SUM(tvl1_total)                   AS tvl1_total,
+          SUM(tvl0_delta_24h)               AS tvl0_delta_24h,
+          SUM(tvl1_delta_24h)               AS tvl1_delta_24h,
+          COALESCE(SUM(depth0), 0::NUMERIC) AS depth0,
+          COALESCE(SUM(depth1), 0::NUMERIC) AS depth1,
+          MIN(depth_percent)                AS min_depth_percent
       FROM last_24h_pool_stats_materialized l24
-              JOIN pool_keys pk ON l24.pool_key_id = pk.pool_key_id
+              JOIN pool_keys pk USING (pool_key_id)
+              JOIN erc20_tokens t0 ON pk.chain_id = t0.chain_id AND pk.token0 = t0.token_address
+              JOIN erc20_tokens t1 ON pk.chain_id = t1.chain_id AND pk.token0 = t1.token_address
               LEFT JOIN token_pair_realized_volatility_materialized tprv
                         ON pk.chain_id = tprv.chain_id AND pk.token0 = tprv.token0 AND pk.token1 = tprv.token1
               LEFT JOIN LATERAL (
@@ -1221,7 +1221,8 @@ export class Queries {
           ORDER BY depth_percent DESC
           LIMIT 1
           ) AS pmd ON TRUE
-      WHERE pk.chain_id = COALESCE(${chainId ?? null}, pk.chain_id)
+      WHERE pk.chain_id = ${chainId}
+        AND t0.visibility_priority >= 0 AND t1.visibility_priority >= 0
         AND (
           volume0_24h != 0
               OR volume1_24h != 0

@@ -123,6 +123,7 @@ export class GetPoolLiquidity extends EkuboAPIRoute {
     const queries = await createQueries(env);
 
     const rows: LiquidityResponseType = await queries.getPoolLiquidityGraph(
+      BigInt(chainId),
       {
         coreAddress: BigInt(coreAddress),
         token0: BigInt(token0),
@@ -131,7 +132,6 @@ export class GetPoolLiquidity extends EkuboAPIRoute {
         tickSpacing: Number(tickSpacing),
         extension: BigInt(extension),
       },
-      BigInt(chainId),
     );
 
     return json(
