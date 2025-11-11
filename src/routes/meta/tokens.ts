@@ -155,24 +155,17 @@ export class ListTokens extends EkuboAPIRoute {
     },
   };
 
-  async handle(request: IRequest, { env }: RequestContext) {
-    const chainId = request.query.chainId
-      ? ChainIdType.parse(request.query.chainId)
-      : null;
-    const queries = await createQueries(env);
-    const minVisibilityPriority = Number(
-      request.query.minVisibilityPriority ?? 0,
-    );
-    const pageSize = Number(request.query.pageSize ?? 1000);
+  async handle({ query }: IRequest, { env }: RequestContext) {
+    const chainId = ChainIdType.optional().parse(query.chainId);
+    const minVisibilityPriority = Number(query.minVisibilityPriority ?? 0);
+    const pageSize = Number(query.pageSize ?? 1000);
     const afterToken =
-      typeof request.query.afterToken === "string"
-        ? BigInt(request.query.afterToken)
-        : null;
+      typeof query.afterToken === "string" ? BigInt(query.afterToken) : null;
 
     const search =
-      typeof request.query.search === "string"
-        ? request.query.search.trim()
-        : undefined;
+      typeof query.search === "string" ? query.search.trim() : undefined;
+
+    const queries = await createQueries(env);
 
     const rows = await queries.listErc20Tokens({
       chainId,
