@@ -1032,7 +1032,7 @@ export class Queries {
     >`
       SELECT date_bin(
                  ${intervalSeconds} * INTERVAL '1 sec',
-                 blocks.block_time,
+                 swaps.block_time,
                  '2000-01-01 00:00:00'::TIMESTAMP WITHOUT TIME ZONE
                ) AS start,
              SUM(swaps.delta1 * swaps.delta1) /
@@ -1052,17 +1052,13 @@ export class Queries {
              SUM(ABS(swaps.delta1 * swaps.delta0)) AS k_volume
       FROM swaps
                JOIN pool_keys ON swaps.pool_key_id = pool_keys.pool_key_id
-               JOIN event_keys ON swaps.event_id = event_keys.id
-               JOIN blocks ON event_keys.block_number = blocks.block_number
       WHERE pool_keys.token0 = ${token0.toString()}
         AND pool_keys.token1 = ${token1.toString()}
-        AND blocks.block_time BETWEEN ${start} AND ${end}
+        AND swaps.block_time BETWEEN ${start} AND ${end}
         AND swaps.delta0 != 0
         AND swaps.delta1 != 0
         AND pool_keys.chain_id = COALESCE(${chainId ?? null}, pool_keys.chain_id)
         AND swaps.chain_id = COALESCE(${chainId ?? null}, swaps.chain_id)
-        AND event_keys.chain_id = COALESCE(${chainId ?? null}, event_keys.chain_id)
-        AND blocks.chain_id = COALESCE(${chainId ?? null}, blocks.chain_id)
       GROUP BY start
       ORDER BY start
     `;
