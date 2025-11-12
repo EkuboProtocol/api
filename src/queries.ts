@@ -814,12 +814,10 @@ export class Queries {
                  MAX(b.block_time) AS last_order_update
           FROM twamm_order_updates tou
                    JOIN pool_keys ON tou.pool_key_id = pool_keys.pool_key_id
-                   JOIN event_keys ek ON tou.event_id = ek.id
-                   JOIN blocks b ON ek.block_number = b.block_number
+                   JOIN blocks b ON tou.block_number = b.block_number AND tou.chain_id = b.chain_id
           WHERE tou.salt = ot.token_id
             AND tou.chain_id = COALESCE(${chainId ?? null}, tou.chain_id)
             AND pool_keys.chain_id = COALESCE(${chainId ?? null}, pool_keys.chain_id)
-            AND ek.chain_id = COALESCE(${chainId ?? null}, ek.chain_id)
             AND b.chain_id = COALESCE(${chainId ?? null}, b.chain_id)
           GROUP BY 1, 2, 3, 4, 5, 6
         ) AS distinct_orders ON TRUE
@@ -848,8 +846,7 @@ export class Queries {
                           PARTITION BY tou.salt,
                                        tou.pool_key_id,
                                        tou.start_time,
-                                       tou.end_time,
-                                       tou.owner
+                                       tou.end_time
                           ORDER BY tou.event_id
                         ) AS sale_rate_after_update,
                         COALESCE(
@@ -861,8 +858,7 @@ export class Queries {
                             PARTITION BY tou.salt,
                                          tou.pool_key_id,
                                          tou.start_time,
-                                         tou.end_time,
-                                         tou.owner
+                                         tou.end_time
                             ORDER BY tou.event_id
                           ) -
                           EXTRACT(
@@ -871,25 +867,21 @@ export class Queries {
                           0
                         ) AS current_state_active_seconds
                  FROM twamm_order_updates tou
-                          JOIN event_keys e ON tou.event_id = e.id
-                          JOIN blocks b ON e.block_number = b.block_number
+                          JOIN blocks b ON tou.block_number = b.block_number AND tou.chain_id = b.chain_id
                  WHERE tou.salt = ot.token_id
                    AND tou.pool_key_id = distinct_orders.pool_key_id
                    AND tou.start_time = distinct_orders.start_time
                    AND tou.end_time = distinct_orders.end_time
                    AND tou.chain_id = COALESCE(${chainId ?? null}, tou.chain_id)
-                   AND e.chain_id = COALESCE(${chainId ?? null}, e.chain_id)
                    AND b.chain_id = COALESCE(${chainId ?? null}, b.chain_id)
                ) ouwsp
         ) AS tas ON TRUE
                LEFT JOIN LATERAL (
           SELECT b2.block_time AS last_collect_proceeds
           FROM twamm_proceeds_withdrawals tpw
-                   JOIN event_keys ek2 ON tpw.event_id = ek2.id
-                   JOIN blocks b2 ON ek2.block_number = b2.block_number
+                   JOIN blocks b2 ON tpw.block_number = b2.block_number AND tpw.chain_id = b2.chain_id
           WHERE tpw.salt = ot.token_id
             AND tpw.chain_id = COALESCE(${chainId ?? null}, tpw.chain_id)
-            AND ek2.chain_id = COALESCE(${chainId ?? null}, ek2.chain_id)
             AND b2.chain_id = COALESCE(${chainId ?? null}, b2.chain_id)
           ORDER BY tpw.event_id DESC
           LIMIT 1
