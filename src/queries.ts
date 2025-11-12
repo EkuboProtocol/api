@@ -1307,7 +1307,7 @@ export class Queries {
   ) {
     return this.sql<
       (PositionMetadata & {
-        chain_id: string;
+        chain_id: bigint;
         token_id: string;
         liquidity: string;
         nft_address: string;
