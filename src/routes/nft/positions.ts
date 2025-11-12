@@ -388,8 +388,6 @@ export class ListPositionsByAddress extends EkuboAPIRoute {
       chainId,
     );
 
-    console.log(address, showClosed, chainId, rows);
-
     const origin = new URL(url).origin;
 
     return json(
@@ -397,7 +395,7 @@ export class ListPositionsByAddress extends EkuboAPIRoute {
         data: rows.map((row) => {
           return {
             id: toHex(BigInt(row.token_id)),
-            chain_id: row.chain_id,
+            chain_id: toHex(row.chain_id),
             positions_address: toHex(row.positions_address),
             pool_key: {
               token0: toHex(row.token0),
