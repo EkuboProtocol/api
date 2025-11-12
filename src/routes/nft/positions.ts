@@ -235,7 +235,6 @@ export class ListPositionNftEvents extends EkuboAPIRoute {
 
     const history = await queries.getPositionHistory(id, chainId);
 
-    console.log(history[0]);
     return json(
       {
         chain_id: chainIdParam,
