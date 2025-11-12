@@ -563,32 +563,25 @@ export class Queries {
         type: 0 | 1;
 
         fee: string;
-        tick_spacing: string;
+        tick_spacing: number;
         extension: string;
         core_address: string;
+        locker: string;
 
         timestamp: string;
 
         transaction_hash: string;
-        event_id: string;
 
         delta0: string;
         delta1: string;
       }[]
     >`
-      WITH earliest_event AS (
-        SELECT id
-        FROM event_keys ek
-        WHERE ek.chain_id = ${chainId}
-          AND ek.block_number >= (
-            SELECT block_number
-            FROM blocks
-            WHERE block_time >= NOW() - INTERVAL '1 days'
-              AND chain_id = ${chainId}
-            ORDER BY block_number
-            LIMIT 1
-          )
-        ORDER BY id
+      WITH earliest_block_time AS (
+        SELECT block_time
+        FROM swaps
+        WHERE chain_id = ${chainId}
+          AND block_time >= NOW() - INTERVAL '1 days'
+        ORDER BY block_time
         LIMIT 1
       ),
       relevant_pool_keys AS (
@@ -609,21 +602,16 @@ export class Queries {
                relevant_pool_keys.tick_spacing,
                relevant_pool_keys.extension,
                relevant_pool_keys.core_address,
-               blocks.block_time AS timestamp,
+               swaps.block_time AS timestamp,
                transaction_hash,
                event_id,
                locker,
                delta0,
                delta1
-        FROM swaps
-                 JOIN relevant_pool_keys ON swaps.pool_key_id = relevant_pool_keys.pool_key_id
-                 JOIN event_keys ON swaps.event_id = event_keys.id
-                 JOIN blocks ON event_keys.block_number = blocks.block_number,
-             earliest_event
-        WHERE event_id >= earliest_event.id
+        FROM swaps JOIN relevant_pool_keys ON swaps.pool_key_id = relevant_pool_keys.pool_key_id,
+             earliest_block_time
+        WHERE swaps.block_time >= earliest_block_time.block_time
           AND swaps.chain_id = ${chainId}
-          AND event_keys.chain_id = ${chainId}
-          AND blocks.chain_id = ${chainId}
       ),
       relevant_updates AS (
         SELECT 1 AS type,
@@ -640,13 +628,11 @@ export class Queries {
                delta1
         FROM position_updates
                  JOIN relevant_pool_keys ON position_updates.pool_key_id = relevant_pool_keys.pool_key_id
-                 JOIN event_keys ON position_updates.event_id = event_keys.id
-                 JOIN blocks ON event_keys.block_number = blocks.block_number,
-             earliest_event
-        WHERE event_id >= earliest_event.id
+                 JOIN blocks ON position_updates.block_number = blocks.block_number
+                                AND position_updates.chain_id = blocks.chain_id,
+             earliest_block_time
+        WHERE blocks.block_time >= earliest_block_time.block_time
           AND position_updates.chain_id = ${chainId}
-          AND event_keys.chain_id = ${chainId}
-          AND blocks.chain_id = ${chainId}
       ),
       combined AS (
         SELECT *
@@ -655,7 +641,16 @@ export class Queries {
         SELECT *
         FROM relevant_swaps
       )
-      SELECT *
+      SELECT core_address,
+             delta0,
+             delta1,
+             extension,
+             fee,
+             locker,
+             tick_spacing,
+             timestamp,
+             transaction_hash,
+             type
       FROM combined
       ORDER BY event_id DESC
       LIMIT ${limit}
