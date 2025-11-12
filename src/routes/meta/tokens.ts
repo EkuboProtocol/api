@@ -136,8 +136,13 @@ export class ListTokens extends EkuboAPIRoute {
       pageSize: Query(z.coerce.number().int().min(1).max(10_000), {
         default: 1000,
       }),
-      afterToken: Query(AddressType, { required: false }),
-      minVisibilityPriority: Query(z.coerce.number().max(100).min(-100).int(), {
+      afterToken: Query(z.string().regex(/^\d+:0x[a-fA-F0-9]+$/), {
+        description:
+          "The :-concatenated chain ID and token address for pagination",
+        example: "1:0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48",
+        required: false,
+      }),
+      minVisibilityPriority: Query(z.coerce.number().min(-100).max(100).int(), {
         required: false,
       }),
     },
@@ -154,8 +159,16 @@ export class ListTokens extends EkuboAPIRoute {
     const chainId = ChainIdType.optional().parse(query.chainId);
     const minVisibilityPriority = Number(query.minVisibilityPriority ?? 0);
     const pageSize = Number(query.pageSize ?? 1000);
+    const [afterTokenChainId, afterTokenAddress] =
+      typeof query.afterToken === "string" ? query.afterToken.split(":") : [];
+
     const afterToken =
-      typeof query.afterToken === "string" ? BigInt(query.afterToken) : null;
+      afterTokenChainId && afterTokenAddress
+        ? {
+            chainId: BigInt(afterTokenChainId),
+            address: BigInt(afterTokenAddress),
+          }
+        : null;
 
     const search =
       typeof query.search === "string" ? query.search.trim() : undefined;

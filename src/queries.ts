@@ -84,14 +84,15 @@ export class Queries {
   }: {
     minVisibilityPriority: number;
     pageSize: number;
-    afterToken: bigint | null;
+    afterToken: { address: bigint; chainId: bigint } | null;
     chainId?: bigint | null;
     search?: string;
   }) {
     const afterTokenCondition =
       afterToken === null
         ? this.sql`TRUE`
-        : this.sql`token_address > ${afterToken.toString()}`;
+        : this
+            .sql`(chain_id, token_address) > (${afterToken.chainId}, ${afterToken.address.toString()})`;
     const trimmedSearch = search?.trim();
     const searchCondition =
       trimmedSearch && trimmedSearch.length > 0
@@ -112,7 +113,7 @@ export class Queries {
         AND visibility_priority >= ${minVisibilityPriority}
         AND ${afterTokenCondition}
         AND ${searchCondition}
-      ORDER BY visibility_priority DESC, token_address
+      ORDER BY visibility_priority DESC, chain_id, token_address
       LIMIT ${pageSize}
     `;
     return rows;
@@ -624,7 +625,7 @@ export class Queries {
                delta0,
                delta1
         FROM swaps
-                 JOIN relevant_pool_keys ON pool_key_id = pool_key_id
+                 JOIN relevant_pool_keys ON swaps.pool_key_id = relevant_pool_keys.pool_key_id
                  JOIN event_keys ON swaps.event_id = event_keys.id
                  JOIN blocks ON event_keys.block_number = blocks.block_number,
              earliest_event
@@ -647,7 +648,7 @@ export class Queries {
                delta0,
                delta1
         FROM position_updates
-                 JOIN relevant_pool_keys ON pool_key_id = pool_key_id
+                 JOIN relevant_pool_keys ON position_updates.pool_key_id = relevant_pool_keys.pool_key_id
                  JOIN event_keys ON position_updates.event_id = event_keys.id
                  JOIN blocks ON event_keys.block_number = blocks.block_number,
              earliest_event
@@ -1274,7 +1275,7 @@ export class Queries {
         depth_percent
       FROM
         last_24h_pool_stats_materialized l24
-        JOIN pool_keys p ON l24.pool_key_id = p.pool_key_id
+        JOIN pool_keys p USING (pool_key_id)
         LEFT JOIN token_pair_realized_volatility_materialized tprv ON p.chain_id = tprv.chain_id AND p.token0 = tprv.token0 AND p.token1 = tprv.token1
         LEFT JOIN LATERAL (
           SELECT
@@ -1289,9 +1290,9 @@ export class Queries {
           LIMIT 1
         ) AS pmd ON TRUE
       WHERE
-        p.token0 = ${pair.token0.toString()}
+        p.chain_id = ${chainId}
+        AND p.token0 = ${pair.token0.toString()}
         AND p.token1 = ${pair.token1.toString()}
-        AND p.chain_id = COALESCE(${chainId}, p.chain_id)
         AND (volume0_24h != 0
           OR volume1_24h != 0
           OR tvl0_delta_24h != 0
