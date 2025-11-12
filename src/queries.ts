@@ -1573,8 +1573,8 @@ export class Queries {
                LEFT JOIN incentives.generated_drop_reward_periods gdrp ON crp.id = gdrp.campaign_reward_period_id
       WHERE cr.locker = ${locker}
         AND cr.salt = ${salt}
-        AND (crp.start_time >= ${startTime ?? null}::timestamptz OR ${startTime ?? null} IS NULL)
-        AND (crp.end_time <= ${endTime ?? null}::timestamptz OR ${endTime ?? null} IS NULL)
+        AND (crp.start_time >= ${startTime ?? null}::timestamptz OR ${startTime ?? null}::timestamptz IS NULL)
+        AND (crp.end_time <= ${endTime ?? null}::timestamptz OR ${endTime ?? null}::timestamptz IS NULL)
         AND (${excludeDropped ?? false} IS NOT TRUE OR gdrp.drop_id IS NULL)
         AND c.chain_id = COALESCE(${chainId ?? null}, c.chain_id)
       GROUP BY c.slug
@@ -1597,12 +1597,10 @@ export class Queries {
       }[]
     >`
       WITH keys AS (
-        SELECT ek.emitter AS locker, token_id::NUMERIC AS salt
+        SELECT pt1.emitter AS locker, token_id::NUMERIC AS salt
         FROM nonfungible_token_transfers pt1
-                 JOIN event_keys ek ON pt1.event_id = ek.id
         WHERE to_address = ${ownerAddress}
           AND pt1.chain_id = COALESCE(${chainId ?? null}, pt1.chain_id)
-          AND ek.chain_id = COALESCE(${chainId ?? null}, ek.chain_id)
           AND NOT EXISTS (
             SELECT 1
             FROM nonfungible_token_transfers pt2
@@ -1621,8 +1619,8 @@ export class Queries {
                JOIN incentives.computed_rewards cr ON cr.campaign_reward_period_id = crp.id
                JOIN keys k ON cr.locker = k.locker AND cr.salt = k.salt
                LEFT JOIN incentives.generated_drop_reward_periods gdrp ON crp.id = gdrp.campaign_reward_period_id
-      WHERE (crp.start_time >= ${startTime ?? null}::timestamptz OR ${startTime ?? null} IS NULL)
-        AND (crp.end_time <= ${endTime ?? null}::timestamptz OR ${endTime ?? null} IS NULL)
+      WHERE (crp.start_time >= ${startTime ?? null}::timestamptz OR ${startTime ?? null}::timestamptz IS NULL)
+        AND (crp.end_time <= ${endTime ?? null}::timestamptz OR ${endTime ?? null}::timestamptz IS NULL)
         AND (${excludeDropped ?? false} IS NOT TRUE OR gdrp.drop_id IS NULL)
         AND c.chain_id = COALESCE(${chainId ?? null}, c.chain_id)
       GROUP BY k.salt, c.slug
