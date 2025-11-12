@@ -235,6 +235,7 @@ export class ListPositionNftEvents extends EkuboAPIRoute {
 
     const history = await queries.getPositionHistory(id, chainId);
 
+    console.log(history[0]);
     return json(
       {
         chain_id: chainIdParam,
@@ -253,7 +254,7 @@ export class ListPositionNftEvents extends EkuboAPIRoute {
             type === 0
               ? {
                   type: "transfer",
-                  block_number: block_number,
+                  block_number: block_number.toString(),
                   transaction_hash: toHex(transaction_hash),
                   timestamp,
                   from_address: toHex(from_address),
@@ -262,7 +263,7 @@ export class ListPositionNftEvents extends EkuboAPIRoute {
               : type === 1
                 ? {
                     type: "update",
-                    block_number: block_number,
+                    block_number: block_number.toString(),
                     transaction_hash: toHex(transaction_hash),
                     timestamp,
                     liquidity_delta,
@@ -271,7 +272,7 @@ export class ListPositionNftEvents extends EkuboAPIRoute {
                   }
                 : {
                     type: "collect_fees",
-                    block_number: block_number,
+                    block_number: block_number.toString(),
                     transaction_hash: toHex(transaction_hash),
                     timestamp,
                     delta0,

@@ -315,7 +315,7 @@ export class Queries {
             type: 0;
             transaction_hash: string;
             timestamp: string;
-            block_number: number;
+            block_number: bigint;
             from_address: string;
             to_address: string;
             liquidity_delta: null;
@@ -326,7 +326,7 @@ export class Queries {
             type: 1;
             transaction_hash: string;
             timestamp: string;
-            block_number: number;
+            block_number: bigint;
             from_address: null;
             to_address: null;
             liquidity_delta: string;
@@ -337,7 +337,7 @@ export class Queries {
             type: 2;
             transaction_hash: string;
             timestamp: string;
-            block_number: number;
+            block_number: bigint;
             from_address: null;
             to_address: null;
             liquidity_delta: null;
@@ -347,58 +347,49 @@ export class Queries {
       )[]
     >`
       WITH transfers AS (
-        SELECT transaction_hash,
-               block_time AS timestamp,
-               block_number,
-               from_address,
-               to_address
-        FROM nonfungible_token_transfers
-                 JOIN event_keys ek ON event_id = id
-                 JOIN blocks b ON nonfungible_token_transfers.block_number = b.block_number
-                                AND nonfungible_token_transfers.chain_id = b.chain_id
-        WHERE token_id = ${tokenId.toString()}
-          AND from_address != 0
-          AND to_address != 0
-          AND nonfungible_token_transfers.chain_id = ${chainId}
-          AND ek.chain_id = ${chainId}
-          AND b.chain_id = ${chainId}
+        SELECT nft.transaction_hash,
+               b.block_time AS timestamp,
+               nft.block_number,
+               nft.from_address,
+               nft.to_address
+        FROM nonfungible_token_transfers AS nft
+                 JOIN blocks AS b ON b.block_number = nft.block_number
+                                  AND b.chain_id = nft.chain_id
+        WHERE nft.token_id = ${tokenId.toString()}
+          AND nft.from_address != 0
+          AND nft.to_address != 0
+          AND nft.chain_id = ${chainId}
       ),
       updates AS (
-        SELECT transaction_hash,
-               block_time AS timestamp,
-               block_number,
-               liquidity_delta,
-               delta0,
-               delta1
+        SELECT nft.transaction_hash,
+               b.block_time AS timestamp,
+               nft.block_number,
+               pu.liquidity_delta,
+               pu.delta0,
+               pu.delta1
         FROM nonfungible_token_transfers AS nft
+                 JOIN blocks AS b ON b.block_number = nft.block_number
+                                     AND b.chain_id = nft.chain_id
                  JOIN position_updates AS pu ON pu.salt = nft.token_id
-                 JOIN event_keys AS puek ON pu.event_id = puek.id
-                 JOIN blocks AS b ON puek.block_number = b.block_number
-                                    AND puek.chain_id = b.chain_id
         WHERE nft.token_id = ${tokenId.toString()}
-          AND from_address = 0
+          AND nft.from_address = 0
           AND nft.chain_id = ${chainId}
           AND pu.chain_id = ${chainId}
-          AND puek.chain_id = ${chainId}
-          AND b.chain_id = ${chainId}
       ),
       fee_collections AS (
-        SELECT transaction_hash,
-               block_time AS timestamp,
-               block_number,
-               delta0,
-               delta1
+        SELECT nft.transaction_hash,
+               b.block_time AS timestamp,
+               nft.block_number,
+               pfc.delta0,
+               pfc.delta1
         FROM nonfungible_token_transfers AS nft
+                 JOIN blocks AS b ON b.block_number = nft.block_number
+                                     AND b.chain_id = nft.chain_id
                  JOIN position_fees_collected AS pfc ON pfc.salt = nft.token_id
-                 JOIN event_keys AS puek ON pfc.event_id = puek.id
-                 JOIN blocks AS b ON puek.block_number = b.block_number
-                                    AND puek.chain_id = b.chain_id
         WHERE nft.token_id = ${tokenId.toString()}
-          AND from_address = 0
+          AND nft.from_address = 0
           AND nft.chain_id = ${chainId}
           AND pfc.chain_id = ${chainId}
-          AND puek.chain_id = ${chainId}
-          AND b.chain_id = ${chainId}
       ),
       all_events AS (
         SELECT 0 AS type,
