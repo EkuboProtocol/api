@@ -16,7 +16,7 @@ ZERO_X_API_KEY = "9bdd43e7-e8bd-4a54-b9e0-64340c1eb681"
 
 [env.prod]
 hyperdrive = [
-    { binding = "HYPERDRIVE", id = "1042cba8de344664a676b33fdfc7efaf" },
+    { binding = "HYPERDRIVE", id = "3943a1af78d140769eadd45716e8db19" },
 ]
 routes = [{ pattern = "prod-api.ekubo.org", custom_domain = true }]
 
