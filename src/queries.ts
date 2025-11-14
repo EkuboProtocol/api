@@ -250,7 +250,6 @@ export class Queries {
             position_updates AS pu
           WHERE
             pu.salt = nft.token_id
-            AND pu.locker = nft.emitter
             AND pu.chain_id = ${chainId}
           ORDER BY
             pu.event_id DESC
