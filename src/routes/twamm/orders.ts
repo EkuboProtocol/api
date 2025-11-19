@@ -45,6 +45,8 @@ const TwammOrderPartInfo = z.object({
 });
 
 const TwammOrderInfo = z.object({
+  chain_id: HexStringType,
+  nft_address: HexStringType,
   token_id: HexStringType,
   orders: z.array(TwammOrderPartInfo),
 });
@@ -101,6 +103,8 @@ export class ListTwapOrders extends EkuboAPIRoute {
         (
           memo,
           {
+            chain_id,
+            nft_address,
             token_id,
             fee,
             buy_token,
@@ -132,6 +136,8 @@ export class ListTwapOrders extends EkuboAPIRoute {
 
           if (!order) {
             memo.push({
+              chain_id: toHex(chain_id),
+              nft_address: toHex(nft_address),
               token_id: toHex(BigInt(tokenId)),
               orders: [additionalOrder],
             });

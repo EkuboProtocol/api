@@ -774,8 +774,8 @@ export class Queries {
     >`
 WITH owned_tokens AS (SELECT *
                       FROM nonfungible_token_orders_view
-                      WHERE current_owner = ${address}
-                         OR (${showClosed} AND current_owner = 0 AND previous_owner = ${address}))
+                      WHERE current_owner = ${address.toString()}
+                         OR (${showClosed} AND current_owner = 0 AND previous_owner = ${address.toString()}))
 SELECT ot.chain_id,
        nft_address,
        token_id,
