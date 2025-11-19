@@ -755,136 +755,59 @@ export class Queries {
   public async getTwammOrdersByAddress(
     address: bigint,
     showClosed: boolean,
-    chainId?: bigint | null,
+    chainId: bigint | null,
   ) {
     return this.sql<
       {
+        chain_id: bigint;
+        nft_address: string;
         token_id: string;
         sell_token: string;
         buy_token: string;
         start_time: Date;
         end_time: Date;
         fee: string;
-        block_time_at_start: Date;
-        last_order_update: Date;
         last_collect_proceeds: Date | null;
         total_proceeds_withdrawn: string;
-        total_amount_sold_before_last_update: string;
+        sale_rate: string;
       }[]
     >`
-      WITH owned_tokens AS (
-        SELECT token_id
-        FROM nonfungible_token_transfers ot1
-        WHERE to_address = ${address.toString()}
-          AND ot1.chain_id = COALESCE(${chainId ?? null}, ot1.chain_id)
-          AND NOT EXISTS (
-            SELECT 1
-            FROM nonfungible_token_transfers ot2
-            WHERE ot2.token_id = ot1.token_id
-              AND ot2.event_id > ot1.event_id
-              AND ot2.chain_id = COALESCE(${chainId ?? null}, ot2.chain_id)
-              AND (CASE WHEN ${showClosed} THEN ot2.to_address != 0 ELSE TRUE END)
-          )
-      )
-      SELECT token_id,
-             sell_token,
-             buy_token,
-             start_time,
-             end_time,
-             fee,
-             block_time_at_start,
-             last_order_update,
-             lcp.last_collect_proceeds,
-             tpw.total_proceeds_withdrawn,
-             tas.total_amount_sold_before_last_update
-      FROM owned_tokens AS ot
-               JOIN LATERAL (
-          SELECT tou.pool_key_id,
-                 CASE WHEN tou.sale_rate_delta0 != 0 THEN token0 ELSE token1 END AS sell_token,
-                 CASE WHEN tou.sale_rate_delta0 != 0 THEN token1 ELSE token0 END AS buy_token,
-                 start_time,
-                 end_time,
-                 fee,
-                 MIN(b.block_time) AS block_time_at_start,
-                 MAX(b.block_time) AS last_order_update
-          FROM twamm_order_updates tou
-                   JOIN pool_keys ON tou.pool_key_id = pool_keys.pool_key_id
-                   JOIN blocks b ON tou.block_number = b.block_number AND tou.chain_id = b.chain_id
-          WHERE tou.salt = ot.token_id
-            AND tou.chain_id = COALESCE(${chainId ?? null}, tou.chain_id)
-            AND pool_keys.chain_id = COALESCE(${chainId ?? null}, pool_keys.chain_id)
-            AND b.chain_id = COALESCE(${chainId ?? null}, b.chain_id)
-          GROUP BY 1, 2, 3, 4, 5, 6
-        ) AS distinct_orders ON TRUE
-               LEFT JOIN LATERAL (
-          SELECT SUM(
-                         CASE WHEN tpw.amount0 != 0 THEN tpw.amount0 ELSE tpw.amount1 END
-                 ) AS total_proceeds_withdrawn
-          FROM twamm_proceeds_withdrawals tpw
-          WHERE tpw.salt = ot.token_id
-            AND tpw.pool_key_id = distinct_orders.pool_key_id
-            AND tpw.start_time = distinct_orders.start_time
-            AND tpw.end_time = distinct_orders.end_time
-            AND tpw.chain_id = COALESCE(${chainId ?? null}, tpw.chain_id)
-        ) AS tpw ON TRUE
-               LEFT JOIN LATERAL (
-          SELECT SUM(
-                         FLOOR(
-                           ouwsp.sale_rate_after_update * ouwsp.current_state_active_seconds / pow(2, 32)::NUMERIC
-                         )
-                 ) AS total_amount_sold_before_last_update
-          FROM (
-                 SELECT tou.event_id,
-                        SUM(
-                          CASE WHEN sale_rate_delta1 != 0 THEN sale_rate_delta1 ELSE sale_rate_delta0 END
-                        ) OVER (
-                          PARTITION BY tou.salt,
-                                       tou.pool_key_id,
-                                       tou.start_time,
-                                       tou.end_time
-                          ORDER BY tou.event_id
-                        ) AS sale_rate_after_update,
-                        COALESCE(
-                          LEAD(
-                            EXTRACT(
-                              EPOCH FROM LEAST(GREATEST(b.block_time, tou.start_time), tou.end_time)
-                            )
-                          ) OVER (
-                            PARTITION BY tou.salt,
-                                         tou.pool_key_id,
-                                         tou.start_time,
-                                         tou.end_time
-                            ORDER BY tou.event_id
-                          ) -
-                          EXTRACT(
-                            EPOCH FROM LEAST(GREATEST(b.block_time, tou.start_time), tou.end_time)
-                          ),
-                          0
-                        ) AS current_state_active_seconds
-                 FROM twamm_order_updates tou
-                          JOIN blocks b ON tou.block_number = b.block_number AND tou.chain_id = b.chain_id
-                 WHERE tou.salt = ot.token_id
-                   AND tou.pool_key_id = distinct_orders.pool_key_id
-                   AND tou.start_time = distinct_orders.start_time
-                   AND tou.end_time = distinct_orders.end_time
-                   AND tou.chain_id = COALESCE(${chainId ?? null}, tou.chain_id)
-                   AND b.chain_id = COALESCE(${chainId ?? null}, b.chain_id)
-               ) ouwsp
-        ) AS tas ON TRUE
-               LEFT JOIN LATERAL (
-          SELECT b2.block_time AS last_collect_proceeds
-          FROM twamm_proceeds_withdrawals tpw
-                   JOIN blocks b2 ON tpw.block_number = b2.block_number AND tpw.chain_id = b2.chain_id
-          WHERE tpw.salt = ot.token_id
-            AND tpw.chain_id = COALESCE(${chainId ?? null}, tpw.chain_id)
-            AND b2.chain_id = COALESCE(${chainId ?? null}, b2.chain_id)
-          ORDER BY tpw.event_id DESC
-          LIMIT 1
-        ) AS lcp ON TRUE
-      WHERE ${showClosed}
-         OR lcp.last_collect_proceeds IS NULL
-         OR lcp.last_collect_proceeds < distinct_orders.end_time
-      ORDER BY token_id DESC
+WITH owned_tokens AS (SELECT *
+                      FROM nonfungible_token_orders_view
+                      WHERE current_owner = ${address}
+                         OR (${showClosed} AND current_owner = 0 AND previous_owner = ${address}))
+SELECT ot.chain_id,
+       nft_address,
+       token_id,
+       sell_token,
+       buy_token,
+       start_time,
+       end_time,
+       fee,
+       last_collect_proceeds,
+       amount_sold,
+       total_proceeds_withdrawn,
+       sale_rate
+FROM owned_tokens AS ot
+         JOIN pool_keys USING (pool_key_id)
+         LEFT JOIN LATERAL (
+    SELECT b.block_time AS last_collect_proceeds
+    FROM twamm_proceeds_withdrawals tpw
+             JOIN blocks b USING (chain_id, block_number)
+    WHERE tpw.pool_key_id = ot.pool_key_id
+      AND tpw.locker = ot.locker
+      AND tpw.salt = ot.token_id
+      AND tpw.start_time = ot.start_time
+      AND tpw.end_time = ot.end_time
+      AND tpw.is_selling_token1 = ot.is_selling_token1
+    ORDER BY tpw.event_id DESC
+    LIMIT 1
+    ) AS tpw ON TRUE
+WHERE (${showClosed}
+    OR tpw.last_collect_proceeds IS NULL
+    OR tpw.last_collect_proceeds < ot.end_time)
+  AND ot.chain_id = COALESCE(${chainId}, ot.chain_id)
+ORDER BY token_id DESC
     `;
   }
 

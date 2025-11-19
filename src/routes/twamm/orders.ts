@@ -39,10 +39,8 @@ export const OrderKeyType = z
 
 const TwammOrderPartInfo = z.object({
   key: OrderKeyType,
-  block_time_at_start: z.number().int().min(0),
-  last_order_update: z.number().int().min(0),
   total_proceeds_withdrawn: DecimalStringType,
-  total_amount_sold_before_last_update: DecimalStringType,
+  sale_rate: DecimalStringType,
 });
 
 const TwammOrderInfo = z.object({
@@ -111,11 +109,9 @@ export class ListTwapOrders extends EkuboAPIRoute {
               sell_token,
               end_time,
               start_time,
-              block_time_at_start,
-              last_order_update,
               last_collect_proceeds,
               total_proceeds_withdrawn,
-              total_amount_sold_before_last_update,
+              sale_rate,
             },
           ) => {
             const tokenId = BigInt(token_id);
@@ -123,19 +119,17 @@ export class ListTwapOrders extends EkuboAPIRoute {
 
             const additionalOrder = {
               key: {
-                sell_token: toHex(BigInt(sell_token)),
-                buy_token: toHex(BigInt(buy_token)),
-                fee: toHex(BigInt(fee)),
+                sell_token: toHex(sell_token),
+                buy_token: toHex(buy_token),
+                fee: toHex(fee),
                 start_time: start_time.getTime() / 1000,
                 end_time: end_time.getTime() / 1000,
               },
-              block_time_at_start: block_time_at_start.getTime() / 1000,
-              last_order_update: last_order_update.getTime() / 1000,
               last_collect_proceeds: last_collect_proceeds
                 ? last_collect_proceeds.getTime() / 1000
                 : null,
               total_proceeds_withdrawn,
-              total_amount_sold_before_last_update,
+              sale_rate: sale_rate,
             };
 
             if (!order) {
