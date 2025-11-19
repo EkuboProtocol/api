@@ -6,4 +6,4 @@ This repository contains the code for the [Ekubo API](https://docs.ekubo.org/int
 
 All you need to run this API locally is a database containing the schema defined in the [EkuboProtocol/indexer](https://github.com/EkuboProtocol/indexer) repository. [Follow instructions](https://github.com/EkuboProtocol/indexer?tab=readme-ov-file#syncing-a-new-node) in the indexer repo to set up the database.
 
-Once you have a database that is populated with data, run `npm install`, and then `npm start`.
+Once you have a database that is populated with data, run `bun install`, and then `bun run start`.

@@ -1,3 +1,4 @@
+import "@cloudflare/itty-router-openapi";
 import { z } from "zod";
 
 const HEX_STRING_REGEX = /^0x[a-fA-F0-9]+$/;
