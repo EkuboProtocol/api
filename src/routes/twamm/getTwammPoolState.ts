@@ -93,28 +93,27 @@ export class GetTwammPoolState extends EkuboAPIRoute {
 
     const state = stateResults[0];
 
-    return json(
-      <TwammStateResponseType>{
-        saleRateDeltas: [
-          {
-            time: state.last_execution_time.getTime() / 1000,
-            token0SaleRateDelta: state.token0_sale_rate.toString(),
-            token1SaleRateDelta: state.token1_sale_rate.toString(),
-          },
-        ].concat(
-          saleRateDeltas.map((srd) => ({
-            time: srd.time.getTime() / 1000,
-            token0SaleRateDelta: srd.net_sale_rate_delta0.toString(),
-            token1SaleRateDelta: srd.net_sale_rate_delta1.toString(),
-          })),
-        ),
-      },
-      {
-        headers: {
-          "cache-control": "public, max-age=600, must-revalidate",
+    const response = {
+      saleRateDeltas: [
+        {
+          time: state.last_execution_time.getTime() / 1000,
+          token0SaleRateDelta: state.token0_sale_rate.toString(),
+          token1SaleRateDelta: state.token1_sale_rate.toString(),
         },
+      ].concat(
+        saleRateDeltas.map((srd) => ({
+          time: srd.time.getTime() / 1000,
+          token0SaleRateDelta: srd.net_sale_rate_delta0.toString(),
+          token1SaleRateDelta: srd.net_sale_rate_delta1.toString(),
+        })),
+      ),
+    } satisfies TwammStateResponseType;
+
+    return json(response, {
+      headers: {
+        "cache-control": "public, max-age=600, must-revalidate",
       },
-    );
+    });
   }
 }
 
@@ -159,48 +158,47 @@ export class GetTwammPairState extends EkuboAPIRoute {
       }),
     ]);
 
-    return json(
-      <TwammStateResponseType>{
-        saleRateDeltas: stateResults
-          .map((s) => ({
-            time: s.last_execution_time.getTime() / 1000,
-            token0SaleRateDelta: s.token0_sale_rate.toString(),
-            token1SaleRateDelta: s.token1_sale_rate.toString(),
-          }))
-          .concat(
-            saleRateDeltas.map((srd) => ({
-              time: srd.time.getTime() / 1000,
-              token0SaleRateDelta: srd.net_sale_rate_delta0.toString(),
-              token1SaleRateDelta: srd.net_sale_rate_delta1.toString(),
-            })),
-          )
-          // sort is necessary here because we have state across many pools concatenated to sale rate delta across many pools
-          .sort(({ time: t0 }, { time: t1 }) => t0 - t1)
-          // this combines any sale rate deltas that are on the same time, which can happen if all the pools are executed up to latest
-          .reduce<TwammStateResponseType["saleRateDeltas"]>((memo, current) => {
-            const last = memo[memo.length - 1];
-            if (!last) return [current];
-            if (last.time === current.time) {
-              last.token0SaleRateDelta = (
-                BigInt(last.token0SaleRateDelta) +
-                BigInt(current.token0SaleRateDelta)
-              ).toString();
+    const response = {
+      saleRateDeltas: stateResults
+        .map((s) => ({
+          time: s.last_execution_time.getTime() / 1000,
+          token0SaleRateDelta: s.token0_sale_rate.toString(),
+          token1SaleRateDelta: s.token1_sale_rate.toString(),
+        }))
+        .concat(
+          saleRateDeltas.map((srd) => ({
+            time: srd.time.getTime() / 1000,
+            token0SaleRateDelta: srd.net_sale_rate_delta0.toString(),
+            token1SaleRateDelta: srd.net_sale_rate_delta1.toString(),
+          })),
+        )
+        // sort is necessary here because we have state across many pools concatenated to sale rate delta across many pools
+        .sort(({ time: t0 }, { time: t1 }) => t0 - t1)
+        // this combines any sale rate deltas that are on the same time, which can happen if all the pools are executed up to latest
+        .reduce<TwammStateResponseType["saleRateDeltas"]>((memo, current) => {
+          const last = memo[memo.length - 1];
+          if (!last) return [current];
+          if (last.time === current.time) {
+            last.token0SaleRateDelta = (
+              BigInt(last.token0SaleRateDelta) +
+              BigInt(current.token0SaleRateDelta)
+            ).toString();
 
-              last.token1SaleRateDelta = (
-                BigInt(last.token1SaleRateDelta) +
-                BigInt(current.token1SaleRateDelta)
-              ).toString();
-            } else {
-              memo.push(current);
-            }
-            return memo;
-          }, []),
+            last.token1SaleRateDelta = (
+              BigInt(last.token1SaleRateDelta) +
+              BigInt(current.token1SaleRateDelta)
+            ).toString();
+          } else {
+            memo.push(current);
+          }
+          return memo;
+        }, []),
+    } satisfies TwammStateResponseType;
+
+    return json(response, {
+      headers: {
+        "cache-control": "public, max-age=600, must-revalidate",
       },
-      {
-        headers: {
-          "cache-control": "public, max-age=600, must-revalidate",
-        },
-      },
-    );
+    });
   }
 }

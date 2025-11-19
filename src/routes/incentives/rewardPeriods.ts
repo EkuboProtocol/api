@@ -180,7 +180,7 @@ export class ListRewardPeriods extends EkuboAPIRoute {
               realizedVolatility: crp.realized_volatility,
             }) satisfies QualifiedRewardsEntry,
         ),
-      } satisfies z.infer<typeof ListRewardsForCampaignResponseType>,
+      } satisfies z.infer<typeof ListRewardsResponseType>,
       {
         headers: {
           "cache-control": "public,max-age=600,must-revalidate",

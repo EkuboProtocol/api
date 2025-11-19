@@ -41,6 +41,7 @@ const TwammOrderPartInfo = z.object({
   key: OrderKeyType,
   total_proceeds_withdrawn: DecimalStringType,
   sale_rate: DecimalStringType,
+  last_collect_proceeds: z.number().int().nullable(),
 });
 
 const TwammOrderInfo = z.object({
@@ -49,6 +50,9 @@ const TwammOrderInfo = z.object({
 });
 
 type TwammOrderInfoType = z.infer<typeof TwammOrderInfo>;
+const ListTwapOrdersResponseType = z.object({
+  orders: z.array(TwammOrderInfo),
+});
 
 export class ListTwapOrders extends EkuboAPIRoute {
   static route = "/twap/orders/:address";
@@ -73,12 +77,7 @@ export class ListTwapOrders extends EkuboAPIRoute {
       "200": {
         description: "The list of TWAP orders placed by the address",
         contentType: "application/json",
-        schema: z.object({
-          orders: z.array(TwammOrderInfo).openapi({
-            description:
-              "The list of TWAP orders currently and/or previously owned by the address, depending on `showClosed`",
-          }),
-        }),
+        schema: ListTwapOrdersResponseType,
       },
     },
   };
@@ -97,60 +96,59 @@ export class ListTwapOrders extends EkuboAPIRoute {
       chainId,
     );
 
-    return json(
-      {
-        orders: rows.reduce<TwammOrderInfoType[]>(
-          (
-            memo,
-            {
-              token_id,
-              fee,
-              buy_token,
-              sell_token,
-              end_time,
-              start_time,
-              last_collect_proceeds,
-              total_proceeds_withdrawn,
-              sale_rate,
-            },
-          ) => {
-            const tokenId = BigInt(token_id);
-            const order = memo.find((m) => BigInt(m.token_id) === tokenId);
-
-            const additionalOrder = {
-              key: {
-                sell_token: toHex(sell_token),
-                buy_token: toHex(buy_token),
-                fee: toHex(fee),
-                start_time: start_time.getTime() / 1000,
-                end_time: end_time.getTime() / 1000,
-              },
-              last_collect_proceeds: last_collect_proceeds
-                ? last_collect_proceeds.getTime() / 1000
-                : null,
-              total_proceeds_withdrawn,
-              sale_rate: sale_rate,
-            };
-
-            if (!order) {
-              memo.push({
-                token_id: toHex(BigInt(tokenId)),
-                orders: [additionalOrder],
-              });
-            } else {
-              order.orders.push(additionalOrder);
-            }
-
-            return memo;
+    const response = {
+      orders: rows.reduce<TwammOrderInfoType[]>(
+        (
+          memo,
+          {
+            token_id,
+            fee,
+            buy_token,
+            sell_token,
+            end_time,
+            start_time,
+            last_collect_proceeds,
+            total_proceeds_withdrawn,
+            sale_rate,
           },
-          [],
-        ),
-      },
-      {
-        headers: {
-          "cache-control": "public,max-age=10,must-revalidate",
+        ) => {
+          const tokenId = BigInt(token_id);
+          const order = memo.find((m) => BigInt(m.token_id) === tokenId);
+
+          const additionalOrder = {
+            key: {
+              sell_token: toHex(sell_token),
+              buy_token: toHex(buy_token),
+              fee: toHex(fee),
+              start_time: start_time.getTime() / 1000,
+              end_time: end_time.getTime() / 1000,
+            },
+            last_collect_proceeds: last_collect_proceeds
+              ? last_collect_proceeds.getTime() / 1000
+              : null,
+            total_proceeds_withdrawn,
+            sale_rate,
+          };
+
+          if (!order) {
+            memo.push({
+              token_id: toHex(BigInt(tokenId)),
+              orders: [additionalOrder],
+            });
+          } else {
+            order.orders.push(additionalOrder);
+          }
+
+          return memo;
         },
+        [],
+      ),
+    } satisfies z.infer<typeof ListTwapOrdersResponseType>;
+
+    return json(response, {
+      headers: {
+        "cache-control": "public,max-age=10,must-revalidate",
       },
-    );
+    });
   }
 }

@@ -7,6 +7,8 @@ import {
 import {
   AddressType,
   ChainIdType,
+  DecimalStringType,
+  HexStringType,
   NumericStringType,
 } from "../../shared/validation/address";
 import { z } from "zod";
@@ -17,11 +19,79 @@ import {
   feeToPercent,
   formattedPrice,
   NFTMetadata,
+  NFTMetadataSchema,
   tickSpacingToPercent,
   TokenIdType,
 } from "./format";
 import { getTokenByAddress } from "../meta/tokens";
 import { generatePositionNft } from "./generatePositionNft";
+
+const PositionEventsTimestampType = z.union([z.date(), z.string()]);
+
+const PositionTransferEventType = z.object({
+  type: z.literal("transfer"),
+  block_number: z.string(),
+  transaction_hash: HexStringType,
+  timestamp: PositionEventsTimestampType,
+  from_address: HexStringType,
+  to_address: HexStringType,
+});
+
+const PositionUpdateEventType = z.object({
+  type: z.literal("update"),
+  block_number: z.string(),
+  transaction_hash: HexStringType,
+  timestamp: PositionEventsTimestampType,
+  liquidity_delta: z.string(),
+  delta0: z.string(),
+  delta1: z.string(),
+});
+
+const PositionCollectFeesEventType = z.object({
+  type: z.literal("collect_fees"),
+  block_number: z.string(),
+  transaction_hash: HexStringType,
+  timestamp: PositionEventsTimestampType,
+  delta0: z.string(),
+  delta1: z.string(),
+});
+
+const PositionEventType = z.union([
+  PositionTransferEventType,
+  PositionUpdateEventType,
+  PositionCollectFeesEventType,
+]);
+
+const PositionEventsResponseType = z.object({
+  chain_id: NumericStringType,
+  events: z.array(PositionEventType),
+});
+
+const PoolKeySummaryType = z.object({
+  token0: HexStringType,
+  token1: HexStringType,
+  fee: HexStringType,
+  tick_spacing: HexStringType,
+  extension: HexStringType,
+});
+
+const PositionSummaryType = z.object({
+  id: HexStringType,
+  chain_id: HexStringType,
+  positions_address: HexStringType,
+  pool_key: PoolKeySummaryType,
+  bounds: z.object({
+    lower: z.number(),
+    upper: z.number(),
+  }),
+  metadata_url: z.string(),
+  image: z.string(),
+  liquidity: DecimalStringType,
+});
+
+const ListPositionsResponseType = z.object({
+  data: z.array(PositionSummaryType),
+});
 
 export class GetPositionNftMetadata extends EkuboAPIRoute {
   static route = "/positions/:chainId/:nftAddress/:id";
@@ -42,6 +112,7 @@ export class GetPositionNftMetadata extends EkuboAPIRoute {
       "200": {
         description: "The NFT metadata for the given position ID",
         contentType: "application/json",
+        schema: NFTMetadataSchema,
       },
     },
   };
@@ -189,7 +260,9 @@ export class GetPositionNftMetadata extends EkuboAPIRoute {
       };
     }
 
-    return json(metadata, {
+    const response = metadata satisfies z.infer<typeof NFTMetadataSchema>;
+
+    return json(response, {
       headers: {
         "cache-control": "public,max-age=3600,immutable",
       },
@@ -216,6 +289,7 @@ export class ListPositionNftEvents extends EkuboAPIRoute {
       "200": {
         description: "The position history",
         contentType: "application/json",
+        schema: PositionEventsResponseType,
       },
     },
   };
@@ -235,56 +309,55 @@ export class ListPositionNftEvents extends EkuboAPIRoute {
 
     const history = await queries.getPositionHistory(id, chainId);
 
-    return json(
-      {
-        chain_id: chainIdParam,
-        events: history.map(
-          ({
-            transaction_hash,
-            block_number,
-            timestamp,
-            type,
-            from_address,
-            to_address,
-            liquidity_delta,
-            delta0,
-            delta1,
-          }) =>
-            type === 0
+    const response = {
+      chain_id: chainIdParam,
+      events: history.map(
+        ({
+          transaction_hash,
+          block_number,
+          timestamp,
+          type,
+          from_address,
+          to_address,
+          liquidity_delta,
+          delta0,
+          delta1,
+        }) =>
+          type === 0
+            ? {
+                type: "transfer",
+                block_number: block_number.toString(),
+                transaction_hash: toHex(transaction_hash),
+                timestamp,
+                from_address: toHex(from_address),
+                to_address: toHex(to_address),
+              }
+            : type === 1
               ? {
-                  type: "transfer",
+                  type: "update",
                   block_number: block_number.toString(),
                   transaction_hash: toHex(transaction_hash),
                   timestamp,
-                  from_address: toHex(from_address),
-                  to_address: toHex(to_address),
+                  liquidity_delta,
+                  delta0,
+                  delta1,
                 }
-              : type === 1
-                ? {
-                    type: "update",
-                    block_number: block_number.toString(),
-                    transaction_hash: toHex(transaction_hash),
-                    timestamp,
-                    liquidity_delta,
-                    delta0,
-                    delta1,
-                  }
-                : {
-                    type: "collect_fees",
-                    block_number: block_number.toString(),
-                    transaction_hash: toHex(transaction_hash),
-                    timestamp,
-                    delta0,
-                    delta1,
-                  },
-        ),
+              : {
+                  type: "collect_fees",
+                  block_number: block_number.toString(),
+                  transaction_hash: toHex(transaction_hash),
+                  timestamp,
+                  delta0,
+                  delta1,
+                },
+      ),
+    } satisfies z.infer<typeof PositionEventsResponseType>;
+
+    return json(response, {
+      headers: {
+        "cache-control": "public, max-age=60, must-revalidate",
       },
-      {
-        headers: {
-          "cache-control": "public, max-age=60, must-revalidate",
-        },
-      },
-    );
+    });
   }
 }
 
@@ -367,6 +440,7 @@ export class ListPositionsByAddress extends EkuboAPIRoute {
       "200": {
         description: "The position NFTs owned by the address and keys",
         contentType: "application/json",
+        schema: ListPositionsResponseType,
       },
     },
   };
@@ -390,35 +464,32 @@ export class ListPositionsByAddress extends EkuboAPIRoute {
 
     const origin = new URL(url).origin;
 
-    return json(
-      {
-        data: rows.map((row) => {
-          return {
-            id: toHex(BigInt(row.token_id)),
-            chain_id: toHex(row.chain_id),
-            positions_address: toHex(row.positions_address),
-            pool_key: {
-              token0: toHex(row.token0),
-              token1: toHex(row.token1),
-              fee: toHex(row.fee),
-              tick_spacing: toHex(row.tick_spacing),
-              extension: toHex(row.extension),
-            },
-            bounds: {
-              lower: Number(row.lower_bound),
-              upper: Number(row.upper_bound),
-            },
-            metadata_url: `${origin}/positions/${row.chain_id}/${row.nft_address}/${row.token_id}`,
-            image: `${origin}/positions/${row.chain_id}/${row.nft_address}/${row.token_id}/image.svg`,
-            liquidity: row.liquidity,
-          };
-        }),
-      },
-      {
-        headers: {
-          "cache-control": "no-cache",
+    const response = {
+      data: rows.map((row) => ({
+        id: toHex(BigInt(row.token_id)),
+        chain_id: toHex(row.chain_id),
+        positions_address: toHex(row.positions_address),
+        pool_key: {
+          token0: toHex(row.token0),
+          token1: toHex(row.token1),
+          fee: toHex(row.fee),
+          tick_spacing: toHex(row.tick_spacing),
+          extension: toHex(row.extension),
         },
+        bounds: {
+          lower: Number(row.lower_bound),
+          upper: Number(row.upper_bound),
+        },
+        metadata_url: `${origin}/positions/${row.chain_id}/${row.nft_address}/${row.token_id}`,
+        image: `${origin}/positions/${row.chain_id}/${row.nft_address}/${row.token_id}/image.svg`,
+        liquidity: row.liquidity,
+      })),
+    } satisfies z.infer<typeof ListPositionsResponseType>;
+
+    return json(response, {
+      headers: {
+        "cache-control": "no-cache",
       },
-    );
+    });
   }
 }

@@ -3,6 +3,105 @@ import { EkuboAPIRoute, RequestContext } from "../../shared/context";
 import { createQueries } from "../../queries";
 import { OpenAPIRouteSchema, Path } from "@cloudflare/itty-router-openapi";
 import { ChainIdType } from "../../shared/validation/address";
+import { z } from "zod";
+
+const TimestampType = z.union([z.date(), z.string()]);
+const TokenIdentifierSchema = z.union([z.string(), z.number()]);
+
+type VolumeRow = { token: string; volume: string } & Partial<{ fees: string }>;
+const normalizeVolumeRow = (row: VolumeRow) => ({
+  token: row.token,
+  volume: row.volume,
+  fees: row.fees ?? "0",
+});
+
+type RevenueByDateRow = {
+  token: string;
+} & Partial<{ date: string | Date; revenue: string; volume: string }>;
+
+const normalizeRevenueByDateRow = (row: RevenueByDateRow) => ({
+  token: row.token,
+  date: row.date ?? new Date(0),
+  revenue: row.revenue ?? row.volume ?? "0",
+});
+
+type TvlDeltaRow = {
+  token: string;
+  date: string | Date;
+} & Partial<{ delta: string; balance: string }>;
+
+const normalizeTvlDeltaRow = (row: TvlDeltaRow) => ({
+  token: row.token,
+  date: row.date,
+  delta: row.delta ?? row.balance ?? "0",
+});
+
+const OverviewPairEntryType = z.object({
+  token0: TokenIdentifierSchema,
+  token1: TokenIdentifierSchema,
+  volume0_24h: z.string(),
+  volume1_24h: z.string(),
+  fees0_24h: z.string(),
+  fees1_24h: z.string(),
+  tvl0_total: z.string(),
+  tvl1_total: z.string(),
+  tvl0_delta_24h: z.string(),
+  tvl1_delta_24h: z.string(),
+  depth0: z.string(),
+  depth1: z.string(),
+  min_depth_percent: z.number().nullable(),
+});
+
+const OverviewPairsResponseType = z.object({
+  topPairs: z.array(OverviewPairEntryType),
+});
+
+const RevenueEntryType = z.object({
+  token: z.string(),
+  revenue: z.string(),
+});
+
+const RevenueByDateEntryType = RevenueEntryType.extend({
+  date: TimestampType,
+});
+
+const OverviewRevenueResponseType = z.object({
+  revenueByToken: z.array(RevenueEntryType),
+  revenueByTokenByDate: z.array(RevenueByDateEntryType),
+  revenueByToken_24h: z.array(RevenueEntryType),
+});
+
+const VolumeEntryType = z.object({
+  token: z.string(),
+  volume: z.string(),
+  fees: z.string(),
+});
+
+const VolumeByDateEntryType = VolumeEntryType.extend({
+  date: TimestampType,
+});
+
+const OverviewVolumeResponseType = z.object({
+  volumeByToken: z.array(VolumeEntryType),
+  volumeByTokenByDate: z.array(VolumeByDateEntryType),
+  volumeByToken_24h: z.array(VolumeEntryType),
+});
+
+const TvlEntryType = z.object({
+  token: z.string(),
+  balance: z.string(),
+});
+
+const TvlDeltaEntryType = z.object({
+  token: z.string(),
+  date: TimestampType,
+  delta: z.string(),
+});
+
+const OverviewTvlResponseType = z.object({
+  tvlByToken: z.array(TvlEntryType),
+  tvlDeltaByTokenByDate: z.array(TvlDeltaEntryType),
+});
 
 export class GetOverviewPairs extends EkuboAPIRoute {
   static route = "/overview/:chainId/pairs";
@@ -17,6 +116,7 @@ export class GetOverviewPairs extends EkuboAPIRoute {
       "200": {
         description: "The stats for the protocols top pairs",
         contentType: "application/json",
+        schema: OverviewPairsResponseType,
       },
     },
   };
@@ -27,16 +127,15 @@ export class GetOverviewPairs extends EkuboAPIRoute {
 
     const topPairs = await queries.getTopPairs(chainId);
 
-    return json(
-      {
-        topPairs,
+    const response = {
+      topPairs,
+    } satisfies z.infer<typeof OverviewPairsResponseType>;
+
+    return json(response, {
+      headers: {
+        "cache-control": "public, max-age=600",
       },
-      {
-        headers: {
-          "cache-control": "public, max-age=600",
-        },
-      },
-    );
+    });
   }
 }
 
@@ -53,6 +152,7 @@ export class GetOverviewRevenue extends EkuboAPIRoute {
       "200": {
         description: "The revenue stats for the protocol",
         contentType: "application/json",
+        schema: OverviewRevenueResponseType,
       },
     },
   };
@@ -66,27 +166,38 @@ export class GetOverviewRevenue extends EkuboAPIRoute {
     const queries = await createQueries(env);
 
     const [
-      revenueByToken,
-      revenueByTokenByDate,
-      revenueByToken_24h,
+      rawRevenueByToken,
+      rawRevenueByTokenByDate,
+      rawRevenueByToken_24h,
     ] = await Promise.all([
       queries.getRevenueByToken({ chainId }),
       queries.getRevenueByTokenByDate(chainId, thirtyDaysAgo),
       queries.getRevenueByToken({ since: twentyFourHoursAgo, chainId }),
     ]);
 
-    return json(
-      {
-        revenueByToken,
-        revenueByToken_24h,
-        revenueByTokenByDate,
-      },
-      {
-        headers: {
-          "cache-control": "public, max-age=600",
-        },
-      },
+    const revenueByToken = rawRevenueByToken.map((row) => ({
+      token: row.token,
+      revenue: row.revenue,
+    }));
+    const revenueByTokenByDate = rawRevenueByTokenByDate.map(
+      normalizeRevenueByDateRow,
     );
+    const revenueByToken_24h = rawRevenueByToken_24h.map((row) => ({
+      token: row.token,
+      revenue: row.revenue,
+    }));
+
+    const response = {
+      revenueByToken,
+      revenueByToken_24h,
+      revenueByTokenByDate,
+    } satisfies z.infer<typeof OverviewRevenueResponseType>;
+
+    return json(response, {
+      headers: {
+        "cache-control": "public, max-age=600",
+      },
+    });
   }
 }
 
@@ -103,6 +214,7 @@ export class GetOverviewVolume extends EkuboAPIRoute {
       "200": {
         description: "The volume stats for the protocol",
         contentType: "application/json",
+        schema: OverviewVolumeResponseType,
       },
     },
   };
@@ -115,25 +227,34 @@ export class GetOverviewVolume extends EkuboAPIRoute {
     const chainId = BigInt(request.params.chainId);
     const queries = await createQueries(env);
 
-    const [volumeByToken, volumeByTokenByDate, volumeByToken_24h] =
-      await Promise.all([
-        queries.getTotalVolumeByToken({ chainId }),
-        queries.getVolumeByTokenByDate(chainId, thirtyDaysAgo),
-        queries.getTotalVolumeByToken({ since: twentyFourHoursAgo, chainId }),
-      ]);
+    const [
+      rawVolumeByToken,
+      volumeByTokenByDate,
+      rawVolumeByToken_24h,
+    ] = await Promise.all([
+      queries.getTotalVolumeByToken({ chainId }),
+      queries.getVolumeByTokenByDate(chainId, thirtyDaysAgo),
+      queries.getTotalVolumeByToken({ since: twentyFourHoursAgo, chainId }),
+    ]);
 
-    return json(
-      {
-        volumeByToken,
-        volumeByTokenByDate,
-        volumeByToken_24h,
-      },
-      {
-        headers: {
-          "cache-control": "public, max-age=600",
-        },
-      },
+    const volumeByToken = rawVolumeByToken.map((row) =>
+      normalizeVolumeRow(row as VolumeRow),
     );
+    const volumeByToken_24h = rawVolumeByToken_24h.map((row) =>
+      normalizeVolumeRow(row as VolumeRow),
+    );
+
+    const response = {
+      volumeByToken,
+      volumeByTokenByDate,
+      volumeByToken_24h,
+    } satisfies z.infer<typeof OverviewVolumeResponseType>;
+
+    return json(response, {
+      headers: {
+        "cache-control": "public, max-age=600",
+      },
+    });
   }
 }
 
@@ -150,6 +271,7 @@ export class GetOverviewTvl extends EkuboAPIRoute {
       "200": {
         description: "The TVL stats",
         contentType: "application/json",
+        schema: OverviewTvlResponseType,
       },
     },
   };
@@ -161,21 +283,24 @@ export class GetOverviewTvl extends EkuboAPIRoute {
     const chainId = BigInt(request.params.chainId);
     const queries = await createQueries(env);
 
-    const [tvlByToken, tvlDeltaByTokenByDate] = await Promise.all([
+    const [tvlByToken, rawTvlDeltaByTokenByDate] = await Promise.all([
       queries.getTvlByToken(chainId),
       queries.getTvlDeltaByTokenByDate(chainId, thirtyDaysAgo),
     ]);
 
-    return json(
-      {
-        tvlByToken,
-        tvlDeltaByTokenByDate,
-      },
-      {
-        headers: {
-          "cache-control": "public, max-age=600",
-        },
-      },
+    const tvlDeltaByTokenByDate = rawTvlDeltaByTokenByDate.map((row) =>
+      normalizeTvlDeltaRow(row as TvlDeltaRow),
     );
+
+    const response = {
+      tvlByToken,
+      tvlDeltaByTokenByDate,
+    } satisfies z.infer<typeof OverviewTvlResponseType>;
+
+    return json(response, {
+      headers: {
+        "cache-control": "public, max-age=600",
+      },
+    });
   }
 }

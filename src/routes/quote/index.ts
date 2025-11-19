@@ -25,6 +25,108 @@ function getZeroXClient(env: { ZERO_X_API_KEY: string }) {
   return zeroXCachedClient;
 }
 
+const ZeroXFeeType = z.object({
+  amount: z.string(),
+  type: z.string(),
+  token: z.string(),
+});
+
+const ZeroXFeesType = z.object({
+  integratorFee: ZeroXFeeType.nullable(),
+  zeroExFee: ZeroXFeeType.nullable(),
+  gasFee: ZeroXFeeType.nullable(),
+});
+
+const ZeroXRouteTokenType = z.object({
+  symbol: z.string(),
+  address: z.string(),
+});
+
+const ZeroXRouteFillType = z.object({
+  from: z.string(),
+  to: z.string(),
+  source: z.string(),
+  proportionBps: z.string(),
+});
+
+const ZeroXRouteType = z.object({
+  tokens: z.array(ZeroXRouteTokenType),
+  fills: z.array(ZeroXRouteFillType),
+});
+
+const ZeroXIssueType = z.object({
+  balance: z
+    .object({
+      expected: z.string(),
+      token: z.string(),
+      actual: z.string(),
+    })
+    .nullable(),
+  allowance: z
+    .object({
+      spender: z.string(),
+      actual: z.string(),
+    })
+    .nullable(),
+  simulationIncomplete: z.boolean(),
+  invalidSourcesPassed: z.array(z.string()),
+});
+
+const ZeroXTokenTaxInfoType = z.object({
+  buyTaxBps: z.string().nullable(),
+  sellTaxBps: z.string().nullable(),
+});
+
+const ZeroXTokenMetadataType = z.object({
+  sellToken: ZeroXTokenTaxInfoType,
+  buyToken: ZeroXTokenTaxInfoType,
+});
+
+const ZeroXBaseQuoteSuccessType = z.object({
+  fees: ZeroXFeesType,
+  zid: z.string(),
+  sellToken: z.string(),
+  buyToken: z.string(),
+  sellAmount: z.string(),
+  minBuyAmount: z.string(),
+  buyAmount: z.string(),
+  blockNumber: z.string(),
+  route: ZeroXRouteType,
+  issues: ZeroXIssueType,
+  tokenMetadata: ZeroXTokenMetadataType,
+  totalNetworkFee: z.string().nullable(),
+});
+
+const ZeroXPriceQuoteType = ZeroXBaseQuoteSuccessType.extend({
+  liquidityAvailable: z.literal(true),
+  gas: z.string().nullable(),
+  gasPrice: z.string(),
+});
+
+const ZeroXSwapQuoteType = ZeroXBaseQuoteSuccessType.extend({
+  liquidityAvailable: z.literal(true),
+  transaction: z.object({
+    value: z.string(),
+    data: z.string(),
+    gas: z.string().nullable(),
+    to: z.string(),
+    gasPrice: z.string(),
+  }),
+});
+
+const ZeroXNoLiquidityType = z.object({
+  zid: z.string(),
+  liquidityAvailable: z.literal(false),
+});
+
+const ZeroXQuoteResponseType = z.union([
+  ZeroXPriceQuoteType,
+  ZeroXSwapQuoteType,
+  ZeroXNoLiquidityType,
+]);
+
+type ZeroXQuoteResponse = z.infer<typeof ZeroXQuoteResponseType>;
+
 export class Get0xQuote extends EkuboAPIRoute {
   static route = "/quote";
 
@@ -53,6 +155,7 @@ export class Get0xQuote extends EkuboAPIRoute {
       "200": {
         description: "The finalized quote from 0x",
         contentType: "application/json",
+        schema: ZeroXQuoteResponseType,
       },
     },
   };
@@ -91,7 +194,9 @@ export class Get0xQuote extends EkuboAPIRoute {
           })
         : zeroXClient.swap.allowanceHolder.getPrice.query(commonArgs));
 
-      return json(quote, {
+      const response = quote satisfies ZeroXQuoteResponse;
+
+      return json(response, {
         headers: {
           "cache-control": "public,max-age=10,must-revalidate",
         },

@@ -10,10 +10,34 @@ import {
   AddressType,
   ChainIdType,
   DecimalStringType,
+  HexStringType,
   NumericStringType,
 } from "../../shared/validation/address";
 import { z } from "zod";
 import toHex from "../../shared/toHex";
+
+const PoolKeyType = z.object({
+  chain_id: HexStringType,
+  core_address: HexStringType,
+  pool_id: HexStringType,
+  token0: HexStringType,
+  token1: HexStringType,
+  fee: HexStringType,
+  tick_spacing: z.number().int(),
+  extension: HexStringType,
+});
+
+const ListPoolKeysResponseType = z.array(PoolKeyType);
+
+const LiquidityPointType = z.object({
+  tick: z.string(),
+  net_liquidity_delta_diff: z.string(),
+});
+
+const LiquiditySeriesType = z.array(LiquidityPointType);
+const LiquidityResponseType = z.object({
+  data: LiquiditySeriesType,
+});
 
 export class ListPoolKeys extends EkuboAPIRoute {
   static route = "/v1/poolKeys";
@@ -29,6 +53,7 @@ export class ListPoolKeys extends EkuboAPIRoute {
       "200": {
         description:
           "The pool keys of all the pools that have been initialized",
+        schema: ListPoolKeysResponseType,
         contentType: "application/json",
       },
     },
@@ -36,15 +61,15 @@ export class ListPoolKeys extends EkuboAPIRoute {
 
   async handle(request: IRequest, { env }: RequestContext) {
     const chainId =
-      typeof request.query.chainId === "string"
-        ? BigInt(request.query.chainId)
+      request.query.chainId !== undefined
+        ? ChainIdType.parse(request.query.chainId)
         : null;
 
     const queries = await createQueries(env);
 
     const rows = await queries.listAllPoolKeys(chainId);
 
-    return json(
+    const response = (
       rows.map((pool) => ({
         chain_id: toHex(pool.chain_id),
         core_address: toHex(pool.core_address),
@@ -54,24 +79,16 @@ export class ListPoolKeys extends EkuboAPIRoute {
         fee: toHex(pool.fee),
         tick_spacing: Number(pool.tick_spacing),
         extension: toHex(pool.extension),
-      })),
-      {
-        headers: {
-          "cache-control": "public, max-age=180, must-revalidate",
-        },
+      }))
+    ) satisfies z.infer<typeof ListPoolKeysResponseType>;
+
+    return json(response, {
+      headers: {
+        "cache-control": "public, max-age=180, must-revalidate",
       },
-    );
+    });
   }
 }
-
-const LiquidityResponseSchema = z.array(
-  z.object({
-    tick: DecimalStringType,
-    net_liquidity_delta_diff: DecimalStringType,
-  }),
-);
-
-type LiquidityResponseType = z.infer<typeof LiquidityResponseSchema>;
 
 export class GetPoolLiquidity extends EkuboAPIRoute {
   static route =
@@ -99,7 +116,7 @@ export class GetPoolLiquidity extends EkuboAPIRoute {
     },
     responses: {
       "200": {
-        schema: z.array(z.object({})),
+        schema: LiquidityResponseType,
         description: "The current liquidity chart for the given pool key hash",
         contentType: "application/json",
       },
@@ -122,7 +139,7 @@ export class GetPoolLiquidity extends EkuboAPIRoute {
   ) {
     const queries = await createQueries(env);
 
-    const rows: LiquidityResponseType = await queries.getPoolLiquidityGraph(
+    const rows = await queries.getPoolLiquidityGraph(
       BigInt(chainId),
       {
         coreAddress: BigInt(coreAddress),
@@ -134,15 +151,14 @@ export class GetPoolLiquidity extends EkuboAPIRoute {
       },
     );
 
-    return json(
-      {
-        data: rows,
+    const response = {
+      data: rows,
+    } satisfies z.infer<typeof LiquidityResponseType>;
+
+    return json(response, {
+      headers: {
+        "cache-control": "public, max-age=1800, must-revalidate",
       },
-      {
-        headers: {
-          "cache-control": "public, max-age=1800, must-revalidate",
-        },
-      },
-    );
+    });
   }
 }

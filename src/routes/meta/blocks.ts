@@ -9,6 +9,13 @@ import { z } from "zod";
 import { createQueries } from "../../queries";
 import { ChainIdType } from "../../shared/validation/address";
 
+const BlockInfoType = z.object({
+  number: z.number().int(),
+  timestamp: z.date(),
+});
+
+type BlockInfo = z.infer<typeof BlockInfoType>;
+
 export class GetBlock extends EkuboAPIRoute {
   public static route = "/blocks/:chainId/:blockTag";
   static schema: OpenAPIRouteSchema = {
@@ -28,13 +35,7 @@ export class GetBlock extends EkuboAPIRoute {
     responses: {
       "200": {
         description: "The timestamp of the given block number",
-        schema: z.object(
-          {
-            number: z.number({ description: "The number of the block" }).int(),
-            timestamp: z.date({ description: "The timestamp of the block" }),
-          },
-          { description: "Description of the latest block" },
-        ),
+        schema: BlockInfoType,
         contentType: "application/json",
       },
     },
@@ -56,20 +57,19 @@ export class GetBlock extends EkuboAPIRoute {
       throw new StatusError(404, `Block "${blockTag}" not found`);
     }
 
-    return json(
-      {
-        number: Number(block.number),
-        timestamp: block.timestamp,
+    const response = {
+      number: Number(block.number),
+      timestamp: new Date(block.timestamp),
+    } satisfies BlockInfo;
+
+    return json(response, {
+      headers: {
+        "cache-control":
+          blockTag === "latest"
+            ? "public,max-age=5,no-cache"
+            : "public,max-age=300,must-revalidate",
       },
-      {
-        headers: {
-          "cache-control":
-            blockTag === "latest"
-              ? "public,max-age=5,no-cache"
-              : "public,max-age=300,must-revalidate",
-        },
-      },
-    );
+    });
   }
 }
 
@@ -92,13 +92,7 @@ export class GetClosestBlock extends EkuboAPIRoute {
     responses: {
       "200": {
         description: "The block closest to the given timestamp",
-        schema: z.object(
-          {
-            number: z.number({ description: "The number of the block" }).int(),
-            timestamp: z.date({ description: "The timestamp of the block" }),
-          },
-          { description: "Description of the latest block" },
-        ),
+        schema: BlockInfoType,
         contentType: "application/json",
       },
     },
@@ -117,16 +111,15 @@ export class GetClosestBlock extends EkuboAPIRoute {
       throw new StatusError(404, `No block found`);
     }
 
-    return json(
-      {
-        number: Number(block.number),
-        timestamp: block.timestamp,
+    const response = {
+      number: Number(block.number),
+      timestamp: new Date(block.timestamp),
+    } satisfies BlockInfo;
+
+    return json(response, {
+      headers: {
+        "cache-control": "public,max-age=300,must-revalidate",
       },
-      {
-        headers: {
-          "cache-control": "public,max-age=300,must-revalidate",
-        },
-      },
-    );
+    });
   }
 }

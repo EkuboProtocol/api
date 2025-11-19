@@ -1,17 +1,19 @@
+import { z } from "zod";
 import { NumericStringType } from "../../shared/validation/address";
 
-export interface NFTMetadata {
-  name: string;
+export const NFTAttributeSchema = z.object({
+  trait_type: z.string(),
+  value: z.string(),
+});
 
-  description: string;
+export const NFTMetadataSchema = z.object({
+  name: z.string(),
+  description: z.string(),
+  image: z.string(),
+  attributes: z.array(NFTAttributeSchema),
+});
 
-  image: string;
-
-  attributes: {
-    trait_type: string;
-    value: string;
-  }[];
-}
+export type NFTMetadata = z.infer<typeof NFTMetadataSchema>;
 
 export const NUM_DIGITS = 12;
 
