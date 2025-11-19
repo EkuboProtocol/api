@@ -13,7 +13,7 @@ import {
 } from "../../shared/validation/address";
 import { z } from "zod";
 import { IRequest, json, StatusError } from "itty-router";
-import { createQueries } from "../../queries";
+import { createQueries, StateFilter } from "../../queries";
 import toHex from "../../shared/toHex";
 import {
   feeToPercent,
@@ -92,6 +92,8 @@ const PositionSummaryType = z.object({
 const ListPositionsResponseType = z.object({
   data: z.array(PositionSummaryType),
 });
+
+const PositionStateQueryType = z.enum(["opened", "closed"]);
 
 export class GetPositionNftMetadata extends EkuboAPIRoute {
   static route = "/positions/:chainId/:nftAddress/:id";
@@ -430,7 +432,10 @@ export class ListPositionsByAddress extends EkuboAPIRoute {
       address: Path(AddressType, {
         description: "The address for which to list positions",
       }),
-      showClosed: Query(z.coerce.boolean()),
+      state: Query(PositionStateQueryType, {
+        required: false,
+        description: 'Filter positions by state; defaults to "opened"',
+      }),
       chainId: Query(ChainIdType, {
         required: false,
         description: "Restrict results to a specific chain ID",
@@ -451,16 +456,14 @@ export class ListPositionsByAddress extends EkuboAPIRoute {
   ) {
     const address = BigInt(addressStr);
 
-    const showClosed = query?.showClosed === "true";
+    const stateParam =
+      typeof query?.state === "string" ? query.state.toLowerCase() : null;
+    const state: StateFilter = stateParam === "closed" ? "closed" : "opened";
     const chainId =
       typeof query?.chainId === "string" ? BigInt(query.chainId) : null;
 
     const queries = await createQueries(env);
-    const rows = await queries.getPositionsByAddress(
-      address,
-      showClosed,
-      chainId,
-    );
+    const rows = await queries.getPositionsByAddress(address, state, chainId);
 
     const origin = new URL(url).origin;
 

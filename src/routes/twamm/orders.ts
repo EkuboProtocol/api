@@ -12,7 +12,7 @@ import {
 } from "../../shared/validation/address";
 import { z } from "zod";
 import { IRequest, json } from "itty-router";
-import { createQueries } from "../../queries";
+import { createQueries, type StateFilter } from "../../queries";
 import toHex from "../../shared/toHex";
 
 export const OrderKeyType = z
@@ -56,6 +56,8 @@ const ListTwapOrdersResponseType = z.object({
   orders: z.array(TwammOrderInfo),
 });
 
+const OrderStateQueryType = z.enum(["opened", "closed"]);
+
 export class ListTwapOrders extends EkuboAPIRoute {
   static route = "/twap/orders/:address";
 
@@ -66,9 +68,9 @@ export class ListTwapOrders extends EkuboAPIRoute {
       "Returns the list of TWAP orders currently held by the given address",
     parameters: {
       address: Path(AddressType, { example: "0x1234" }),
-      showClosed: Query(z.coerce.boolean(), {
-        description:
-          "Whether to show orders that have zero active sell rate as part of the response",
+      state: Query(OrderStateQueryType, {
+        required: false,
+        description: 'Filter orders by state; defaults to "opened"',
       }),
       chainId: Query(ChainIdType, {
         required: false,
@@ -86,17 +88,15 @@ export class ListTwapOrders extends EkuboAPIRoute {
 
   async handle({ params, query }: IRequest, { env }: RequestContext) {
     const address = BigInt(params.address);
-    const showClosed = query.showClosed === "true";
+    const stateParam =
+      typeof query?.state === "string" ? query.state.toLowerCase() : null;
+    const state: StateFilter = stateParam === "closed" ? "closed" : "opened";
 
     const chainId =
       typeof query.chainId === "string" ? BigInt(query.chainId) : null;
     const queries = await createQueries(env);
 
-    const rows = await queries.getTwammOrdersByAddress(
-      address,
-      showClosed,
-      chainId,
-    );
+    const rows = await queries.getTwammOrdersByAddress(address, state, chainId);
 
     const response = {
       orders: rows.reduce<TwammOrderInfoType[]>(

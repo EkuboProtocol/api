@@ -1,6 +1,8 @@
 import postgres, { type Sql } from "postgres";
 import { Env } from "./env";
 
+export type StateFilter = "opened" | "closed";
+
 export interface PositionMetadata {
   minted_tx_hash: string;
   minted_timestamp: Date;
@@ -754,9 +756,12 @@ export class Queries {
 
   public async getTwammOrdersByAddress(
     address: bigint,
-    showClosed: boolean,
+    state: StateFilter,
     chainId: bigint | null,
   ) {
+    const includeOpened = state === "opened";
+    const includeClosed = state === "closed";
+
     return this.sql<
       {
         chain_id: bigint;
@@ -774,8 +779,8 @@ export class Queries {
     >`
 WITH owned_tokens AS (SELECT *
                       FROM nonfungible_token_orders_view
-                      WHERE current_owner = ${address.toString()}
-                         OR (${showClosed} AND current_owner = 0 AND previous_owner = ${address.toString()}))
+                      WHERE ( ${state === "opened"} AND current_owner = ${address.toString()} )
+                         OR ( ${state === "closed"} AND current_owner = 0 AND previous_owner = ${address.toString()} ))
 SELECT ot.chain_id,
        nft_address,
        token_id,
@@ -803,9 +808,11 @@ FROM owned_tokens AS ot
     ORDER BY tpw.event_id DESC
     LIMIT 1
     ) AS tpw ON TRUE
-WHERE (${showClosed}
-    OR tpw.last_collect_proceeds IS NULL
-    OR tpw.last_collect_proceeds < ot.end_time)
+WHERE (
+        (${state === "opened"} AND (tpw.last_collect_proceeds IS NULL
+          OR tpw.last_collect_proceeds < ot.end_time))
+        OR ${state === "closed"}
+      )
   AND ot.chain_id = COALESCE(${chainId}, ot.chain_id)
 ORDER BY token_id DESC
     `;
@@ -1199,7 +1206,7 @@ ORDER BY token_id DESC
 
   public async getPositionsByAddress(
     address: bigint,
-    showClosed: boolean,
+    state: StateFilter,
     chainId: bigint | null = null,
   ) {
     return this.sql<
@@ -1227,9 +1234,10 @@ ORDER BY token_id DESC
               LEFT JOIN nft_locker_mappings nlm USING (chain_id, nft_address)
               JOIN pool_keys USING (pool_key_id)
       WHERE nfp.chain_id = COALESCE(${chainId ?? null}, nfp.chain_id)
-        AND (${showClosed} OR nfp.liquidity != 0)
-        AND (current_owner = ${address.toString()}
-          OR (${showClosed} AND previous_owner = ${address.toString()}))
+        AND (
+          (${state === "opened"} AND nfp.liquidity != 0 AND current_owner = ${address.toString()})
+          OR (${state === "closed"} AND nfp.liquidity = 0 AND (current_owner = ${address.toString()} OR previous_owner = ${address.toString()} ))
+        )
       ORDER BY last_transfer_event_id DESC;
     `;
   }
