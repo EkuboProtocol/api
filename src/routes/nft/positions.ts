@@ -13,7 +13,7 @@ import {
 } from "../../shared/validation/address";
 import { z } from "zod";
 import { IRequest, json, StatusError } from "itty-router";
-import { createQueries, StateFilter } from "../../queries";
+import { createQueries, type StateFilter } from "../../queries";
 import toHex from "../../shared/toHex";
 import {
   feeToPercent,
@@ -434,7 +434,8 @@ export class ListPositionsByAddress extends EkuboAPIRoute {
       }),
       state: Query(PositionStateQueryType, {
         required: false,
-        description: 'Filter positions by state; defaults to "opened"',
+        description:
+          'Filter positions by state; defaults to returning all positions',
       }),
       chainId: Query(ChainIdType, {
         required: false,
@@ -458,7 +459,10 @@ export class ListPositionsByAddress extends EkuboAPIRoute {
 
     const stateParam =
       typeof query?.state === "string" ? query.state.toLowerCase() : null;
-    const state: StateFilter = stateParam === "closed" ? "closed" : "opened";
+    const state: StateFilter | null =
+      stateParam === "opened" || stateParam === "closed"
+        ? (stateParam as StateFilter)
+        : null;
     const chainId =
       typeof query?.chainId === "string" ? BigInt(query.chainId) : null;
 

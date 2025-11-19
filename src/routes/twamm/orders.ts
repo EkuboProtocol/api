@@ -70,7 +70,8 @@ export class ListTwapOrders extends EkuboAPIRoute {
       address: Path(AddressType, { example: "0x1234" }),
       state: Query(OrderStateQueryType, {
         required: false,
-        description: 'Filter orders by state; defaults to "opened"',
+        description:
+          'Filter orders by state; defaults to returning all orders',
       }),
       chainId: Query(ChainIdType, {
         required: false,
@@ -90,7 +91,10 @@ export class ListTwapOrders extends EkuboAPIRoute {
     const address = BigInt(params.address);
     const stateParam =
       typeof query?.state === "string" ? query.state.toLowerCase() : null;
-    const state: StateFilter = stateParam === "closed" ? "closed" : "opened";
+    const state: StateFilter | null =
+      stateParam === "opened" || stateParam === "closed"
+        ? (stateParam as StateFilter)
+        : null;
 
     const chainId =
       typeof query.chainId === "string" ? BigInt(query.chainId) : null;
