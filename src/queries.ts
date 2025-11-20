@@ -779,7 +779,7 @@ export class Queries {
     >`
 WITH owned_tokens AS (SELECT *
                       FROM nonfungible_token_orders_view
-                      WHERE ( ${includeOpened} AND current_owner = ${address.toString()} )
+                      WHERE (current_owner = ${address.toString()})
                          OR ( ${includeClosed} AND current_owner = 0 AND previous_owner = ${address.toString()} ))
 SELECT ot.chain_id,
        nft_address,
@@ -811,7 +811,7 @@ FROM owned_tokens AS ot
 WHERE (
         (${includeOpened} AND (tpw.last_collect_proceeds IS NULL
           OR tpw.last_collect_proceeds < ot.end_time))
-        OR ${includeClosed}
+        OR (${includeClosed} AND tpw.last_collect_proceeds IS NOT NULL AND tpw.last_collect_proceeds >= ot.end_time)
       )
   AND ot.chain_id = COALESCE(${chainId}, ot.chain_id)
 ORDER BY token_id DESC
@@ -1239,7 +1239,7 @@ ORDER BY token_id DESC
       WHERE nfp.chain_id = COALESCE(${chainId ?? null}, nfp.chain_id)
         AND (
           (${includeOpened} AND nfp.liquidity != 0 AND current_owner = ${address.toString()})
-          OR (${includeClosed} AND current_owner = 0 AND nfp.liquidity = 0 AND previous_owner = ${address.toString()})
+          OR (${includeClosed} AND nfp.liquidity = 0 AND (previous_owner = ${address.toString()} OR current_owner = ${address.toString()}))
         )
       ORDER BY last_transfer_event_id DESC;
     `;
