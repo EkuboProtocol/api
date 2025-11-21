@@ -75,6 +75,12 @@ const PoolKeySummaryType = z.object({
   extension: HexStringType,
 });
 
+const PoolStateSummaryType = z.object({
+  sqrt_ratio: DecimalStringType,
+  tick: z.number().int(),
+  liquidity: DecimalStringType,
+});
+
 const PositionSummaryType = z.object({
   id: HexStringType,
   chain_id: HexStringType,
@@ -87,6 +93,7 @@ const PositionSummaryType = z.object({
   metadata_url: z.string(),
   image: z.string(),
   liquidity: DecimalStringType,
+  pool_state: PoolStateSummaryType.nullable(),
 });
 
 const PaginationMetadataType = z.object({
@@ -443,7 +450,7 @@ export class ListPositionsByAddress extends EkuboAPIRoute {
       state: Query(PositionStateQueryType, {
         required: false,
         description:
-          'Filter positions by state; defaults to returning all positions',
+          "Filter positions by state; defaults to returning all positions",
       }),
       chainId: Query(ChainIdType, {
         required: false,
@@ -483,10 +490,17 @@ export class ListPositionsByAddress extends EkuboAPIRoute {
         : null;
     const chainId =
       typeof query?.chainId === "string" ? BigInt(query.chainId) : null;
-    const pageSize = z.coerce.number().int().min(1).max(200).parse(
-      query?.pageSize ?? 50,
-    );
-    const page = z.coerce.number().int().min(1).parse(query?.page ?? 1);
+    const pageSize = z.coerce
+      .number()
+      .int()
+      .min(1)
+      .max(200)
+      .parse(query?.pageSize ?? 50);
+    const page = z.coerce
+      .number()
+      .int()
+      .min(1)
+      .parse(query?.page ?? 1);
 
     const queries = await createQueries(env);
     const { rows, totalCount } = await queries.getPositionsByAddress(
@@ -500,29 +514,35 @@ export class ListPositionsByAddress extends EkuboAPIRoute {
     );
 
     const origin = new URL(url).origin;
-    const totalPages =
-      totalCount === 0 ? 0 : Math.ceil(totalCount / pageSize);
+    const totalPages = totalCount === 0 ? 0 : Math.ceil(totalCount / pageSize);
 
     const response = {
-      data: rows.map((row) => ({
-        id: toHex(BigInt(row.token_id)),
-        chain_id: toHex(row.chain_id),
-        positions_address: toHex(row.positions_address),
-        pool_key: {
-          token0: toHex(row.token0),
-          token1: toHex(row.token1),
-          fee: toHex(row.fee),
-          tick_spacing: toHex(row.tick_spacing),
-          extension: toHex(row.extension),
-        },
-        bounds: {
-          lower: Number(row.lower_bound),
-          upper: Number(row.upper_bound),
-        },
-        metadata_url: `${origin}/positions/${row.chain_id}/${row.nft_address}/${row.token_id}`,
-        image: `${origin}/positions/${row.chain_id}/${row.nft_address}/${row.token_id}/image.svg`,
-        liquidity: row.liquidity,
-      })),
+      data: rows.map((row) => {
+        return {
+          id: toHex(BigInt(row.token_id)),
+          chain_id: toHex(row.chain_id),
+          positions_address: toHex(row.positions_address),
+          pool_key: {
+            token0: toHex(row.token0),
+            token1: toHex(row.token1),
+            fee: toHex(row.fee),
+            tick_spacing: toHex(row.tick_spacing),
+            extension: toHex(row.extension),
+          },
+          bounds: {
+            lower: Number(row.lower_bound),
+            upper: Number(row.upper_bound),
+          },
+          metadata_url: `${origin}/positions/${row.chain_id}/${row.nft_address}/${row.token_id}`,
+          image: `${origin}/positions/${row.chain_id}/${row.nft_address}/${row.token_id}/image.svg`,
+          liquidity: row.liquidity,
+          pool_state: {
+            sqrt_ratio: row.pool_state_sqrt_ratio,
+            tick: Number(row.pool_state_tick),
+            liquidity: row.pool_state_liquidity,
+          },
+        };
+      }),
       pagination: {
         page,
         pageSize,

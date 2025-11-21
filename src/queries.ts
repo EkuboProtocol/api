@@ -1213,7 +1213,6 @@ ORDER BY token_id DESC
     const includeOpened = state === "opened" || state === null;
     const includeClosed = state === "closed" || state === null;
     const addressStr = address.toString();
-
     const offset = (pagination.page - 1) * pagination.pageSize;
 
     const rows = await this.sql<
@@ -1224,6 +1223,9 @@ ORDER BY token_id DESC
         nft_address: string;
         positions_address: string;
         total_count: number;
+        pool_state_sqrt_ratio: string;
+        pool_state_tick: string;
+        pool_state_liquidity: string;
       })[]
     >`
       WITH base_positions AS (
@@ -1240,11 +1242,12 @@ ORDER BY token_id DESC
                lower_bound,
                upper_bound,
                liquidity,
+               pool_key_id,
                last_transfer_event_id
         FROM nonfungible_token_positions_view AS nfp
                  LEFT JOIN nft_locker_mappings nlm USING (chain_id, nft_address)
                  JOIN pool_keys USING (pool_key_id)
-        WHERE nfp.chain_id = COALESCE(${chainId ?? null}, nfp.chain_id) 
+        WHERE nfp.chain_id = COALESCE(${chainId ?? null}, nfp.chain_id)
           AND (
             (${includeOpened} AND nfp.liquidity != 0 AND current_owner = ${addressStr})
             OR (${includeClosed} AND nfp.liquidity = 0 AND (previous_owner = ${addressStr} OR current_owner = ${addressStr}))
@@ -1274,9 +1277,13 @@ ORDER BY token_id DESC
              paged_positions.lower_bound,
              paged_positions.upper_bound,
              paged_positions.liquidity,
-             total_count.total_count
+             total_count.total_count,
+             ps.sqrt_ratio         AS pool_state_sqrt_ratio,
+             ps.tick               AS pool_state_tick,
+             ps.liquidity          AS pool_state_liquidity
       FROM total_count
                LEFT JOIN paged_positions ON TRUE
+               LEFT JOIN pool_states ps ON paged_positions.pool_key_id = ps.pool_key_id
       ORDER BY paged_positions.last_transfer_event_id DESC NULLS LAST;
     `;
 
