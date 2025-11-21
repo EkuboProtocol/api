@@ -89,8 +89,16 @@ const PositionSummaryType = z.object({
   liquidity: DecimalStringType,
 });
 
+const PaginationMetadataType = z.object({
+  page: z.number().int().min(1),
+  pageSize: z.number().int().min(1),
+  totalPages: z.number().int().min(0),
+  totalItems: z.number().int().min(0),
+});
+
 const ListPositionsResponseType = z.object({
   data: z.array(PositionSummaryType),
+  pagination: PaginationMetadataType,
 });
 
 const PositionStateQueryType = z.enum(["opened", "closed"]);
@@ -441,6 +449,16 @@ export class ListPositionsByAddress extends EkuboAPIRoute {
         required: false,
         description: "Restrict results to a specific chain ID",
       }),
+      pageSize: Query(z.coerce.number().int().min(1).max(200), {
+        required: false,
+        description: "Maximum number of positions to return per page",
+        default: 50,
+      }),
+      page: Query(z.coerce.number().int().min(1), {
+        required: false,
+        description: "Page number to fetch (1-indexed)",
+        default: 1,
+      }),
     },
     responses: {
       "200": {
@@ -465,11 +483,25 @@ export class ListPositionsByAddress extends EkuboAPIRoute {
         : null;
     const chainId =
       typeof query?.chainId === "string" ? BigInt(query.chainId) : null;
+    const pageSize = z.coerce.number().int().min(1).max(200).parse(
+      query?.pageSize ?? 50,
+    );
+    const page = z.coerce.number().int().min(1).parse(query?.page ?? 1);
 
     const queries = await createQueries(env);
-    const rows = await queries.getPositionsByAddress(address, state, chainId);
+    const { rows, totalCount } = await queries.getPositionsByAddress(
+      address,
+      state,
+      chainId,
+      {
+        page,
+        pageSize,
+      },
+    );
 
     const origin = new URL(url).origin;
+    const totalPages =
+      totalCount === 0 ? 0 : Math.ceil(totalCount / pageSize);
 
     const response = {
       data: rows.map((row) => ({
@@ -491,6 +523,12 @@ export class ListPositionsByAddress extends EkuboAPIRoute {
         image: `${origin}/positions/${row.chain_id}/${row.nft_address}/${row.token_id}/image.svg`,
         liquidity: row.liquidity,
       })),
+      pagination: {
+        page,
+        pageSize,
+        totalPages,
+        totalItems: totalCount,
+      },
     } satisfies z.infer<typeof ListPositionsResponseType>;
 
     return json(response, {

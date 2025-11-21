@@ -1208,41 +1208,94 @@ ORDER BY token_id DESC
     address: bigint,
     state: StateFilter | null = null,
     chainId: bigint | null = null,
+    pagination: { page: number; pageSize: number },
   ) {
     const includeOpened = state === "opened" || state === null;
     const includeClosed = state === "closed" || state === null;
+    const addressStr = address.toString();
 
-    return this.sql<
+    const offset = (pagination.page - 1) * pagination.pageSize;
+
+    const results = await this.sql<
       (PositionMetadata & {
-        chain_id: bigint;
-        token_id: string;
-        liquidity: string;
-        nft_address: string;
+        chain_id: bigint | null;
+        token_id: string | null;
+        liquidity: string | null;
+        nft_address: string | null;
+        positions_address: string | null;
+        total_count: number;
       })[]
     >`
-      SELECT nfp.chain_id,
-            nft_address,
-            core_address,
-            COALESCE(nlm.locker, nfp.nft_address) AS positions_address,
-            token_id,
-            token0,
-            token1,
-            fee,
-            tick_spacing,
-            pool_extension                        AS "extension",
-            lower_bound,
-            upper_bound,
-            liquidity
-      FROM nonfungible_token_positions_view AS nfp
-              LEFT JOIN nft_locker_mappings nlm USING (chain_id, nft_address)
-              JOIN pool_keys USING (pool_key_id)
-      WHERE nfp.chain_id = COALESCE(${chainId ?? null}, nfp.chain_id)
-        AND (
-          (${includeOpened} AND nfp.liquidity != 0 AND current_owner = ${address.toString()})
-          OR (${includeClosed} AND nfp.liquidity = 0 AND (previous_owner = ${address.toString()} OR current_owner = ${address.toString()}))
-        )
-      ORDER BY last_transfer_event_id DESC;
+      WITH base_positions AS (
+        SELECT nfp.chain_id,
+               nft_address,
+               core_address,
+               COALESCE(nlm.locker, nfp.nft_address) AS positions_address,
+               token_id,
+               token0,
+               token1,
+               fee,
+               tick_spacing,
+               pool_extension                        AS "extension",
+               lower_bound,
+               upper_bound,
+               liquidity,
+               last_transfer_event_id
+        FROM nonfungible_token_positions_view AS nfp
+                 LEFT JOIN nft_locker_mappings nlm USING (chain_id, nft_address)
+                 JOIN pool_keys USING (pool_key_id)
+        WHERE nfp.chain_id = COALESCE(${chainId ?? null}, nfp.chain_id) 
+          AND (
+            (${includeOpened} AND nfp.liquidity != 0 AND current_owner = ${addressStr})
+            OR (${includeClosed} AND nfp.liquidity = 0 AND (previous_owner = ${addressStr} OR current_owner = ${addressStr}))
+          )
+      ),
+      total_count AS (
+        SELECT COUNT(*)::int AS total_count
+        FROM base_positions
+      ),
+      paged_positions AS (
+        SELECT *
+        FROM base_positions
+        ORDER BY last_transfer_event_id DESC
+        LIMIT ${pagination.pageSize}
+        OFFSET ${offset}
+      )
+      SELECT paged_positions.chain_id,
+             paged_positions.nft_address,
+             paged_positions.core_address,
+             paged_positions.positions_address,
+             paged_positions.token_id,
+             paged_positions.token0,
+             paged_positions.token1,
+             paged_positions.fee,
+             paged_positions.tick_spacing,
+             paged_positions.extension,
+             paged_positions.lower_bound,
+             paged_positions.upper_bound,
+             paged_positions.liquidity,
+             total_count.total_count
+      FROM total_count
+               LEFT JOIN paged_positions ON TRUE
+      ORDER BY paged_positions.last_transfer_event_id DESC NULLS LAST;
     `;
+
+    const totalCount = results.length > 0 ? results[0].total_count : 0;
+    const rows = results
+      .filter((row) => row.token_id !== null)
+      .map(({ total_count: _totalCount, ...row }) => ({
+        ...row,
+        chain_id: row.chain_id as bigint,
+        nft_address: row.nft_address as string,
+        positions_address: row.positions_address as string,
+        token_id: row.token_id as string,
+        liquidity: row.liquidity as string,
+      }));
+
+    return {
+      rows,
+      totalCount,
+    };
   }
 
   async listCampaigns(chainId: bigint | null = null) {
