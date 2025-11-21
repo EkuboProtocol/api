@@ -309,7 +309,11 @@ export class Queries {
     return rows;
   }
 
-  public async getPositionHistory(tokenId: bigint, chainId: bigint) {
+  public async getPositionHistory(
+    tokenId: bigint,
+    lockerAddress: bigint,
+    chainId: bigint,
+  ) {
     const rows = await this.sql<
       (
         | {
@@ -356,10 +360,13 @@ export class Queries {
         FROM nonfungible_token_transfers AS nft
                  JOIN blocks AS b ON b.block_number = nft.block_number
                                   AND b.chain_id = nft.chain_id
+                 LEFT JOIN nft_locker_mappings as nlm ON nlm.nft_address = nft.emitter
+                                  AND nlm.chain_id = nft.chain_id
         WHERE nft.token_id = ${tokenId.toString()}
           AND nft.from_address != 0
           AND nft.to_address != 0
           AND nft.chain_id = ${chainId}
+          AND (nlm.locker = ${lockerAddress.toString()} OR nlm.locker IS NULL)
       ),
       updates AS (
         SELECT nft.transaction_hash,
@@ -372,10 +379,13 @@ export class Queries {
                  JOIN blocks AS b ON b.block_number = nft.block_number
                                      AND b.chain_id = nft.chain_id
                  JOIN position_updates AS pu ON pu.salt = nft.token_id
+                 LEFT JOIN nft_locker_mappings as nlm ON nlm.nft_address = nft.emitter
+                                  AND nlm.chain_id = nft.chain_id
         WHERE nft.token_id = ${tokenId.toString()}
           AND nft.from_address = 0
           AND nft.chain_id = ${chainId}
           AND pu.chain_id = ${chainId}
+          AND (nlm.locker = ${lockerAddress.toString()} OR nlm.locker IS NULL)
       ),
       fee_collections AS (
         SELECT nft.transaction_hash,
@@ -387,10 +397,13 @@ export class Queries {
                  JOIN blocks AS b ON b.block_number = nft.block_number
                                      AND b.chain_id = nft.chain_id
                  JOIN position_fees_collected AS pfc ON pfc.salt = nft.token_id
+                 LEFT JOIN nft_locker_mappings as nlm ON nlm.nft_address = nft.emitter
+                                  AND nlm.chain_id = nft.chain_id
         WHERE nft.token_id = ${tokenId.toString()}
           AND nft.from_address = 0
           AND nft.chain_id = ${chainId}
           AND pfc.chain_id = ${chainId}
+          AND (nlm.locker = ${lockerAddress.toString()} OR nlm.locker IS NULL)
       ),
       all_events AS (
         SELECT 0 AS type,
