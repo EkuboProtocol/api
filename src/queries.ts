@@ -1216,13 +1216,13 @@ ORDER BY token_id DESC
 
     const offset = (pagination.page - 1) * pagination.pageSize;
 
-    const results = await this.sql<
+    const rows = await this.sql<
       (PositionMetadata & {
-        chain_id: bigint | null;
-        token_id: string | null;
-        liquidity: string | null;
-        nft_address: string | null;
-        positions_address: string | null;
+        chain_id: bigint;
+        token_id: string;
+        liquidity: string;
+        nft_address: string;
+        positions_address: string;
         total_count: number;
       })[]
     >`
@@ -1280,18 +1280,7 @@ ORDER BY token_id DESC
       ORDER BY paged_positions.last_transfer_event_id DESC NULLS LAST;
     `;
 
-    const totalCount = results.length > 0 ? results[0].total_count : 0;
-    const rows = results
-      .filter((row) => row.token_id !== null)
-      .map(({ total_count: _totalCount, ...row }) => ({
-        ...row,
-        chain_id: row.chain_id as bigint,
-        nft_address: row.nft_address as string,
-        positions_address: row.positions_address as string,
-        token_id: row.token_id as string,
-        liquidity: row.liquidity as string,
-      }));
-
+    const totalCount = rows.length > 0 ? rows[0].total_count : 0;
     return {
       rows,
       totalCount,
