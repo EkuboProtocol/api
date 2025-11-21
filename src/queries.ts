@@ -366,7 +366,10 @@ export class Queries {
           AND nft.from_address != 0
           AND nft.to_address != 0
           AND nft.chain_id = ${chainId}
-          AND (nlm.locker = ${lockerAddress.toString()} OR nlm.locker IS NULL)
+          AND (
+            nft.emitter = ${lockerAddress.toString()}
+            OR nlm.locker = ${lockerAddress.toString()} 
+          )
       ),
       updates AS (
         SELECT nft.transaction_hash,
@@ -385,7 +388,10 @@ export class Queries {
           AND nft.from_address = 0
           AND nft.chain_id = ${chainId}
           AND pu.chain_id = ${chainId}
-          AND (nlm.locker = ${lockerAddress.toString()} OR nlm.locker IS NULL)
+          AND (
+            nft.emitter = ${lockerAddress.toString()}
+            OR nlm.locker = ${lockerAddress.toString()} 
+          )
       ),
       fee_collections AS (
         SELECT nft.transaction_hash,
@@ -403,7 +409,10 @@ export class Queries {
           AND nft.from_address = 0
           AND nft.chain_id = ${chainId}
           AND pfc.chain_id = ${chainId}
-          AND (nlm.locker = ${lockerAddress.toString()} OR nlm.locker IS NULL)
+          AND (
+            nft.emitter = ${lockerAddress.toString()}
+            OR nlm.locker = ${lockerAddress.toString()} 
+          )
       ),
       all_events AS (
         SELECT 0 AS type,
