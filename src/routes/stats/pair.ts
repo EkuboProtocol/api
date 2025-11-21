@@ -7,6 +7,112 @@ import {
 } from "../../shared/validation/address";
 import { OpenAPIRouteSchema, Path } from "@cloudflare/itty-router-openapi";
 import { parseOutTokens } from "../../shared/parseOutTokens";
+import { z } from "zod";
+
+const TimestampType = z.union([z.date(), z.string()]);
+
+const TokenBalanceEntryType = z.object({
+  token: z.string(),
+  balance: z.string(),
+});
+
+const TokenDeltaEntryType = z.object({
+  token: z.string(),
+  date: TimestampType,
+  delta: z.string(),
+});
+
+const PairTvlResponseType = z.object({
+  tvlByToken: z.array(TokenBalanceEntryType),
+  tvlDeltaByTokenByDate: z.array(TokenDeltaEntryType),
+});
+
+type PairVolumeRow = {
+  token: string;
+  volume: string;
+} & Partial<{ fees: string }>;
+
+const normalizePairVolumeRow = (row: PairVolumeRow) => ({
+  token: row.token,
+  volume: row.volume,
+  fees: row.fees ?? "0",
+});
+
+type PairTvlDeltaRow = {
+  token: string;
+  date: string | Date;
+} & Partial<{ delta: string; balance: string }>;
+
+const normalizePairTvlDeltaRow = (row: PairTvlDeltaRow) => ({
+  token: row.token,
+  date: row.date,
+  delta: row.delta ?? row.balance ?? "0",
+});
+
+const VolumeEntryType = z.object({
+  token: z.string(),
+  volume: z.string(),
+  fees: z.string(),
+});
+
+const VolumeByDateEntryType = VolumeEntryType.extend({
+  date: TimestampType,
+});
+
+const PairVolumeResponseType = z.object({
+  chain_id: z.string(),
+  volumeByToken: z.array(VolumeEntryType),
+  volumeByTokenByDate: z.array(VolumeByDateEntryType),
+  volumeByToken_24h: z.array(VolumeEntryType),
+});
+
+const PoolStatsType = z.object({
+  fee: z.string(),
+  tick_spacing: z.number().int(),
+  core_address: z.string(),
+  extension: z.string(),
+  volume0_24h: z.string(),
+  volume1_24h: z.string(),
+  fees0_24h: z.string(),
+  fees1_24h: z.string(),
+  tvl0_total: z.string(),
+  tvl1_total: z.string(),
+  tvl0_delta_24h: z.string(),
+  tvl1_delta_24h: z.string(),
+  depth0: z.string(),
+  depth1: z.string(),
+  depth_percent: z.number().nullable(),
+});
+
+const PairPoolsResponseType = z.object({
+  topPools: z.array(PoolStatsType),
+});
+
+const LiquidityPointType = z.object({
+  tick: z.string(),
+  net_liquidity_delta_diff: z.string(),
+});
+
+const PairLiquidityResponseType = z.object({
+  data: z.array(LiquidityPointType),
+});
+
+const PairEventType = z.object({
+  type: z.union([z.literal(0), z.literal(1)]),
+  fee: z.string(),
+  tick_spacing: z.number().int(),
+  extension: z.string(),
+  core_address: z.string(),
+  locker: z.string(),
+  timestamp: TimestampType,
+  transaction_hash: z.string(),
+  delta0: z.string(),
+  delta1: z.string(),
+});
+
+const PairEventsResponseType = z.object({
+  data: z.array(PairEventType),
+});
 
 export class GetPairInfoTvl extends EkuboAPIRoute {
   static route = "/pair/:chainId/:tokenA/:tokenB/tvl";
@@ -24,6 +130,7 @@ export class GetPairInfoTvl extends EkuboAPIRoute {
       "200": {
         description: "Information about the token pair TVL",
         contentType: "application/json",
+        schema: PairTvlResponseType,
       },
     },
   };
@@ -39,22 +146,25 @@ export class GetPairInfoTvl extends EkuboAPIRoute {
     const timestamp = Date.now();
     const thirtyDaysAgo = new Date(timestamp - 1000 * 60 * 60 * 24 * 30);
 
-    const [tvlByToken, tvlDeltaByTokenByDate] = await Promise.all([
+    const [tvlByToken, rawTvlDeltaByTokenByDate] = await Promise.all([
       queries.getTvlByToken(chainId, pair),
       queries.getTvlDeltaByTokenByDate(chainId, thirtyDaysAgo, pair),
     ]);
 
-    return json(
-      {
-        tvlByToken,
-        tvlDeltaByTokenByDate,
-      },
-      {
-        headers: {
-          "cache-control": "public, max-age=3600",
-        },
-      },
+    const tvlDeltaByTokenByDate = rawTvlDeltaByTokenByDate.map((row) =>
+      normalizePairTvlDeltaRow(row as PairTvlDeltaRow),
     );
+
+    const response = {
+      tvlByToken,
+      tvlDeltaByTokenByDate,
+    } satisfies z.infer<typeof PairTvlResponseType>;
+
+    return json(response, {
+      headers: {
+        "cache-control": "public, max-age=3600",
+      },
+    });
   }
 }
 
@@ -74,6 +184,7 @@ export class GetPairInfoVolume extends EkuboAPIRoute {
       "200": {
         description: "Information about the token pair volume",
         contentType: "application/json",
+        schema: PairVolumeResponseType,
       },
     },
   };
@@ -90,30 +201,39 @@ export class GetPairInfoVolume extends EkuboAPIRoute {
     const thirtyDaysAgo = new Date(timestamp - 1000 * 60 * 60 * 24 * 30);
     const twentyFourHoursAgo = new Date(timestamp - 1000 * 60 * 60 * 24);
 
-    const [volumeByToken, volumeByTokenByDate, volumeByToken_24h] =
-      await Promise.all([
-        queries.getTotalVolumeByToken({ pair, chainId }),
-        queries.getVolumeByTokenByDate(chainId, thirtyDaysAgo, pair),
-        queries.getTotalVolumeByToken({
-          chainId,
-          since: twentyFourHoursAgo,
-          pair,
-        }),
-      ]);
+    const [
+      rawVolumeByToken,
+      volumeByTokenByDate,
+      rawVolumeByToken_24h,
+    ] = await Promise.all([
+      queries.getTotalVolumeByToken({ pair, chainId }),
+      queries.getVolumeByTokenByDate(chainId, thirtyDaysAgo, pair),
+      queries.getTotalVolumeByToken({
+        chainId,
+        since: twentyFourHoursAgo,
+        pair,
+      }),
+    ]);
 
-    return json(
-      {
-        chain_id: chainId.toString(),
-        volumeByToken,
-        volumeByTokenByDate,
-        volumeByToken_24h,
-      },
-      {
-        headers: {
-          "cache-control": "public, max-age=600",
-        },
-      },
+    const volumeByToken = rawVolumeByToken.map((row) =>
+      normalizePairVolumeRow(row as PairVolumeRow),
     );
+    const volumeByToken_24h = rawVolumeByToken_24h.map((row) =>
+      normalizePairVolumeRow(row as PairVolumeRow),
+    );
+
+    const response = {
+      chain_id: chainId.toString(),
+      volumeByToken,
+      volumeByTokenByDate,
+      volumeByToken_24h,
+    } satisfies z.infer<typeof PairVolumeResponseType>;
+
+    return json(response, {
+      headers: {
+        "cache-control": "public, max-age=600",
+      },
+    });
   }
 }
 
@@ -133,6 +253,7 @@ export class GetPairInfoPools extends EkuboAPIRoute {
       "200": {
         description: "Information about the pools of a token pair",
         contentType: "application/json",
+        schema: PairPoolsResponseType,
       },
     },
   };
@@ -147,16 +268,15 @@ export class GetPairInfoPools extends EkuboAPIRoute {
 
     const topPools = await queries.getTopPools(chainId, pair);
 
-    return json(
-      {
-        topPools,
+    const response = {
+      topPools,
+    } satisfies z.infer<typeof PairPoolsResponseType>;
+
+    return json(response, {
+      headers: {
+        "cache-control": "public, max-age=600",
       },
-      {
-        headers: {
-          "cache-control": "public, max-age=600",
-        },
-      },
-    );
+    });
   }
 }
 
@@ -176,6 +296,7 @@ export class GetPairLiquidity extends EkuboAPIRoute {
       "200": {
         description: "For each tick for pools of the pair, the liquidity delta",
         contentType: "application/json",
+        schema: PairLiquidityResponseType,
       },
     },
   };
@@ -193,16 +314,15 @@ export class GetPairLiquidity extends EkuboAPIRoute {
       chainId,
     });
 
-    return json(
-      {
-        data,
+    const response = {
+      data,
+    } satisfies z.infer<typeof PairLiquidityResponseType>;
+
+    return json(response, {
+      headers: {
+        "cache-control": "public, max-age=600, must-revalidate",
       },
-      {
-        headers: {
-          "cache-control": "public, max-age=600, must-revalidate",
-        },
-      },
-    );
+    });
   }
 }
 
@@ -221,6 +341,7 @@ export class ListPairEvents extends EkuboAPIRoute {
       "200": {
         description: "A list of events for the given pair",
         contentType: "application/json",
+        schema: PairEventsResponseType,
       },
     },
   };
@@ -239,15 +360,14 @@ export class ListPairEvents extends EkuboAPIRoute {
       chainId,
     });
 
-    return json(
-      {
-        data: rows,
+    const response = {
+      data: rows,
+    } satisfies z.infer<typeof PairEventsResponseType>;
+
+    return json(response, {
+      headers: {
+        "cache-control": "public, max-age=180, must-revalidate",
       },
-      {
-        headers: {
-          "cache-control": "public, max-age=180, must-revalidate",
-        },
-      },
-    );
+    });
   }
 }

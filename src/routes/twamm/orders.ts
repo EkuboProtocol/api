@@ -12,7 +12,7 @@ import {
 } from "../../shared/validation/address";
 import { z } from "zod";
 import { IRequest, json } from "itty-router";
-import { createQueries } from "../../queries";
+import { createQueries, type StateFilter } from "../../queries";
 import toHex from "../../shared/toHex";
 
 export const OrderKeyType = z
@@ -39,18 +39,24 @@ export const OrderKeyType = z
 
 const TwammOrderPartInfo = z.object({
   key: OrderKeyType,
-  block_time_at_start: z.number().int().min(0),
-  last_order_update: z.number().int().min(0),
   total_proceeds_withdrawn: DecimalStringType,
-  total_amount_sold_before_last_update: DecimalStringType,
+  sale_rate: DecimalStringType,
+  last_collect_proceeds: z.number().int().nullable(),
 });
 
 const TwammOrderInfo = z.object({
+  chain_id: HexStringType,
+  nft_address: HexStringType,
   token_id: HexStringType,
   orders: z.array(TwammOrderPartInfo),
 });
 
 type TwammOrderInfoType = z.infer<typeof TwammOrderInfo>;
+const ListTwapOrdersResponseType = z.object({
+  orders: z.array(TwammOrderInfo),
+});
+
+const OrderStateQueryType = z.enum(["opened", "closed"]);
 
 export class ListTwapOrders extends EkuboAPIRoute {
   static route = "/twap/orders/:address";
@@ -62,9 +68,10 @@ export class ListTwapOrders extends EkuboAPIRoute {
       "Returns the list of TWAP orders currently held by the given address",
     parameters: {
       address: Path(AddressType, { example: "0x1234" }),
-      showClosed: Query(z.coerce.boolean(), {
+      state: Query(OrderStateQueryType, {
+        required: false,
         description:
-          "Whether to show orders that have zero active sell rate as part of the response",
+          'Filter orders by state; defaults to returning all orders',
       }),
       chainId: Query(ChainIdType, {
         required: false,
@@ -75,88 +82,83 @@ export class ListTwapOrders extends EkuboAPIRoute {
       "200": {
         description: "The list of TWAP orders placed by the address",
         contentType: "application/json",
-        schema: z.object({
-          orders: z.array(TwammOrderInfo).openapi({
-            description:
-              "The list of TWAP orders currently and/or previously owned by the address, depending on `showClosed`",
-          }),
-        }),
+        schema: ListTwapOrdersResponseType,
       },
     },
   };
 
   async handle({ params, query }: IRequest, { env }: RequestContext) {
     const address = BigInt(params.address);
-    const showClosed = query.showClosed === "true";
+    const stateParam =
+      typeof query?.state === "string" ? query.state.toLowerCase() : null;
+    const state: StateFilter | null =
+      stateParam === "opened" || stateParam === "closed"
+        ? (stateParam as StateFilter)
+        : null;
 
     const chainId =
       typeof query.chainId === "string" ? BigInt(query.chainId) : null;
     const queries = await createQueries(env);
 
-    const rows = await queries.getTwammOrdersByAddress(
-      address,
-      showClosed,
-      chainId,
-    );
+    const rows = await queries.getTwammOrdersByAddress(address, state, chainId);
 
-    return json(
-      {
-        orders: rows.reduce<TwammOrderInfoType[]>(
-          (
-            memo,
-            {
-              token_id,
-              fee,
-              buy_token,
-              sell_token,
-              end_time,
-              start_time,
-              block_time_at_start,
-              last_order_update,
-              last_collect_proceeds,
-              total_proceeds_withdrawn,
-              total_amount_sold_before_last_update,
-            },
-          ) => {
-            const tokenId = BigInt(token_id);
-            const order = memo.find((m) => BigInt(m.token_id) === tokenId);
-
-            const additionalOrder = {
-              key: {
-                sell_token: toHex(BigInt(sell_token)),
-                buy_token: toHex(BigInt(buy_token)),
-                fee: toHex(BigInt(fee)),
-                start_time: start_time.getTime() / 1000,
-                end_time: end_time.getTime() / 1000,
-              },
-              block_time_at_start: block_time_at_start.getTime() / 1000,
-              last_order_update: last_order_update.getTime() / 1000,
-              last_collect_proceeds: last_collect_proceeds
-                ? last_collect_proceeds.getTime() / 1000
-                : null,
-              total_proceeds_withdrawn,
-              total_amount_sold_before_last_update,
-            };
-
-            if (!order) {
-              memo.push({
-                token_id: toHex(BigInt(tokenId)),
-                orders: [additionalOrder],
-              });
-            } else {
-              order.orders.push(additionalOrder);
-            }
-
-            return memo;
+    const response = {
+      orders: rows.reduce<TwammOrderInfoType[]>(
+        (
+          memo,
+          {
+            chain_id,
+            nft_address,
+            token_id,
+            fee,
+            buy_token,
+            sell_token,
+            end_time,
+            start_time,
+            last_collect_proceeds,
+            total_proceeds_withdrawn,
+            sale_rate,
           },
-          [],
-        ),
-      },
-      {
-        headers: {
-          "cache-control": "public,max-age=10,must-revalidate",
+        ) => {
+          const tokenId = BigInt(token_id);
+          const order = memo.find((m) => BigInt(m.token_id) === tokenId);
+
+          const additionalOrder = {
+            key: {
+              sell_token: toHex(sell_token),
+              buy_token: toHex(buy_token),
+              fee: toHex(fee),
+              start_time: start_time.getTime() / 1000,
+              end_time: end_time.getTime() / 1000,
+            },
+            last_collect_proceeds: last_collect_proceeds
+              ? last_collect_proceeds.getTime() / 1000
+              : null,
+            total_proceeds_withdrawn,
+            sale_rate,
+          };
+
+          if (!order) {
+            memo.push({
+              chain_id: toHex(chain_id),
+              nft_address: toHex(nft_address),
+              token_id: toHex(BigInt(tokenId)),
+              orders: [additionalOrder],
+            });
+          } else {
+            order.orders.push(additionalOrder);
+          }
+
+          return memo;
         },
+        [],
+      ),
+    } satisfies z.infer<typeof ListTwapOrdersResponseType>;
+
+    return json(response, {
+      headers: {
+        "cache-control": "public,max-age=10,must-revalidate",
       },
-    );
+    });
   }
 }

@@ -3,7 +3,7 @@ import { OpenAPIRouteSchema, Path } from "@cloudflare/itty-router-openapi";
 import { IRequest, json, StatusError } from "itty-router";
 import { createQueries } from "../../queries";
 import toHex from "../../shared/toHex";
-import { NFTMetadata, TokenIdType } from "./format";
+import { NFTMetadata, NFTMetadataSchema, TokenIdType } from "./format";
 import { generateDcaOrderNft } from "./generateDcaOrderNft";
 import { NumericStringType } from "../../shared/validation/address";
 
@@ -21,6 +21,7 @@ export class GetOrderNftMetadata extends EkuboAPIRoute {
       "200": {
         description: "The NFT metadata for the given order ID",
         contentType: "application/json",
+        schema: NFTMetadataSchema,
       },
     },
   };
@@ -104,7 +105,9 @@ export class GetOrderNftMetadata extends EkuboAPIRoute {
       description: "A TWAP order in Ekubo Protocol",
     };
 
-    return json(metadata, {
+    const response = metadata satisfies NFTMetadata;
+
+    return json(response, {
       headers: {
         "cache-control": "public,max-age=3600,immutable",
       },

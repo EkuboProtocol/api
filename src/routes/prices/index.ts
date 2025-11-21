@@ -14,6 +14,22 @@ import {
 import { z } from "zod";
 import { ETH_V2_TOKEN_ADDRESS_VALUE } from "../../shared/constants";
 
+const PriceHistoryPointType = z.object({
+  start: z.union([z.string(), z.date()]),
+  vwap: z.number(),
+  max: z.number(),
+  min: z.number(),
+  k_volume: z.string(),
+});
+
+const GetPairPriceHistoryResponseType = z.object({
+  timestamp: z.number().int(),
+  start: z.number().int(),
+  end: z.number().int(),
+  interval: z.number().int(),
+  data: z.array(PriceHistoryPointType),
+});
+
 export class GetPairPriceHistory extends EkuboAPIRoute {
   static route = "/price/:chainId/:baseToken/:quoteToken/history";
 
@@ -33,6 +49,7 @@ export class GetPairPriceHistory extends EkuboAPIRoute {
       "200": {
         description: "The price history of the pair",
         contentType: "application/json",
+        schema: GetPairPriceHistoryResponseType,
       },
     },
   };
@@ -146,29 +163,28 @@ export class GetPairPriceHistory extends EkuboAPIRoute {
       min: Number(d.min),
     }));
 
-    return json(
-      {
-        timestamp: Date.now(),
-        start: start.getTime(),
-        end: end.getTime(),
-        interval: intervalSeconds,
-        data: baseBeforeQuote
-          ? formattedData
-          : formattedData.map((d) => ({
-              ...d,
-              vwap: 1 / d.vwap,
-              max: 1 / d.min,
-              min: 1 / d.max,
-              k_volume: d.k_volume,
-            })),
+    const response = {
+      timestamp: Date.now(),
+      start: start.getTime(),
+      end: end.getTime(),
+      interval: intervalSeconds,
+      data: baseBeforeQuote
+        ? formattedData
+        : formattedData.map((d) => ({
+            ...d,
+            vwap: 1 / d.vwap,
+            max: 1 / d.min,
+            min: 1 / d.max,
+            k_volume: d.k_volume,
+          })),
+    } satisfies z.infer<typeof GetPairPriceHistoryResponseType>;
+
+    return json(response, {
+      headers: {
+        "cache-control": `public, max-age=${Math.ceil(
+          intervalSeconds / 4,
+        )}, must-revalidate`,
       },
-      {
-        headers: {
-          "cache-control": `public, max-age=${Math.ceil(
-            intervalSeconds / 4,
-          )}, must-revalidate`,
-        },
-      },
-    );
+    });
   }
 }

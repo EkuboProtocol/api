@@ -71,6 +71,10 @@ export const TokenType = z
   });
 
 export type TokenInfo = z.infer<typeof TokenType>;
+const TokenListResponseType = z
+  .array(TokenType)
+  .openapi({ description: "Array of tokens" });
+type TokenListResponse = z.infer<typeof TokenListResponseType>;
 
 function buildTokenInfo(row: RawErc20TokenRow): TokenInfo {
   const decimals = Number(row.token_decimals);
@@ -149,7 +153,7 @@ export class ListTokens extends EkuboAPIRoute {
     responses: {
       "200": {
         description: "List of tokens",
-        schema: z.array(TokenType).openapi({ description: "Array of tokens" }),
+        schema: TokenListResponseType,
         contentType: "application/json",
       },
     },
@@ -184,8 +188,9 @@ export class ListTokens extends EkuboAPIRoute {
     });
 
     const tokens = rows.map(buildTokenInfo);
+    const response = tokens satisfies TokenListResponse;
 
-    return json(tokens, {
+    return json(response, {
       headers: {
         "cache-control": `public, max-age=600`,
       },
@@ -228,7 +233,8 @@ export class GetToken extends EkuboAPIRoute {
       throw new StatusError(404, "Token not found");
     }
 
-    return json(token, {
+    const response = token satisfies TokenInfo;
+    return json(response, {
       headers: {
         "cache-control": "public, max-age=43200",
       },
