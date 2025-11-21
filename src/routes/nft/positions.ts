@@ -288,7 +288,7 @@ export class GetPositionNftMetadata extends EkuboAPIRoute {
 }
 
 export class ListPositionNftEvents extends EkuboAPIRoute {
-  static route = "/positions/:chainId/:nftAddress/:id/history";
+  static route = "/positions/:chainId/:lockerAddress/:id/history";
   static schema: OpenAPIRouteSchema = {
     tags: ["Positions"],
     summary: "List position history",
@@ -297,8 +297,8 @@ export class ListPositionNftEvents extends EkuboAPIRoute {
       chainId: Path(NumericStringType, {
         description: "Chain ID for which to list events",
       }),
-      nftAddress: Path(AddressType, {
-        description: "The address of the Positions NFT contract",
+      lockerAddress: Path(AddressType, {
+        description: "The address of the Positions contract",
       }),
       id: Path(TokenIdType),
     },
@@ -312,7 +312,7 @@ export class ListPositionNftEvents extends EkuboAPIRoute {
   };
 
   async handle(
-    { params: { id: idStr, chainId: chainIdParam, nftAddress } }: IRequest,
+    { params: { id: idStr, chainId: chainIdParam, lockerAddress } }: IRequest,
     { env }: RequestContext,
   ) {
     const id = BigInt(idStr);
@@ -320,11 +320,15 @@ export class ListPositionNftEvents extends EkuboAPIRoute {
 
     const queries = await createQueries(env);
 
-    if (!(await queries.getPositionMetadata(chainId, BigInt(nftAddress), id))) {
+    const history = await queries.getPositionHistory(
+      id,
+      BigInt(lockerAddress),
+      chainId,
+    );
+
+    if (history.length === 0) {
       throw new StatusError(404, "Token ID not found");
     }
-
-    const history = await queries.getPositionHistory(id, chainId);
 
     const response = {
       chain_id: chainIdParam,
