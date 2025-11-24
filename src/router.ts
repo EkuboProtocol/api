@@ -48,6 +48,7 @@ import {
   ListTopDelegates,
   ListVotesOnProposal,
 } from "./routes/governance";
+import { ListLimitOrders } from "./routes/limit";
 
 export const router = OpenAPIRouter({
   schema: {
@@ -93,6 +94,7 @@ export const router = OpenAPIRouter({
   .get(GetTwammPoolState.route, GetTwammPoolState)
   .get(GetTwammPairState.route, GetTwammPairState)
   .get(ListTwapOrders.route, ListTwapOrders)
+  .get(ListLimitOrders.route, ListLimitOrders)
   .get(GetPositionNftImage.route, GetPositionNftImage)
   .get(ListProposals.route, ListProposals)
   .get(ListTopDelegates.route, ListTopDelegates)

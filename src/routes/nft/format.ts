@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { NumericStringType } from "../../shared/validation/address";
+import Decimal from "decimal.js-light";
 
 export const NFTAttributeSchema = z.object({
   trait_type: z.string(),
@@ -93,6 +94,17 @@ export function formatTimeToUTC(date: Date) {
     .padStart(2, "0")}-${date.getUTCDate().toString().padStart(2, "0")} ${hours
     .toString()
     .padStart(2, "0")}:${minutes}:${seconds} ${ampm} UTC`;
+}
+
+export function formatAmount(
+  amount: bigint | string,
+  decimals = 18,
+  significantDigits = 6,
+) {
+  return new Decimal(amount.toString())
+    .div(new Decimal(10).pow(decimals))
+    .toSignificantDigits(significantDigits)
+    .toString();
 }
 
 export const TokenIdType = NumericStringType;
