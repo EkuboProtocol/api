@@ -1707,11 +1707,10 @@ FROM incentives.campaigns c
         yea: boolean;
       }[]
     >`
-          SELECT FLOOR(EXTRACT(EPOCH FROM b.time))::int4 AS time, voter, weight, yea
+          SELECT FLOOR(EXTRACT(EPOCH FROM b.block_time))::int4 AS time, voter, weight, yea
           FROM governor_voted gv
-                   JOIN event_keys ek ON event_id = ek.id
-                   JOIN blocks b ON block_number = b.number
-          WHERE gv.id = ${proposalId}
+                   JOIN blocks b ON gv.block_number = b.block_number
+          WHERE gv.proposal_id = ${proposalId.toString()}
       `;
   }
 
