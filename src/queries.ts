@@ -1658,10 +1658,11 @@ FROM incentives.campaigns c
     `;
   }
 
-  async getProposals() {
+  async getProposals(chainId: bigint) {
     return this.sql<
       {
         id: string;
+        chain_id: bigint;
         created: number;
         description: string | null;
         calls: { to: string; selector: string; calldata: string[] }[] | null;
@@ -1670,6 +1671,7 @@ FROM incentives.campaigns c
       }[]
     >`
         SELECT gp.proposal_id as id,
+               gp.chain_id,
                gp.proposer                      AS proposer,
                (SELECT description
                 FROM governor_proposal_described gpd
@@ -1694,11 +1696,18 @@ FROM incentives.campaigns c
         FROM governor_proposed gp
                  JOIN blocks b ON gp.block_number = b.block_number
         WHERE gp.proposal_id NOT IN (SELECT proposal_id FROM governor_canceled)
+                 AND gp.chain_id = COALESCE(${chainId.toString() ?? null}, gp.chain_id)
         ORDER BY b.block_time DESC
     `;
   }
 
-  async getVotesOnProposal({ proposalId }: { proposalId: bigint }) {
+  async getVotesOnProposal({
+    proposalId,
+    chainId,
+  }: {
+    proposalId: bigint;
+    chainId: bigint;
+  }) {
     return this.sql<
       {
         time: number;
@@ -1714,7 +1723,13 @@ FROM incentives.campaigns c
       `;
   }
 
-  async getVotersOnProposal({ proposalId }: { proposalId: bigint }) {
+  async getVotersOnProposal({
+    proposalId,
+    chainId,
+  }: {
+    proposalId: bigint;
+    chainId: bigint;
+  }) {
     return this.sql<
       {
         delegate: string;
@@ -1750,9 +1765,11 @@ FROM incentives.campaigns c
   async getTopDelegates({
     pageSize,
     start,
+    chainId,
   }: {
     pageSize: number;
     start: number;
+    chainId: bigint;
   }) {
     return this.sql<
       {
@@ -1843,7 +1860,13 @@ FROM incentives.campaigns c
       `;
   }
 
-  async getDelegatesStakedTo({ staker }: { staker: bigint }) {
+  async getDelegatesStakedTo({
+    staker,
+    chainId,
+  }: {
+    staker: bigint;
+    chainId: bigint;
+  }) {
     return this.sql<{ delegate: string; amount: string }[]>`
           WITH staker_delegation_changes AS (SELECT amount, delegate
                                              FROM staker_staked
@@ -1863,7 +1886,13 @@ FROM incentives.campaigns c
       `;
   }
 
-  async getAmountDelegatedTo({ delegate }: { delegate: bigint }) {
+  async getAmountDelegatedTo({
+    delegate,
+    chainId,
+  }: {
+    delegate: bigint;
+    chainId: bigint;
+  }) {
     const rows = await this.sql<
       {
         amount_delegated: string;

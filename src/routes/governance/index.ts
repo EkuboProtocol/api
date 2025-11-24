@@ -6,8 +6,10 @@ import {
 } from "@cloudflare/itty-router-openapi";
 import {
   AddressType,
+  ChainIdType,
   DecimalStringType,
   HexStringType,
+  NumericStringType,
 } from "../../shared/validation/address";
 import { IRequest, json } from "itty-router";
 import { createQueries } from "../../queries";
@@ -25,6 +27,7 @@ const CallType = z
 const ProposalType = z
   .object({
     id: HexStringType,
+    chain_id: HexStringType,
     createdTime: z.number().int().min(0),
     description: z.null().or(z.string()),
     calls: z.array(CallType),
@@ -47,13 +50,17 @@ const ListProposalsResponse = z
 type ListProposalsResponseType = z.infer<typeof ListProposalsResponse>;
 
 export class ListProposals extends EkuboAPIRoute {
-  static route = "/governance/proposals";
+  static route = "/governance/:chainId/proposals";
 
   static schema: OpenAPIRouteSchema = {
     tags: ["Governance"],
     summary: "List Proposals",
     description: "Returns the list of all proposals",
-    parameters: {},
+    parameters: {
+      chainId: Path(NumericStringType, {
+        description: "Chain ID for which to list proposals",
+      }),
+    },
     responses: {
       "200": {
         schema: ListProposalsResponse,
@@ -63,14 +70,20 @@ export class ListProposals extends EkuboAPIRoute {
     },
   };
 
-  async handle({}: IRequest, { env }: RequestContext) {
+  async handle(
+    { params: { chainId: chainIdParam } }: IRequest,
+    { env }: RequestContext,
+  ) {
     const queries = await createQueries(env);
 
-    const rows = await queries.getProposals();
+    const chainId = BigInt(chainIdParam);
+
+    const rows = await queries.getProposals(chainId);
     return json(
       {
         proposals: rows.map((r) => ({
           id: toHex(BigInt(r.id)),
+          chain_id: toHex(r.chain_id),
           description: r.description,
           createdTime: r.created,
           calls:
