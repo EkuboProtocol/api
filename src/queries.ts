@@ -1659,6 +1659,263 @@ FROM incentives.generated_drop_proof gdp
 WHERE address = ${address} AND ${chainId === null ? this.sql`true` : this.sql`fd.chain_id = ${chainId}`}
     `;
   }
+
+  async getProposals(chainId: bigint) {
+    return this.sql<
+      {
+        id: string;
+        chain_id: bigint;
+        created: number;
+        description: string | null;
+        calls: { to: string; selector: string; calldata: string[] }[] | null;
+        results: string[][] | null;
+        executed_tx_hash: string | null;
+      }[]
+    >`
+        SELECT gp.proposal_id as id,
+               gp.chain_id,
+               gp.proposer                      AS proposer,
+               (SELECT description
+                FROM governor_proposal_described gpd
+                WHERE gpd.proposal_id = gp.proposal_id
+                ORDER BY event_id DESC
+                LIMIT 1)                        AS description,
+               EXTRACT(EPOCH FROM b.block_time)::int4 AS created,
+               (SELECT JSONB_AGG(
+                               JSONB_BUILD_OBJECT('to', to_address::TEXT, 'selector', selector::TEXT, 'calldata',
+                                                  calldata::TEXT[])
+                               ORDER BY index)
+                FROM governor_proposed_calls gpc
+                WHERE gpc.proposal_id = gp.proposal_id)  AS calls,
+               (SELECT JSONB_AGG(
+                               results::TEXT[]
+                               ORDER BY index)
+                FROM governor_executed_results ger
+                WHERE ger.proposal_id = gp.proposal_id)  AS results,
+               (SELECT transaction_hash
+                FROM governor_executed ge
+                WHERE ge.proposal_id = gp.proposal_id)            AS executed_tx_hash
+        FROM governor_proposed gp
+                 JOIN blocks b ON gp.block_number = b.block_number
+        WHERE gp.proposal_id NOT IN (SELECT proposal_id FROM governor_canceled)
+                 AND gp.chain_id = ${chainId.toString()}
+        ORDER BY b.block_time DESC
+    `;
+  }
+
+  async getVotesOnProposal({
+    proposalId,
+    chainId,
+  }: {
+    proposalId: bigint;
+    chainId: bigint;
+  }) {
+    return this.sql<
+      {
+        time: number;
+        voter: string;
+        weight: string;
+        yea: boolean;
+      }[]
+    >`
+          SELECT FLOOR(EXTRACT(EPOCH FROM b.block_time))::int4 AS time, voter, weight, yea
+          FROM governor_voted gv
+                   JOIN blocks b ON gv.block_number = b.block_number
+          WHERE gv.proposal_id = ${proposalId.toString()}
+                AND gv.chain_id = ${chainId.toString()}
+      `;
+  }
+
+  async getVotersOnProposal({
+    proposalId,
+    chainId,
+  }: {
+    proposalId: bigint;
+    chainId: bigint;
+  }) {
+    return this.sql<
+      {
+        delegate: string;
+        weight: string;
+        vote_time: number | null;
+        yea: boolean | null;
+      }[]
+    >`
+          SELECT
+            pdvwm.delegate,
+            pdvwm.voting_weight AS weight,
+            gv.yea,
+            FLOOR(
+              EXTRACT(
+                epoch
+                FROM
+                  b.block_time
+              )
+            )::int4 AS vote_time
+          FROM
+            proposal_delegate_voting_weights_materialized pdvwm
+            LEFT JOIN governor_voted gv ON pdvwm.proposal_id = gv.proposal_id
+            AND pdvwm.delegate = gv.voter
+            LEFT JOIN blocks b ON gv.block_number = b.block_number
+          WHERE
+            pdvwm.proposal_id = ${proposalId.toString()}
+            AND pdvwm.chain_id = ${chainId.toString()}
+          ORDER BY
+            weight DESC
+          limit 100;
+      `;
+  }
+
+  async getTopDelegates({
+    pageSize,
+    start,
+    chainId,
+  }: {
+    pageSize: number;
+    start: number;
+    chainId: bigint;
+  }) {
+    return this.sql<
+      {
+        delegate: string;
+        amount: string;
+        yea: number;
+        nay: number;
+        missed: number;
+      }[]
+    >`
+          WITH
+            staker_delegation_changes AS (
+              SELECT
+                amount,
+                delegate
+              FROM
+                staker_staked
+              WHERE chain_id = ${chainId.toString()}
+              UNION ALL
+              SELECT
+                - amount AS amount,
+                delegate
+              FROM
+                staker_withdrawn
+              WHERE chain_id = ${chainId.toString()}
+            ),
+            top_delegates AS (
+              SELECT
+                delegate,
+                SUM(amount) AS amount
+              FROM
+                staker_delegation_changes
+              GROUP BY
+                delegate
+            ),
+            ended_proposals AS (
+              SELECT
+                gp.proposal_id
+              FROM
+                governor_proposed gp
+                JOIN governor_reconfigured gr ON gr.version = gp.config_version
+                JOIN blocks b ON gp.block_number = b.block_number
+              WHERE
+                (b.block_time + (gr.voting_period + gr.voting_start_delay) * INTERVAL '1 seconds') < (
+                  SELECT
+                    block_time
+                  FROM
+                    blocks b
+                  ORDER BY
+                    block_number DESC
+                  LIMIT
+                    1
+                )
+            )
+          SELECT
+            td.delegate,
+            amount,
+            COUNT(
+              CASE
+                WHEN gv.yea IS TRUE THEN TRUE
+                ELSE NULL
+              END
+            )::int4 AS yea,
+            COUNT(
+              CASE
+                WHEN gv.yea IS FALSE THEN TRUE
+                ELSE NULL
+              END
+            )::int4 AS nay,
+            COUNT(
+              CASE
+                WHEN gv.yea IS NULL
+                AND gc.proposal_id IS NULL
+                AND ep.proposal_id IS NOT NULL THEN TRUE
+                ELSE NULL
+              END
+            )::int4 AS missed
+          FROM
+            top_delegates td
+            LEFT JOIN proposal_delegate_voting_weights_materialized pdvwm ON td.delegate = pdvwm.delegate
+            LEFT JOIN ended_proposals ep ON pdvwm.proposal_id = ep.proposal_id
+            LEFT JOIN governor_voted gv ON td.delegate = gv.voter
+              AND gv.proposal_id = pdvwm.proposal_id
+            LEFT JOIN governor_canceled gc ON pdvwm.proposal_id = gc.proposal_id
+          GROUP BY
+            td.delegate, td.amount
+          ORDER BY
+            2 DESC
+          LIMIT ${pageSize} OFFSET ${start}
+      `;
+  }
+
+  async getDelegatesStakedTo({
+    staker,
+    chainId,
+  }: {
+    staker: bigint;
+    chainId: bigint;
+  }) {
+    return this.sql<{ delegate: string; amount: string }[]>`
+          WITH staker_delegation_changes AS (SELECT amount, delegate
+                                             FROM staker_staked
+                                             WHERE from_address = ${staker.toString()}
+                                               AND chain_id = ${chainId.toString()}
+                                             UNION ALL
+                                             SELECT -amount AS amount, delegate
+                                             FROM staker_withdrawn
+                                             WHERE from_address = ${staker.toString()}
+                                               AND chain_id = ${chainId.toString()}),
+               summed AS (SELECT delegate,
+                                 SUM(amount) AS amount
+                          FROM staker_delegation_changes
+                          GROUP BY delegate)
+          SELECT delegate, amount
+          FROM summed
+          WHERE amount != 0
+          ORDER BY amount DESC
+      `;
+  }
+
+  async getAmountDelegatedTo({
+    delegate,
+    chainId,
+  }: {
+    delegate: bigint;
+    chainId: bigint;
+  }) {
+    const rows = await this.sql<
+      {
+        amount_delegated: string;
+      }[]
+    >`
+          SELECT COALESCE((SELECT SUM(amount)
+                           FROM staker_staked
+                           WHERE delegate = ${delegate.toString()} AND chain_id = ${chainId}), 0::NUMERIC) - COALESCE(
+                         (SELECT SUM(amount)
+                          FROM staker_withdrawn
+                          WHERE delegate = ${delegate.toString()} AND chain_id = ${chainId}), 0::NUMERIC) AS amount_delegated
+      `;
+
+    return BigInt(rows[0]?.amount_delegated ?? 0);
+  }
 }
 
 export async function createQueries(env: Env) {

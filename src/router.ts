@@ -41,6 +41,13 @@ import {
 } from "./routes/incentives/rewards";
 import { ListClaimsForAddress } from "./routes/incentives/claims";
 import { Get0xQuote } from "./routes/quote";
+import {
+  GetStakerInfo,
+  ListProposals,
+  ListProposalVoters,
+  ListTopDelegates,
+  ListVotesOnProposal,
+} from "./routes/governance";
 
 export const router = OpenAPIRouter({
   schema: {
@@ -87,6 +94,11 @@ export const router = OpenAPIRouter({
   .get(GetTwammPairState.route, GetTwammPairState)
   .get(ListTwapOrders.route, ListTwapOrders)
   .get(GetPositionNftImage.route, GetPositionNftImage)
+  .get(ListProposals.route, ListProposals)
+  .get(ListTopDelegates.route, ListTopDelegates)
+  .get(ListVotesOnProposal.route, ListVotesOnProposal)
+  .get(ListProposalVoters.route, ListProposalVoters)
+  .get(GetStakerInfo.route, GetStakerInfo)
   .get(ListCampaigns.route, ListCampaigns)
   .get(ListRewardPeriodsForCampaign.route, ListRewardPeriodsForCampaign)
   .get(ListRewardPeriods.route, ListRewardPeriods)
