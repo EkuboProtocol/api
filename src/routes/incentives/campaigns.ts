@@ -98,38 +98,36 @@ export class ListCampaigns extends EkuboAPIRoute {
     const queries = await createQueries(env);
 
     const campaigns = await queries.listCampaigns(chainId);
-
     return json(
       {
-        campaigns: campaigns.map(
-          (c) =>
-            ({
-              slug: c.slug,
-              startTime: c.start_time,
-              endTime: c.end_time,
-              name: c.name,
-              rewardToken: toHex(c.reward_token),
-              nextDropTime: c.next_drop_time,
-              allowedExtensions: c.allowed_extensions.map((a) => toHex(a)),
-              pairs: c.rewards.map((p) => ({
-                token0: toHex(p.token0),
-                token1: toHex(p.token1),
-                depth_percent: p.depth_percent,
-                depth0: p.depth0,
-                depth1: p.depth1,
-                scheduled: p.scheduled,
-                distributed: p.distributed,
-                daily_rewards: p.daily_rewards,
-                daily_rewards_token0: p.daily_rewards_token0,
-                daily_rewards_token1: p.daily_rewards_token1,
-                realized_volatility: p.realized_volatility,
-              })),
-            }) satisfies Campaign,
-        ),
+        campaigns: campaigns.map((c) => {
+          return {
+            slug: c.slug,
+            startTime: c.start_time,
+            endTime: c.end_time,
+            name: c.name,
+            rewardToken: toHex(c.reward_token),
+            nextDropTime: c.next_drop_time,
+            allowedExtensions: c.allowed_extensions.map((a) => toHex(a)) ?? [],
+            pairs: c.rewards.map((p) => ({
+              token0: toHex(p.token0),
+              token1: toHex(p.token1),
+              depth_percent: p.depth_percent,
+              depth0: p.depth0,
+              depth1: p.depth1,
+              scheduled: p.scheduled,
+              distributed: p.distributed,
+              daily_rewards: p.daily_rewards,
+              daily_rewards_token0: p.daily_rewards_token0,
+              daily_rewards_token1: p.daily_rewards_token1,
+              realized_volatility: p.realized_volatility,
+            })),
+          } satisfies Campaign;
+        }),
       } satisfies z.infer<typeof ListCampaignsResponseType>,
       {
         headers: {
-          "cache-control": "public,max-age=3600,must-revalidate",
+          "cache-control": "public,max-age=300,must-revalidate",
         },
       },
     );
