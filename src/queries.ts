@@ -1792,16 +1792,15 @@ FROM incentives.campaigns c
               FROM
                 governor_proposed gp
                 JOIN governor_reconfigured gr ON gr.version = gp.config_version
-                JOIN event_keys ek ON gp.event_id = ek.id
-                JOIN blocks b ON ek.block_number = b.number
+                JOIN blocks b ON gp.block_number = b.block_number
               WHERE
-                (b.time + (gr.voting_period + gr.voting_start_delay) * INTERVAL '1 seconds') < (
+                (b.block_time + (gr.voting_period + gr.voting_start_delay) * INTERVAL '1 seconds') < (
                   SELECT
-                    TIME
+                    block_time
                   FROM
                     blocks b
                   ORDER BY
-                    number DESC
+                    block_number DESC
                   LIMIT
                     1
                 )
@@ -1824,18 +1823,18 @@ FROM incentives.campaigns c
             COUNT(
               CASE
                 WHEN gv.yea IS NULL
-                AND gc.id IS NULL
-                AND ep.id IS NOT NULL THEN TRUE
+                AND gc.proposal_id IS NULL
+                AND ep.proposal_id IS NOT NULL THEN TRUE
                 ELSE NULL
               END
             )::int4 AS missed
           FROM
             top_delegates td
             LEFT JOIN proposal_delegate_voting_weights_materialized pdvwm ON td.delegate = pdvwm.delegate
-            LEFT JOIN ended_proposals ep ON pdvwm.proposal_id = ep.id
+            LEFT JOIN ended_proposals ep ON pdvwm.proposal_id = ep.proposal_id
             LEFT JOIN governor_voted gv ON td.delegate = gv.voter
-            AND gv.id = pdvwm.proposal_id
-            LEFT JOIN governor_canceled gc ON pdvwm.proposal_id = gc.id
+            AND gv.proposal_id = pdvwm.proposal_id
+            LEFT JOIN governor_canceled gc ON pdvwm.proposal_id = gc.proposal_id
           GROUP BY
             td.delegate, td.amount
           ORDER BY
