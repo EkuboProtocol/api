@@ -1731,17 +1731,16 @@ FROM incentives.campaigns c
               EXTRACT(
                 epoch
                 FROM
-                  b.time
+                  b.block_time
               )
             )::int4 AS vote_time
           FROM
             proposal_delegate_voting_weights_materialized pdvwm
-            LEFT JOIN governor_voted gv ON pdvwm.proposal_id = gv.id
+            LEFT JOIN governor_voted gv ON pdvwm.proposal_id = gv.proposal_id
             AND pdvwm.delegate = gv.voter
-            LEFT JOIN event_keys ek ON event_id = ek.id
-            LEFT JOIN blocks b ON block_number = b.number
+            LEFT JOIN blocks b ON gv.block_number = b.block_number
           WHERE
-            pdvwm.proposal_id = ${proposalId}
+            pdvwm.proposal_id = ${proposalId.toString()}
           ORDER BY
             weight DESC
           limit 100;
