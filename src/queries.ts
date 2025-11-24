@@ -1847,11 +1847,11 @@ FROM incentives.campaigns c
     return this.sql<{ delegate: string; amount: string }[]>`
           WITH staker_delegation_changes AS (SELECT amount, delegate
                                              FROM staker_staked
-                                             WHERE from_address = ${staker}
+                                             WHERE from_address = ${staker.toString()}
                                              UNION ALL
                                              SELECT -amount AS amount, delegate
                                              FROM staker_withdrawn
-                                             WHERE from_address = ${staker}),
+                                             WHERE from_address = ${staker.toString()}),
                summed AS (SELECT delegate,
                                  SUM(amount) AS amount
                           FROM staker_delegation_changes
@@ -1871,10 +1871,10 @@ FROM incentives.campaigns c
     >`
           SELECT COALESCE((SELECT SUM(amount)
                            FROM staker_staked
-                           WHERE delegate = ${delegate}), 0::NUMERIC) - COALESCE(
+                           WHERE delegate = ${delegate.toString()}), 0::NUMERIC) - COALESCE(
                          (SELECT SUM(amount)
                           FROM staker_withdrawn
-                          WHERE delegate = ${delegate}), 0::NUMERIC) AS amount_delegated
+                          WHERE delegate = ${delegate.toString()}), 0::NUMERIC) AS amount_delegated
       `;
 
     return BigInt(rows[0]?.amount_delegated ?? 0);
