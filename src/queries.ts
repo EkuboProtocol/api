@@ -1606,6 +1606,8 @@ FROM incentives.campaigns c
     return this.sql<
       {
         slug: string | null;
+        chain_id: bigint;
+        drop_address: string;
         owner: string;
         token: string;
         root: string;
@@ -1615,46 +1617,46 @@ FROM incentives.campaigns c
         proof: string[];
       }[]
     >`
-      WITH funded_roots AS (
-             SELECT ROW_NUMBER() OVER (PARTITION BY if.owner, if.token, if.root ORDER BY event_id DESC) if_no,
-                    if.owner,
-                    if.token,
-                    if.root
-             FROM incentives_funded if
-             WHERE if.chain_id = COALESCE(${chainId ?? null}, if.chain_id)
-           ),
-           last_funded_roots AS (
-             SELECT owner, token, root
-             FROM funded_roots
-             WHERE if_no = 1
-           ),
-           funded_drops AS (
-             SELECT fr.owner, fr.token, gd.root, gd.id
-             FROM incentives.generated_drop gd
-                      JOIN last_funded_roots fr ON gd.root = fr.root
-             WHERE gd.chain_id = COALESCE(${chainId ?? null}, gd.chain_id)
-           )
-      SELECT (SELECT slug
-              FROM incentives.campaign_reward_periods crp
-                       JOIN incentives.campaigns c ON crp.campaign_id = c.id
-              WHERE crp.id IN (
-                      SELECT campaign_reward_period_id
-                      FROM incentives.generated_drop_reward_periods gdrp
-                      WHERE gdrp.drop_id = gdp.drop_id
-                    )
-                AND c.chain_id = COALESCE(${chainId ?? null}, c.chain_id)
-              LIMIT 1) AS slug,
-             owner,
-             token,
-             root,
-             gdp.id AS index,
-             address,
-             amount,
-             proof::TEXT[]
-      FROM incentives.generated_drop_proof gdp
-               JOIN funded_drops fd ON gdp.drop_id = fd.id
-      WHERE address = ${address}
-        AND gdp.chain_id = COALESCE(${chainId ?? null}, gdp.chain_id)
+WITH funded_roots AS (SELECT if.chain_id,
+                             if.emitter AS                                                                                   drop_address,
+                             if.owner,
+                             if.token,
+                             if.root,
+                             ROW_NUMBER()
+                             OVER (PARTITION BY if.chain_id, if.emitter, if.owner, if.token, if.root ORDER BY event_id DESC) if_no
+                      FROM incentives_funded if),
+     latest_funded_root AS (SELECT chain_id, drop_address, owner, token, root
+                            FROM funded_roots
+                            WHERE if_no = 1),
+     deployed_drops AS (SELECT COALESCE(dac.chain_id, fr.chain_id)    AS chain_id,
+                               COALESCE(fr.drop_address, dac.address) AS drop_address,
+                               fr.owner,
+                               COALESCE(dac.token, fr.token)          AS token,
+                               gd.root,
+                               gd.id
+                        FROM incentives.generated_drop gd
+                                 LEFT JOIN latest_funded_root fr ON gd.root = fr.root
+                                 LEFT JOIN incentives.deployed_airdrop_contracts dac ON dac.drop_id = gd.id)
+SELECT (SELECT slug
+        FROM incentives.campaign_reward_periods crp
+                 JOIN incentives.campaigns c ON crp.campaign_id = c.id
+        WHERE crp.id IN (SELECT campaign_reward_period_id
+                         FROM incentives.generated_drop_reward_periods gdrp
+                         WHERE gdrp.drop_id = gdp.drop_id)
+          AND c.chain_id = fd.chain_id
+        LIMIT 1) AS slug,
+       chain_id,
+       drop_address,
+       owner,
+       token,
+       root,
+       gdp.id    AS index,
+       address,
+       amount,
+       (SELECT JSONB_AGG(v::TEXT) FROM UNNEST(proof) AS p(v)) as proof
+FROM incentives.generated_drop_proof gdp
+         JOIN deployed_drops fd ON gdp.drop_id = fd.id
+WHERE address = ${address} AND ${chainId === null ? this.sql`true` : this.sql`fd.chain_id = ${chainId}`}
     `;
   }
 }

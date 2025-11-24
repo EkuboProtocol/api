@@ -29,7 +29,7 @@ export const ClaimType = z
 
 export const DropKeyType = z
   .object({
-    owner: AddressType,
+    owner: AddressType.nullable(),
     token: HexStringType,
     root: HexStringType,
   })
@@ -42,6 +42,8 @@ export const DropKeyType = z
 export const ClaimEntryType = z
   .object({
     campaign: z.string().nullable(),
+    chainId: HexStringType,
+    dropAddress: HexStringType,
     key: DropKeyType,
     claim: ClaimType,
     proof: z.array(HexStringType),
@@ -97,13 +99,15 @@ export class ListClaimsForAddress extends EkuboAPIRoute {
           (c) =>
             ({
               campaign: c.slug,
+              chainId: toHex(c.chain_id),
+              dropAddress: toHex(c.drop_address),
               claim: {
                 account: toHex(c.address),
                 amount: c.amount,
                 index: c.index,
               },
               key: {
-                owner: toHex(c.owner),
+                owner: c.owner ? toHex(c.owner) : null,
                 root: toHex(c.root, 32),
                 token: toHex(c.token),
               },
@@ -113,7 +117,7 @@ export class ListClaimsForAddress extends EkuboAPIRoute {
       } satisfies z.infer<typeof ListClaimsResponseType>,
       {
         headers: {
-          "cache-control": "public,max-age=600,must-revalidate",
+          "cache-control": "public,max-age=300,must-revalidate",
         },
       },
     );
