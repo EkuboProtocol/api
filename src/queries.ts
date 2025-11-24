@@ -1696,7 +1696,7 @@ FROM incentives.campaigns c
         FROM governor_proposed gp
                  JOIN blocks b ON gp.block_number = b.block_number
         WHERE gp.proposal_id NOT IN (SELECT proposal_id FROM governor_canceled)
-                 AND gp.chain_id = COALESCE(${chainId.toString() ?? null}, gp.chain_id)
+                 AND gp.chain_id = ${chainId.toString()}
         ORDER BY b.block_time DESC
     `;
   }
@@ -1720,6 +1720,7 @@ FROM incentives.campaigns c
           FROM governor_voted gv
                    JOIN blocks b ON gv.block_number = b.block_number
           WHERE gv.proposal_id = ${proposalId.toString()}
+                AND gv.chain_id = ${chainId.toString()}
       `;
   }
 
@@ -1756,6 +1757,7 @@ FROM incentives.campaigns c
             LEFT JOIN blocks b ON gv.block_number = b.block_number
           WHERE
             pdvwm.proposal_id = ${proposalId.toString()}
+            AND pdvwm.chain_id = ${chainId.toString()}
           ORDER BY
             weight DESC
           limit 100;
@@ -1787,12 +1789,14 @@ FROM incentives.campaigns c
                 delegate
               FROM
                 staker_staked
+              WHERE chain_id = ${chainId.toString()}
               UNION ALL
               SELECT
                 - amount AS amount,
                 delegate
               FROM
                 staker_withdrawn
+              WHERE chain_id = ${chainId.toString()}
             ),
             top_delegates AS (
               SELECT
@@ -1850,7 +1854,7 @@ FROM incentives.campaigns c
             LEFT JOIN proposal_delegate_voting_weights_materialized pdvwm ON td.delegate = pdvwm.delegate
             LEFT JOIN ended_proposals ep ON pdvwm.proposal_id = ep.proposal_id
             LEFT JOIN governor_voted gv ON td.delegate = gv.voter
-            AND gv.proposal_id = pdvwm.proposal_id
+              AND gv.proposal_id = pdvwm.proposal_id
             LEFT JOIN governor_canceled gc ON pdvwm.proposal_id = gc.proposal_id
           GROUP BY
             td.delegate, td.amount
@@ -1871,10 +1875,12 @@ FROM incentives.campaigns c
           WITH staker_delegation_changes AS (SELECT amount, delegate
                                              FROM staker_staked
                                              WHERE from_address = ${staker.toString()}
+                                               AND chain_id = ${chainId.toString()}
                                              UNION ALL
                                              SELECT -amount AS amount, delegate
                                              FROM staker_withdrawn
-                                             WHERE from_address = ${staker.toString()}),
+                                             WHERE from_address = ${staker.toString()}
+                                               AND chain_id = ${chainId.toString()}),
                summed AS (SELECT delegate,
                                  SUM(amount) AS amount
                           FROM staker_delegation_changes
@@ -1900,10 +1906,10 @@ FROM incentives.campaigns c
     >`
           SELECT COALESCE((SELECT SUM(amount)
                            FROM staker_staked
-                           WHERE delegate = ${delegate.toString()}), 0::NUMERIC) - COALESCE(
+                           WHERE delegate = ${delegate.toString()} AND chain_id = ${chainId}), 0::NUMERIC) - COALESCE(
                          (SELECT SUM(amount)
                           FROM staker_withdrawn
-                          WHERE delegate = ${delegate.toString()}), 0::NUMERIC) AS amount_delegated
+                          WHERE delegate = ${delegate.toString()} AND chain_id = ${chainId}), 0::NUMERIC) AS amount_delegated
       `;
 
     return BigInt(rows[0]?.amount_delegated ?? 0);

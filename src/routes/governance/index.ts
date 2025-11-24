@@ -6,7 +6,6 @@ import {
 } from "@cloudflare/itty-router-openapi";
 import {
   AddressType,
-  ChainIdType,
   DecimalStringType,
   HexStringType,
   NumericStringType,
@@ -27,7 +26,6 @@ const CallType = z
 const ProposalType = z
   .object({
     id: HexStringType,
-    chain_id: HexStringType,
     createdTime: z.number().int().min(0),
     description: z.null().or(z.string()),
     calls: z.array(CallType),
@@ -83,7 +81,6 @@ export class ListProposals extends EkuboAPIRoute {
       {
         proposals: rows.map((r) => ({
           id: toHex(BigInt(r.id)),
-          chain_id: toHex(r.chain_id),
           description: r.description,
           createdTime: r.created,
           calls:
@@ -128,13 +125,16 @@ const ListVotesResponse = z
 type ListVotesResponseType = z.infer<typeof ListVotesResponse>;
 
 export class ListVotesOnProposal extends EkuboAPIRoute {
-  static route = "/governance/proposals/:proposalId/votes";
+  static route = "/governance/:chainId/proposals/:proposalId/votes";
 
   static schema: OpenAPIRouteSchema = {
     tags: ["Governance"],
     summary: "List Votes",
     description: "Returns the list of votes on a proposal",
     parameters: {
+      chainId: Path(NumericStringType, {
+        description: "Chain ID for which to list proposals",
+      }),
       proposalId: Path(HexStringType, {
         required: true,
         description: "The ID of the proposal",
@@ -149,11 +149,15 @@ export class ListVotesOnProposal extends EkuboAPIRoute {
     },
   };
 
-  async handle({ params }: IRequest, { env }: RequestContext) {
+  async handle(
+    { params: { chainId, proposalId } }: IRequest,
+    { env }: RequestContext,
+  ) {
     const queries = await createQueries(env);
 
     const rows = await queries.getVotesOnProposal({
-      proposalId: BigInt(params.proposalId),
+      proposalId: BigInt(proposalId),
+      chainId: BigInt(chainId),
     });
 
     return json(
@@ -202,13 +206,16 @@ type ListProposalVotersResponseType = z.infer<
 >;
 
 export class ListProposalVoters extends EkuboAPIRoute {
-  static route = "/governance/proposals/:proposalId/voters";
+  static route = "/governance/:chainId/proposals/:proposalId/voters";
 
   static schema: OpenAPIRouteSchema = {
     tags: ["Governance"],
     summary: "List Voters",
     description: "Returns the list of voters for a proposal and their votes",
     parameters: {
+      chainId: Path(NumericStringType, {
+        description: "Chain ID for which to list proposals",
+      }),
       proposalId: Path(HexStringType, {
         required: true,
         description: "The ID of the proposal",
@@ -224,11 +231,15 @@ export class ListProposalVoters extends EkuboAPIRoute {
     },
   };
 
-  async handle({ params }: IRequest, { env }: RequestContext) {
+  async handle(
+    { params: { chainId, proposalId } }: IRequest,
+    { env }: RequestContext,
+  ) {
     const queries = await createQueries(env);
 
     const rows = await queries.getVotersOnProposal({
-      proposalId: BigInt(params.proposalId),
+      chainId: BigInt(chainId),
+      proposalId: BigInt(proposalId),
     });
 
     return json(
@@ -279,13 +290,16 @@ const ListTopDelegatesResponse = z
 type ListTopDelegatesResponseType = z.infer<typeof ListTopDelegatesResponse>;
 
 export class ListTopDelegates extends EkuboAPIRoute {
-  static route = "/governance/delegates";
+  static route = "/governance/:chainId/delegates";
 
   static schema: OpenAPIRouteSchema = {
     tags: ["Governance"],
     summary: "List Top Delegates",
     description: "Returns the list of top delegates",
     parameters: {
+      chainId: Path(NumericStringType, {
+        description: "Chain ID for which to list top delegates",
+      }),
       pageSize: Query(z.coerce.number().min(1).max(1000).int(), {
         required: false,
       }),
@@ -300,7 +314,10 @@ export class ListTopDelegates extends EkuboAPIRoute {
     },
   };
 
-  async handle({ query }: IRequest, { env }: RequestContext) {
+  async handle(
+    { query, params: { chainId } }: IRequest,
+    { env }: RequestContext,
+  ) {
     const queries = await createQueries(env);
 
     const { pageSize, start } = query;
@@ -308,6 +325,7 @@ export class ListTopDelegates extends EkuboAPIRoute {
     const rows = await queries.getTopDelegates({
       pageSize: Number(pageSize ?? 100),
       start: Number(start ?? 0),
+      chainId: BigInt(chainId),
     });
 
     return json(
@@ -340,7 +358,7 @@ const GetStakerInfoResponse = z
 type GetStakerInfoResponseType = z.infer<typeof GetStakerInfoResponse>;
 
 export class GetStakerInfo extends EkuboAPIRoute {
-  static route = "/governance/delegates/:address";
+  static route = "/governance/:chainId/delegates/:address";
 
   static schema: OpenAPIRouteSchema = {
     tags: ["Governance"],
@@ -348,6 +366,9 @@ export class GetStakerInfo extends EkuboAPIRoute {
     description:
       "Returns information about a particular staker address: the addresses they have delegated to and the total amount delegated to them",
     parameters: {
+      chainId: Path(NumericStringType, {
+        description: "Chain ID for which to look up staker data",
+      }),
       address: Path(AddressType, {
         description: "The address for which to look up staker data",
       }),
@@ -365,12 +386,15 @@ export class GetStakerInfo extends EkuboAPIRoute {
     const queries = await createQueries(env);
 
     const address = BigInt(params.address);
+    const chainId = BigInt(params.chainId);
 
     const [rows, amountDelegatedTo] = await Promise.all([
       queries.getDelegatesStakedTo({
+        chainId,
         staker: address,
       }),
       queries.getAmountDelegatedTo({
+        chainId,
         delegate: address,
       }),
     ]);
