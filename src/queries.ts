@@ -1493,12 +1493,11 @@ FROM incentives.campaigns c
   }
 
   async listComputedRewardsForPosition(
+    chainId: bigint,
     locker: string,
     salt: string,
     startTime?: string,
     endTime?: string,
-    excludeDropped?: boolean,
-    chainId: bigint | null = null,
   ) {
     return this.sql<
       {
@@ -1507,20 +1506,19 @@ FROM incentives.campaigns c
         pending: string;
       }[]
     >`
-      SELECT c.slug,
-             SUM(cr.reward_amount) AS amount,
-             SUM(CASE WHEN gdrp.drop_id IS NULL THEN cr.reward_amount ELSE 0 END) AS pending
-      FROM incentives.campaigns c
-               JOIN incentives.campaign_reward_periods crp ON crp.campaign_id = c.id
-               JOIN incentives.computed_rewards cr ON cr.campaign_reward_period_id = crp.id
-               LEFT JOIN incentives.generated_drop_reward_periods gdrp ON crp.id = gdrp.campaign_reward_period_id
-      WHERE cr.locker = ${locker}
-        AND cr.salt = ${salt}
-        AND (crp.start_time >= ${startTime ?? null}::timestamptz OR ${startTime ?? null}::timestamptz IS NULL)
-        AND (crp.end_time <= ${endTime ?? null}::timestamptz OR ${endTime ?? null}::timestamptz IS NULL)
-        AND (${excludeDropped ?? false} IS NOT TRUE OR gdrp.drop_id IS NULL)
-        AND c.chain_id = COALESCE(${chainId ?? null}, c.chain_id)
-      GROUP BY c.slug
+SELECT c.slug,
+       SUM(cr.reward_amount)                                                AS amount,
+       SUM(CASE WHEN gdrp.drop_id IS NULL THEN cr.reward_amount ELSE 0 END) AS pending
+FROM incentives.campaigns c
+         JOIN incentives.campaign_reward_periods crp ON crp.campaign_id = c.id
+         JOIN incentives.computed_rewards cr ON cr.campaign_reward_period_id = crp.id
+         LEFT JOIN incentives.generated_drop_reward_periods gdrp ON crp.id = gdrp.campaign_reward_period_id
+WHERE c.chain_id = ${chainId}
+  AND cr.locker = ${locker}
+  AND cr.salt = ${salt}
+  AND ${startTime ? this.sql`crp.start_time >= ${startTime}::timestamptz` : this.sql`true`}
+  AND ${endTime ? this.sql`crp.start_time >= ${endTime}::timestamptz` : this.sql`true`}
+GROUP BY c.slug
     `;
   }
 
@@ -1528,45 +1526,43 @@ FROM incentives.campaigns c
     ownerAddress: string,
     startTime?: string,
     endTime?: string,
-    excludeDropped?: boolean,
-    chainId: bigint | null = null,
+    chainId?: bigint | null,
   ) {
     return this.sql<
       {
-        salt: string;
+        chain_id: bigint;
+        nft_address: string;
+        locker: string;
+        token_id: string;
         slug: string;
         amount: string;
         pending: string;
       }[]
     >`
-      WITH keys AS (
-        SELECT pt1.emitter AS locker, token_id::NUMERIC AS salt
-        FROM nonfungible_token_transfers pt1
-        WHERE to_address = ${ownerAddress}
-          AND pt1.chain_id = COALESCE(${chainId ?? null}, pt1.chain_id)
-          AND NOT EXISTS (
-            SELECT 1
-            FROM nonfungible_token_transfers pt2
-            WHERE pt2.token_id = pt1.token_id
-              AND pt2.event_id > pt1.event_id
-              AND pt2.to_address != 0
-              AND pt2.chain_id = COALESCE(${chainId ?? null}, pt2.chain_id)
-          )
-      )
-      SELECT k.salt,
-             c.slug,
-             SUM(cr.reward_amount) AS amount,
-             SUM(CASE WHEN gdrp.drop_id IS NULL THEN cr.reward_amount ELSE 0 END) AS pending
-      FROM incentives.campaigns c
-               JOIN incentives.campaign_reward_periods crp ON crp.campaign_id = c.id
-               JOIN incentives.computed_rewards cr ON cr.campaign_reward_period_id = crp.id
-               JOIN keys k ON cr.locker = k.locker AND cr.salt = k.salt
-               LEFT JOIN incentives.generated_drop_reward_periods gdrp ON crp.id = gdrp.campaign_reward_period_id
-      WHERE (crp.start_time >= ${startTime ?? null}::timestamptz OR ${startTime ?? null}::timestamptz IS NULL)
-        AND (crp.end_time <= ${endTime ?? null}::timestamptz OR ${endTime ?? null}::timestamptz IS NULL)
-        AND (${excludeDropped ?? false} IS NOT TRUE OR gdrp.drop_id IS NULL)
-        AND c.chain_id = COALESCE(${chainId ?? null}, c.chain_id)
-      GROUP BY k.salt, c.slug
+WITH keys AS (SELECT chain_id,
+                     nft_address,
+                     COALESCE(nlm.locker, nft_address) AS locker,
+                     token_id
+              FROM nonfungible_token_owners nto
+                       LEFT JOIN nft_locker_mappings nlm
+                                 USING (chain_id, nft_address)
+              WHERE nto.current_owner = ${ownerAddress})
+SELECT k.chain_id,
+       k.nft_address,
+       k.locker,
+       k.token_id,
+       c.slug,
+       SUM(cr.reward_amount)                                                AS amount,
+       SUM(CASE WHEN gdrp.drop_id IS NULL THEN cr.reward_amount ELSE 0 END) AS pending
+FROM incentives.campaigns c
+         JOIN incentives.campaign_reward_periods crp ON crp.campaign_id = c.id
+         JOIN incentives.computed_rewards cr ON cr.campaign_reward_period_id = crp.id
+         JOIN keys k ON c.chain_id = k.chain_id AND cr.locker = k.locker AND cr.salt = k.token_id
+         LEFT JOIN incentives.generated_drop_reward_periods gdrp ON crp.id = gdrp.campaign_reward_period_id
+WHERE ${startTime ? this.sql`crp.start_time >= ${startTime}::timestamptz` : this.sql`true`}
+  AND ${endTime ? this.sql`(crp.end_time <= ${endTime}::timestamptz)` : this.sql`true`}
+  AND ${chainId ? this.sql`c.chain_id = ${chainId}` : this.sql`true`}
+GROUP BY k.chain_id, k.nft_address, k.locker, k.token_id, c.slug
     `;
   }
 

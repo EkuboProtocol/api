@@ -33,7 +33,7 @@ import { ListTwapOrders } from "./routes/twamm/orders";
 import { ListCampaigns } from "./routes/incentives/campaigns";
 import {
   ListRewardsForAllPositions,
-  ListRewardsForPosition,
+  ListRewardsForLocker,
 } from "./routes/incentives/rewards";
 import { ListClaimsForAddress } from "./routes/incentives/claims";
 import { Get0xQuote } from "./routes/quote";
@@ -96,7 +96,7 @@ export const router = OpenAPIRouter({
   .get(ListProposalVoters.route, ListProposalVoters)
   .get(GetStakerInfo.route, GetStakerInfo)
   .get(ListCampaigns.route, ListCampaigns)
-  .get(ListRewardsForPosition.route, ListRewardsForPosition)
+  .get(ListRewardsForLocker.route, ListRewardsForLocker)
   .get(ListRewardsForAllPositions.route, ListRewardsForAllPositions)
   .get(ListClaimsForAddress.route, ListClaimsForAddress)
   .get(Get0xQuote.route, Get0xQuote)

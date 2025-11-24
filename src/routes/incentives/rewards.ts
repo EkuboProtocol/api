@@ -31,6 +31,9 @@ export const RewardType = z
 export type Reward = z.infer<typeof RewardType>;
 
 export const QualifiedRewardType = RewardType.extend({
+  chainId: HexStringType,
+  nftAddress: HexStringType,
+  locker: HexStringType,
   tokenId: HexStringType,
 }).required({ tokenId: true });
 
@@ -45,13 +48,14 @@ export const GetRewardsForPositionResponseType = z
 
 export type QualifiedReward = z.infer<typeof QualifiedRewardType>;
 
-export class ListRewardsForPosition extends EkuboAPIRoute {
-  public static route = "/rewards/:locker/:salt";
+export class ListRewardsForLocker extends EkuboAPIRoute {
+  public static route = "/rewards/:chainId/:locker/:salt";
   static schema: OpenAPIRouteSchema = {
     tags: ["Incentives"],
     summary: "Get position rewards",
     description: "Returns the computed rewards for a specified position",
     parameters: {
+      chainId: Path(ChainIdType),
       locker: Path(AddressType),
       salt: Path(NumericStringType),
       startTime: Query(z.string().datetime({ precision: 0 }), {
@@ -63,15 +67,6 @@ export class ListRewardsForPosition extends EkuboAPIRoute {
         required: false,
         description:
           "Filter to rewards in periods that ended at or before this time",
-      }),
-      excludeDropped: Query(z.coerce.boolean(), {
-        required: false,
-        description:
-          "Filter out rewards from periods that are already included in a drop",
-      }),
-      chainId: Query(ChainIdType, {
-        required: false,
-        description: "Restrict results to a specific chain ID",
       }),
     },
     responses: {
@@ -85,19 +80,15 @@ export class ListRewardsForPosition extends EkuboAPIRoute {
   };
 
   public async handle(request: IRequest, { env }: RequestContext) {
-    const chainId =
-      typeof request.query.chainId === "string"
-        ? BigInt(request.query.chainId)
-        : null;
+    const chainId = ChainIdType.parse(request.params.chainId);
     const queries = await createQueries(env);
 
     const computedRewards = await queries.listComputedRewardsForPosition(
+      chainId,
       request.params.locker,
       request.params.salt,
       request.query.startTime as string | undefined,
       request.query.endTime as string | undefined,
-      request.query.excludeDropped as boolean | undefined,
-      chainId,
     );
 
     return json(
@@ -133,14 +124,15 @@ export const ListRewardsForAllPositionsResponseType = z
   .required({ rewards: true });
 
 export class ListRewardsForAllPositions extends EkuboAPIRoute {
-  public static route = "/rewards/:ownerAddress";
+  public static route = "/rewards/:owner";
   static schema: OpenAPIRouteSchema = {
     tags: ["Incentives"],
     summary: "List all position rewards",
     description:
       "Returns the computed rewards for all positions owned by the given address via the Positions contract",
     parameters: {
-      ownerAddress: Path(AddressType),
+      owner: Path(AddressType),
+      chainId: Query(ChainIdType, { required: false }),
       startTime: Query(z.string().datetime({ precision: 0 }), {
         required: false,
         description:
@@ -150,15 +142,6 @@ export class ListRewardsForAllPositions extends EkuboAPIRoute {
         required: false,
         description:
           "Filter to rewards in periods that ended at or before this time",
-      }),
-      excludeDropped: Query(z.coerce.boolean(), {
-        required: false,
-        description:
-          "Filter out rewards from periods that are already included in a drop",
-      }),
-      chainId: Query(ChainIdType, {
-        required: false,
-        description: "Restrict results to a specific chain ID",
       }),
     },
     responses: {
@@ -173,15 +156,14 @@ export class ListRewardsForAllPositions extends EkuboAPIRoute {
   public async handle(request: IRequest, { env }: RequestContext) {
     const chainId =
       typeof request.query.chainId === "string"
-        ? BigInt(request.query.chainId)
+        ? ChainIdType.parse(request.query.chainId)
         : null;
     const queries = await createQueries(env);
 
     const computedRewards = await queries.listComputedRewardsForAllPositions(
-      request.params.ownerAddress,
+      request.params.owner,
       request.query.startTime as string | undefined,
       request.query.endTime as string | undefined,
-      request.query.excludeDropped as boolean | undefined,
       chainId,
     );
 
@@ -190,7 +172,10 @@ export class ListRewardsForAllPositions extends EkuboAPIRoute {
         rewards: computedRewards.map(
           (cr) =>
             ({
-              tokenId: toHex(cr.salt),
+              chainId: toHex(cr.chain_id),
+              nftAddress: toHex(cr.nft_address),
+              locker: toHex(cr.locker),
+              tokenId: toHex(cr.token_id),
               campaignSlug: cr.slug,
               amount: cr.amount,
               pending: cr.pending,
