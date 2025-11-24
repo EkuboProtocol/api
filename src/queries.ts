@@ -1492,35 +1492,6 @@ FROM incentives.campaigns c
     `;
   }
 
-  async listRewardPeriods(activeAt?: string, chainId: bigint | null = null) {
-    return this.sql<
-      {
-        slug: string;
-        token0: string;
-        token1: string;
-        start_time: Date;
-        end_time: Date;
-        token0_reward_amount: string;
-        token1_reward_amount: string;
-        realized_volatility: number;
-      }[]
-    >`
-      SELECT c.slug,
-             crp.token0,
-             crp.token1,
-             crp.start_time,
-             crp.end_time,
-             token0_reward_amount,
-             token1_reward_amount,
-             realized_volatility
-      FROM incentives.campaigns c
-               JOIN incentives.campaign_reward_periods crp ON crp.campaign_id = c.id
-      WHERE COALESCE(${activeAt ?? null}::timestamptz, CURRENT_TIMESTAMP) >= crp.start_time
-        AND COALESCE(${activeAt ?? null}::timestamptz, CURRENT_TIMESTAMP) < crp.end_time
-        AND c.chain_id = COALESCE(${chainId ?? null}, c.chain_id)
-    `;
-  }
-
   async listComputedRewardsForPosition(
     locker: string,
     salt: string,
