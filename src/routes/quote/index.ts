@@ -128,13 +128,17 @@ const ZeroXQuoteResponseType = z.union([
 type ZeroXQuoteResponse = z.infer<typeof ZeroXQuoteResponseType>;
 
 export class Get0xQuote extends EkuboAPIRoute {
-  static route = "/quote";
+  static route = "/quote/:chainId";
 
   static schema: OpenAPIRouteSchema = {
     tags: ["Quote"],
     summary: "Get 0x quote",
     description: "Get finalized quote from 0x",
     parameters: {
+      chainId: Path(ChainIdType, {
+        required: true,
+        description: "Target chain ID for the quote",
+      }),
       buyToken: Query(AddressType, {
         required: true,
         description: "Input token",
@@ -146,10 +150,6 @@ export class Get0xQuote extends EkuboAPIRoute {
       sellAmount: Query(NumericStringType, { required: true }),
       receiver: Query(HexStringType, { required: false }),
       slippageBps: Query(DecimalStringType, { required: false }),
-      chainId: Query(ChainIdType, {
-        required: false,
-        description: "Target chain ID for the quote (only 1 is supported)",
-      }),
     },
     responses: {
       "200": {
@@ -160,15 +160,9 @@ export class Get0xQuote extends EkuboAPIRoute {
     },
   };
 
-  async handle({ query }: IRequest, { env }: RequestContext) {
+  async handle({ query, params }: IRequest, { env }: RequestContext) {
     const requestedChainId =
-      typeof query.chainId === "string" ? BigInt(query.chainId) : 1n;
-    if (requestedChainId !== 1n) {
-      throw new StatusError(
-        400,
-        `0x quotes not supported for chain ID ${requestedChainId.toString()}`,
-      );
-    }
+      typeof params.chainId === "string" ? BigInt(params.chainId) : 1n;
 
     const zeroXClient = getZeroXClient(env);
 
