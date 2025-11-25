@@ -1755,6 +1755,7 @@ WHERE address = ${address} AND ${chainId === null ? this.sql`true` : this.sql`fd
           WITH
             staker_delegation_changes AS (
               SELECT
+                chain_id,
                 amount,
                 delegate
               FROM
@@ -1762,6 +1763,7 @@ WHERE address = ${address} AND ${chainId === null ? this.sql`true` : this.sql`fd
               WHERE chain_id = ${chainId.toString()}
               UNION ALL
               SELECT
+                chain_id,
                 - amount AS amount,
                 delegate
               FROM
@@ -1770,26 +1772,30 @@ WHERE address = ${address} AND ${chainId === null ? this.sql`true` : this.sql`fd
             ),
             top_delegates AS (
               SELECT
+                chain_id,
                 delegate,
                 SUM(amount) AS amount
               FROM
                 staker_delegation_changes
               GROUP BY
-                delegate
+                delegate, chain_id
             ),
             ended_proposals AS (
               SELECT
+                gp.chain_id,
                 gp.proposal_id
               FROM
                 governor_proposed gp
-                JOIN governor_reconfigured gr ON gr.version = gp.config_version
-                JOIN blocks b ON gp.block_number = b.block_number
+                JOIN governor_reconfigured gr ON gr.version = gp.config_version AND gr.chain_id = gp.chain_id
+                JOIN blocks b ON gp.block_number = b.block_number AND gp.chain_id = b.chain_id
               WHERE
-                (b.block_time + (gr.voting_period + gr.voting_start_delay) * INTERVAL '1 seconds') < (
+                gp.chain_id = ${chainId.toString()}
+                AND (b.block_time + (gr.voting_period + gr.voting_start_delay) * INTERVAL '1 seconds') < (
                   SELECT
                     block_time
                   FROM
                     blocks b
+                  WHERE chain_id = ${chainId.toString()}
                   ORDER BY
                     block_number DESC
                   LIMIT
@@ -1821,7 +1827,7 @@ WHERE address = ${address} AND ${chainId === null ? this.sql`true` : this.sql`fd
             )::int4 AS missed
           FROM
             top_delegates td
-            LEFT JOIN proposal_delegate_voting_weights_materialized pdvwm ON td.delegate = pdvwm.delegate
+            LEFT JOIN proposal_delegate_voting_weights_materialized pdvwm ON td.delegate = pdvwm.delegate AND td.chain_id = pdvwm.chain_id
             LEFT JOIN ended_proposals ep ON pdvwm.proposal_id = ep.proposal_id
             LEFT JOIN governor_voted gv ON td.delegate = gv.voter
               AND gv.proposal_id = pdvwm.proposal_id
