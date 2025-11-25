@@ -30,6 +30,15 @@ export interface TwammOrderMetadata {
   fee: string;
 }
 
+export interface LimitOrderMetadata {
+  minted_tx_hash: string;
+  minted_timestamp: Date;
+  token0: string;
+  token1: string;
+  tick: number;
+  amount: string;
+}
+
 export interface ListPoolKeysQueryResult {
   chain_id: string;
   core_address: string;
@@ -1889,6 +1898,70 @@ WHERE address = ${address} AND ${chainId === null ? this.sql`true` : this.sql`fd
       `;
 
     return BigInt(rows[0]?.amount_delegated ?? 0);
+  }
+
+  getLimitOrdersByAddress(
+    address: bigint,
+    state: StateFilter | null,
+    chainId: bigint | null,
+  ) {
+    const includeOpened = state === "opened" || state === null;
+    const includeClosed = state === "closed" || state === null;
+
+    return this.sql<
+      {
+        chain_id: bigint;
+        token_id: string;
+        token0: string;
+        token1: string;
+        tick: number;
+        liquidity: string;
+        amount: string;
+        token0_amount_withdrawn: string | null;
+        token1_amount_withdrawn: string | null;
+      }[]
+    >`
+          WITH owned_tokens AS (SELECT chain_id, token_id
+                      FROM nonfungible_token_transfers pt1
+                      WHERE to_address = ${address.toString()}
+                        AND chain_id = COALESCE(${chainId?.toString() ?? null}, chain_id)
+                        AND NOT EXISTS (SELECT 1
+                                          FROM nonfungible_token_transfers pt2
+                                          WHERE pt2.token_id = pt1.token_id
+                                            AND pt2.event_id > pt1.event_id
+                                        )
+                    )
+          SELECT ot.chain_id,
+                 ot.token_id,
+                 lo.token0,
+                 lo.token1,
+                 lo.tick,
+                 lo.liquidity,
+                 lo.amount,
+                 lc.token0_amount_withdrawn,
+                 lc.token1_amount_withdrawn
+          FROM owned_tokens ot
+                   -- select the information for the latest open event for each order
+               JOIN LATERAL (
+                      SELECT event_id AS open_event_id, token0, token1, tick, liquidity, amount
+                      FROM limit_order_placed lop
+                      WHERE salt = ot.token_id::NUMERIC
+                      ORDER BY event_id DESC
+                      LIMIT 1
+               ) AS lo ON TRUE
+               -- select the latest close event
+               LEFT JOIN LATERAL (
+                      SELECT event_id AS close_event_id, amount0 AS token0_amount_withdrawn, amount1 AS token1_amount_withdrawn
+                      FROM limit_order_closed
+                      WHERE salt = ot.token_id::NUMERIC
+                      ORDER BY event_id DESC
+                      LIMIT 1
+               ) AS lc ON TRUE
+          WHERE (
+            (${includeClosed} AND lc.close_event_id IS NOT NULL)
+            OR (${includeOpened} AND (lc.close_event_id IS NULL OR lc.close_event_id < lo.open_event_id))
+          )
+      `;
   }
 }
 
