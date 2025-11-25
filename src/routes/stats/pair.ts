@@ -5,7 +5,11 @@ import {
   NumericStringType,
   TokenIdentifierType,
 } from "../../shared/validation/address";
-import { OpenAPIRouteSchema, Path } from "@cloudflare/itty-router-openapi";
+import {
+  OpenAPIRouteSchema,
+  Path,
+  Query,
+} from "@cloudflare/itty-router-openapi";
 import { parseOutTokens } from "../../shared/parseOutTokens";
 import { z } from "zod";
 
@@ -201,19 +205,16 @@ export class GetPairInfoVolume extends EkuboAPIRoute {
     const thirtyDaysAgo = new Date(timestamp - 1000 * 60 * 60 * 24 * 30);
     const twentyFourHoursAgo = new Date(timestamp - 1000 * 60 * 60 * 24);
 
-    const [
-      rawVolumeByToken,
-      volumeByTokenByDate,
-      rawVolumeByToken_24h,
-    ] = await Promise.all([
-      queries.getTotalVolumeByToken({ pair, chainId }),
-      queries.getVolumeByTokenByDate(chainId, thirtyDaysAgo, pair),
-      queries.getTotalVolumeByToken({
-        chainId,
-        since: twentyFourHoursAgo,
-        pair,
-      }),
-    ]);
+    const [rawVolumeByToken, volumeByTokenByDate, rawVolumeByToken_24h] =
+      await Promise.all([
+        queries.getTotalVolumeByToken({ pair, chainId }),
+        queries.getVolumeByTokenByDate(chainId, thirtyDaysAgo, pair),
+        queries.getTotalVolumeByToken({
+          chainId,
+          since: twentyFourHoursAgo,
+          pair,
+        }),
+      ]);
 
     const volumeByToken = rawVolumeByToken.map((row) =>
       normalizePairVolumeRow(row as PairVolumeRow),
@@ -237,6 +238,8 @@ export class GetPairInfoVolume extends EkuboAPIRoute {
   }
 }
 
+const MinTvlQueryParameter = z.coerce.number().min(0).default(1_000);
+
 export class GetPairInfoPools extends EkuboAPIRoute {
   static route = "/pair/:chainId/:tokenA/:tokenB/pools";
 
@@ -248,6 +251,10 @@ export class GetPairInfoPools extends EkuboAPIRoute {
       chainId: Path(NumericStringType),
       tokenA: Path(TokenIdentifierType),
       tokenB: Path(TokenIdentifierType),
+      minTvlUsd: Query(MinTvlQueryParameter, {
+        required: false,
+        description: "Minimum USD TVL required for a pool to be included",
+      }),
     },
     responses: {
       "200": {
@@ -265,8 +272,9 @@ export class GetPairInfoPools extends EkuboAPIRoute {
       request.params,
       chainId,
     );
+    const minTvlUsd = MinTvlQueryParameter.parse(request.query?.minTvlUsd);
 
-    const topPools = await queries.getTopPools(chainId, pair);
+    const topPools = await queries.getTopPools(chainId, pair, minTvlUsd);
 
     const response = {
       topPools,

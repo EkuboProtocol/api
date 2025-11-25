@@ -77,6 +77,7 @@ export interface RawErc20TokenRow {
   visibility_priority: number;
   sort_order: number;
   total_supply: string | null;
+  usd_price: string | null;
 }
 
 export class Queries {
@@ -118,7 +119,7 @@ export class Queries {
     const rows = await this.sql<RawErc20TokenRow[]>`
       SELECT 
         chain_id, token_address, token_symbol, token_name, token_decimals,
-        logo_url, visibility_priority, sort_order, total_supply
+        logo_url, visibility_priority, sort_order, total_supply, usd_price
       FROM erc20_tokens
       WHERE ${chainIdCondition}
         AND visibility_priority >= ${minVisibilityPriority}
@@ -147,7 +148,8 @@ export class Queries {
         logo_url,
         visibility_priority,
         sort_order,
-        total_supply
+        total_supply,
+        usd_price
       FROM erc20_tokens
       WHERE chain_id = ${chainId}
         AND token_address = ${tokenAddress.toString()};
@@ -173,7 +175,8 @@ export class Queries {
         logo_url,
         visibility_priority,
         sort_order,
-        total_supply
+        total_supply,
+        usd_price
       FROM erc20_tokens
       WHERE (chain_id, token_address) IN ${this.sql(
         ids.map(
@@ -1140,7 +1143,7 @@ ORDER BY token_id DESC
     `;
   }
 
-  public async getTopPairs(chainId: bigint) {
+  public async getTopPairs(chainId: bigint, minTvlUsd: number) {
     return this.sql<
       {
         token0: string;
@@ -1158,49 +1161,47 @@ ORDER BY token_id DESC
         min_depth_percent: number | null;
       }[]
     >`
-      SELECT
-          pk.token0,
-          pk.token1,
-          SUM(volume0_24h)                  AS volume0_24h,
-          SUM(volume1_24h)                  AS volume1_24h,
-          SUM(fees0_24h)                    AS fees0_24h,
-          SUM(fees1_24h)                    AS fees1_24h,
-          SUM(tvl0_total)                   AS tvl0_total,
-          SUM(tvl1_total)                   AS tvl1_total,
-          SUM(tvl0_delta_24h)               AS tvl0_delta_24h,
-          SUM(tvl1_delta_24h)               AS tvl1_delta_24h,
-          COALESCE(SUM(depth0), 0::NUMERIC) AS depth0,
-          COALESCE(SUM(depth1), 0::NUMERIC) AS depth1,
-          MIN(depth_percent)                AS min_depth_percent
-      FROM last_24h_pool_stats_materialized l24
-              JOIN pool_keys pk USING (pool_key_id)
-              JOIN erc20_tokens t0 ON pk.chain_id = t0.chain_id AND pk.token0 = t0.token_address
-              JOIN erc20_tokens t1 ON pk.chain_id = t1.chain_id AND pk.token0 = t1.token_address
-              LEFT JOIN token_pair_realized_volatility_materialized tprv
-                        ON pk.chain_id = tprv.chain_id AND pk.token0 = tprv.token0 AND pk.token1 = tprv.token1
-              LEFT JOIN LATERAL (
-          SELECT *
-          FROM pool_market_depth_materialized pmd
-          WHERE pk.pool_key_id = pmd.pool_key_id
-            AND GREATEST(tprv.realized_volatility, 0.001) >= pmd.depth_percent
-          ORDER BY depth_percent DESC
-          LIMIT 1
-          ) AS pmd ON TRUE
-      WHERE pk.chain_id = ${chainId}
-        AND t0.visibility_priority >= 0 AND t1.visibility_priority >= 0
-        AND (
-          volume0_24h != 0
-              OR volume1_24h != 0
-              OR tvl0_delta_24h != 0
-              OR tvl1_delta_24h != 0
-          )
-      GROUP BY pk.token0, pk.token1
+SELECT pk.token0,
+       pk.token1,
+       SUM(volume0_24h)                  AS volume0_24h,
+       SUM(volume1_24h)                  AS volume1_24h,
+       SUM(fees0_24h)                    AS fees0_24h,
+       SUM(fees1_24h)                    AS fees1_24h,
+       SUM(tvl0_total)                   AS tvl0_total,
+       SUM(tvl1_total)                   AS tvl1_total,
+       SUM(tvl0_delta_24h)               AS tvl0_delta_24h,
+       SUM(tvl1_delta_24h)               AS tvl1_delta_24h,
+       COALESCE(SUM(depth0), 0::NUMERIC) AS depth0,
+       COALESCE(SUM(depth1), 0::NUMERIC) AS depth1,
+       MIN(depth_percent)                AS min_depth_percent
+FROM last_24h_pool_stats_materialized l24
+         JOIN pool_keys pk USING (pool_key_id)
+         JOIN erc20_tokens t0 ON pk.chain_id = t0.chain_id AND pk.token0 = t0.token_address
+         JOIN erc20_tokens t1 ON pk.chain_id = t1.chain_id AND pk.token1 = t1.token_address
+         LEFT JOIN token_pair_realized_volatility_materialized tprv
+                   ON pk.chain_id = tprv.chain_id AND pk.token0 = tprv.token0 AND pk.token1 = tprv.token1
+         LEFT JOIN LATERAL (
+    SELECT *
+    FROM pool_market_depth_materialized pmd
+    WHERE pk.pool_key_id = pmd.pool_key_id
+      AND GREATEST(tprv.realized_volatility, 0.001) >= pmd.depth_percent
+    ORDER BY depth_percent DESC
+    LIMIT 1
+    ) AS pmd ON TRUE
+WHERE pk.chain_id = ${chainId}
+  AND t0.visibility_priority >= 0
+  AND t1.visibility_priority >= 0
+GROUP BY pk.token0, pk.token1, t0.token_decimals, t1.token_decimals
+HAVING SUM(tvl0_total / POWER(10::NUMERIC, t0.token_decimals) * COALESCE(t0.usd_price, 0::NUMERIC) +
+           tvl1_total / POWER(10::NUMERIC, t1.token_decimals) * COALESCE(t1.usd_price, 0::NUMERIC))
+           >= ${minTvlUsd}
     `;
   }
 
   public async getTopPools(
     chainId: bigint,
     pair: { token0: bigint; token1: bigint },
+    minTvlUsd: number,
   ) {
     return this.sql<
       {
@@ -1240,6 +1241,8 @@ ORDER BY token_id DESC
       FROM
         last_24h_pool_stats_materialized l24
         JOIN pool_keys p USING (pool_key_id)
+        JOIN erc20_tokens t0 ON p.chain_id = t0.chain_id AND p.token0 = t0.token_address
+        JOIN erc20_tokens t1 ON p.chain_id = t1.chain_id AND p.token1 = t1.token_address
         LEFT JOIN token_pair_realized_volatility_materialized tprv ON p.chain_id = tprv.chain_id AND p.token0 = tprv.token0 AND p.token1 = tprv.token1
         LEFT JOIN LATERAL (
           SELECT
@@ -1257,10 +1260,10 @@ ORDER BY token_id DESC
         p.chain_id = ${chainId}
         AND p.token0 = ${pair.token0.toString()}
         AND p.token1 = ${pair.token1.toString()}
-        AND (volume0_24h != 0
-          OR volume1_24h != 0
-          OR tvl0_delta_24h != 0
-          OR tvl1_delta_24h != 0)
+        AND (
+          (tvl0_total / POWER(10::numeric, t0.token_decimals)) * COALESCE(t0.usd_price, 0::numeric) +
+          (tvl1_total / POWER(10::numeric, t1.token_decimals)) * COALESCE(t1.usd_price, 0::numeric)
+        ) >= ${minTvlUsd}
     `;
   }
 

@@ -1,7 +1,11 @@
 import { IRequest, json } from "itty-router";
 import { EkuboAPIRoute, RequestContext } from "../../shared/context";
 import { createQueries } from "../../queries";
-import { OpenAPIRouteSchema, Path } from "@cloudflare/itty-router-openapi";
+import {
+  OpenAPIRouteSchema,
+  Path,
+  Query,
+} from "@cloudflare/itty-router-openapi";
 import { ChainIdType } from "../../shared/validation/address";
 import { z } from "zod";
 
@@ -103,6 +107,8 @@ const OverviewTvlResponseType = z.object({
   tvlDeltaByTokenByDate: z.array(TvlDeltaEntryType),
 });
 
+const MinTvlQueryParameter = z.coerce.number().min(0).default(1_000);
+
 export class GetOverviewPairs extends EkuboAPIRoute {
   static route = "/overview/:chainId/pairs";
   static schema: OpenAPIRouteSchema = {
@@ -111,6 +117,10 @@ export class GetOverviewPairs extends EkuboAPIRoute {
     description: "Returns stats for the top pairs",
     parameters: {
       chainId: Path(ChainIdType, { required: true }),
+      minTvlUsd: Query(MinTvlQueryParameter, {
+        required: false,
+        description: "Minimum USD TVL required for a pair to be included",
+      }),
     },
     responses: {
       "200": {
@@ -124,8 +134,9 @@ export class GetOverviewPairs extends EkuboAPIRoute {
   async handle(request: IRequest, { env }: RequestContext) {
     const chainId = BigInt(request.params.chainId);
     const queries = await createQueries(env);
+    const minTvlUsd = MinTvlQueryParameter.parse(request.query?.minTvlUsd);
 
-    const topPairs = await queries.getTopPairs(chainId);
+    const topPairs = await queries.getTopPairs(chainId, minTvlUsd);
 
     const response = {
       topPairs,
@@ -165,15 +176,12 @@ export class GetOverviewRevenue extends EkuboAPIRoute {
     const chainId = BigInt(request.params.chainId);
     const queries = await createQueries(env);
 
-    const [
-      rawRevenueByToken,
-      rawRevenueByTokenByDate,
-      rawRevenueByToken_24h,
-    ] = await Promise.all([
-      queries.getRevenueByToken({ chainId }),
-      queries.getRevenueByTokenByDate(chainId, thirtyDaysAgo),
-      queries.getRevenueByToken({ since: twentyFourHoursAgo, chainId }),
-    ]);
+    const [rawRevenueByToken, rawRevenueByTokenByDate, rawRevenueByToken_24h] =
+      await Promise.all([
+        queries.getRevenueByToken({ chainId }),
+        queries.getRevenueByTokenByDate(chainId, thirtyDaysAgo),
+        queries.getRevenueByToken({ since: twentyFourHoursAgo, chainId }),
+      ]);
 
     const revenueByToken = rawRevenueByToken.map((row) => ({
       token: row.token,
@@ -227,15 +235,12 @@ export class GetOverviewVolume extends EkuboAPIRoute {
     const chainId = BigInt(request.params.chainId);
     const queries = await createQueries(env);
 
-    const [
-      rawVolumeByToken,
-      volumeByTokenByDate,
-      rawVolumeByToken_24h,
-    ] = await Promise.all([
-      queries.getTotalVolumeByToken({ chainId }),
-      queries.getVolumeByTokenByDate(chainId, thirtyDaysAgo),
-      queries.getTotalVolumeByToken({ since: twentyFourHoursAgo, chainId }),
-    ]);
+    const [rawVolumeByToken, volumeByTokenByDate, rawVolumeByToken_24h] =
+      await Promise.all([
+        queries.getTotalVolumeByToken({ chainId }),
+        queries.getVolumeByTokenByDate(chainId, thirtyDaysAgo),
+        queries.getTotalVolumeByToken({ since: twentyFourHoursAgo, chainId }),
+      ]);
 
     const volumeByToken = rawVolumeByToken.map((row) =>
       normalizeVolumeRow(row as VolumeRow),

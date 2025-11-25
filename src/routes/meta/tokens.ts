@@ -58,6 +58,13 @@ export const TokenType = z
         .gte(0),
     ),
     logo_url: z.optional(z.string().url()),
+    usd_price: z.nullable(
+      z
+        .number({
+          description: "The USD price for one unit of the token",
+        })
+        .gte(0),
+    ),
   })
   .required({
     chain_id: true,
@@ -68,6 +75,7 @@ export const TokenType = z
     visibility_priority: true,
     sort_order: true,
     total_supply: true,
+    usd_price: true,
   });
 
 export type TokenInfo = z.infer<typeof TokenType>;
@@ -92,6 +100,7 @@ function buildTokenInfo(row: RawErc20TokenRow): TokenInfo {
       row.total_supply !== null
         ? Number(row.total_supply) / Math.pow(10, decimals)
         : null,
+    usd_price: row.usd_price !== null ? Number(row.usd_price) : null,
   };
 }
 
