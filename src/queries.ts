@@ -1664,6 +1664,7 @@ WHERE address = ${address} AND ${chainId === null ? this.sql`true` : this.sql`fd
                 WHERE ge.proposal_id = gp.proposal_id)            AS executed_tx_hash
         FROM governor_proposed gp
                  JOIN blocks b ON gp.block_number = b.block_number
+                                  AND gp.chain_id = b.chain_id
         WHERE gp.proposal_id NOT IN (SELECT proposal_id FROM governor_canceled)
                  AND gp.chain_id = ${chainId.toString()}
         ORDER BY b.block_time DESC
