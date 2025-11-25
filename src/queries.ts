@@ -156,6 +156,36 @@ export class Queries {
     return rows.length > 0 ? rows[0] : null;
   }
 
+  public async getErc20TokensByIds(
+    ids: { chainId: bigint; tokenAddress: bigint }[],
+  ) {
+    if (ids.length === 0) {
+      return [];
+    }
+
+    const rows = await this.sql<RawErc20TokenRow[]>`
+      SELECT 
+        chain_id,
+        token_address,
+        token_symbol,
+        token_name,
+        token_decimals,
+        logo_url,
+        visibility_priority,
+        sort_order,
+        total_supply
+      FROM erc20_tokens
+      WHERE (chain_id, token_address) IN ${this.sql(
+        ids.map(
+          ({ chainId, tokenAddress }) =>
+            this.sql`(${chainId}, ${tokenAddress})`,
+        ) as any,
+      )}
+    `;
+
+    return rows;
+  }
+
   public async getLatestBlock(chainId: bigint) {
     const rows = await this.sql<
       {

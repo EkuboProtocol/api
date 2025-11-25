@@ -110,6 +110,7 @@ export async function getTokenByAddress(
 
 const ADDRESS_REGEX = /^0x[a-fA-F0-9]+$/;
 const DECIMAL_REGEX = /^\d+$/;
+const TOKEN_ID_PARAM_REGEX = /^(?:\d+|0x[a-fA-F0-9]+):0x[a-fA-F0-9]+$/;
 
 export async function getTokenByUserSpecifiedIdentifier(
   queries: Queries,
@@ -124,6 +125,72 @@ export async function getTokenByUserSpecifiedIdentifier(
 
   return null;
 }
+
+type TokenIdFilter = {
+  chainId: bigint;
+  tokenAddress: bigint;
+};
+
+function parseTokenIdParam(value: string): TokenIdFilter {
+  const trimmed = value.trim();
+
+  if (!TOKEN_ID_PARAM_REGEX.test(trimmed)) {
+    throw new StatusError(400, `Invalid id parameter: "${value}"`);
+  }
+
+  const [chainIdPart, tokenAddressPart] = trimmed.split(":");
+
+  let chainId: bigint;
+  try {
+    chainId = ChainIdType.parse(chainIdPart);
+  } catch {
+    throw new StatusError(400, `Invalid chain ID in id parameter: "${value}"`);
+  }
+
+  let tokenAddress: bigint;
+  try {
+    tokenAddress = BigInt(tokenAddressPart);
+  } catch {
+    throw new StatusError(
+      400,
+      `Invalid token address in id parameter: "${value}"`,
+    );
+  }
+
+  return { chainId, tokenAddress };
+}
+
+function buildTokenIdentifierKey(chainId: bigint, tokenAddress: bigint) {
+  return `${chainId.toString()}:${tokenAddress.toString()}`;
+}
+
+const TokenIdListRequestSchema = z
+  .object({
+    ids: z
+      .array(
+        z
+          .string({
+            description:
+              "Token identifier formatted as chain_id:token_address where chain_id may be decimal or 0x-prefixed hexadecimal",
+          })
+          .regex(TOKEN_ID_PARAM_REGEX, {
+            message:
+              "Token identifiers must use chain_id:token_address with a decimal or 0x-prefixed chain ID and 0x-prefixed token address",
+          }),
+      )
+      .min(1)
+      .max(1000),
+  })
+  .openapi({
+    required: ["ids"],
+    description: "Batch token lookup request payload",
+    example: {
+      ids: [
+        "1:0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48",
+        "0x1:0xdac17f958d2ee523a2206206994597c13d831ec7",
+      ],
+    },
+  });
 
 export class ListTokens extends EkuboAPIRoute {
   static route = "/tokens";
@@ -140,7 +207,7 @@ export class ListTokens extends EkuboAPIRoute {
       pageSize: Query(z.coerce.number().int().min(1).max(10_000), {
         default: 1000,
       }),
-      afterToken: Query(z.string().regex(/^\d+:0x[a-fA-F0-9]+$/), {
+      afterToken: Query(z.string().regex(TOKEN_ID_PARAM_REGEX), {
         description:
           "The :-concatenated chain ID and token address for pagination",
         example: "1:0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48",
@@ -178,7 +245,6 @@ export class ListTokens extends EkuboAPIRoute {
       typeof query.search === "string" ? query.search.trim() : undefined;
 
     const queries = await createQueries(env);
-
     const rows = await queries.listErc20Tokens({
       chainId,
       minVisibilityPriority,
@@ -188,6 +254,101 @@ export class ListTokens extends EkuboAPIRoute {
     });
 
     const tokens = rows.map(buildTokenInfo);
+    const response = tokens satisfies TokenListResponse;
+
+    return json(response, {
+      headers: {
+        "cache-control": `public, max-age=600`,
+      },
+    });
+  }
+}
+
+function getQueryParamAsArray(value: unknown): string[] | undefined {
+  if (typeof value === "string") {
+    return [value];
+  }
+
+  if (Array.isArray(value)) {
+    return value.filter((entry): entry is string => typeof entry === "string");
+  }
+
+  return undefined;
+}
+
+export class BatchGetTokens extends EkuboAPIRoute {
+  static route = "/tokens/batch";
+  static schema: OpenAPIRouteSchema = {
+    tags: ["Meta"],
+    summary: "Batch tokens",
+    description: "Fetch metadata for a specific set of tokens",
+    parameters: {
+      id: Query(
+        [
+          z
+            .string({
+              description:
+                "Token identifier formatted as chain_id:token_address where chain_id may be decimal or 0x-prefixed hexadecimal",
+            })
+            .regex(TOKEN_ID_PARAM_REGEX, {
+              message:
+                "Token identifiers must use chain_id:token_address with a decimal or 0x-prefixed chain ID and 0x-prefixed token address",
+            }),
+        ],
+        {
+          required: true,
+          description:
+            "Repeat the id parameter to fetch multiple tokens (e.g. ?id=1:0x...&id=0x1:0x...)",
+          example: "1:0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48",
+        },
+      ),
+    },
+    responses: {
+      "200": {
+        description: "Tokens",
+        schema: TokenListResponseType,
+        contentType: "application/json",
+      },
+    },
+  };
+
+  async handle({ query }: IRequest, { env }: RequestContext) {
+    const ids = getQueryParamAsArray(query.id);
+
+    if (!ids || ids.length === 0) {
+      throw new StatusError(400, "At least one id parameter is required");
+    }
+
+    const payload = TokenIdListRequestSchema.parse({ ids });
+
+    const tokenIds = payload.ids.map(parseTokenIdParam);
+    const queries = await createQueries(env);
+
+    const uniqueTokenIds = Array.from(
+      new Map(
+        tokenIds.map((tokenId) => [
+          buildTokenIdentifierKey(tokenId.chainId, tokenId.tokenAddress),
+          tokenId,
+        ]),
+      ).values(),
+    );
+
+    const rows = await queries.getErc20TokensByIds(uniqueTokenIds);
+    const tokensByKey = new Map(
+      rows.map((row) => [
+        buildTokenIdentifierKey(row.chain_id, BigInt(row.token_address)),
+        buildTokenInfo(row),
+      ]),
+    );
+
+    const tokens = tokenIds
+      .map((tokenId) =>
+        tokensByKey.get(
+          buildTokenIdentifierKey(tokenId.chainId, tokenId.tokenAddress),
+        ),
+      )
+      .filter((token): token is TokenInfo => token !== undefined);
+
     const response = tokens satisfies TokenListResponse;
 
     return json(response, {
