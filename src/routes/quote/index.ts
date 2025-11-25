@@ -148,7 +148,7 @@ export class Get0xQuote extends EkuboAPIRoute {
       slippageBps: Query(DecimalStringType, { required: false }),
       chainId: Query(ChainIdType, {
         required: false,
-        description: "Target chain ID for the quote (only 1 is supported)",
+        description: "Target chain ID for the quote",
       }),
     },
     responses: {
@@ -163,12 +163,6 @@ export class Get0xQuote extends EkuboAPIRoute {
   async handle({ query }: IRequest, { env }: RequestContext) {
     const requestedChainId =
       typeof query.chainId === "string" ? BigInt(query.chainId) : 1n;
-    if (requestedChainId !== 1n) {
-      throw new StatusError(
-        400,
-        `0x quotes not supported for chain ID ${requestedChainId.toString()}`,
-      );
-    }
 
     const zeroXClient = getZeroXClient(env);
 
