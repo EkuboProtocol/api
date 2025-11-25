@@ -181,7 +181,7 @@ export class Queries {
       WHERE (chain_id, token_address) IN ${this.sql(
         ids.map(
           ({ chainId, tokenAddress }) =>
-            this.sql`(${chainId}, ${tokenAddress})`,
+            this.sql`(${chainId.toString()}, ${tokenAddress.toString()})`,
         ) as any,
       )}
     `;
