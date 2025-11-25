@@ -1,6 +1,5 @@
 import { z } from "zod";
 import { NumericStringType } from "../../shared/validation/address";
-import Decimal from "decimal.js-light";
 
 export const NFTAttributeSchema = z.object({
   trait_type: z.string(),
@@ -100,11 +99,12 @@ export function formatAmount(
   amount: bigint | string,
   decimals = 18,
   significantDigits = 6,
+  locale = "en-US",
 ) {
-  return new Decimal(amount.toString())
-    .div(new Decimal(10).pow(decimals))
-    .toSignificantDigits(significantDigits)
-    .toString();
+  return (Number(amount.toString()) / Math.pow(10, decimals)).toLocaleString(
+    locale,
+    { maximumSignificantDigits: significantDigits },
+  );
 }
 
 export const TokenIdType = NumericStringType;

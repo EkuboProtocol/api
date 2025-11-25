@@ -1,7 +1,4 @@
-import {
-  generateDCAOrderSvg,
-  generateLimitOrderSvg,
-} from "@ekubo/position-svg-generator";
+import { generateLimitOrderSvg } from "@ekubo/position-svg-generator";
 import { getTokenByAddress } from "../meta/tokens";
 import { LimitOrderMetadata, Queries } from "../../queries";
 import { formatAmount, formattedPrice } from "./format";
@@ -45,7 +42,7 @@ export async function generateLimitOrderNft(
         : `${formattedPrice(firstOrderMetadata.tick, buyToken.decimals, sellToken.decimals)} ${buyToken.symbol} / ${sellToken.symbol}`;
 
   const formattedSellAmount = sellToken
-    ? `${Number(formatAmount(firstOrderMetadata.amount, sellToken.decimals)).toLocaleString("en-US", { minimumFractionDigits: 0, maximumFractionDigits: 6 })} ${sellToken.symbol}`
+    ? `${formatAmount(firstOrderMetadata.amount, sellToken.decimals)} ${sellToken.symbol}`
     : undefined;
 
   return await generateLimitOrderSvg(id, chainId, {

@@ -9,7 +9,6 @@
     "@cloudflare/workers-types": "^4.20251119.0",
     "@ekubo/evm-sdk": "^0.0.8",
     "@ekubo/position-svg-generator": "^0.0.9",
-    "decimal.js-light": "^2.5.1",
     "itty-router": "^4.2.2",
     "postgres": "^3.4.7",
     "prettier": "^3.6.2",
