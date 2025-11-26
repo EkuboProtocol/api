@@ -1298,90 +1298,76 @@ HAVING SUM(tvl0_total / POWER(10::NUMERIC, t0.token_decimals) * COALESCE(t0.usd_
         > | null;
       })[]
     >`
-      WITH base_positions AS (
-        SELECT nfp.chain_id,
-               nft_address,
-               core_address,
-               COALESCE(nlm.locker, nfp.nft_address) AS positions_address,
-               token_id,
-               token0,
-               token1,
-               fee,
-               tick_spacing,
-               pool_extension                        AS "extension",
-               lower_bound,
-               upper_bound,
-               liquidity,
-               pool_key_id,
-               last_transfer_event_id
-        FROM nonfungible_token_positions_view AS nfp
-                 LEFT JOIN nft_locker_mappings nlm USING (chain_id, nft_address)
-                 JOIN pool_keys USING (pool_key_id)
-        WHERE nfp.chain_id = COALESCE(${chainId ?? null}, nfp.chain_id)
-          AND (
-            (${includeOpened} AND nfp.liquidity != 0 AND current_owner = ${addressStr})
-            OR (${includeClosed} AND nfp.liquidity = 0 AND (previous_owner = ${addressStr} OR current_owner = ${addressStr}))
-          )
-      ),
-      total_count AS (
-        SELECT COUNT(*)::int AS total_count
-        FROM base_positions
-      ),
-      pp AS (
-        SELECT *
-        FROM base_positions
-        ORDER BY last_transfer_event_id DESC
-        LIMIT ${pagination.pageSize}
-        OFFSET ${offset}
-      )
-      SELECT pp.chain_id,
-             pp.nft_address,
-             pp.core_address,
-             pp.positions_address,
-             pp.token_id,
-             pp.token0,
-             pp.token1,
-             pp.fee,
-             pp.tick_spacing,
-             pp.extension,
-             pp.lower_bound,
-             pp.upper_bound,
-             pp.liquidity,
-             total_count.total_count,
-             ps.sqrt_ratio         AS pool_state_sqrt_ratio,
-             ps.tick               AS pool_state_tick,
-             ps.liquidity          AS pool_state_liquidity,
-             pr.rewards
-      FROM total_count
-               LEFT JOIN pp ON TRUE
-               LEFT JOIN pool_states ps ON pp.pool_key_id = ps.pool_key_id
-               LEFT JOIN LATERAL (
-                 SELECT COALESCE(
-                                jsonb_object_agg(
-                                  rewards.slug,
-                                  jsonb_build_object(
-                                    'amount', rewards.amount,
-                                    'pending', rewards.pending
-                                  )
-                                ),
-                                '{}'::jsonb
-                              ) AS rewards
-                 FROM (
-                        SELECT c.slug,
-                               SUM(cr.reward_amount)::text                                                AS amount,
-                               SUM(CASE WHEN gdrp.drop_id IS NULL THEN cr.reward_amount ELSE 0 END)::text AS pending
-                        FROM incentives.campaigns c
-                                 JOIN incentives.campaign_reward_periods crp ON crp.campaign_id = c.id
-                                 JOIN incentives.computed_rewards cr ON cr.campaign_reward_period_id = crp.id
-                                 LEFT JOIN incentives.generated_drop_reward_periods gdrp
-                                           ON crp.id = gdrp.campaign_reward_period_id
-                        WHERE c.chain_id = pp.chain_id
-                          AND cr.locker = pp.positions_address
-                          AND cr.salt = pp.token_id
-                        GROUP BY c.slug
-                      ) AS rewards
-               ) pr ON TRUE
-      ORDER BY pp.last_transfer_event_id DESC;
+WITH base_positions AS (SELECT nfp.chain_id,
+                               nft_address,
+                               core_address,
+                               COALESCE(nlm.locker, nfp.nft_address) AS positions_address,
+                               token_id,
+                               token0,
+                               token1,
+                               fee,
+                               tick_spacing,
+                               pool_extension                        AS "extension",
+                               lower_bound,
+                               upper_bound,
+                               liquidity,
+                               pool_key_id,
+                               last_transfer_event_id
+                        FROM nonfungible_token_positions_view AS nfp
+                                 LEFT JOIN nft_locker_mappings nlm USING (chain_id, nft_address)
+                                 JOIN pool_keys USING (pool_key_id)
+                        WHERE ${chainId ? this.sql`nfp.chain_id = ${chainId}` : this.sql`TRUE`} AND 
+                        ${
+                          state === "opened"
+                            ? this
+                                .sql`nfp.liquidity != 0 AND current_owner = ${addressStr}`
+                            : state === "closed"
+                              ? this
+                                  .sql`nfp.liquidity = 0 OR (previous_owner = ${addressStr} AND current_owner = 0)`
+                              : this.sql`current_owner = ${addressStr}`
+                        }),
+     total_count AS (SELECT COUNT(*)::INT AS total_count
+                     FROM base_positions),
+     pp AS (SELECT *
+            FROM base_positions
+            ORDER BY last_transfer_event_id DESC
+            LIMIT ${pagination.pageSize} OFFSET ${offset})
+SELECT pp.chain_id,
+       pp.nft_address,
+       pp.core_address,
+       pp.positions_address,
+       pp.token_id,
+       pp.token0,
+       pp.token1,
+       pp.fee,
+       pp.tick_spacing,
+       pp.extension,
+       pp.lower_bound,
+       pp.upper_bound,
+       pp.liquidity,
+       total_count.total_count,
+       ps.sqrt_ratio AS pool_state_sqrt_ratio,
+       ps.tick       AS pool_state_tick,
+       ps.liquidity  AS pool_state_liquidity,
+       pr.rewards
+FROM total_count
+         LEFT JOIN pp ON TRUE
+         LEFT JOIN pool_states ps ON pp.pool_key_id = ps.pool_key_id
+         LEFT JOIN LATERAL (
+    SELECT JSONB_OBJECT_AGG(
+                   c.slug,
+                   JSONB_BUILD_OBJECT(
+                           'amount', total_reward_amount::TEXT,
+                           'pending', pending_reward_amount::TEXT
+                   )
+           ) AS rewards
+    FROM incentives.computed_rewards_by_position_materialized crbpm
+             JOIN incentives.campaigns c ON crbpm.campaign_id = c.id
+    WHERE c.chain_id = pp.chain_id
+      AND crbpm.locker = pp.positions_address
+      AND crbpm.salt = pp.token_id
+    ) pr ON TRUE
+ORDER BY pp.last_transfer_event_id DESC;
     `;
 
     const totalCount = rows.length > 0 ? rows[0].total_count : 0;
