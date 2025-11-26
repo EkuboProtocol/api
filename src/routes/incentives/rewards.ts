@@ -11,10 +11,8 @@ import {
   AddressType,
   ChainIdType,
   DecimalStringType,
-  HexStringType,
   NumericStringType,
 } from "../../shared/validation/address";
-import toHex from "../../shared/toHex";
 
 export const RewardType = z
   .object({
@@ -30,13 +28,6 @@ export const RewardType = z
 
 export type Reward = z.infer<typeof RewardType>;
 
-export const QualifiedRewardType = RewardType.extend({
-  chainId: HexStringType,
-  nftAddress: HexStringType,
-  locker: HexStringType,
-  tokenId: HexStringType,
-}).required({ tokenId: true });
-
 export const GetRewardsForPositionResponseType = z
   .object(
     {
@@ -45,8 +36,6 @@ export const GetRewardsForPositionResponseType = z
     { description: "The list of rewards for a specified position" },
   )
   .required({ rewards: true });
-
-export type QualifiedReward = z.infer<typeof QualifiedRewardType>;
 
 export class ListRewardsForLocker extends EkuboAPIRoute {
   public static route = "/rewards/:chainId/:locker/:salt";
@@ -102,86 +91,6 @@ export class ListRewardsForLocker extends EkuboAPIRoute {
             }) satisfies Reward,
         ),
       } satisfies z.infer<typeof GetRewardsForPositionResponseType>,
-      {
-        headers: {
-          "cache-control": "public,max-age=600,must-revalidate",
-        },
-      },
-    );
-  }
-}
-
-export const ListRewardsForAllPositionsResponseType = z
-  .object(
-    {
-      rewards: z.array(QualifiedRewardType),
-    },
-    {
-      description:
-        "The list of rewards for all positions owned by a given address",
-    },
-  )
-  .required({ rewards: true });
-
-export class ListRewardsForAllPositions extends EkuboAPIRoute {
-  public static route = "/rewards/:owner";
-  static schema: OpenAPIRouteSchema = {
-    tags: ["Incentives"],
-    summary: "List all position rewards",
-    description:
-      "Returns the computed rewards for all positions owned by the given address via the Positions contract",
-    parameters: {
-      owner: Path(AddressType),
-      chainId: Query(ChainIdType, { required: false }),
-      startTime: Query(z.string().datetime({ precision: 0 }), {
-        required: false,
-        description:
-          "Filter to rewards in periods that started at or after this time",
-      }),
-      endTime: Query(z.string().datetime({ precision: 0 }), {
-        required: false,
-        description:
-          "Filter to rewards in periods that ended at or before this time",
-      }),
-    },
-    responses: {
-      "200": {
-        description: "The computed rewards for each position and campaign",
-        schema: ListRewardsForAllPositionsResponseType,
-        contentType: "application/json",
-      },
-    },
-  };
-
-  public async handle(request: IRequest, { env }: RequestContext) {
-    const chainId =
-      typeof request.query.chainId === "string"
-        ? ChainIdType.parse(request.query.chainId)
-        : null;
-    const queries = await createQueries(env);
-
-    const computedRewards = await queries.listComputedRewardsForAllPositions(
-      request.params.owner,
-      request.query.startTime as string | undefined,
-      request.query.endTime as string | undefined,
-      chainId,
-    );
-
-    return json(
-      {
-        rewards: computedRewards.map(
-          (cr) =>
-            ({
-              chainId: toHex(cr.chain_id),
-              nftAddress: toHex(cr.nft_address),
-              locker: toHex(cr.locker),
-              tokenId: toHex(cr.token_id),
-              campaignSlug: cr.slug,
-              amount: cr.amount,
-              pending: cr.pending,
-            }) satisfies QualifiedReward,
-        ),
-      } satisfies z.infer<typeof ListRewardsForAllPositionsResponseType>,
       {
         headers: {
           "cache-control": "public,max-age=600,must-revalidate",

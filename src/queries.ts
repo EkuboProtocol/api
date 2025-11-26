@@ -1289,6 +1289,13 @@ HAVING SUM(tvl0_total / POWER(10::NUMERIC, t0.token_decimals) * COALESCE(t0.usd_
         pool_state_sqrt_ratio: string;
         pool_state_tick: string;
         pool_state_liquidity: string;
+        rewards: Record<
+          string,
+          {
+            amount: string;
+            pending: string;
+          }
+        > | null;
       })[]
     >`
       WITH base_positions AS (
@@ -1320,34 +1327,61 @@ HAVING SUM(tvl0_total / POWER(10::NUMERIC, t0.token_decimals) * COALESCE(t0.usd_
         SELECT COUNT(*)::int AS total_count
         FROM base_positions
       ),
-      paged_positions AS (
+      pp AS (
         SELECT *
         FROM base_positions
         ORDER BY last_transfer_event_id DESC
         LIMIT ${pagination.pageSize}
         OFFSET ${offset}
       )
-      SELECT paged_positions.chain_id,
-             paged_positions.nft_address,
-             paged_positions.core_address,
-             paged_positions.positions_address,
-             paged_positions.token_id,
-             paged_positions.token0,
-             paged_positions.token1,
-             paged_positions.fee,
-             paged_positions.tick_spacing,
-             paged_positions.extension,
-             paged_positions.lower_bound,
-             paged_positions.upper_bound,
-             paged_positions.liquidity,
+      SELECT pp.chain_id,
+             pp.nft_address,
+             pp.core_address,
+             pp.positions_address,
+             pp.token_id,
+             pp.token0,
+             pp.token1,
+             pp.fee,
+             pp.tick_spacing,
+             pp.extension,
+             pp.lower_bound,
+             pp.upper_bound,
+             pp.liquidity,
              total_count.total_count,
              ps.sqrt_ratio         AS pool_state_sqrt_ratio,
              ps.tick               AS pool_state_tick,
-             ps.liquidity          AS pool_state_liquidity
+             ps.liquidity          AS pool_state_liquidity,
+             pr.rewards
       FROM total_count
-               LEFT JOIN paged_positions ON TRUE
-               LEFT JOIN pool_states ps ON paged_positions.pool_key_id = ps.pool_key_id
-      ORDER BY paged_positions.last_transfer_event_id DESC NULLS LAST;
+               LEFT JOIN pp ON TRUE
+               LEFT JOIN pool_states ps ON pp.pool_key_id = ps.pool_key_id
+               LEFT JOIN LATERAL (
+                 SELECT COALESCE(
+                                jsonb_object_agg(
+                                  rewards.slug,
+                                  jsonb_build_object(
+                                    'amount', rewards.amount,
+                                    'pending', rewards.pending
+                                  )
+                                ),
+                                '{}'::jsonb
+                              ) AS rewards
+                 FROM (
+                        SELECT c.slug,
+                               SUM(cr.reward_amount)::text                                                AS amount,
+                               SUM(CASE WHEN gdrp.drop_id IS NULL THEN cr.reward_amount ELSE 0 END)::text AS pending
+                        FROM incentives.campaigns c
+                                 JOIN incentives.campaign_reward_periods crp ON crp.campaign_id = c.id
+                                 JOIN incentives.computed_rewards cr ON cr.campaign_reward_period_id = crp.id
+                                 LEFT JOIN incentives.generated_drop_reward_periods gdrp
+                                           ON crp.id = gdrp.campaign_reward_period_id
+                        WHERE c.chain_id = pp.chain_id
+                          AND cr.locker = pp.positions_address
+                          AND cr.salt = pp.token_id
+                        GROUP BY c.slug
+                      ) AS rewards
+               ) pr ON TRUE
+      ORDER BY pp.last_transfer_event_id DESC;
     `;
 
     const totalCount = rows.length > 0 ? rows[0].total_count : 0;
@@ -1396,38 +1430,6 @@ WHERE ${chainId ? this.sql`chain_id = ${chainId}` : this.sql`TRUE`}
     `;
   }
 
-  async listRewardsPeriodsForCampaign(
-    slug: string,
-    activeAt?: string,
-    chainId: bigint | null = null,
-  ) {
-    return this.sql<
-      {
-        token0: string;
-        token1: string;
-        start_time: Date;
-        end_time: Date;
-        token0_reward_amount: string;
-        token1_reward_amount: string;
-        realized_volatility: number;
-      }[]
-    >`
-      SELECT crp.token0,
-             crp.token1,
-             crp.start_time,
-             crp.end_time,
-             token0_reward_amount,
-             token1_reward_amount,
-             realized_volatility
-      FROM incentives.campaigns c
-               JOIN incentives.campaign_reward_periods crp ON crp.campaign_id = c.id
-      WHERE c.slug = ${slug}
-        AND COALESCE(${activeAt ?? null}::timestamptz, CURRENT_TIMESTAMP) >= crp.start_time
-        AND COALESCE(${activeAt ?? null}::timestamptz, CURRENT_TIMESTAMP) < crp.end_time
-        AND c.chain_id = COALESCE(${chainId ?? null}, c.chain_id)
-    `;
-  }
-
   async listComputedRewardsForPosition(
     chainId: bigint,
     locker: string,
@@ -1455,50 +1457,6 @@ WHERE c.chain_id = ${chainId}
   AND ${startTime ? this.sql`crp.start_time >= ${startTime}::timestamptz` : this.sql`true`}
   AND ${endTime ? this.sql`crp.start_time >= ${endTime}::timestamptz` : this.sql`true`}
 GROUP BY c.slug
-    `;
-  }
-
-  async listComputedRewardsForAllPositions(
-    ownerAddress: string,
-    startTime?: string,
-    endTime?: string,
-    chainId?: bigint | null,
-  ) {
-    return this.sql<
-      {
-        chain_id: bigint;
-        nft_address: string;
-        locker: string;
-        token_id: string;
-        slug: string;
-        amount: string;
-        pending: string;
-      }[]
-    >`
-WITH keys AS (SELECT chain_id,
-                     nft_address,
-                     COALESCE(nlm.locker, nft_address) AS locker,
-                     token_id
-              FROM nonfungible_token_owners nto
-                       LEFT JOIN nft_locker_mappings nlm
-                                 USING (chain_id, nft_address)
-              WHERE nto.current_owner = ${ownerAddress})
-SELECT k.chain_id,
-       k.nft_address,
-       k.locker,
-       k.token_id,
-       c.slug,
-       SUM(cr.reward_amount)                                                AS amount,
-       SUM(CASE WHEN gdrp.drop_id IS NULL THEN cr.reward_amount ELSE 0 END) AS pending
-FROM incentives.campaigns c
-         JOIN incentives.campaign_reward_periods crp ON crp.campaign_id = c.id
-         JOIN incentives.computed_rewards cr ON cr.campaign_reward_period_id = crp.id
-         JOIN keys k ON c.chain_id = k.chain_id AND cr.locker = k.locker AND cr.salt = k.token_id
-         LEFT JOIN incentives.generated_drop_reward_periods gdrp ON crp.id = gdrp.campaign_reward_period_id
-WHERE ${startTime ? this.sql`crp.start_time >= ${startTime}::timestamptz` : this.sql`true`}
-  AND ${endTime ? this.sql`(crp.end_time <= ${endTime}::timestamptz)` : this.sql`true`}
-  AND ${chainId ? this.sql`c.chain_id = ${chainId}` : this.sql`true`}
-GROUP BY k.chain_id, k.nft_address, k.locker, k.token_id, c.slug
     `;
   }
 

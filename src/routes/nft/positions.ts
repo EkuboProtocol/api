@@ -81,6 +81,11 @@ const PoolStateSummaryType = z.object({
   liquidity: DecimalStringType,
 });
 
+const PositionRewardsSummaryType = z.object({
+  amount: DecimalStringType,
+  pending: DecimalStringType,
+});
+
 const PositionSummaryType = z.object({
   id: HexStringType,
   chain_id: HexStringType,
@@ -94,6 +99,7 @@ const PositionSummaryType = z.object({
   image: z.string(),
   liquidity: DecimalStringType,
   pool_state: PoolStateSummaryType.nullable(),
+  rewards: z.record(z.string(), PositionRewardsSummaryType),
 });
 
 const PaginationMetadataType = z.object({
@@ -545,6 +551,7 @@ export class ListPositionsByAddress extends EkuboAPIRoute {
             tick: Number(row.pool_state_tick),
             liquidity: row.pool_state_liquidity,
           },
+          rewards: row.rewards ?? {},
         };
       }),
       pagination: {

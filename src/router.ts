@@ -31,10 +31,7 @@ import {
 } from "./routes/twamm/getTwammPoolState";
 import { ListTwapOrders } from "./routes/twamm/orders";
 import { ListCampaigns } from "./routes/incentives/campaigns";
-import {
-  ListRewardsForAllPositions,
-  ListRewardsForLocker,
-} from "./routes/incentives/rewards";
+import { ListRewardsForLocker } from "./routes/incentives/rewards";
 import { ListClaimsForAddress } from "./routes/incentives/claims";
 import { Get0xQuote } from "./routes/quote";
 import {
@@ -100,7 +97,6 @@ export const router = OpenAPIRouter({
   .get(GetStakerInfo.route, GetStakerInfo)
   .get(ListCampaigns.route, ListCampaigns)
   .get(ListRewardsForLocker.route, ListRewardsForLocker)
-  .get(ListRewardsForAllPositions.route, ListRewardsForAllPositions)
   .get(ListClaimsForAddress.route, ListClaimsForAddress)
   .get(Get0xQuote.route, Get0xQuote)
   // catch missed routes
