@@ -4,7 +4,7 @@
     "target": "ESNext",
     "moduleResolution": "Bundler",
     "lib": ["ESNext"],
-    "types": ["@cloudflare/workers-types"],
+    "types": ["@cloudflare/workers-types", "bun-types"],
     "skipLibCheck": true,
     "strict": true
   }
