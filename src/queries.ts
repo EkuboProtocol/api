@@ -902,8 +902,8 @@ ORDER BY token_id DESC
       SELECT token0_sale_rate,
              token1_sale_rate,
              tpsm.last_virtual_execution_time AS last_execution_time
-      FROM twamm_pool_states_materialized AS tpsm
-               JOIN pool_states_materialized psm ON psm.pool_key_id = tpsm.pool_key_id
+      FROM twamm_pool_states AS tpsm
+               JOIN pool_states psm ON psm.pool_key_id = tpsm.pool_key_id
                JOIN pool_keys pk ON tpsm.pool_key_id = pk.pool_key_id
       WHERE pk.token0 = ${token0.toString()}
         AND pk.token1 = ${token1.toString()}
@@ -932,7 +932,7 @@ ORDER BY token_id DESC
       }[]
     >`
       SELECT time, net_sale_rate_delta0, net_sale_rate_delta1
-      FROM twamm_sale_rate_deltas_materialized AS tsrdm
+      FROM twamm_sale_rate_deltas AS tsrdm
                JOIN pool_keys pk ON tsrdm.pool_key_id = pk.pool_key_id
       WHERE pk.token0 = ${token0.toString()}
         AND pk.token1 = ${token1.toString()}
