@@ -1275,6 +1275,7 @@ HAVING SUM(tvl0_total / POWER(10::NUMERIC, t0.token_decimals) * COALESCE(t0.usd_
   ) {
     const includeOpened = state === "opened" || state === null;
     const includeClosed = state === "closed" || state === null;
+
     const addressStr = address.toString();
     const offset = (pagination.page - 1) * pagination.pageSize;
 
@@ -1318,12 +1319,12 @@ WITH base_positions AS (SELECT nfp.chain_id,
                                  JOIN pool_keys USING (pool_key_id)
                         WHERE ${chainId ? this.sql`nfp.chain_id = ${chainId}` : this.sql`TRUE`} AND 
                         ${
-                          state === "opened"
+                          includeOpened
                             ? this
                                 .sql`nfp.liquidity != 0 AND current_owner = ${addressStr}`
-                            : state === "closed"
+                            : includeClosed
                               ? this
-                                  .sql`nfp.liquidity = 0 OR (previous_owner = ${addressStr} AND current_owner = 0)`
+                                  .sql`nfp.liquidity = 0 AND (previous_owner = ${addressStr} OR current_owner = ${addressStr})`
                               : this.sql`current_owner = ${addressStr}`
                         }),
      total_count AS (SELECT COUNT(*)::INT AS total_count
