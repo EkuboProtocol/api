@@ -1381,6 +1381,7 @@ ORDER BY pp.last_transfer_event_id DESC;
   async listCampaigns(chainId: bigint | null = null) {
     return this.sql<
       {
+        chain_id: bigint;
         start_time: Date;
         end_time: Date | null;
         name: string;
@@ -1404,6 +1405,7 @@ ORDER BY pp.last_transfer_event_id DESC;
       }[]
     >`
 SELECT
+  chain_id,
   slug,
   start_time,
   end_time,

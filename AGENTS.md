@@ -20,3 +20,6 @@ Recent commits favour short, lowercase summaries (for example `improve the token
 
 ## Environment & Secrets
 Manage bindings through `wrangler.toml` and `src/env.ts`; store credentials with `wrangler secret put` and keep `.dev.vars` out of version control. Note new environment keys in your PR so staging stays aligned.
+
+## Database Schema Access
+When you need schema details or have any uncertainty about the PostgreSQL layout, query the Postgres MCP server directly—it exposes the canonical Ekubo indexer schema for this worker.
