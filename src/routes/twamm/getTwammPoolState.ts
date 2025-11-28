@@ -75,18 +75,19 @@ export class GetTwammPoolState extends EkuboAPIRoute {
 
     const [stateResults, saleRateDeltas] = await Promise.all([
       queries.getTwammPoolStateByKey({
+        chainId: BigInt(request.params.chainId),
         token0,
         token1,
         fee,
-        chainId: BigInt(request.params.chainId),
       }),
       queries.getSaleRateDeltasByKey({
+        chainId: BigInt(request.params.chainId),
         token0,
         token1,
         fee,
-        chainId: BigInt(request.params.chainId),
       }),
     ]);
+
     if (stateResults.length !== 1) {
       throw new StatusError(404, "Pool not found");
     }
@@ -147,19 +148,23 @@ export class GetTwammPairState extends EkuboAPIRoute {
 
     const [stateResults, saleRateDeltas] = await Promise.all([
       queries.getTwammPoolStateByKey({
+        chainId: BigInt(request.params.chainId),
         token0,
         token1,
-        chainId: BigInt(request.params.chainId),
       }),
       queries.getSaleRateDeltasByKey({
+        chainId: BigInt(request.params.chainId),
         token0,
         token1,
-        chainId: BigInt(request.params.chainId),
       }),
     ]);
 
     const response = {
       saleRateDeltas: stateResults
+        .filter(
+          (s) =>
+            BigInt(s.token0_sale_rate) > 0n || BigInt(s.token1_sale_rate) > 0n,
+        )
         .map((s) => ({
           time: s.last_execution_time.getTime() / 1000,
           token0SaleRateDelta: s.token0_sale_rate.toString(),

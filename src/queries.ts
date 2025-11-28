@@ -882,15 +882,15 @@ ORDER BY token_id DESC
   }
 
   public async getTwammPoolStateByKey({
+    chainId,
     token0,
     token1,
     fee,
-    chainId = null,
   }: {
+    chainId: bigint;
     token0: bigint;
     token1: bigint;
     fee?: bigint;
-    chainId?: bigint | null;
   }) {
     const feeParam = fee?.toString() ?? null;
     return this.sql<
@@ -905,10 +905,10 @@ ORDER BY token_id DESC
       FROM twamm_pool_states AS tpsm
                JOIN pool_states psm ON psm.pool_key_id = tpsm.pool_key_id
                JOIN pool_keys pk ON tpsm.pool_key_id = pk.pool_key_id
-      WHERE pk.token0 = ${token0.toString()}
+      WHERE pk.chain_id = ${chainId}
+        AND pk.token0 = ${token0.toString()}
         AND pk.token1 = ${token1.toString()}
-        AND pk.fee = COALESCE(${feeParam}, pk.fee)
-        AND pk.chain_id = COALESCE(${chainId ?? null}, pk.chain_id)
+        AND ${feeParam ? this.sql`pk.fee = ${feeParam}` : this.sql`true`}
     `;
   }
 
@@ -916,12 +916,12 @@ ORDER BY token_id DESC
     token0,
     token1,
     fee,
-    chainId = null,
+    chainId,
   }: {
+    chainId: bigint;
     token0: bigint;
     token1: bigint;
     fee?: bigint;
-    chainId?: bigint | null;
   }) {
     const feeParam = fee?.toString() ?? null;
     return this.sql<
@@ -931,13 +931,17 @@ ORDER BY token_id DESC
         net_sale_rate_delta1: string;
       }[]
     >`
-      SELECT time, net_sale_rate_delta0, net_sale_rate_delta1
+      SELECT time, SUM(net_sale_rate_delta0) AS net_sale_rate_delta0, SUM(net_sale_rate_delta1) AS net_sale_rate_delta1
       FROM twamm_sale_rate_deltas AS tsrdm
-               JOIN pool_keys pk ON tsrdm.pool_key_id = pk.pool_key_id
-      WHERE pk.token0 = ${token0.toString()}
+               JOIN pool_keys pk USING (pool_key_id)
+               JOIN twamm_pool_states tps USING (pool_key_id)
+      WHERE pk.chain_id = ${chainId}
+        AND pk.token0 = ${token0.toString()}
         AND pk.token1 = ${token1.toString()}
-        AND pk.fee = COALESCE(${feeParam}, pk.fee)
-        AND pk.chain_id = COALESCE(${chainId ?? null}, pk.chain_id)
+        AND ${feeParam ? this.sql`pk.fee = ${feeParam}` : this.sql`true`}
+        AND time > tps.last_virtual_execution_time
+      GROUP BY time
+      HAVING SUM(net_sale_rate_delta0) <> 0 OR SUM(net_sale_rate_delta1) <> 0
       ORDER BY time
     `;
   }
