@@ -822,9 +822,6 @@ export class Queries {
     state: StateFilter | null,
     chainId: bigint | null,
   ) {
-    const includeOpened = state === "opened" || state === null;
-    const includeClosed = state === "closed" || state === null;
-
     return this.sql<
       {
         chain_id: bigint;
@@ -842,8 +839,12 @@ export class Queries {
     >`
 WITH owned_tokens AS (SELECT *
                       FROM nonfungible_token_orders_view
-                      WHERE (current_owner = ${address.toString()})
-                         OR ( ${includeClosed} AND current_owner = 0 AND previous_owner = ${address.toString()} ))
+                      WHERE ${
+                        state === "opened"
+                          ? this.sql`current_owner = ${address.toString()}`
+                          : this
+                              .sql`current_owner = ${address.toString()} OR (current_owner = 0 AND previous_owner = ${address.toString()})`
+                      })
 SELECT ot.chain_id,
        nft_address,
        token_id,
@@ -871,13 +872,17 @@ FROM owned_tokens AS ot
     ORDER BY tpw.event_id DESC
     LIMIT 1
     ) AS tpw ON TRUE
-WHERE (
-        (${includeOpened} AND (tpw.last_collect_proceeds IS NULL
-          OR tpw.last_collect_proceeds < ot.end_time))
-        OR (${includeClosed} AND tpw.last_collect_proceeds IS NOT NULL AND tpw.last_collect_proceeds >= ot.end_time)
-      )
-  AND ot.chain_id = COALESCE(${chainId}, ot.chain_id)
-ORDER BY token_id DESC
+WHERE (${
+      state === "opened"
+        ? this
+            .sql`tpw.last_collect_proceeds IS NULL OR tpw.last_collect_proceeds < ot.end_time`
+        : state === "closed"
+          ? this
+              .sql`tpw.last_collect_proceeds IS NOT NULL AND tpw.last_collect_proceeds >= ot.end_time`
+          : this.sql`true`
+    })
+  AND ${chainId ? this.sql`ot.chain_id = ${chainId}` : this.sql`true`}
+ORDER BY token_id DESC;
     `;
   }
 
