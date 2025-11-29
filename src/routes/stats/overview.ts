@@ -1,32 +1,33 @@
 import { IRequest, json } from "itty-router";
 import { EkuboAPIRoute, RequestContext } from "../../shared/context";
 import { createQueries } from "../../queries";
-import {
-  OpenAPIRouteSchema,
-  Path,
-  Query,
-} from "@cloudflare/itty-router-openapi";
-import { ChainIdType } from "../../shared/validation/address";
+import { OpenAPIRouteSchema, Query } from "@cloudflare/itty-router-openapi";
+import { ChainIdType, HexStringType } from "../../shared/validation/address";
 import { z } from "zod";
 
 const TimestampType = z.union([z.date(), z.string()]);
 const TokenIdentifierSchema = z.union([z.string(), z.number()]);
 
-type VolumeRow = { token: string; volume: string } & Partial<{ fees: string }>;
+type VolumeRow = { token: string; volume: string; chain_id: bigint } & Partial<{
+  fees: string;
+}>;
 const normalizeVolumeRow = (row: VolumeRow) => ({
   token: row.token,
   volume: row.volume,
   fees: row.fees ?? "0",
+  chain_id: row.chain_id.toString(),
 });
 
 type RevenueByDateRow = {
   token: string;
+  chain_id: bigint;
 } & Partial<{ date: string | Date; revenue: string; volume: string }>;
 
 const normalizeRevenueByDateRow = (row: RevenueByDateRow) => ({
   token: row.token,
   date: row.date ?? new Date(0),
   revenue: row.revenue ?? row.volume ?? "0",
+  chain_id: row.chain_id.toString(),
 });
 
 type TvlDeltaRow = {
@@ -41,6 +42,7 @@ const normalizeTvlDeltaRow = (row: TvlDeltaRow) => ({
 });
 
 const OverviewPairEntryType = z.object({
+  chain_id: HexStringType,
   token0: TokenIdentifierSchema,
   token1: TokenIdentifierSchema,
   volume0_24h: z.string(),
@@ -63,6 +65,7 @@ const OverviewPairsResponseType = z.object({
 const RevenueEntryType = z.object({
   token: z.string(),
   revenue: z.string(),
+  chain_id: HexStringType,
 });
 
 const RevenueByDateEntryType = RevenueEntryType.extend({
@@ -79,6 +82,7 @@ const VolumeEntryType = z.object({
   token: z.string(),
   volume: z.string(),
   fees: z.string(),
+  chain_id: HexStringType,
 });
 
 const VolumeByDateEntryType = VolumeEntryType.extend({
@@ -94,6 +98,7 @@ const OverviewVolumeResponseType = z.object({
 const TvlEntryType = z.object({
   token: z.string(),
   balance: z.string(),
+  chain_id: HexStringType,
 });
 
 const TvlDeltaEntryType = z.object({
@@ -110,13 +115,13 @@ const OverviewTvlResponseType = z.object({
 const MinTvlQueryParameter = z.coerce.number().min(0).default(1_000);
 
 export class GetOverviewPairs extends EkuboAPIRoute {
-  static route = "/overview/:chainId/pairs";
+  static route = "/overview/pairs";
   static schema: OpenAPIRouteSchema = {
     tags: ["Stats"],
     summary: "Get pairs",
     description: "Returns stats for the top pairs",
     parameters: {
-      chainId: Path(ChainIdType, { required: true }),
+      chainId: Query(ChainIdType, { required: false }),
       minTvlUsd: Query(MinTvlQueryParameter, {
         required: false,
         description: "Minimum USD TVL required for a pair to be included",
@@ -132,14 +137,19 @@ export class GetOverviewPairs extends EkuboAPIRoute {
   };
 
   async handle(request: IRequest, { env }: RequestContext) {
-    const chainId = BigInt(request.params.chainId);
+    const chainIdParam = request.query?.chainId;
+    const chainId =
+      chainIdParam !== undefined ? ChainIdType.parse(chainIdParam) : null;
     const queries = await createQueries(env);
     const minTvlUsd = MinTvlQueryParameter.parse(request.query?.minTvlUsd);
 
     const topPairs = await queries.getTopPairs(chainId, minTvlUsd);
 
     const response = {
-      topPairs,
+      topPairs: topPairs.map((tp) => ({
+        ...tp,
+        chain_id: tp.chain_id.toString(),
+      })),
     } satisfies z.infer<typeof OverviewPairsResponseType>;
 
     return json(response, {
@@ -151,13 +161,13 @@ export class GetOverviewPairs extends EkuboAPIRoute {
 }
 
 export class GetOverviewRevenue extends EkuboAPIRoute {
-  static route = "/overview/:chainId/revenue";
+  static route = "/overview/revenue";
   static schema: OpenAPIRouteSchema = {
     tags: ["Stats"],
     summary: "Get revenue",
     description: "Returns the revenue stats for the protocol",
     parameters: {
-      chainId: Path(ChainIdType, { required: true }),
+      chainId: Query(ChainIdType, { required: false }),
     },
     responses: {
       "200": {
@@ -173,7 +183,9 @@ export class GetOverviewRevenue extends EkuboAPIRoute {
     const twentyFourHoursAgo = new Date(timestamp - 1000 * 60 * 60 * 24);
     const thirtyDaysAgo = new Date(timestamp - 1000 * 60 * 60 * 24 * 30);
 
-    const chainId = BigInt(request.params.chainId);
+    const chainIdParam = request.query?.chainId;
+    const chainId =
+      chainIdParam !== undefined ? ChainIdType.parse(chainIdParam) : null;
     const queries = await createQueries(env);
 
     const [rawRevenueByToken, rawRevenueByTokenByDate, rawRevenueByToken_24h] =
@@ -186,6 +198,7 @@ export class GetOverviewRevenue extends EkuboAPIRoute {
     const revenueByToken = rawRevenueByToken.map((row) => ({
       token: row.token,
       revenue: row.revenue,
+      chain_id: row.chain_id.toString(),
     }));
     const revenueByTokenByDate = rawRevenueByTokenByDate.map(
       normalizeRevenueByDateRow,
@@ -193,6 +206,7 @@ export class GetOverviewRevenue extends EkuboAPIRoute {
     const revenueByToken_24h = rawRevenueByToken_24h.map((row) => ({
       token: row.token,
       revenue: row.revenue,
+      chain_id: row.chain_id.toString(),
     }));
 
     const response = {
@@ -210,13 +224,13 @@ export class GetOverviewRevenue extends EkuboAPIRoute {
 }
 
 export class GetOverviewVolume extends EkuboAPIRoute {
-  static route = "/overview/:chainId/volume";
+  static route = "/overview/volume";
   static schema: OpenAPIRouteSchema = {
     tags: ["Stats"],
     summary: "Get volume",
     description: "Returns the volume portion of the overview",
     parameters: {
-      chainId: Path(ChainIdType, { required: true }),
+      chainId: Query(ChainIdType, { required: false }),
     },
     responses: {
       "200": {
@@ -232,7 +246,9 @@ export class GetOverviewVolume extends EkuboAPIRoute {
     const twentyFourHoursAgo = new Date(timestamp - 1000 * 60 * 60 * 24);
     const thirtyDaysAgo = new Date(timestamp - 1000 * 60 * 60 * 24 * 30);
 
-    const chainId = BigInt(request.params.chainId);
+    const chainIdParam = request.query?.chainId;
+    const chainId =
+      chainIdParam !== undefined ? ChainIdType.parse(chainIdParam) : null;
     const queries = await createQueries(env);
 
     const [rawVolumeByToken, volumeByTokenByDate, rawVolumeByToken_24h] =
@@ -251,7 +267,10 @@ export class GetOverviewVolume extends EkuboAPIRoute {
 
     const response = {
       volumeByToken,
-      volumeByTokenByDate,
+      volumeByTokenByDate: volumeByTokenByDate.map((vol) => ({
+        ...vol,
+        chain_id: vol.chain_id.toString(),
+      })),
       volumeByToken_24h,
     } satisfies z.infer<typeof OverviewVolumeResponseType>;
 
@@ -264,13 +283,13 @@ export class GetOverviewVolume extends EkuboAPIRoute {
 }
 
 export class GetOverviewTvl extends EkuboAPIRoute {
-  static route = "/overview/:chainId/tvl";
+  static route = "/overview/tvl";
   static schema: OpenAPIRouteSchema = {
     tags: ["Stats"],
     summary: "Get TVL",
     description: "Returns the TVL portion of the overview",
     parameters: {
-      chainId: Path(ChainIdType, { required: true }),
+      chainId: Query(ChainIdType, { required: false }),
     },
     responses: {
       "200": {
@@ -285,7 +304,9 @@ export class GetOverviewTvl extends EkuboAPIRoute {
     const timestamp = Date.now();
     const thirtyDaysAgo = new Date(timestamp - 1000 * 60 * 60 * 24 * 30);
 
-    const chainId = BigInt(request.params.chainId);
+    const chainIdParam = request.query?.chainId;
+    const chainId =
+      chainIdParam !== undefined ? ChainIdType.parse(chainIdParam) : null;
     const queries = await createQueries(env);
 
     const [tvlByToken, rawTvlDeltaByTokenByDate] = await Promise.all([
@@ -298,7 +319,10 @@ export class GetOverviewTvl extends EkuboAPIRoute {
     );
 
     const response = {
-      tvlByToken,
+      tvlByToken: tvlByToken.map((tvl) => ({
+        ...tvl,
+        chain_id: tvl.chain_id.toString(),
+      })),
       tvlDeltaByTokenByDate,
     } satisfies z.infer<typeof OverviewTvlResponseType>;
 

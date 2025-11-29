@@ -732,19 +732,21 @@ export class Queries {
     chainId?: bigint | null;
   }) {
     if (!pair) {
-      return this.sql<{ token: string; revenue: string }[]>`
-        SELECT hrbt.token,
+      return this.sql<{ token: string; revenue: string; chain_id: bigint }[]>`
+        SELECT pk.chain_id,
+               hrbt.token,
                SUM(revenue) AS revenue
         FROM hourly_revenue_by_token hrbt
                  JOIN pool_keys pk ON pk.pool_key_id = hrbt.pool_key_id
         WHERE hour >= ${since}
           AND pk.chain_id = COALESCE(${chainId ?? null}, pk.chain_id)
-        GROUP BY hrbt.token
+        GROUP BY hrbt.token, pk.chain_id
       `;
     }
 
-    return this.sql<{ token: string; revenue: string }[]>`
-      SELECT hrbt.token,
+    return this.sql<{ token: string; revenue: string; chain_id: bigint }[]>`
+      SELECT pk.chain_id,
+             hrbt.token,
              SUM(revenue) AS revenue
       FROM hourly_revenue_by_token hrbt
                JOIN pool_keys pk ON pk.pool_key_id = hrbt.pool_key_id
@@ -752,36 +754,38 @@ export class Queries {
         AND pk.token0 = ${pair.token0.toString()}
         AND pk.token1 = ${pair.token1.toString()}
         AND pk.chain_id = COALESCE(${chainId ?? null}, pk.chain_id)
-      GROUP BY hrbt.token
+      GROUP BY hrbt.token, pk.chain_id
     `;
   }
 
   public getTvlByToken(
-    chainId: bigint,
+    chainId: bigint | null,
     pair?: { token0: bigint; token1: bigint },
   ) {
     const token0 = pair?.token0?.toString() ?? null;
     const token1 = pair?.token1?.toString() ?? null;
-    return this.sql<{ token: string; balance: string }[]>`
+    return this.sql<{ token: string; balance: string; chain_id: bigint }[]>`
       WITH summed0 AS (
-             SELECT pk.token0 AS token,
+             SELECT pk.chain_id,
+                    pk.token0 AS token,
                     SUM(ptvl.balance0) AS balance
              FROM pool_tvl ptvl
                       JOIN pool_keys pk USING (pool_key_id)
              WHERE pk.token0 = COALESCE(${token0}, pk.token0)
                AND pk.token1 = COALESCE(${token1}, pk.token1)
-               AND pk.chain_id = ${chainId}
-             GROUP BY pk.token0
+               AND pk.chain_id = COALESCE(${chainId ?? null}, pk.chain_id)
+             GROUP BY pk.token0, pk.chain_id
            ),
            summed1 AS (
-             SELECT pk.token1 AS token,
+             SELECT pk.chain_id,
+                    pk.token1 AS token,
                     SUM(ptvl.balance1) AS balance
              FROM pool_tvl ptvl
                       JOIN pool_keys pk USING (pool_key_id)
              WHERE pk.token0 = COALESCE(${token0}, pk.token0)
                AND pk.token1 = COALESCE(${token1}, pk.token1)
-               AND pk.chain_id = ${chainId}
-             GROUP BY pk.token1
+               AND pk.chain_id = COALESCE(${chainId ?? null}, pk.chain_id)
+             GROUP BY pk.token1, pk.chain_id
            ),
            all_balances AS (
              SELECT *
@@ -790,14 +794,14 @@ export class Queries {
              SELECT *
              FROM summed1
            )
-      SELECT token, SUM(balance) AS balance
+      SELECT chain_id, token, SUM(balance) AS balance
       FROM all_balances
-      GROUP BY token
+      GROUP BY token, chain_id
     `;
   }
 
   public getTvlDeltaByTokenByDate(
-    chainId: bigint,
+    chainId: bigint | null,
     after: Date,
     pair?: { token0: bigint; token1: bigint },
   ) {
@@ -812,7 +816,7 @@ export class Queries {
       WHERE hour >= ${after}
         AND pk.token0 = COALESCE(${token0}, pk.token0)
         AND pk.token1 = COALESCE(${token1}, pk.token1)
-        AND pk.chain_id = ${chainId}
+        AND pk.chain_id = COALESCE(${chainId ?? null}, pk.chain_id)
       GROUP BY htd.token, date
     `;
   }
@@ -1069,16 +1073,17 @@ ORDER BY token_id DESC;
   }
 
   public getTotalVolumeByToken({
-    chainId,
+    chainId = null,
     since = new Date(0),
     pair,
   }: {
-    chainId: bigint;
+    chainId?: bigint | null;
     since?: Date;
     pair?: { token0: bigint; token1: bigint };
   }) {
-    return this.sql<{ token: string; volume: string }[]>`
-      SELECT hvbt.token,
+    return this.sql<{ token: string; chain_id: bigint; volume: string }[]>`
+      SELECT pk.chain_id,
+             hvbt.token,
              SUM(volume) AS volume,
              SUM(fees)   AS fees
       FROM hourly_volume_by_token hvbt
@@ -1086,25 +1091,26 @@ ORDER BY token_id DESC;
       WHERE hour >= ${since}
         AND pk.token0 = COALESCE(${pair?.token0?.toString() ?? null}, pk.token0)
         AND pk.token1 = COALESCE(${pair?.token1?.toString() ?? null}, pk.token1)
-        AND pk.chain_id = ${chainId}
-      GROUP BY hvbt.token
+        AND pk.chain_id = COALESCE(${chainId ?? null}, pk.chain_id)
+      GROUP BY hvbt.token, pk.chain_id
     `;
   }
 
   public async getVolumeByTokenByDate(
-    chainId: bigint,
+    chainId: bigint | null,
     after: Date,
     pair?: { token0: bigint; token1: bigint },
   ) {
     return this.sql<
       {
+        chain_id: bigint;
         token: string;
         date: string;
         volume: string;
         fees: string;
       }[]
     >`
-      SELECT hvbt.token,
+      SELECT pk.chain_id, hvbt.token,
              DATE_TRUNC('day', hour, 'UTC') AS date,
              SUM(volume)                    AS volume,
              SUM(fees)                      AS fees
@@ -1113,32 +1119,34 @@ ORDER BY token_id DESC;
       WHERE hour >= ${after}
         AND pk.token0 = COALESCE(${pair?.token0?.toString() ?? null}, pk.token0)
         AND pk.token1 = COALESCE(${pair?.token1?.toString() ?? null}, pk.token1)
-        AND pk.chain_id = ${chainId}
-      GROUP BY hvbt.token, date
+        AND pk.chain_id = COALESCE(${chainId ?? null}, pk.chain_id)
+      GROUP BY hvbt.token, date, pk.chain_id
     `;
   }
 
   public async getRevenueByTokenByDate(
-    chainId: bigint,
+    chainId: bigint | null,
     after: Date,
     pair?: { token0: bigint; token1: bigint },
   ) {
     if (!pair) {
-      return this.sql<{ token: string; volume: string }[]>`
-        SELECT hrbt.token,
+      return this.sql<{ token: string; volume: string; chain_id: bigint }[]>`
+        SELECT pk.chain_id,
+               hrbt.token,
                DATE_TRUNC('day', hour, 'UTC') as date,
                SUM(revenue) AS revenue
         FROM hourly_revenue_by_token hrbt
                  JOIN pool_keys pk ON pk.pool_key_id = hrbt.pool_key_id
         WHERE hour >= ${after}
-          AND pk.chain_id = ${chainId}
-        GROUP BY 1, 2
-        ORDER BY 1, 2
+          AND pk.chain_id = COALESCE(${chainId ?? null}, pk.chain_id)
+        GROUP BY 1, 2, 3
+        ORDER BY 1, 2, 3
       `;
     }
 
-    return this.sql<{ token: string; volume: string }[]>`
-      SELECT token,
+    return this.sql<{ token: string; volume: string; chain_id: bigint }[]>`
+      SELECT pk.chain_id,
+             token,
              DATE_TRUNC('day', hour, 'UTC') as date,
              SUM(revenue) AS revenue
       FROM hourly_revenue_by_token hrbt
@@ -1146,15 +1154,16 @@ ORDER BY token_id DESC;
       WHERE hour >= ${after}
         AND pk.token0 = ${pair.token0.toString()}
         AND pk.token1 = ${pair.token1.toString()}
-        AND pk.chain_id = ${chainId}
-      GROUP BY 1, 2
-      ORDER BY 1, 2
+        AND pk.chain_id = COALESCE(${chainId ?? null}, pk.chain_id)
+      GROUP BY 1, 2, 3
+      ORDER BY 1, 2, 3
     `;
   }
 
-  public async getTopPairs(chainId: bigint, minTvlUsd: number) {
+  public async getTopPairs(chainId: bigint | null, minTvlUsd: number) {
     return this.sql<
       {
+        chain_id: bigint;
         token0: string;
         token1: number;
         volume0_24h: string;
@@ -1170,7 +1179,9 @@ ORDER BY token_id DESC;
         min_depth_percent: number | null;
       }[]
     >`
-SELECT pk.token0,
+SELECT
+       pk.chain_id,
+       pk.token0,
        pk.token1,
        SUM(volume0_24h)                  AS volume0_24h,
        SUM(volume1_24h)                  AS volume1_24h,
@@ -1197,10 +1208,10 @@ FROM last_24h_pool_stats_materialized l24
     ORDER BY depth_percent DESC
     LIMIT 1
     ) AS pmd ON TRUE
-WHERE pk.chain_id = ${chainId}
+WHERE pk.chain_id = COALESCE(${chainId ?? null}, pk.chain_id)
   AND t0.visibility_priority >= 0
   AND t1.visibility_priority >= 0
-GROUP BY pk.token0, pk.token1, t0.token_decimals, t1.token_decimals
+GROUP BY pk.token0, pk.token1, pk.chain_id, t0.token_decimals, t1.token_decimals
 HAVING SUM(tvl0_total / POWER(10::NUMERIC, t0.token_decimals) * COALESCE(t0.usd_price, 0::NUMERIC) +
            tvl1_total / POWER(10::NUMERIC, t1.token_decimals) * COALESCE(t1.usd_price, 0::NUMERIC))
            >= ${minTvlUsd}
