@@ -12,6 +12,7 @@ import {
 } from "@cloudflare/itty-router-openapi";
 import { parseOutTokens } from "../../shared/parseOutTokens";
 import { z } from "zod";
+import toHex from "../../shared/toHex";
 
 const TimestampType = z.union([z.date(), z.string()]);
 
@@ -160,7 +161,10 @@ export class GetPairInfoTvl extends EkuboAPIRoute {
     );
 
     const response = {
-      tvlByToken,
+      tvlByToken: tvlByToken.map((tvl) => ({
+        ...tvl,
+        chain_id: toHex(tvl.chain_id),
+      })),
       tvlDeltaByTokenByDate,
     } satisfies z.infer<typeof PairTvlResponseType>;
 
@@ -205,15 +209,15 @@ export class GetPairInfoVolume extends EkuboAPIRoute {
     const thirtyDaysAgo = new Date(timestamp - 1000 * 60 * 60 * 24 * 30);
     const twentyFourHoursAgo = new Date(timestamp - 1000 * 60 * 60 * 24);
 
-    const [rawVolumeByToken, volumeByTokenByDate, rawVolumeByToken_24h] =
+    const [rawVolumeByToken, rawVolumeByToken_24h, volumeByTokenByDate] =
       await Promise.all([
         queries.getTotalVolume({ pair, chainId }),
-        queries.getVolumeByTokenByDate(chainId, thirtyDaysAgo, pair),
         queries.getTotalVolume({
           chainId,
           since: twentyFourHoursAgo,
           pair,
         }),
+        queries.getVolumeByTokenByDate(chainId, thirtyDaysAgo, pair),
       ]);
 
     const volumeByToken = rawVolumeByToken.map((row) =>
@@ -224,9 +228,12 @@ export class GetPairInfoVolume extends EkuboAPIRoute {
     );
 
     const response = {
-      chain_id: chainId.toString(),
+      chain_id: toHex(chainId),
       volumeByToken,
-      volumeByTokenByDate,
+      volumeByTokenByDate: volumeByTokenByDate.map((vol) => ({
+        ...vol,
+        chain_id: toHex(vol.chain_id),
+      })),
       volumeByToken_24h,
     } satisfies z.infer<typeof PairVolumeResponseType>;
 

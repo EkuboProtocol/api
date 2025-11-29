@@ -322,7 +322,7 @@ export class GetOverviewTvl extends EkuboAPIRoute {
     const response = {
       tvlByToken: tvlByToken.map((tvl) => ({
         ...tvl,
-        chain_id: tvl.chain_id.toString(),
+        chain_id: toHex(tvl.chain_id),
       })),
       tvlDeltaByTokenByDate,
     } satisfies z.infer<typeof OverviewTvlResponseType>;

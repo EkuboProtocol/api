@@ -782,7 +782,7 @@ export class Queries {
   ) {
     const token0 = pair?.token0?.toString() ?? null;
     const token1 = pair?.token1?.toString() ?? null;
-    return this.sql<{ token: string; balance: string; chain_id: bigint }[]>`
+    return this.sql<{ chain_id: bigint; token: string; balance: string }[]>`
       WITH summed0 AS (
              SELECT pk.chain_id,
                     pk.token0 AS token,
