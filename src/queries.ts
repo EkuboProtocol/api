@@ -1215,7 +1215,19 @@ SELECT
 FROM last_24h_pool_stats_materialized l24
          JOIN pool_keys pk USING (pool_key_id)
          JOIN erc20_tokens t0 ON pk.chain_id = t0.chain_id AND pk.token0 = t0.token_address
+         LEFT JOIN LATERAL (SELECT value as usd_price
+                            FROM erc20_tokens_usd_prices up
+                            WHERE up.chain_id = t0.chain_id
+                              AND up.token_address = t0.token_address
+                            ORDER BY up.timestamp DESC
+                            LIMIT 1) AS t0p ON TRUE
          JOIN erc20_tokens t1 ON pk.chain_id = t1.chain_id AND pk.token1 = t1.token_address
+         LEFT JOIN LATERAL (SELECT value as usd_price
+                            FROM erc20_tokens_usd_prices up
+                            WHERE up.chain_id = t1.chain_id
+                              AND up.token_address = t1.token_address
+                            ORDER BY up.timestamp DESC
+                            LIMIT 1) AS t1p ON TRUE
          LEFT JOIN token_pair_realized_volatility_materialized tprv
                    ON pk.chain_id = tprv.chain_id AND pk.token0 = tprv.token0 AND pk.token1 = tprv.token1
          LEFT JOIN LATERAL (
@@ -1230,8 +1242,8 @@ WHERE pk.chain_id = COALESCE(${chainId ?? null}, pk.chain_id)
   AND t0.visibility_priority >= 0
   AND t1.visibility_priority >= 0
 GROUP BY pk.token0, pk.token1, pk.chain_id, t0.token_decimals, t1.token_decimals
-HAVING SUM(tvl0_total / POWER(10::NUMERIC, t0.token_decimals) * COALESCE(t0.usd_price, 0::NUMERIC) +
-           tvl1_total / POWER(10::NUMERIC, t1.token_decimals) * COALESCE(t1.usd_price, 0::NUMERIC))
+HAVING SUM(tvl0_total / POWER(10::NUMERIC, t0.token_decimals) * COALESCE(t0p.usd_price, 0::NUMERIC) +
+           tvl1_total / POWER(10::NUMERIC, t1.token_decimals) * COALESCE(t1p.usd_price, 0::NUMERIC))
            >= ${minTvlUsd}
     `;
   }
@@ -1280,7 +1292,19 @@ HAVING SUM(tvl0_total / POWER(10::NUMERIC, t0.token_decimals) * COALESCE(t0.usd_
         last_24h_pool_stats_materialized l24
         JOIN pool_keys p USING (pool_key_id)
         JOIN erc20_tokens t0 ON p.chain_id = t0.chain_id AND p.token0 = t0.token_address
+        LEFT JOIN LATERAL (SELECT value as usd_price
+                            FROM erc20_tokens_usd_prices up
+                            WHERE up.chain_id = t0.chain_id
+                              AND up.token_address = t0.token_address
+                            ORDER BY up.timestamp DESC
+                            LIMIT 1) AS t0p ON TRUE
         JOIN erc20_tokens t1 ON p.chain_id = t1.chain_id AND p.token1 = t1.token_address
+        LEFT JOIN LATERAL (SELECT value as usd_price
+                            FROM erc20_tokens_usd_prices up
+                            WHERE up.chain_id = t1.chain_id
+                              AND up.token_address = t1.token_address
+                            ORDER BY up.timestamp DESC
+                            LIMIT 1) AS t1p ON TRUE
         LEFT JOIN token_pair_realized_volatility_materialized tprv ON p.chain_id = tprv.chain_id AND p.token0 = tprv.token0 AND p.token1 = tprv.token1
         LEFT JOIN LATERAL (
           SELECT
@@ -1299,8 +1323,8 @@ HAVING SUM(tvl0_total / POWER(10::NUMERIC, t0.token_decimals) * COALESCE(t0.usd_
         AND p.token0 = ${pair.token0.toString()}
         AND p.token1 = ${pair.token1.toString()}
         AND (
-          (tvl0_total / POWER(10::numeric, t0.token_decimals)) * COALESCE(t0.usd_price, 0::numeric) +
-          (tvl1_total / POWER(10::numeric, t1.token_decimals)) * COALESCE(t1.usd_price, 0::numeric)
+          (tvl0_total / POWER(10::numeric, t0.token_decimals)) * COALESCE(t0p.usd_price, 0::numeric) +
+          (tvl1_total / POWER(10::numeric, t1.token_decimals)) * COALESCE(t1p.usd_price, 0::numeric)
         ) >= ${minTvlUsd}
     `;
   }
