@@ -120,7 +120,13 @@ export class Queries {
       SELECT 
         chain_id, token_address, token_symbol, token_name, token_decimals,
         logo_url, visibility_priority, sort_order, total_supply, usd_price
-      FROM erc20_tokens
+      FROM erc20_tokens t
+      LEFT JOIN LATERAL (SELECT value as usd_price
+                            FROM erc20_tokens_usd_prices up
+                            WHERE up.chain_id = t.chain_id
+                              AND up.token_address = t.token_address
+                            ORDER BY up.timestamp DESC
+                            LIMIT 1) AS p ON TRUE
       WHERE ${chainIdCondition}
         AND visibility_priority >= ${minVisibilityPriority}
         AND ${afterTokenCondition}
@@ -150,7 +156,13 @@ export class Queries {
         sort_order,
         total_supply,
         usd_price
-      FROM erc20_tokens
+      FROM erc20_tokens t
+      LEFT JOIN LATERAL (SELECT value as usd_price
+                            FROM erc20_tokens_usd_prices up
+                            WHERE up.chain_id = t.chain_id
+                              AND up.token_address = t.token_address
+                            ORDER BY up.timestamp DESC
+                            LIMIT 1) AS p ON TRUE
       WHERE chain_id = ${chainId}
         AND token_address = ${tokenAddress.toString()};
     `;
@@ -177,7 +189,13 @@ export class Queries {
         sort_order,
         total_supply,
         usd_price
-      FROM erc20_tokens
+      FROM erc20_tokens t
+      LEFT JOIN LATERAL (SELECT value as usd_price
+                            FROM erc20_tokens_usd_prices up
+                            WHERE up.chain_id = t.chain_id
+                              AND up.token_address = t.token_address
+                            ORDER BY up.timestamp DESC
+                            LIMIT 1) AS p ON TRUE
       WHERE (chain_id, token_address) IN ${this.sql(
         ids.map(
           ({ chainId, tokenAddress }) =>
