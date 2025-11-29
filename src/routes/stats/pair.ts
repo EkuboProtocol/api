@@ -207,9 +207,9 @@ export class GetPairInfoVolume extends EkuboAPIRoute {
 
     const [rawVolumeByToken, volumeByTokenByDate, rawVolumeByToken_24h] =
       await Promise.all([
-        queries.getTotalVolumeByToken({ pair, chainId }),
+        queries.getTotalVolume({ pair, chainId }),
         queries.getVolumeByTokenByDate(chainId, thirtyDaysAgo, pair),
-        queries.getTotalVolumeByToken({
+        queries.getTotalVolume({
           chainId,
           since: twentyFourHoursAgo,
           pair,

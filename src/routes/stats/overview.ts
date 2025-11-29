@@ -4,6 +4,7 @@ import { createQueries } from "../../queries";
 import { OpenAPIRouteSchema, Query } from "@cloudflare/itty-router-openapi";
 import { ChainIdType, HexStringType } from "../../shared/validation/address";
 import { z } from "zod";
+import toHex from "../../shared/toHex";
 
 const TimestampType = z.union([z.date(), z.string()]);
 const TokenIdentifierSchema = z.union([z.string(), z.number()]);
@@ -251,11 +252,11 @@ export class GetOverviewVolume extends EkuboAPIRoute {
       chainIdParam !== undefined ? ChainIdType.parse(chainIdParam) : null;
     const queries = await createQueries(env);
 
-    const [rawVolumeByToken, volumeByTokenByDate, rawVolumeByToken_24h] =
+    const [rawVolumeByToken, rawVolumeByToken_24h, volumeByTokenByDate] =
       await Promise.all([
-        queries.getTotalVolumeByToken({ chainId }),
+        queries.getTotalVolume({ chainId }),
+        queries.getTotalVolume({ chainId, since: twentyFourHoursAgo }),
         queries.getVolumeByTokenByDate(chainId, thirtyDaysAgo),
-        queries.getTotalVolumeByToken({ since: twentyFourHoursAgo, chainId }),
       ]);
 
     const volumeByToken = rawVolumeByToken.map((row) =>
@@ -269,7 +270,7 @@ export class GetOverviewVolume extends EkuboAPIRoute {
       volumeByToken,
       volumeByTokenByDate: volumeByTokenByDate.map((vol) => ({
         ...vol,
-        chain_id: vol.chain_id.toString(),
+        chain_id: toHex(vol.chain_id),
       })),
       volumeByToken_24h,
     } satisfies z.infer<typeof OverviewVolumeResponseType>;

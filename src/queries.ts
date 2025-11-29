@@ -1090,14 +1090,14 @@ ORDER BY token_id DESC;
     return rows;
   }
 
-  public getTotalVolumeByToken({
-    chainId = null,
-    since = new Date(0),
+  public getTotalVolume({
+    chainId,
+    since,
     pair,
   }: {
     chainId?: bigint | null;
     since?: Date;
-    pair?: { token0: bigint; token1: bigint };
+    pair?: { chainId: bigint; token0: bigint; token1: bigint };
   }) {
     return this.sql<{ token: string; chain_id: bigint; volume: string }[]>`
       SELECT pk.chain_id,
@@ -1105,19 +1105,32 @@ ORDER BY token_id DESC;
              SUM(volume) AS volume,
              SUM(fees)   AS fees
       FROM hourly_volume_by_token hvbt
-               JOIN pool_keys pk ON pk.pool_key_id = hvbt.pool_key_id
-      WHERE hour >= ${since}
-        AND pk.token0 = COALESCE(${pair?.token0?.toString() ?? null}, pk.token0)
-        AND pk.token1 = COALESCE(${pair?.token1?.toString() ?? null}, pk.token1)
-        AND pk.chain_id = COALESCE(${chainId ?? null}, pk.chain_id)
-      GROUP BY hvbt.token, pk.chain_id
+            JOIN pool_keys pk USING (pool_key_id)
+            JOIN erc20_tokens t ON t.chain_id = pk.chain_id AND t.token_address = hvbt.token
+            JOIN LATERAL (SELECT value as usd_price
+                            FROM erc20_tokens_usd_prices up
+                            WHERE up.chain_id = t.chain_id
+                              AND up.token_address = t.token_address
+                            ORDER BY up.timestamp DESC
+                            LIMIT 1) AS tp ON TRUE
+      WHERE ${since ? this.sql`hour >= ${since}` : this.sql`true`}
+        AND ${
+          pair
+            ? this
+                .sql`pk.chain_id = ${pair.chainId} AND pk.token0 = ${pair.token0.toString()} AND pk.token1 = ${pair.token1.toString()}`
+            : this.sql`true`
+        }
+        AND t.visibility_priority >= 0
+        AND ${chainId ? this.sql`pk.chain_id = ${chainId}` : this.sql`true`}
+      GROUP BY pk.chain_id, hvbt.token
+      HAVING SUM(volume * usd_price / pow(10::float, t.token_decimals)) > 1000
     `;
   }
 
   public async getVolumeByTokenByDate(
     chainId: bigint | null,
     after: Date,
-    pair?: { token0: bigint; token1: bigint },
+    pair?: { chainId: bigint; token0: bigint; token1: bigint },
   ) {
     return this.sql<
       {
@@ -1128,17 +1141,31 @@ ORDER BY token_id DESC;
         fees: string;
       }[]
     >`
-      SELECT pk.chain_id, hvbt.token,
+      SELECT pk.chain_id,
+             hvbt.token,
              DATE_TRUNC('day', hour, 'UTC') AS date,
              SUM(volume)                    AS volume,
              SUM(fees)                      AS fees
       FROM hourly_volume_by_token hvbt
-               JOIN pool_keys pk ON pk.pool_key_id = hvbt.pool_key_id
+            JOIN pool_keys pk USING (pool_key_id)
+            JOIN erc20_tokens t ON pk.chain_id = t.chain_id AND hvbt.token = t.token_address
+            JOIN LATERAL (SELECT value as usd_price
+                            FROM erc20_tokens_usd_prices up
+                            WHERE up.chain_id = t.chain_id
+                              AND up.token_address = t.token_address
+                            ORDER BY up.timestamp DESC
+                            LIMIT 1) AS tp ON TRUE
       WHERE hour >= ${after}
-        AND pk.token0 = COALESCE(${pair?.token0?.toString() ?? null}, pk.token0)
-        AND pk.token1 = COALESCE(${pair?.token1?.toString() ?? null}, pk.token1)
-        AND pk.chain_id = COALESCE(${chainId ?? null}, pk.chain_id)
+        AND ${chainId ? this.sql`pk.chain_id = ${chainId}` : this.sql`true`}
+        AND ${
+          pair
+            ? this
+                .sql`pk.chain_id = ${pair.chainId} AND pk.token0 = ${pair.token0.toString()} AND pk.token1 = ${pair.token1.toString()}`
+            : this.sql`true`
+        }
+        AND visibility_priority >= 0
       GROUP BY hvbt.token, date, pk.chain_id
+      HAVING SUM(volume * usd_price / pow(10::float, t.token_decimals)) > 1000
     `;
   }
 

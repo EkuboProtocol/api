@@ -10,6 +10,7 @@ export async function parseOutTokens(
 ): Promise<{
   queries: Queries;
   pair: {
+    chainId: bigint;
     token0: bigint;
     token1: bigint;
   };
@@ -42,6 +43,7 @@ export async function parseOutTokens(
   return {
     queries,
     pair: {
+      chainId,
       token0,
       token1,
     },
