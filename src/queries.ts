@@ -825,8 +825,11 @@ export class Queries {
   ) {
     const token0 = pair?.token0?.toString() ?? null;
     const token1 = pair?.token1?.toString() ?? null;
-    return this.sql<{ token: string; date: string; balance: string }[]>`
-      SELECT htd.token,
+    return this.sql<
+      { token: string; date: string; balance: string; chain_id: bigint }[]
+    >`
+      SELECT pk.chain_id,
+             htd.token,
              DATE_TRUNC('day', hour, 'UTC') AS date,
              SUM(delta)                     AS delta
       FROM hourly_tvl_delta_by_token htd
@@ -835,7 +838,7 @@ export class Queries {
         AND pk.token0 = COALESCE(${token0}, pk.token0)
         AND pk.token1 = COALESCE(${token1}, pk.token1)
         AND pk.chain_id = COALESCE(${chainId ?? null}, pk.chain_id)
-      GROUP BY htd.token, date
+      GROUP BY htd.token, pk.chain_id, date
     `;
   }
 

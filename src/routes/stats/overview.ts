@@ -34,12 +34,14 @@ const normalizeRevenueByDateRow = (row: RevenueByDateRow) => ({
 type TvlDeltaRow = {
   token: string;
   date: string | Date;
+  chain_id: bigint;
 } & Partial<{ delta: string; balance: string }>;
 
 const normalizeTvlDeltaRow = (row: TvlDeltaRow) => ({
-  token: row.token,
+  token: toHex(row.token),
   date: row.date,
   delta: row.delta ?? row.balance ?? "0",
+  chain_id: toHex(row.chain_id),
 });
 
 const OverviewPairEntryType = z.object({
@@ -106,6 +108,7 @@ const TvlDeltaEntryType = z.object({
   token: z.string(),
   date: TimestampType,
   delta: z.string(),
+  chain_id: HexStringType,
 });
 
 const OverviewTvlResponseType = z.object({
@@ -149,7 +152,9 @@ export class GetOverviewPairs extends EkuboAPIRoute {
     const response = {
       topPairs: topPairs.map((tp) => ({
         ...tp,
-        chain_id: tp.chain_id.toString(),
+        token0: toHex(tp.token0),
+        token1: toHex(tp.token1),
+        chain_id: toHex(tp.chain_id),
       })),
     } satisfies z.infer<typeof OverviewPairsResponseType>;
 
@@ -197,17 +202,17 @@ export class GetOverviewRevenue extends EkuboAPIRoute {
       ]);
 
     const revenueByToken = rawRevenueByToken.map((row) => ({
-      token: row.token,
+      token: toHex(row.token),
       revenue: row.revenue,
-      chain_id: row.chain_id.toString(),
+      chain_id: toHex(row.chain_id),
     }));
     const revenueByTokenByDate = rawRevenueByTokenByDate.map(
       normalizeRevenueByDateRow,
     );
     const revenueByToken_24h = rawRevenueByToken_24h.map((row) => ({
-      token: row.token,
+      token: toHex(row.token),
       revenue: row.revenue,
-      chain_id: row.chain_id.toString(),
+      chain_id: toHex(row.chain_id),
     }));
 
     const response = {
@@ -270,9 +275,14 @@ export class GetOverviewVolume extends EkuboAPIRoute {
       volumeByToken,
       volumeByTokenByDate: volumeByTokenByDate.map((vol) => ({
         ...vol,
+        token: toHex(vol.token),
         chain_id: toHex(vol.chain_id),
       })),
-      volumeByToken_24h,
+      volumeByToken_24h: volumeByToken_24h.map((vol) => ({
+        ...vol,
+        chain_id: toHex(vol.chain_id),
+        token: toHex(vol.token),
+      })),
     } satisfies z.infer<typeof OverviewVolumeResponseType>;
 
     return json(response, {
@@ -322,6 +332,7 @@ export class GetOverviewTvl extends EkuboAPIRoute {
     const response = {
       tvlByToken: tvlByToken.map((tvl) => ({
         ...tvl,
+        token: toHex(tvl.token),
         chain_id: toHex(tvl.chain_id),
       })),
       tvlDeltaByTokenByDate,
