@@ -13,10 +13,10 @@ type VolumeRow = { token: string; volume: string; chain_id: bigint } & Partial<{
   fees: string;
 }>;
 const normalizeVolumeRow = (row: VolumeRow) => ({
-  token: row.token,
+  token: toHex(row.token),
   volume: row.volume,
   fees: row.fees ?? "0",
-  chain_id: row.chain_id.toString(),
+  chain_id: toHex(row.chain_id),
 });
 
 type RevenueByDateRow = {
@@ -25,10 +25,10 @@ type RevenueByDateRow = {
 } & Partial<{ date: string | Date; revenue: string; volume: string }>;
 
 const normalizeRevenueByDateRow = (row: RevenueByDateRow) => ({
-  token: row.token,
+  token: toHex(row.token),
   date: row.date ?? new Date(0),
   revenue: row.revenue ?? row.volume ?? "0",
-  chain_id: row.chain_id.toString(),
+  chain_id: toHex(row.chain_id),
 });
 
 type TvlDeltaRow = {

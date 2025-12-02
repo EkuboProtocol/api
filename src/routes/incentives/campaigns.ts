@@ -14,7 +14,7 @@ import { ChainIdType } from "../../shared/validation/address";
 export const CampaignType = z
   .object({
     slug: z.string(),
-    chainId: HexStringType,
+    chain_id: HexStringType,
     name: z.string(),
     rewardToken: AddressType,
     startTime: z.date(),
@@ -105,7 +105,7 @@ export class ListCampaigns extends EkuboAPIRoute {
         campaigns: campaigns.map((c) => {
           return {
             slug: c.slug,
-            chainId: toHex(c.chain_id),
+            chain_id: toHex(c.chain_id),
             startTime: c.start_time,
             endTime: c.end_time,
             name: c.name,
