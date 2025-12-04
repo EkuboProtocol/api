@@ -1702,6 +1702,7 @@ WHERE address = ${address} AND ${chainId === null ? this.sql`true` : this.sql`fd
           SELECT FLOOR(EXTRACT(EPOCH FROM b.block_time))::int4 AS time, voter, weight, yea
           FROM governor_voted gv
                    JOIN blocks b ON gv.block_number = b.block_number
+                      AND gv.chain_id = b.chain_id
           WHERE gv.proposal_id = ${proposalId.toString()}
                 AND gv.chain_id = ${chainId.toString()}
       `;
@@ -1738,12 +1739,13 @@ WHERE address = ${address} AND ${chainId === null ? this.sql`true` : this.sql`fd
             LEFT JOIN governor_voted gv ON pdvwm.proposal_id = gv.proposal_id
             AND pdvwm.delegate = gv.voter
             LEFT JOIN blocks b ON gv.block_number = b.block_number
+              AND gv.chain_id = b.chain_id
           WHERE
             pdvwm.proposal_id = ${proposalId.toString()}
             AND pdvwm.chain_id = ${chainId.toString()}
           ORDER BY
             weight DESC
-          limit 100;
+          LIMIT 100;
       `;
   }
 
