@@ -470,46 +470,46 @@ export class Queries {
           )
       ),
       updates AS (
-        SELECT nft.transaction_hash,
+        SELECT pu.transaction_hash,
                b.block_time AS timestamp,
-               nft.block_number,
+               pu.block_number,
                pu.liquidity_delta,
                pu.delta0,
                pu.delta1
-        FROM nonfungible_token_transfers AS nft
-                 JOIN blocks AS b ON b.block_number = nft.block_number
-                                     AND b.chain_id = nft.chain_id
-                 JOIN position_updates AS pu ON pu.salt = nft.token_id
-                 LEFT JOIN nft_locker_mappings as nlm ON nlm.nft_address = nft.emitter
-                                  AND nlm.chain_id = nft.chain_id
-        WHERE nft.token_id = ${tokenId.toString()}
-          AND nft.from_address = 0
-          AND nft.chain_id = ${chainId}
+        FROM position_updates AS pu
+                 JOIN blocks AS b ON b.block_number = pu.block_number
+                                     AND b.chain_id = pu.chain_id
+                 JOIN nonfungible_token_transfers AS nft ON pu.salt = nft.token_id
+                                       AND nft.from_address = 0
+                                       AND nft.chain_id = pu.chain_id
+                 LEFT JOIN nft_locker_mappings AS nlm ON nlm.nft_address = nft.emitter
+                                     AND nlm.chain_id = nft.chain_id
+        WHERE pu.salt = ${tokenId.toString()}
           AND pu.chain_id = ${chainId}
           AND (
             nft.emitter = ${lockerAddress.toString()}
-            OR nlm.locker = ${lockerAddress.toString()} 
+            OR nlm.locker = ${lockerAddress.toString()}
           )
       ),
       fee_collections AS (
-        SELECT nft.transaction_hash,
+        SELECT pfc.transaction_hash,
                b.block_time AS timestamp,
-               nft.block_number,
+               pfc.block_number,
                pfc.delta0,
                pfc.delta1
-        FROM nonfungible_token_transfers AS nft
-                 JOIN blocks AS b ON b.block_number = nft.block_number
-                                     AND b.chain_id = nft.chain_id
-                 JOIN position_fees_collected AS pfc ON pfc.salt = nft.token_id
-                 LEFT JOIN nft_locker_mappings as nlm ON nlm.nft_address = nft.emitter
-                                  AND nlm.chain_id = nft.chain_id
-        WHERE nft.token_id = ${tokenId.toString()}
-          AND nft.from_address = 0
-          AND nft.chain_id = ${chainId}
+        FROM position_fees_collected AS pfc
+                 JOIN blocks AS b ON b.block_number = pfc.block_number
+                                     AND b.chain_id = pfc.chain_id
+                 JOIN nonfungible_token_transfers AS nft ON pfc.salt = nft.token_id
+                                       AND nft.from_address = 0
+                                       AND nft.chain_id = pfc.chain_id
+                 LEFT JOIN nft_locker_mappings AS nlm ON nlm.nft_address = nft.emitter
+                                     AND nlm.chain_id = nft.chain_id
+        WHERE pfc.salt = ${tokenId.toString()}
           AND pfc.chain_id = ${chainId}
           AND (
             nft.emitter = ${lockerAddress.toString()}
-            OR nlm.locker = ${lockerAddress.toString()} 
+            OR nlm.locker = ${lockerAddress.toString()}
           )
       ),
       all_events AS (
