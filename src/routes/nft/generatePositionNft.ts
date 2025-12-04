@@ -23,7 +23,7 @@ export async function generatePositionNft(
 
   const reversed = token0 && token1 && token0.sort_order >= token1.sort_order;
 
-  const isFullRange = Number(positionMetadata.tick_spacing) === 0;
+  const isFullRange = positionMetadata.tick_spacing === null;
   const extensionValue = BigInt(positionMetadata.extension);
 
   const poolClassification = await queries.getPoolClassification({
@@ -91,7 +91,7 @@ export async function generatePositionNft(
       positionMetadata.fee_denominator,
     ),
     formattedTickSpacingPercent: tickSpacingToPercent(
-      positionMetadata.tick_spacing,
+      positionMetadata.tick_spacing ?? "",
     ),
 
     formattedMinPrice,

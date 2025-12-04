@@ -71,7 +71,7 @@ const PoolKeySummaryType = z.object({
   token0: HexStringType,
   token1: HexStringType,
   fee: HexStringType,
-  tick_spacing: HexStringType,
+  tick_spacing: HexStringType.nullable(),
   extension: HexStringType,
 });
 
@@ -186,7 +186,7 @@ export class GetPositionNftMetadata extends EkuboAPIRoute {
       { trait_type: "fee", value: positionMetadata.fee.toString() },
       {
         trait_type: "tick_spacing",
-        value: positionMetadata.tick_spacing.toString(),
+        value: positionMetadata.tick_spacing?.toString() ?? null,
       },
       {
         trait_type: "extension",
@@ -247,7 +247,7 @@ export class GetPositionNftMetadata extends EkuboAPIRoute {
             ),
           ];
 
-      const isFullRange = Number(positionMetadata.tick_spacing) === 0;
+      const isFullRange = positionMetadata.tick_spacing === null;
 
       metadata = {
         name: `${numerator.symbol} / ${
@@ -255,7 +255,7 @@ export class GetPositionNftMetadata extends EkuboAPIRoute {
         } : ${lowerPrice} - ${upperPrice} : ${feeToPercent(
           positionMetadata.fee,
           positionMetadata.fee_denominator,
-        )}F${isFullRange ? "MAX" : `${tickSpacingToPercent(positionMetadata.tick_spacing)}TS`}`,
+        )}F${isFullRange ? "MAX" : `${tickSpacingToPercent(positionMetadata.tick_spacing ?? "")}TS`}`,
         description: isFullRange
           ? `A full range liquidity position in Ekubo consisting of the ${numerator.name} and ${denominator.name} tokens and charging a ${feeToPercent(positionMetadata.fee, positionMetadata.fee_denominator)} fee on swaps.`
           : `A liquidity position in Ekubo consisting of the ${
@@ -536,7 +536,7 @@ export class ListPositionsByAddress extends EkuboAPIRoute {
             token0: toHex(row.token0),
             token1: toHex(row.token1),
             fee: toHex(row.fee),
-            tick_spacing: toHex(row.tick_spacing),
+            tick_spacing: row.tick_spacing ? toHex(row.tick_spacing) : null,
             extension: toHex(row.extension),
           },
           bounds: {

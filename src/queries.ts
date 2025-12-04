@@ -13,7 +13,7 @@ export interface PositionMetadata {
   token1: string;
   fee: string;
   fee_denominator: string;
-  tick_spacing: string;
+  tick_spacing: string | null;
   extension: string;
 }
 

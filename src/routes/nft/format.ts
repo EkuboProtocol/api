@@ -3,7 +3,7 @@ import { NumericStringType } from "../../shared/validation/address";
 
 export const NFTAttributeSchema = z.object({
   trait_type: z.string(),
-  value: z.string(),
+  value: z.string().nullable(),
 });
 
 export const NFTMetadataSchema = z.object({
