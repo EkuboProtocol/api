@@ -5,16 +5,22 @@ import { createQueries } from "../../queries";
 import toHex from "../../shared/toHex";
 import { NFTMetadata, NFTMetadataSchema, TokenIdType } from "./format";
 import { generateDcaOrderNft } from "./generateDcaOrderNft";
-import { NumericStringType } from "../../shared/validation/address";
+import {
+  AddressType,
+  NumericStringType,
+} from "../../shared/validation/address";
 
 export class GetOrderNftMetadata extends EkuboAPIRoute {
-  static route = "/orders/:chainId/nft/:id";
+  static route = "/orders/:chainId/:nftAddress/:id";
   static schema: OpenAPIRouteSchema = {
     tags: ["Orders"],
     summary: "Get NFT Metadata",
     description: "Returns the ERC721 metadata for the given order token ID",
     parameters: {
       chainId: Path(NumericStringType),
+      nftAddress: Path(AddressType, {
+        description: "The address of the Positions NFT contract",
+      }),
       id: Path(TokenIdType),
     },
     responses: {
@@ -27,7 +33,7 @@ export class GetOrderNftMetadata extends EkuboAPIRoute {
   };
 
   async handle(
-    { url, params: { id: idStr, chainId: chainIdParam } }: IRequest,
+    { url, params: { id: idStr, chainId: chainIdParam, nftAddress } }: IRequest,
     { env }: RequestContext,
   ) {
     const id = BigInt(idStr);
@@ -37,7 +43,11 @@ export class GetOrderNftMetadata extends EkuboAPIRoute {
 
     let metadata: NFTMetadata;
 
-    const twammOrderMetadata = await queries.getTwammOrderMetadata(id, chainId);
+    const twammOrderMetadata = await queries.getTwammOrderMetadata(
+      id,
+      BigInt(nftAddress),
+      chainId,
+    );
 
     if (!twammOrderMetadata?.length) {
       throw new StatusError(404, `Token ID ${id} not found`);
@@ -116,7 +126,7 @@ export class GetOrderNftMetadata extends EkuboAPIRoute {
 }
 
 export class GetOrderNftImage extends EkuboAPIRoute {
-  static route = "/orders/:chainId/nft/:id/image.svg";
+  static route = "/orders/:chainId/:nftAddress/:id/image.svg";
 
   static schema: OpenAPIRouteSchema = {
     tags: ["Orders"],
@@ -124,6 +134,9 @@ export class GetOrderNftImage extends EkuboAPIRoute {
     description: "Returns the generated art for the given order NFT ID",
     parameters: {
       chainId: Path(NumericStringType),
+      nftAddress: Path(AddressType, {
+        description: "The address of the Positions NFT contract",
+      }),
       id: Path(TokenIdType),
     },
     responses: {
@@ -135,7 +148,7 @@ export class GetOrderNftImage extends EkuboAPIRoute {
   };
 
   async handle(
-    { params: { id: idStr, chainId: chainIdParam } }: IRequest,
+    { params: { id: idStr, chainId: chainIdParam, nftAddress } }: IRequest,
     { env }: RequestContext,
   ) {
     const id = BigInt(idStr);
@@ -143,7 +156,11 @@ export class GetOrderNftImage extends EkuboAPIRoute {
 
     const queries = await createQueries(env);
 
-    const twammOrderMetadata = await queries.getTwammOrderMetadata(id, chainId);
+    const twammOrderMetadata = await queries.getTwammOrderMetadata(
+      id,
+      BigInt(nftAddress),
+      chainId,
+    );
 
     if (twammOrderMetadata.length === 0) {
       throw new StatusError(404, `Token ID ${id} not found`);

@@ -332,7 +332,11 @@ export class Queries {
     return rows[0];
   }
 
-  public async getTwammOrderMetadata(tokenId: bigint, chainId: bigint) {
+  public async getTwammOrderMetadata(
+    tokenId: bigint,
+    nftAddress: bigint,
+    chainId: bigint,
+  ) {
     const rows = await this.sql<TwammOrderMetadata[]>`
       SELECT transaction_hash AS minted_tx_hash,
              blocks.block_time          AS minted_timestamp,
@@ -365,7 +369,41 @@ export class Queries {
       WHERE transfer.token_id = ${tokenId.toString()}
         AND from_address = 0
         AND transfer.chain_id = ${chainId}
+        AND transfer.emitter = ${nftAddress.toString()}
     `;
+    return rows;
+  }
+
+  public async getLimitOrderMetadata(
+    tokenId: bigint,
+    nftAddress: bigint,
+    chainId: bigint,
+  ) {
+    const rows = await this.sql<LimitOrderMetadata[]>`
+          SELECT transaction_hash          AS minted_tx_hash,
+                 limit_order_data.token0,
+                 limit_order_data.token1,
+                 limit_order_data.tick,
+                 limit_order_data.amount,
+                 b.block_time              AS minted_timestamp
+          FROM nonfungible_token_transfers AS nft
+               JOIN blocks b USING (block_number, chain_id)
+               LEFT JOIN LATERAL (
+                    SELECT token0,
+                          token1,
+                          tick,
+                          amount,
+                          pool_key_id
+                    FROM limit_order_placed AS lop
+                    WHERE lop.salt = token_id::NUMERIC
+               ) AS limit_order_data ON TRUE
+               JOIN pool_keys pk USING (pool_key_id)
+          WHERE nft.token_id = ${tokenId.toString()} 
+            AND from_address = 0
+            AND nft.chain_id = ${chainId}
+            AND nft.emitter = ${nftAddress.toString()}
+      `;
+
     return rows;
   }
 
