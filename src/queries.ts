@@ -953,15 +953,15 @@ WITH owned_tokens AS (
               MAX(last_collect_proceeds)         AS token_last_collect_proceeds,
               JSONB_AGG(
                 JSONB_BUILD_OBJECT(
-                  'sell_token', sell_token,
-                  'buy_token', buy_token,
-                  'fee', fee,
+                  'sell_token', sell_token::TEXT,
+                  'buy_token', buy_token::TEXT,
+                  'fee', fee::TEXT,
                   'start_time', start_time,
                   'end_time', end_time,
-                  'total_proceeds_withdrawn', total_proceeds_withdrawn,
-                  'total_amount_sold', amount_sold,
-                  'sale_rate', sale_rate,
-                  'last_collect_proceeds', last_collect_proceeds
+                  'total_proceeds_withdrawn', total_proceeds_withdrawn::TEXT,
+                  'total_amount_sold', amount_sold::TEXT,
+                  'sale_rate', sale_rate::TEXT,
+                  'last_collect_proceeds', last_collect_proceeds::TEXT
                ) ORDER BY end_time
               ) AS orders
        FROM token_orders

@@ -153,8 +153,8 @@ export class ListTwapOrders extends EkuboAPIRoute {
           token_id: toHex(BigInt(token_id)),
           orders: orders.map((order) => ({
             key: {
-              sell_token: toHex(BigInt(order.sell_token)),
-              buy_token: toHex(BigInt(order.buy_token)),
+              sell_token: toHex(order.sell_token),
+              buy_token: toHex(order.buy_token),
               fee: toHex(order.fee),
               start_time: toEpochSeconds(order.start_time),
               end_time: toEpochSeconds(order.end_time),
