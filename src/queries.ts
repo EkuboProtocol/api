@@ -884,103 +884,98 @@ export class Queries {
     address: bigint,
     state: StateFilter | null,
     chainId: bigint | null,
-    pagination: { page: number; pageSize: number },
   ) {
-    const addressStr = address.toString();
-    const offset = (pagination.page - 1) * pagination.pageSize;
+    const includeOpened = state === "opened" || state === null;
+    const includeClosed = state === "closed" || state === null;
 
-    const rows = await this.sql<
+    return this.sql<
       {
         chain_id: bigint;
         nft_address: string;
         token_id: string;
-        sell_token: string;
-        buy_token: string;
-        start_time: Date;
-        end_time: Date;
-        fee: string;
-        last_collect_proceeds: Date | null;
-        total_proceeds_withdrawn: string;
-        sale_rate: string;
-        total_count: number;
+        orders: {
+          sell_token: string;
+          buy_token: string;
+          fee: string;
+          start_time: string;
+          end_time: string;
+          total_proceeds_withdrawn: string;
+          total_amount_sold: string;
+          sale_rate: string;
+          last_collect_proceeds: string | null;
+        }[];
       }[]
     >`
-WITH owned_tokens AS (SELECT *
-                      FROM nonfungible_token_orders_view
-                      WHERE ${
-                        state === "opened"
-                          ? this.sql`current_owner = ${addressStr}`
-                          : this
-                              .sql`current_owner = ${addressStr} OR (current_owner = 0 AND previous_owner = ${addressStr})`
-                      }),
-     filtered_orders AS (
-         SELECT ot.chain_id,
-                nft_address,
-                token_id,
-                sell_token,
-                buy_token,
-                start_time,
-                end_time,
-                fee,
-                last_collect_proceeds,
-                amount_sold,
-                total_proceeds_withdrawn,
-                sale_rate
-         FROM owned_tokens AS ot
-                  JOIN pool_keys USING (pool_key_id)
-                  LEFT JOIN LATERAL (
-             SELECT b.block_time AS last_collect_proceeds
-             FROM twamm_proceeds_withdrawals tpw
-                      JOIN blocks b USING (chain_id, block_number)
-             WHERE tpw.pool_key_id = ot.pool_key_id
-               AND tpw.locker = ot.locker
-               AND tpw.salt = ot.token_id
-               AND tpw.start_time = ot.start_time
-               AND tpw.end_time = ot.end_time
-               AND tpw.is_selling_token1 = ot.is_selling_token1
-             ORDER BY tpw.event_id DESC
-             LIMIT 1
-             ) AS tpw ON TRUE
-         WHERE (${
-           state === "opened"
-             ? this
-                 .sql`tpw.last_collect_proceeds IS NULL OR tpw.last_collect_proceeds < ot.end_time`
-             : state === "closed"
-               ? this
-                   .sql`tpw.last_collect_proceeds IS NOT NULL AND tpw.last_collect_proceeds >= ot.end_time`
-               : this.sql`true`
-         })
-           AND ${chainId ? this.sql`ot.chain_id = ${chainId}` : this.sql`true`}
+WITH owned_tokens AS (
+       SELECT *
+       FROM nonfungible_token_orders_view
+       WHERE current_owner = ${address.toString()}
+          OR (${includeClosed} AND current_owner = 0 AND previous_owner = ${address.toString()})
      ),
-     total_count AS (SELECT COUNT(*)::INT AS total_count FROM filtered_orders),
-     paginated_orders AS (
-         SELECT *
-         FROM filtered_orders
-         ORDER BY token_id DESC
-         LIMIT ${pagination.pageSize} OFFSET ${offset})
-SELECT po.chain_id,
+     token_orders AS (
+       SELECT ot.chain_id,
+              nft_address,
+              token_id,
+              sell_token,
+              buy_token,
+              start_time,
+              end_time,
+              fee,
+              last_collect_proceeds,
+              amount_sold,
+              total_proceeds_withdrawn,
+              sale_rate
+       FROM owned_tokens AS ot
+                JOIN pool_keys pk USING (pool_key_id)
+                LEFT JOIN LATERAL (
+                  SELECT b.block_time AS last_collect_proceeds
+                  FROM twamm_proceeds_withdrawals tpw
+                           JOIN blocks b USING (chain_id, block_number)
+                  WHERE tpw.pool_key_id = ot.pool_key_id
+                    AND tpw.locker = ot.locker
+                    AND tpw.salt = ot.token_id
+                    AND tpw.start_time = ot.start_time
+                    AND tpw.end_time = ot.end_time
+                    AND tpw.is_selling_token1 = ot.is_selling_token1
+                  ORDER BY tpw.event_id DESC
+                  LIMIT 1
+                ) AS tpw ON TRUE
+       WHERE ot.chain_id = COALESCE(${chainId}, ot.chain_id)
+     ),
+     grouped_orders AS (
+       SELECT chain_id,
+              nft_address,
+              token_id,
+              MAX(end_time)                      AS max_end_time,
+              MAX(last_collect_proceeds)         AS token_last_collect_proceeds,
+              JSONB_AGG(
+                JSONB_BUILD_OBJECT(
+                  'sell_token', sell_token,
+                  'buy_token', buy_token,
+                  'fee', fee,
+                  'start_time', start_time,
+                  'end_time', end_time,
+                  'total_proceeds_withdrawn', total_proceeds_withdrawn,
+                  'total_amount_sold', amount_sold,
+                  'sale_rate', sale_rate,
+                  'last_collect_proceeds', last_collect_proceeds
+                ) ORDER BY end_time
+              ) AS orders
+       FROM token_orders
+       GROUP BY chain_id, nft_address, token_id
+     )
+SELECT chain_id,
        nft_address,
        token_id,
-       sell_token,
-       buy_token,
-       start_time,
-       end_time,
-       fee,
-       last_collect_proceeds,
-       amount_sold,
-       total_proceeds_withdrawn,
-       sale_rate,
-       total_count.total_count
-FROM total_count
-         LEFT JOIN paginated_orders AS po ON TRUE
-ORDER BY po.token_id DESC;
+       orders
+FROM grouped_orders
+WHERE (
+        (${includeOpened} AND (token_last_collect_proceeds IS NULL
+          OR token_last_collect_proceeds < max_end_time))
+        OR (${includeClosed} AND token_last_collect_proceeds IS NOT NULL AND token_last_collect_proceeds >= max_end_time)
+      )
+ORDER BY token_id DESC
     `;
-
-    const totalCount = rows.length > 0 ? rows[0].total_count : 0;
-    return {
-      rows,
-      totalCount,
-    };
   }
 
   public async getTwammPoolStateByKey({
