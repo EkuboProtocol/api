@@ -123,7 +123,11 @@ export class ListTwapOrders extends EkuboAPIRoute {
       .min(1)
       .max(200)
       .parse(query?.pageSize ?? 50);
-    const page = z.coerce.number().int().min(1).parse(query?.page ?? 1);
+    const page = z.coerce
+      .number()
+      .int()
+      .min(1)
+      .parse(query?.page ?? 1);
 
     const { rows, totalCount } = await queries.getTwammOrdersByAddress(
       address,
@@ -149,8 +153,8 @@ export class ListTwapOrders extends EkuboAPIRoute {
           token_id: toHex(BigInt(token_id)),
           orders: orders.map((order) => ({
             key: {
-              sell_token: toHex(order.sell_token),
-              buy_token: toHex(order.buy_token),
+              sell_token: toHex(BigInt(order.sell_token)),
+              buy_token: toHex(BigInt(order.buy_token)),
               fee: toHex(order.fee),
               start_time: toEpochSeconds(order.start_time),
               end_time: toEpochSeconds(order.end_time),
