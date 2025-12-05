@@ -52,8 +52,15 @@ const TwammOrderInfo = z.object({
 });
 
 type TwammOrderInfoType = z.infer<typeof TwammOrderInfo>;
+const PaginationMetadataType = z.object({
+  page: z.number().int().min(1),
+  pageSize: z.number().int().min(1),
+  totalPages: z.number().int().min(0),
+  totalItems: z.number().int().min(0),
+});
 const ListTwapOrdersResponseType = z.object({
   orders: z.array(TwammOrderInfo),
+  pagination: PaginationMetadataType,
 });
 
 const OrderStateQueryType = z.enum(["opened", "closed"]);
@@ -76,6 +83,16 @@ export class ListTwapOrders extends EkuboAPIRoute {
       chainId: Query(ChainIdType, {
         required: false,
         description: "Restrict results to a specific chain ID",
+      }),
+      pageSize: Query(z.coerce.number().int().min(1).max(200), {
+        required: false,
+        description: "Maximum number of TWAP orders to return per page",
+        default: 50,
+      }),
+      page: Query(z.coerce.number().int().min(1), {
+        required: false,
+        description: "Page number to fetch (1-indexed)",
+        default: 1,
       }),
     },
     responses: {
@@ -100,7 +117,25 @@ export class ListTwapOrders extends EkuboAPIRoute {
       typeof query.chainId === "string" ? BigInt(query.chainId) : null;
     const queries = await createQueries(env);
 
-    const rows = await queries.getTwammOrdersByAddress(address, state, chainId);
+    const pageSize = z.coerce
+      .number()
+      .int()
+      .min(1)
+      .max(200)
+      .parse(query?.pageSize ?? 50);
+    const page = z.coerce.number().int().min(1).parse(query?.page ?? 1);
+
+    const { rows, totalCount } = await queries.getTwammOrdersByAddress(
+      address,
+      state,
+      chainId,
+      {
+        page,
+        pageSize,
+      },
+    );
+
+    const totalPages = totalCount === 0 ? 0 : Math.ceil(totalCount / pageSize);
 
     const response = {
       orders: rows.reduce<TwammOrderInfoType[]>(
@@ -153,6 +188,12 @@ export class ListTwapOrders extends EkuboAPIRoute {
         },
         [],
       ),
+      pagination: {
+        page,
+        pageSize,
+        totalPages,
+        totalItems: totalCount,
+      },
     } satisfies z.infer<typeof ListTwapOrdersResponseType>;
 
     return json(response, {

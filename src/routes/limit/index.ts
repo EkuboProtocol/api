@@ -56,6 +56,12 @@ const LimitOrderInfo = z
   .required({ token_id: true, orders: true });
 
 type LimitOrderInfoType = z.infer<typeof LimitOrderInfo>;
+const PaginationMetadataType = z.object({
+  page: z.number().int().min(1),
+  pageSize: z.number().int().min(1),
+  totalPages: z.number().int().min(0),
+  totalItems: z.number().int().min(0),
+});
 
 const LimitOrderStateQueryType = z.enum(["opened", "closed"]);
 
@@ -78,6 +84,16 @@ export class ListLimitOrders extends EkuboAPIRoute {
         required: false,
         description: "Restrict results to a specific chain ID",
       }),
+      pageSize: Query(z.coerce.number().int().min(1).max(200), {
+        required: false,
+        description: "Maximum number of limit orders to return per page",
+        default: 50,
+      }),
+      page: Query(z.coerce.number().int().min(1), {
+        required: false,
+        description: "Page number to fetch (1-indexed)",
+        default: 1,
+      }),
     },
     responses: {
       "200": {
@@ -88,6 +104,7 @@ export class ListLimitOrders extends EkuboAPIRoute {
           orders: z.array(LimitOrderInfo).openapi({
             description: "The list of limit orders owned by the address",
           }),
+          pagination: PaginationMetadataType,
         }),
       },
     },
@@ -106,7 +123,25 @@ export class ListLimitOrders extends EkuboAPIRoute {
       typeof query.chainId === "string" ? BigInt(query.chainId) : null;
     const queries = await createQueries(env);
 
-    const rows = await queries.getLimitOrdersByAddress(address, state, chainId);
+    const pageSize = z.coerce
+      .number()
+      .int()
+      .min(1)
+      .max(200)
+      .parse(query?.pageSize ?? 50);
+    const page = z.coerce.number().int().min(1).parse(query?.page ?? 1);
+
+    const { rows, totalCount } = await queries.getLimitOrdersByAddress(
+      address,
+      state,
+      chainId,
+      {
+        page,
+        pageSize,
+      },
+    );
+
+    const totalPages = totalCount === 0 ? 0 : Math.ceil(totalCount / pageSize);
 
     return json(
       {
@@ -154,6 +189,12 @@ export class ListLimitOrders extends EkuboAPIRoute {
           },
           [],
         ),
+        pagination: {
+          page,
+          pageSize,
+          totalPages,
+          totalItems: totalCount,
+        },
       },
       {
         headers: {

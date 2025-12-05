@@ -884,8 +884,12 @@ export class Queries {
     address: bigint,
     state: StateFilter | null,
     chainId: bigint | null,
+    pagination: { page: number; pageSize: number },
   ) {
-    return this.sql<
+    const addressStr = address.toString();
+    const offset = (pagination.page - 1) * pagination.pageSize;
+
+    const rows = await this.sql<
       {
         chain_id: bigint;
         nft_address: string;
@@ -898,17 +902,63 @@ export class Queries {
         last_collect_proceeds: Date | null;
         total_proceeds_withdrawn: string;
         sale_rate: string;
+        total_count: number;
       }[]
     >`
 WITH owned_tokens AS (SELECT *
                       FROM nonfungible_token_orders_view
                       WHERE ${
                         state === "opened"
-                          ? this.sql`current_owner = ${address.toString()}`
+                          ? this.sql`current_owner = ${addressStr}`
                           : this
-                              .sql`current_owner = ${address.toString()} OR (current_owner = 0 AND previous_owner = ${address.toString()})`
-                      })
-SELECT ot.chain_id,
+                              .sql`current_owner = ${addressStr} OR (current_owner = 0 AND previous_owner = ${addressStr})`
+                      }),
+     filtered_orders AS (
+         SELECT ot.chain_id,
+                nft_address,
+                token_id,
+                sell_token,
+                buy_token,
+                start_time,
+                end_time,
+                fee,
+                last_collect_proceeds,
+                amount_sold,
+                total_proceeds_withdrawn,
+                sale_rate
+         FROM owned_tokens AS ot
+                  JOIN pool_keys USING (pool_key_id)
+                  LEFT JOIN LATERAL (
+             SELECT b.block_time AS last_collect_proceeds
+             FROM twamm_proceeds_withdrawals tpw
+                      JOIN blocks b USING (chain_id, block_number)
+             WHERE tpw.pool_key_id = ot.pool_key_id
+               AND tpw.locker = ot.locker
+               AND tpw.salt = ot.token_id
+               AND tpw.start_time = ot.start_time
+               AND tpw.end_time = ot.end_time
+               AND tpw.is_selling_token1 = ot.is_selling_token1
+             ORDER BY tpw.event_id DESC
+             LIMIT 1
+             ) AS tpw ON TRUE
+         WHERE (${
+           state === "opened"
+             ? this
+                 .sql`tpw.last_collect_proceeds IS NULL OR tpw.last_collect_proceeds < ot.end_time`
+             : state === "closed"
+               ? this
+                   .sql`tpw.last_collect_proceeds IS NOT NULL AND tpw.last_collect_proceeds >= ot.end_time`
+               : this.sql`true`
+         })
+           AND ${chainId ? this.sql`ot.chain_id = ${chainId}` : this.sql`true`}
+     ),
+     total_count AS (SELECT COUNT(*)::INT AS total_count FROM filtered_orders),
+     paginated_orders AS (
+         SELECT *
+         FROM filtered_orders
+         ORDER BY token_id DESC
+         LIMIT ${pagination.pageSize} OFFSET ${offset})
+SELECT po.chain_id,
        nft_address,
        token_id,
        sell_token,
@@ -919,34 +969,18 @@ SELECT ot.chain_id,
        last_collect_proceeds,
        amount_sold,
        total_proceeds_withdrawn,
-       sale_rate
-FROM owned_tokens AS ot
-         JOIN pool_keys USING (pool_key_id)
-         LEFT JOIN LATERAL (
-    SELECT b.block_time AS last_collect_proceeds
-    FROM twamm_proceeds_withdrawals tpw
-             JOIN blocks b USING (chain_id, block_number)
-    WHERE tpw.pool_key_id = ot.pool_key_id
-      AND tpw.locker = ot.locker
-      AND tpw.salt = ot.token_id
-      AND tpw.start_time = ot.start_time
-      AND tpw.end_time = ot.end_time
-      AND tpw.is_selling_token1 = ot.is_selling_token1
-    ORDER BY tpw.event_id DESC
-    LIMIT 1
-    ) AS tpw ON TRUE
-WHERE (${
-      state === "opened"
-        ? this
-            .sql`tpw.last_collect_proceeds IS NULL OR tpw.last_collect_proceeds < ot.end_time`
-        : state === "closed"
-          ? this
-              .sql`tpw.last_collect_proceeds IS NOT NULL AND tpw.last_collect_proceeds >= ot.end_time`
-          : this.sql`true`
-    })
-  AND ${chainId ? this.sql`ot.chain_id = ${chainId}` : this.sql`true`}
-ORDER BY token_id DESC;
+       sale_rate,
+       total_count.total_count
+FROM total_count
+         LEFT JOIN paginated_orders AS po ON TRUE
+ORDER BY po.token_id DESC;
     `;
+
+    const totalCount = rows.length > 0 ? rows[0].total_count : 0;
+    return {
+      rows,
+      totalCount,
+    };
   }
 
   public async getTwammPoolStateByKey({
@@ -1906,15 +1940,17 @@ WHERE address = ${address} AND ${chainId === null ? this.sql`true` : this.sql`fd
     return BigInt(rows[0]?.amount_delegated ?? 0);
   }
 
-  getLimitOrdersByAddress(
+  async getLimitOrdersByAddress(
     address: bigint,
     state: StateFilter | null,
     chainId: bigint | null,
+    pagination: { page: number; pageSize: number },
   ) {
     const includeOpened = state === "opened" || state === null;
     const includeClosed = state === "closed" || state === null;
+    const offset = (pagination.page - 1) * pagination.pageSize;
 
-    return this.sql<
+    const rows = await this.sql<
       {
         chain_id: bigint;
         token_id: string;
@@ -1925,6 +1961,7 @@ WHERE address = ${address} AND ${chainId === null ? this.sql`true` : this.sql`fd
         amount: string;
         token0_amount_withdrawn: string | null;
         token1_amount_withdrawn: string | null;
+        total_count: number;
       }[]
     >`
           WITH owned_tokens AS (SELECT chain_id, token_id
@@ -1936,38 +1973,66 @@ WHERE address = ${address} AND ${chainId === null ? this.sql`true` : this.sql`fd
                                           WHERE pt2.token_id = pt1.token_id
                                             AND pt2.event_id > pt1.event_id
                                         )
-                    )
-          SELECT ot.chain_id,
-                 ot.token_id,
-                 lo.token0,
-                 lo.token1,
-                 lo.tick,
-                 lo.liquidity,
-                 lo.amount,
-                 lc.token0_amount_withdrawn,
-                 lc.token1_amount_withdrawn
-          FROM owned_tokens ot
-                   -- select the information for the latest open event for each order
-               JOIN LATERAL (
-                      SELECT event_id AS open_event_id, token0, token1, tick, liquidity, amount
-                      FROM limit_order_placed lop
-                      WHERE salt = ot.token_id::NUMERIC
-                      ORDER BY event_id DESC
-                      LIMIT 1
-               ) AS lo ON TRUE
-               -- select the latest close event
-               LEFT JOIN LATERAL (
-                      SELECT event_id AS close_event_id, amount0 AS token0_amount_withdrawn, amount1 AS token1_amount_withdrawn
-                      FROM limit_order_closed
-                      WHERE salt = ot.token_id::NUMERIC
-                      ORDER BY event_id DESC
-                      LIMIT 1
-               ) AS lc ON TRUE
-          WHERE (
-            (${includeClosed} AND lc.close_event_id IS NOT NULL)
-            OR (${includeOpened} AND (lc.close_event_id IS NULL OR lc.close_event_id < lo.open_event_id))
-          )
+                    ),
+               filtered_orders AS (
+                      SELECT ot.chain_id,
+                             ot.token_id,
+                             lo.token0,
+                             lo.token1,
+                             lo.tick,
+                             lo.liquidity,
+                             lo.amount,
+                             lc.token0_amount_withdrawn,
+                             lc.token1_amount_withdrawn
+                      FROM owned_tokens ot
+                               -- select the information for the latest open event for each order
+                           JOIN LATERAL (
+                                  SELECT event_id AS open_event_id, token0, token1, tick, liquidity, amount
+                                  FROM limit_order_placed lop
+                                  WHERE salt = ot.token_id::NUMERIC
+                                  ORDER BY event_id DESC
+                                  LIMIT 1
+                           ) AS lo ON TRUE
+                           -- select the latest close event
+                           LEFT JOIN LATERAL (
+                                  SELECT event_id AS close_event_id, amount0 AS token0_amount_withdrawn, amount1 AS token1_amount_withdrawn
+                                  FROM limit_order_closed
+                                  WHERE salt = ot.token_id::NUMERIC
+                                  ORDER BY event_id DESC
+                                  LIMIT 1
+                           ) AS lc ON TRUE
+                      WHERE (
+                        (${includeClosed} AND lc.close_event_id IS NOT NULL)
+                        OR (${includeOpened} AND (lc.close_event_id IS NULL OR lc.close_event_id < lo.open_event_id))
+                      )
+               ),
+               total_count AS (SELECT COUNT(*)::INT AS total_count FROM filtered_orders),
+               paginated_orders AS (
+                      SELECT *
+                      FROM filtered_orders
+                      ORDER BY token_id DESC
+                      LIMIT ${pagination.pageSize} OFFSET ${offset}
+               )
+          SELECT po.chain_id,
+                 po.token_id,
+                 po.token0,
+                 po.token1,
+                 po.tick,
+                 po.liquidity,
+                 po.amount,
+                 po.token0_amount_withdrawn,
+                 po.token1_amount_withdrawn,
+                 total_count.total_count
+          FROM total_count
+                   LEFT JOIN paginated_orders po ON TRUE
+          ORDER BY po.token_id DESC
       `;
+
+    const totalCount = rows.length > 0 ? rows[0].total_count : 0;
+    return {
+      rows,
+      totalCount,
+    };
   }
 }
 
