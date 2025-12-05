@@ -988,12 +988,12 @@ SELECT po.chain_id,
        po.token_id,
        po.orders,
        total_count.total_count
-FROM total_count
-         LEFT JOIN paged_orders po ON TRUE
+FROM paged_orders po
+         CROSS JOIN total_count
 ORDER BY po.token_id DESC
     `;
 
-    const totalCount = rows.length > 0 ? rows[0].total_count : 0;
+    const totalCount = rows[0]?.total_count ?? 0;
     return {
       rows,
       totalCount,
@@ -1532,8 +1532,8 @@ SELECT pp.chain_id,
        ps.tick       AS pool_state_tick,
        ps.liquidity  AS pool_state_liquidity,
        pr.rewards
-FROM total_count
-         LEFT JOIN pp ON TRUE
+FROM pp
+         CROSS JOIN total_count
          LEFT JOIN pool_states ps ON pp.pool_key_id = ps.pool_key_id
          LEFT JOIN LATERAL (
     SELECT JSONB_OBJECT_AGG(
@@ -1552,7 +1552,7 @@ FROM total_count
 ORDER BY pp.last_transfer_event_id DESC;
     `;
 
-    const totalCount = rows.length > 0 ? rows[0].total_count : 0;
+    const totalCount = rows[0]?.total_count ?? 0;
     return {
       rows,
       totalCount,
@@ -2040,12 +2040,12 @@ WHERE address = ${address} AND ${chainId === null ? this.sql`true` : this.sql`fd
                  po.token0_amount_withdrawn,
                  po.token1_amount_withdrawn,
                  total_count.total_count
-          FROM total_count
-                   LEFT JOIN paginated_orders po ON TRUE
+          FROM paginated_orders po
+                   CROSS JOIN total_count
           ORDER BY po.token_id DESC
       `;
 
-    const totalCount = rows.length > 0 ? rows[0].total_count : 0;
+    const totalCount = rows[0]?.total_count ?? 0;
     return {
       rows,
       totalCount,
