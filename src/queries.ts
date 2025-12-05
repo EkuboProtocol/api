@@ -884,15 +884,18 @@ export class Queries {
     address: bigint,
     state: StateFilter | null,
     chainId: bigint | null,
+    pagination: { page: number; pageSize: number },
   ) {
     const includeOpened = state === "opened" || state === null;
     const includeClosed = state === "closed" || state === null;
+    const offset = (pagination.page - 1) * pagination.pageSize;
 
-    return this.sql<
+    const rows = await this.sql<
       {
         chain_id: bigint;
         nft_address: string;
         token_id: string;
+        total_count: number;
         orders: {
           sell_token: string;
           buy_token: string;
@@ -959,23 +962,42 @@ WITH owned_tokens AS (
                   'total_amount_sold', amount_sold,
                   'sale_rate', sale_rate,
                   'last_collect_proceeds', last_collect_proceeds
-                ) ORDER BY end_time
+               ) ORDER BY end_time
               ) AS orders
        FROM token_orders
        GROUP BY chain_id, nft_address, token_id
+     ),
+     filtered_orders AS (
+       SELECT *
+       FROM grouped_orders
+       WHERE (
+               (${includeOpened} AND (token_last_collect_proceeds IS NULL
+                 OR token_last_collect_proceeds < max_end_time))
+               OR (${includeClosed} AND token_last_collect_proceeds IS NOT NULL AND token_last_collect_proceeds >= max_end_time)
+             )
+     ),
+     total_count AS (SELECT COUNT(*)::INT AS total_count FROM filtered_orders),
+     paged_orders AS (
+       SELECT *
+       FROM filtered_orders
+       ORDER BY token_id DESC
+       LIMIT ${pagination.pageSize} OFFSET ${offset}
      )
-SELECT chain_id,
-       nft_address,
-       token_id,
-       orders
-FROM grouped_orders
-WHERE (
-        (${includeOpened} AND (token_last_collect_proceeds IS NULL
-          OR token_last_collect_proceeds < max_end_time))
-        OR (${includeClosed} AND token_last_collect_proceeds IS NOT NULL AND token_last_collect_proceeds >= max_end_time)
-      )
-ORDER BY token_id DESC
+SELECT po.chain_id,
+       po.nft_address,
+       po.token_id,
+       po.orders,
+       total_count.total_count
+FROM total_count
+         LEFT JOIN paged_orders po ON TRUE
+ORDER BY po.token_id DESC
     `;
+
+    const totalCount = rows.length > 0 ? rows[0].total_count : 0;
+    return {
+      rows,
+      totalCount,
+    };
   }
 
   public async getTwammPoolStateByKey({
