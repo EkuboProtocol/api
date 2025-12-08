@@ -30,7 +30,6 @@ export class GetNftMetadata extends EkuboAPIRoute {
     responses: {
       "200": {
         description: "The NFT metadata for the given position ID",
-        contentType: "application/json",
       },
     },
   };
@@ -292,7 +291,6 @@ export class GetNftImage extends EkuboAPIRoute {
     responses: {
       "200": {
         description: "The position NFT image",
-        contentType: "application/json",
       },
     },
   };
