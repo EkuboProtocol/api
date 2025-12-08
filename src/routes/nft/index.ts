@@ -86,7 +86,7 @@ export class GetNftMetadata extends EkuboAPIRoute {
         { trait_type: "fee", value: positionMetadata.fee.toString() },
         {
           trait_type: "tick_spacing",
-          value: positionMetadata.tick_spacing.toString(),
+          value: (positionMetadata.tick_spacing ?? 0).toString(),
         },
         {
           trait_type: "extension",
@@ -149,7 +149,7 @@ export class GetNftMetadata extends EkuboAPIRoute {
           } : ${lowerPrice} <> ${upperPrice} : ${feeToPercent(
             positionMetadata.fee,
             positionMetadata.fee_denominator,
-          )}% / ${tickSpacingToPercent(positionMetadata.tick_spacing)}%`,
+          )} / ${positionMetadata.tick_spacing === null ? "FR" : tickSpacingToPercent(positionMetadata.tick_spacing)}`,
           description: `A liquidity position in Ekubo consisting of the ${
             numerator.name
           } and ${
@@ -161,7 +161,7 @@ export class GetNftMetadata extends EkuboAPIRoute {
           }. This position charges a ${feeToPercent(
             positionMetadata.fee,
             positionMetadata.fee_denominator,
-          )}% fee on swaps.`,
+          )} fee on swaps.`,
           image,
           attributes: attributesStored,
         };
