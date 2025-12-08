@@ -15,6 +15,10 @@ import { createQueries } from "../../queries";
 import toHex from "../../shared/toHex";
 import { getTokenByAddress } from "../meta/tokens";
 import { DOUBLE_LIMIT_ORDER_TICK_SPACING } from "../../shared/constants";
+import {
+  AddressType,
+  NumericStringType,
+} from "../../shared/validation/address";
 
 export class GetNftMetadata extends EkuboAPIRoute {
   static route = "/nft/:chainId/:nftAddress/:id";
@@ -25,6 +29,12 @@ export class GetNftMetadata extends EkuboAPIRoute {
     description:
       "Returns the ERC721 metadata for the given token ID, chain ID and NFT contract address",
     parameters: {
+      chainId: Path(NumericStringType, {
+        description: "Chain ID for which to generate metadata",
+      }),
+      nftAddress: Path(AddressType, {
+        description: "The address of the NFT contract",
+      }),
       id: Path(TokenIdType),
     },
     responses: {
@@ -286,6 +296,12 @@ export class GetNftImage extends EkuboAPIRoute {
     summary: "Get NFT Image",
     description: "Returns the generated art for the given position NFT ID",
     parameters: {
+      chainId: Path(NumericStringType, {
+        description: "Chain ID for which to generate metadata",
+      }),
+      nftAddress: Path(AddressType, {
+        description: "The address of the NFT contract",
+      }),
       id: Path(TokenIdType),
     },
     responses: {
