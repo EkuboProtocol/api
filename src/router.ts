@@ -47,9 +47,9 @@ import { GetNftImage, GetNftMetadata } from "./routes/nft";
 export const router = OpenAPIRouter({
   schema: {
     info: {
-      title: "Ekubo EVM API",
+      title: "Ekubo API",
       version,
-      description: "API for querying data about Ekubo Protocol on EVM chains",
+      description: "API for querying data about Ekubo Protocol",
       contact: {
         url: "https://ekubo.org",
         email: "eng@ekubo.org",
