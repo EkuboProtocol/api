@@ -36,7 +36,6 @@ export class GetBlock extends EkuboAPIRoute {
       "200": {
         description: "The timestamp of the given block number",
         schema: BlockInfoType,
-        contentType: "application/json",
       },
     },
   };
@@ -93,7 +92,6 @@ export class GetClosestBlock extends EkuboAPIRoute {
       "200": {
         description: "The block closest to the given timestamp",
         schema: BlockInfoType,
-        contentType: "application/json",
       },
     },
   };

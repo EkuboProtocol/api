@@ -98,7 +98,6 @@ export class ListTwapOrders extends EkuboAPIRoute {
     responses: {
       "200": {
         description: "The list of TWAP orders placed by the address",
-        contentType: "application/json",
         schema: ListTwapOrdersResponseType,
       },
     },

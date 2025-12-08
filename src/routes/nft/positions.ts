@@ -134,7 +134,6 @@ export class GetPositionNftMetadata extends EkuboAPIRoute {
     responses: {
       "200": {
         description: "The NFT metadata for the given position ID",
-        contentType: "application/json",
         schema: NFTMetadataSchema,
       },
     },
@@ -311,7 +310,6 @@ export class ListPositionNftEvents extends EkuboAPIRoute {
     responses: {
       "200": {
         description: "The position history",
-        contentType: "application/json",
         schema: PositionEventsResponseType,
       },
     },
@@ -405,7 +403,6 @@ export class GetPositionNftImage extends EkuboAPIRoute {
     responses: {
       "200": {
         description: "The position NFT image",
-        contentType: "application/json",
       },
     },
   };
@@ -480,7 +477,6 @@ export class ListPositionsByAddress extends EkuboAPIRoute {
     responses: {
       "200": {
         description: "The position NFTs owned by the address and keys",
-        contentType: "application/json",
         schema: ListPositionsResponseType,
       },
     },

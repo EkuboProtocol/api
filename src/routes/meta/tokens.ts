@@ -6,6 +6,7 @@ import {
 import { IRequest, json, StatusError } from "itty-router";
 import { z } from "zod";
 import { EkuboAPIRoute, RequestContext } from "../../shared/context";
+import { ErrorResponseType } from "../../shared/errors";
 import { AddressType, ChainIdType } from "../../shared/validation/address";
 import { createQueries, Queries, RawErc20TokenRow } from "../../queries";
 import toHex from "../../shared/toHex";
@@ -230,7 +231,6 @@ export class ListTokens extends EkuboAPIRoute {
       "200": {
         description: "List of tokens",
         schema: TokenListResponseType,
-        contentType: "application/json",
       },
     },
   };
@@ -316,7 +316,6 @@ export class BatchGetTokens extends EkuboAPIRoute {
       "200": {
         description: "Tokens",
         schema: TokenListResponseType,
-        contentType: "application/json",
       },
     },
   };
@@ -383,11 +382,10 @@ export class GetToken extends EkuboAPIRoute {
       "200": {
         description: "Token information",
         schema: TokenType,
-        contentType: "application/json",
       },
       "404": {
         description: "Token not found",
-        contentType: "application/json",
+        schema: ErrorResponseType,
       },
     },
   };

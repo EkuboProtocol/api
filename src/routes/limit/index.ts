@@ -99,7 +99,6 @@ export class ListLimitOrders extends EkuboAPIRoute {
       "200": {
         description:
           "The list of limit orders held or previously held by the address",
-        contentType: "application/json",
         schema: z.object({
           orders: z.array(LimitOrderInfo).openapi({
             description: "The list of limit orders owned by the address",
@@ -129,7 +128,11 @@ export class ListLimitOrders extends EkuboAPIRoute {
       .min(1)
       .max(200)
       .parse(query?.pageSize ?? 50);
-    const page = z.coerce.number().int().min(1).parse(query?.page ?? 1);
+    const page = z.coerce
+      .number()
+      .int()
+      .min(1)
+      .parse(query?.page ?? 1);
 
     const { rows, totalCount } = await queries.getLimitOrdersByAddress(
       address,

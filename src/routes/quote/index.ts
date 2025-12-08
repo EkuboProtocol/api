@@ -154,7 +154,6 @@ export class Get0xQuote extends EkuboAPIRoute {
     responses: {
       "200": {
         description: "The finalized quote from 0x",
-        contentType: "application/json",
         schema: ZeroXQuoteResponseType,
       },
     },

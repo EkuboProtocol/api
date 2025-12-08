@@ -47,7 +47,6 @@ export class GetTwammPoolState extends EkuboAPIRoute {
     responses: {
       "200": {
         description: "The current state of the given TWAMM pool",
-        contentType: "application/json",
         schema: GetTwammStateResponseType,
       },
     },
@@ -130,7 +129,6 @@ export class GetTwammPairState extends EkuboAPIRoute {
     responses: {
       "200": {
         description: "The current state of the given TWAMM pair",
-        contentType: "application/json",
         schema: GetTwammStateResponseType,
       },
     },

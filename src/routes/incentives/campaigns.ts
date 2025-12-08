@@ -87,7 +87,6 @@ export class ListCampaigns extends EkuboAPIRoute {
       "200": {
         description: "The list of campaigns",
         schema: ListCampaignsResponseType,
-        contentType: "application/json",
       },
     },
   };

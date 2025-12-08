@@ -54,7 +54,6 @@ export class ListPoolKeys extends EkuboAPIRoute {
         description:
           "The pool keys of all the pools that have been initialized",
         schema: ListPoolKeysResponseType,
-        contentType: "application/json",
       },
     },
   };
@@ -69,18 +68,16 @@ export class ListPoolKeys extends EkuboAPIRoute {
 
     const rows = await queries.listAllPoolKeys(chainId);
 
-    const response = (
-      rows.map((pool) => ({
-        chain_id: toHex(pool.chain_id),
-        core_address: toHex(pool.core_address),
-        pool_id: toHex(pool.pool_id, 32),
-        token0: toHex(pool.token0),
-        token1: toHex(pool.token1),
-        fee: toHex(pool.fee),
-        tick_spacing: Number(pool.tick_spacing),
-        extension: toHex(pool.extension),
-      }))
-    ) satisfies z.infer<typeof ListPoolKeysResponseType>;
+    const response = rows.map((pool) => ({
+      chain_id: toHex(pool.chain_id),
+      core_address: toHex(pool.core_address),
+      pool_id: toHex(pool.pool_id, 32),
+      token0: toHex(pool.token0),
+      token1: toHex(pool.token1),
+      fee: toHex(pool.fee),
+      tick_spacing: Number(pool.tick_spacing),
+      extension: toHex(pool.extension),
+    })) satisfies z.infer<typeof ListPoolKeysResponseType>;
 
     return json(response, {
       headers: {
@@ -118,7 +115,6 @@ export class GetPoolLiquidity extends EkuboAPIRoute {
       "200": {
         schema: LiquidityResponseType,
         description: "The current liquidity chart for the given pool key hash",
-        contentType: "application/json",
       },
     },
   };
@@ -139,17 +135,14 @@ export class GetPoolLiquidity extends EkuboAPIRoute {
   ) {
     const queries = await createQueries(env);
 
-    const rows = await queries.getPoolLiquidityGraph(
-      BigInt(chainId),
-      {
-        coreAddress: BigInt(coreAddress),
-        token0: BigInt(token0),
-        token1: BigInt(token1),
-        fee: BigInt(fee),
-        tickSpacing: Number(tickSpacing),
-        extension: BigInt(extension),
-      },
-    );
+    const rows = await queries.getPoolLiquidityGraph(BigInt(chainId), {
+      coreAddress: BigInt(coreAddress),
+      token0: BigInt(token0),
+      token1: BigInt(token1),
+      fee: BigInt(fee),
+      tickSpacing: Number(tickSpacing),
+      extension: BigInt(extension),
+    });
 
     const response = {
       data: rows,

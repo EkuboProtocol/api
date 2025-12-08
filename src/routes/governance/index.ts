@@ -63,7 +63,6 @@ export class ListProposals extends EkuboAPIRoute {
       "200": {
         schema: ListProposalsResponse,
         description: "The list of proposals",
-        contentType: "application/json",
       },
     },
   };
@@ -144,7 +143,6 @@ export class ListVotesOnProposal extends EkuboAPIRoute {
       "200": {
         schema: ListVotesResponse,
         description: "The list of votes on a specific proposal",
-        contentType: "application/json",
       },
     },
   };
@@ -226,7 +224,6 @@ export class ListProposalVoters extends EkuboAPIRoute {
         schema: ListProposalVotersResponse,
         description:
           "The list of voters and their weights for a specific proposal",
-        contentType: "application/json",
       },
     },
   };
@@ -309,7 +306,6 @@ export class ListTopDelegates extends EkuboAPIRoute {
       "200": {
         schema: ListTopDelegatesResponse,
         description: "The list of top delegates",
-        contentType: "application/json",
       },
     },
   };
@@ -377,7 +373,6 @@ export class GetStakerInfo extends EkuboAPIRoute {
       "200": {
         schema: GetStakerInfoResponse,
         description: "Information about the given staker",
-        contentType: "application/json",
       },
     },
   };

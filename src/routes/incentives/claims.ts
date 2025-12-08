@@ -76,7 +76,6 @@ export class ListClaimsForAddress extends EkuboAPIRoute {
       "200": {
         description: "The list of claims for an address",
         schema: ListClaimsResponseType,
-        contentType: "application/json",
       },
     },
   };

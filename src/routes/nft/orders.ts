@@ -26,7 +26,6 @@ export class GetOrderNftMetadata extends EkuboAPIRoute {
     responses: {
       "200": {
         description: "The NFT metadata for the given order ID",
-        contentType: "application/json",
         schema: NFTMetadataSchema,
       },
     },
@@ -142,7 +141,6 @@ export class GetOrderNftImage extends EkuboAPIRoute {
     responses: {
       "200": {
         description: "The order NFT image",
-        contentType: "application/json",
       },
     },
   };

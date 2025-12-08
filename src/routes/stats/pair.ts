@@ -134,7 +134,6 @@ export class GetPairInfoTvl extends EkuboAPIRoute {
     responses: {
       "200": {
         description: "Information about the token pair TVL",
-        contentType: "application/json",
         schema: PairTvlResponseType,
       },
     },
@@ -191,7 +190,6 @@ export class GetPairInfoVolume extends EkuboAPIRoute {
     responses: {
       "200": {
         description: "Information about the token pair volume",
-        contentType: "application/json",
         schema: PairVolumeResponseType,
       },
     },
@@ -266,7 +264,6 @@ export class GetPairInfoPools extends EkuboAPIRoute {
     responses: {
       "200": {
         description: "Information about the pools of a token pair",
-        contentType: "application/json",
         schema: PairPoolsResponseType,
       },
     },
@@ -310,7 +307,6 @@ export class GetPairLiquidity extends EkuboAPIRoute {
     responses: {
       "200": {
         description: "For each tick for pools of the pair, the liquidity delta",
-        contentType: "application/json",
         schema: PairLiquidityResponseType,
       },
     },
@@ -355,7 +351,6 @@ export class ListPairEvents extends EkuboAPIRoute {
     responses: {
       "200": {
         description: "A list of events for the given pair",
-        contentType: "application/json",
         schema: PairEventsResponseType,
       },
     },

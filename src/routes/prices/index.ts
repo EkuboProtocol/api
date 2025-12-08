@@ -48,7 +48,6 @@ export class GetPairPriceHistory extends EkuboAPIRoute {
     responses: {
       "200": {
         description: "The price history of the pair",
-        contentType: "application/json",
         schema: GetPairPriceHistoryResponseType,
       },
     },

@@ -134,7 +134,6 @@ export class GetOverviewPairs extends EkuboAPIRoute {
     responses: {
       "200": {
         description: "The stats for the protocols top pairs",
-        contentType: "application/json",
         schema: OverviewPairsResponseType,
       },
     },
@@ -178,7 +177,6 @@ export class GetOverviewRevenue extends EkuboAPIRoute {
     responses: {
       "200": {
         description: "The revenue stats for the protocol",
-        contentType: "application/json",
         schema: OverviewRevenueResponseType,
       },
     },
@@ -241,7 +239,6 @@ export class GetOverviewVolume extends EkuboAPIRoute {
     responses: {
       "200": {
         description: "The volume stats for the protocol",
-        contentType: "application/json",
         schema: OverviewVolumeResponseType,
       },
     },
@@ -305,7 +302,6 @@ export class GetOverviewTvl extends EkuboAPIRoute {
     responses: {
       "200": {
         description: "The TVL stats",
-        contentType: "application/json",
         schema: OverviewTvlResponseType,
       },
     },

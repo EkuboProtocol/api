@@ -63,7 +63,6 @@ export class ListRewardsForLocker extends EkuboAPIRoute {
         description:
           "The computed rewards for each campaign and the specified position",
         schema: GetRewardsForPositionResponseType,
-        contentType: "application/json",
       },
     },
   };
