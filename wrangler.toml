@@ -15,6 +15,7 @@ PG_CONNECTION_STRING = "postgresql://postgres:postgres@localhost:5432/postgres"
 ZERO_X_API_KEY = "9bdd43e7-e8bd-4a54-b9e0-64340c1eb681"
 
 [env.prod]
+vars = { ZERO_X_API_KEY = "9bdd43e7-e8bd-4a54-b9e0-64340c1eb681" }
 hyperdrive = [
     { binding = "HYPERDRIVE", id = "c6bd83f26cc840e3aa09870557f286f4" },
 ]
