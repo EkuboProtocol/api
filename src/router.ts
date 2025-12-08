@@ -42,7 +42,6 @@ import {
   ListVotesOnProposal,
 } from "./routes/governance";
 import { ListLimitOrders } from "./routes/limit";
-import { GetNftImage, GetNftMetadata } from "./routes/nft";
 
 export const router = OpenAPIRouter({
   schema: {
@@ -91,8 +90,6 @@ export const router = OpenAPIRouter({
   .get(ListTwapOrders.route, ListTwapOrders)
   .get(ListLimitOrders.route, ListLimitOrders)
   .get(GetPositionNftImage.route, GetPositionNftImage)
-  .get(GetNftMetadata.route, GetNftMetadata)
-  .get(GetNftImage.route, GetNftImage)
   .get(ListProposals.route, ListProposals)
   .get(ListTopDelegates.route, ListTopDelegates)
   .get(ListVotesOnProposal.route, ListVotesOnProposal)
