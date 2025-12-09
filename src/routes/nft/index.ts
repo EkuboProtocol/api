@@ -4,17 +4,11 @@ import { generateLimitOrderNft } from "./generateLimitOrderNft";
 import { generatePositionNft } from "./generatePositionNft";
 import { EkuboAPIRoute, RequestContext } from "../../shared/context";
 import { OpenAPIRouteSchema, Path } from "@cloudflare/itty-router-openapi";
-import {
-  feeToPercent,
-  formattedPrice,
-  NFTMetadata,
-  tickSpacingToPercent,
-  TokenIdType,
-} from "./format";
+import { NFTMetadata, TokenIdType } from "./format";
 import { createQueries } from "../../queries";
-import toHex from "../../shared/toHex";
-import { getTokenByAddress } from "../meta/tokens";
-import { DOUBLE_LIMIT_ORDER_TICK_SPACING } from "../../shared/constants";
+import { generatePositionNftMetadata } from "../../shared/metadatas/positions";
+import { generateTwapOrderNftMetadata } from "../../shared/metadatas/twap";
+import { generateLimitOrderNftMetadata } from "../../shared/metadatas/limit";
 import {
   AddressType,
   NumericStringType,
@@ -62,7 +56,7 @@ export class GetNftMetadata extends EkuboAPIRoute {
       BigInt(nftAddress),
       id,
     );
-    console.log(positionMetadata);
+
     const twammOrderMetadata =
       positionMetadata === null
         ? await queries.getTwammOrderMetadata(id, BigInt(nftAddress), chainId)
@@ -76,206 +70,17 @@ export class GetNftMetadata extends EkuboAPIRoute {
     const image = `${origin}/nft/${chainIdString}/${nftAddress}/${id}/image.svg`;
 
     if (positionMetadata !== null) {
-      const attributesStored: NFTMetadata["attributes"] = [
-        {
-          trait_type: "minted_tx_hash",
-          value: toHex(positionMetadata.minted_tx_hash),
-        },
-        { trait_type: "token0", value: toHex(positionMetadata.token0) },
-        { trait_type: "token1", value: toHex(positionMetadata.token1) },
-        { trait_type: "fee", value: positionMetadata.fee.toString() },
-        {
-          trait_type: "tick_spacing",
-          value: (positionMetadata.tick_spacing ?? 0).toString(),
-        },
-        {
-          trait_type: "extension",
-          value: toHex(positionMetadata.extension).toString(),
-        },
-        {
-          trait_type: "tick_lower",
-          value: positionMetadata.lower_bound.toString(),
-        },
-        {
-          trait_type: "tick_upper",
-          value: positionMetadata.upper_bound.toString(),
-        },
-        {
-          trait_type: "minted_timestamp",
-          value: positionMetadata.minted_timestamp.getTime().toString(),
-        },
-      ];
-
-      const [token0, token1] = await Promise.all([
-        getTokenByAddress(queries, chainId, positionMetadata.token0),
-        getTokenByAddress(queries, chainId, positionMetadata.token1),
-      ]);
-
-      if (token0 && token1) {
-        const reversed = token0.sort_order >= token1.sort_order;
-        const [numerator, denominator, lowerPrice, upperPrice] = reversed
-          ? [
-              token0,
-              token1,
-              formattedPrice(
-                -Number(positionMetadata.upper_bound),
-                token0.decimals,
-                token1.decimals,
-              ),
-              formattedPrice(
-                -Number(positionMetadata.lower_bound),
-                token0.decimals,
-                token1.decimals,
-              ),
-            ]
-          : [
-              token1,
-              token0,
-              formattedPrice(
-                Number(positionMetadata.lower_bound),
-                token1.decimals,
-                token0.decimals,
-              ),
-              formattedPrice(
-                Number(positionMetadata.upper_bound),
-                token1.decimals,
-                token0.decimals,
-              ),
-            ];
-
-        metadata = {
-          name: `${numerator.symbol} / ${
-            denominator.symbol
-          } : ${lowerPrice} <> ${upperPrice} : ${feeToPercent(
-            positionMetadata.fee,
-            positionMetadata.fee_denominator,
-          )} / ${positionMetadata.tick_spacing === null ? "FR" : tickSpacingToPercent(positionMetadata.tick_spacing)}`,
-          description: `A liquidity position in Ekubo consisting of the ${
-            numerator.name
-          } and ${
-            denominator.name
-          } tokens, active between the prices of ${lowerPrice} ${
-            numerator.symbol
-          } / ${denominator.symbol} to ${upperPrice} ${numerator.symbol} / ${
-            denominator.symbol
-          }. This position charges a ${feeToPercent(
-            positionMetadata.fee,
-            positionMetadata.fee_denominator,
-          )} fee on swaps.`,
-          image,
-          attributes: attributesStored,
-        };
-      } else {
-        metadata = {
-          name: `Ekubo NFT #${id}`,
-          description: "An NFT that represents a position in Ekubo Protocol",
-          image,
-          attributes: attributesStored,
-        };
-      }
+      metadata = await generatePositionNftMetadata(
+        positionMetadata,
+        id,
+        queries,
+        chainId,
+        image,
+      );
     } else if (twammOrderMetadata && twammOrderMetadata?.length !== 0) {
-      metadata = {
-        name: "Ekubo TWAP Order",
-        image,
-        attributes: [
-          {
-            trait_type: "minted_tx_hash",
-            value: toHex(twammOrderMetadata[0].minted_tx_hash),
-          },
-          {
-            trait_type: "minted_timestamp",
-            value: twammOrderMetadata[0].minted_timestamp.getTime().toString(),
-          },
-        ].concat(
-          twammOrderMetadata.flatMap((metadata, ix) => [
-            {
-              trait_type: `start_time_${ix}`,
-              value: (metadata.start_time.getTime() / 1000).toString(),
-            },
-            {
-              trait_type: `end_time_${ix}`,
-              value: (metadata.end_time.getTime() / 1000).toString(),
-            },
-            {
-              trait_type: `fee_${ix}`,
-              value: toHex(BigInt(metadata.fee)),
-            },
-            {
-              trait_type: `last_update_time_${ix}`,
-              value: (metadata.last_update_time.getTime() / 1000).toString(),
-            },
-            ...(BigInt(metadata.sale_rate0) === 0n &&
-            BigInt(metadata.sale_rate1) === 0n
-              ? []
-              : BigInt(metadata.sale_rate0) > 0n
-                ? [
-                    {
-                      trait_type: `sell_token_${ix}`,
-                      value: toHex(BigInt(metadata.token0)),
-                    },
-                    {
-                      trait_type: `buy_token_${ix}`,
-                      value: toHex(BigInt(metadata.token1)),
-                    },
-                  ]
-                : [
-                    {
-                      trait_type: `sell_token_${ix}`,
-                      value: toHex(BigInt(metadata.token1)),
-                    },
-                    {
-                      trait_type: `buy_token_${ix}`,
-                      value: toHex(BigInt(metadata.token0)),
-                    },
-                  ]),
-          ]),
-        ),
-        description: "A TWAP order in Ekubo Protocol",
-      };
+      metadata = generateTwapOrderNftMetadata(twammOrderMetadata, image);
     } else if (limitOrderMetadata && limitOrderMetadata.length !== 0) {
-      metadata = {
-        name: "Ekubo Limit Order",
-        description: "A Limit order in Ekubo Protocol",
-        image,
-        attributes: [
-          {
-            trait_type: "minted_tx_hash",
-            value: toHex(limitOrderMetadata[0].minted_tx_hash),
-          },
-          {
-            trait_type: "minted_timestamp",
-            value: limitOrderMetadata[0].minted_timestamp.getTime().toString(),
-          },
-        ].concat(
-          limitOrderMetadata.flatMap((metadata, ix) => {
-            const isSellingToken0 =
-              metadata.tick % DOUBLE_LIMIT_ORDER_TICK_SPACING === 0;
-
-            const [sellToken, buyToken] = isSellingToken0
-              ? [metadata.token0, metadata.token1]
-              : [metadata.token1, metadata.token0];
-
-            return [
-              {
-                trait_type: `sell_amount_${ix}`,
-                value: metadata.amount ?? "0",
-              },
-              {
-                trait_type: `limit_tick_${ix}`,
-                value: metadata.tick.toString(),
-              },
-              {
-                trait_type: `sell_token_${ix}`,
-                value: toHex(BigInt(sellToken)),
-              },
-              {
-                trait_type: `buy_token_${ix}`,
-                value: toHex(BigInt(buyToken)),
-              },
-            ];
-          }),
-        ),
-      };
+      metadata = generateLimitOrderNftMetadata(limitOrderMetadata, image);
     } else {
       throw new StatusError(404, `Token ID ${id} not found`);
     }
