@@ -12,7 +12,7 @@ import {
   Query,
 } from "@cloudflare/itty-router-openapi";
 import { z } from "zod";
-import { ETH_V2_TOKEN_ADDRESS_VALUE } from "../../shared/constants";
+import { ETH_TOKEN_ADDRESS_VALUE } from "../../shared/constants";
 
 const PriceHistoryPointType = z.object({
   start: z.union([z.string(), z.date()]),
@@ -126,7 +126,7 @@ export class GetPairPriceHistory extends EkuboAPIRoute {
     const price0 =
       (
         await queries.getVolumeWeightedPrice({
-          baseToken: ETH_V2_TOKEN_ADDRESS_VALUE,
+          baseToken: ETH_TOKEN_ADDRESS_VALUE,
           quoteToken: token0Address,
           chainId,
         })
@@ -134,7 +134,7 @@ export class GetPairPriceHistory extends EkuboAPIRoute {
     const price1 =
       (
         await queries.getVolumeWeightedPrice({
-          baseToken: ETH_V2_TOKEN_ADDRESS_VALUE,
+          baseToken: ETH_TOKEN_ADDRESS_VALUE,
           quoteToken: token1Address,
           chainId,
         })

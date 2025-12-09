@@ -29,7 +29,7 @@ export async function generatePositionNftMetadata(
     { trait_type: "fee", value: positionMetadata.fee.toString() },
     {
       trait_type: "tick_spacing",
-      value: positionMetadata.tick_spacing?.toString() ?? null,
+      value: (positionMetadata.tick_spacing?.toString() ?? 0).toString(),
     },
     {
       trait_type: "extension",
@@ -98,9 +98,9 @@ export async function generatePositionNftMetadata(
       } : ${lowerPrice} <> ${upperPrice} : ${feeToPercent(
         positionMetadata.fee,
         positionMetadata.fee_denominator,
-      )}% / ${isFullRange ? "MAX" : tickSpacingToPercent(positionMetadata.tick_spacing ?? "")}%`,
+      )}% / ${isFullRange ? "MAX" : positionMetadata.tick_spacing === null ? "FR" : tickSpacingToPercent(positionMetadata.tick_spacing)}%`,
       description: isFullRange
-        ? `A full range liquidity position in Ekubo consisting of the ${numerator.name} and ${denominator.name} tokens and charging a ${feeToPercent(positionMetadata.fee, positionMetadata.fee_denominator)} fee on swaps.`
+        ? `A full range liquidity position in Ekubo consisting of the ${numerator.name} and ${denominator.name} tokens and charging a ${feeToPercent(positionMetadata.fee, positionMetadata.fee_denominator)}% fee on swaps.`
         : `A liquidity position in Ekubo consisting of the ${
             numerator.name
           } and ${
