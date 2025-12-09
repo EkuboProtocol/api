@@ -267,7 +267,7 @@ export class ListTokens extends EkuboAPIRoute {
 
     return json(response, {
       headers: {
-        "cache-control": `public, max-age=600`,
+        "cache-control": `public, max-age=60`,
       },
     });
   }
@@ -361,7 +361,7 @@ export class BatchGetTokens extends EkuboAPIRoute {
 
     return json(response, {
       headers: {
-        "cache-control": `public, max-age=600`,
+        "cache-control": `public, max-age=60`,
       },
     });
   }
@@ -404,7 +404,7 @@ export class GetToken extends EkuboAPIRoute {
     const response = token satisfies TokenInfo;
     return json(response, {
       headers: {
-        "cache-control": "public, max-age=43200",
+        "cache-control": "public, max-age=600",
       },
     });
   }
