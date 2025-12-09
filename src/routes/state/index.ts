@@ -9,25 +9,11 @@ import { createQueries } from "../../queries";
 import {
   AddressType,
   ChainIdType,
-  DecimalStringType,
   HexStringType,
   NumericStringType,
 } from "../../shared/validation/address";
 import { z } from "zod";
 import toHex from "../../shared/toHex";
-
-const PoolKeyType = z.object({
-  chain_id: HexStringType,
-  core_address: HexStringType,
-  pool_id: HexStringType,
-  token0: HexStringType,
-  token1: HexStringType,
-  fee: HexStringType,
-  tick_spacing: z.number().int(),
-  extension: HexStringType,
-});
-
-const ListPoolKeysResponseType = z.array(PoolKeyType);
 
 const LiquidityPointType = z.object({
   tick: z.string(),
@@ -38,54 +24,6 @@ const LiquiditySeriesType = z.array(LiquidityPointType);
 const LiquidityResponseType = z.object({
   data: LiquiditySeriesType,
 });
-
-export class ListPoolKeys extends EkuboAPIRoute {
-  static route = "/v1/poolKeys";
-
-  static schema: OpenAPIRouteSchema = {
-    tags: ["Meta"],
-    summary: "List pool keys",
-    description: "Returns all the pool keys that have been initialized",
-    parameters: {
-      chainId: Query(ChainIdType, { required: false }),
-    },
-    responses: {
-      "200": {
-        description:
-          "The pool keys of all the pools that have been initialized",
-        schema: ListPoolKeysResponseType,
-      },
-    },
-  };
-
-  async handle(request: IRequest, { env }: RequestContext) {
-    const chainId =
-      request.query.chainId !== undefined
-        ? ChainIdType.parse(request.query.chainId)
-        : null;
-
-    const queries = await createQueries(env);
-
-    const rows = await queries.listAllPoolKeys(chainId);
-
-    const response = rows.map((pool) => ({
-      chain_id: toHex(pool.chain_id),
-      core_address: toHex(pool.core_address),
-      pool_id: toHex(pool.pool_id, 32),
-      token0: toHex(pool.token0),
-      token1: toHex(pool.token1),
-      fee: toHex(pool.fee),
-      tick_spacing: Number(pool.tick_spacing),
-      extension: toHex(pool.extension),
-    })) satisfies z.infer<typeof ListPoolKeysResponseType>;
-
-    return json(response, {
-      headers: {
-        "cache-control": "public, max-age=180, must-revalidate",
-      },
-    });
-  }
-}
 
 export class GetPoolLiquidity extends EkuboAPIRoute {
   static route =

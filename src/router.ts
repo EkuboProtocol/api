@@ -15,7 +15,7 @@ import {
   GetPairLiquidity,
   ListPairEvents,
 } from "./routes/stats/pair";
-import { GetPoolLiquidity, ListPoolKeys } from "./routes/state";
+import { GetPoolLiquidity } from "./routes/state";
 import { error } from "itty-router";
 import { GetPairPriceHistory } from "./routes/prices";
 import {
@@ -76,7 +76,6 @@ export const router = OpenAPIRouter({
   .get(GetPairInfoVolume.route, GetPairInfoVolume)
   .get(GetPairInfoPools.route, GetPairInfoPools)
   .get(GetPairPriceHistory.route, GetPairPriceHistory)
-  .get(ListPoolKeys.route, ListPoolKeys)
   .get(GetPoolLiquidity.route, GetPoolLiquidity)
   .get(GetPairLiquidity.route, GetPairLiquidity)
   .get(ListPairEvents.route, ListPairEvents)

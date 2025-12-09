@@ -39,17 +39,6 @@ export interface LimitOrderMetadata {
   amount: string;
 }
 
-export interface ListPoolKeysQueryResult {
-  chain_id: string;
-  core_address: string;
-  pool_id: string;
-  token0: string;
-  token1: string;
-  fee: string;
-  tick_spacing: string;
-  extension: string;
-}
-
 export interface TwammPoolStateQueryResult {
   pool_key_id: string;
   token0: string;
@@ -264,22 +253,6 @@ export class Queries {
     `;
     if (rows.length !== 1) return null;
     return rows[0];
-  }
-
-  public async listAllPoolKeys(chainId: bigint | null) {
-    const rows = await this.sql<ListPoolKeysQueryResult[]>`
-      SELECT chain_id,
-             core_address,
-             pool_id,
-             token0,
-             token1,
-             fee,
-             tick_spacing,
-             pool_extension AS extension
-      FROM pool_keys
-      WHERE chain_id = COALESCE(${chainId}, chain_id)
-    `;
-    return rows;
   }
 
   public async getPositionMetadata(
