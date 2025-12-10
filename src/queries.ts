@@ -282,9 +282,10 @@ export class Queries {
             upper_bound,
             pool_key_id
           FROM
-            position_updates AS pu
+            position_updates AS pu LEFT JOIN nft_locker_mappings nlm ON pu.locker = nlm.locker
           WHERE
-            pu.salt = nft.token_id
+          (pu.salt = nft.token_id
+            OR (nlm.token_id_transform IS NOT NULL AND pu.salt = nft_token_salt(nlm.token_id_transform, nft.token_id)))
             AND pu.chain_id = ${chainId}
           ORDER BY
             pu.event_id DESC
@@ -452,12 +453,14 @@ export class Queries {
         FROM position_updates AS pu
                  JOIN blocks AS b ON b.block_number = pu.block_number
                                      AND b.chain_id = pu.chain_id
-                 JOIN nonfungible_token_transfers AS nft ON pu.salt = nft.token_id
+                 JOIN nonfungible_token_transfers AS nft ON nft.token_id = ${tokenId.toString()}
                                        AND nft.from_address = 0
                                        AND nft.chain_id = pu.chain_id
                  LEFT JOIN nft_locker_mappings AS nlm ON nlm.nft_address = nft.emitter
                                      AND nlm.chain_id = nft.chain_id
-        WHERE pu.salt = ${tokenId.toString()}
+        WHERE 
+          (pu.salt = nft.token_id
+            OR (nlm.token_id_transform IS NOT NULL AND pu.salt = nft_token_salt(nlm.token_id_transform, nft.token_id)))
           AND pu.chain_id = ${chainId}
           AND (
             nft.emitter = ${lockerAddress.toString()}
@@ -473,12 +476,14 @@ export class Queries {
         FROM position_fees_collected AS pfc
                  JOIN blocks AS b ON b.block_number = pfc.block_number
                                      AND b.chain_id = pfc.chain_id
-                 JOIN nonfungible_token_transfers AS nft ON pfc.salt = nft.token_id
+                 JOIN nonfungible_token_transfers AS nft ON nft.token_id = ${tokenId.toString()}
                                        AND nft.from_address = 0
                                        AND nft.chain_id = pfc.chain_id
                  LEFT JOIN nft_locker_mappings AS nlm ON nlm.nft_address = nft.emitter
                                      AND nlm.chain_id = nft.chain_id
-        WHERE pfc.salt = ${tokenId.toString()}
+        WHERE (pfc.salt = nft.token_id
+            OR (nlm.token_id_transform IS NOT NULL AND pfc.salt = nft_token_salt(nlm.token_id_transform, nft.token_id)))
+
           AND pfc.chain_id = ${chainId}
           AND (
             nft.emitter = ${lockerAddress.toString()}
