@@ -2,6 +2,7 @@ import { OpenAPIRouteSchema, Path } from "@cloudflare/itty-router-openapi";
 import { IRequest, json, StatusError } from "itty-router";
 import { EkuboAPIRoute, RequestContext } from "../../shared/context";
 import {
+  AddressType,
   ChainIdType,
   DecimalStringType,
   NumericStringType,
@@ -25,6 +26,7 @@ type TwammStateResponseType = z.infer<typeof GetTwammStateResponseType>;
 
 const SharedGetPairStateParameters = {
   chainId: Path(ChainIdType, { required: true }),
+  coreAddress: Path(AddressType, { required: true, example: "0xabcd" }),
   tokenA: Path(TokenIdentifierType, { required: true, example: "0x0" }),
   tokenB: Path(TokenIdentifierType, {
     required: true,
@@ -33,7 +35,7 @@ const SharedGetPairStateParameters = {
 };
 
 export class GetTwammPoolState extends EkuboAPIRoute {
-  static route = "/twap/pools/:chainId/:tokenA/:tokenB/:fee";
+  static route = "/twap/pools/:chainId/:coreAddress/:tokenA/:tokenB/:fee";
 
   static schema: OpenAPIRouteSchema = {
     tags: ["TWAP"],
@@ -75,12 +77,14 @@ export class GetTwammPoolState extends EkuboAPIRoute {
     const [stateResults, saleRateDeltas] = await Promise.all([
       queries.getTwammPoolStateByKey({
         chainId: BigInt(request.params.chainId),
+        coreAddress: BigInt(request.params.coreAddress),
         token0,
         token1,
         fee,
       }),
       queries.getSaleRateDeltasByKey({
         chainId: BigInt(request.params.chainId),
+        coreAddress: BigInt(request.params.coreAddress),
         token0,
         token1,
         fee,
