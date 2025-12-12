@@ -1638,7 +1638,7 @@ WITH funded_roots AS (SELECT if.chain_id,
                             FROM funded_roots
                             WHERE if_no = 1),
      deployed_drops AS (SELECT COALESCE(dac.chain_id, fr.chain_id)    AS chain_id,
-                               COALESCE(fr.drop_address, dac.address) AS drop_address,
+                               COALESCE(dac.address, fr.drop_address) AS drop_address,
                                fr.owner,
                                COALESCE(dac.token, fr.token)          AS token,
                                gd.root,
@@ -1666,6 +1666,7 @@ SELECT (SELECT slug
 FROM incentives.generated_drop_proof gdp
          JOIN deployed_drops fd ON gdp.drop_id = fd.id
 WHERE address = ${address} AND ${chainId === null ? this.sql`true` : this.sql`fd.chain_id = ${chainId}`}
+AND chain_id IS NOT NULL
     `;
   }
 
