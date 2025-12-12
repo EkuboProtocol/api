@@ -674,15 +674,7 @@ export class Queries {
         delta1: string;
       }[]
     >`
-      WITH earliest_block_time AS (
-        SELECT block_time
-        FROM swaps
-        WHERE chain_id = ${chainId}
-          AND block_time >= NOW() - INTERVAL '1 days'
-        ORDER BY block_time
-        LIMIT 1
-      ),
-      relevant_pool_keys AS (
+      WITH relevant_pool_keys AS (
         SELECT pool_key_id,
                fee,
                pool_extension AS extension,
@@ -693,6 +685,52 @@ export class Queries {
           AND token1 = ${token1.toString()}
           AND chain_id = ${chainId}
       ),
+      earliest_block AS (
+        SELECT block_number, block_time
+        FROM blocks
+        WHERE chain_id = ${chainId}
+          AND block_time >= NOW() - INTERVAL '1 days'
+        ORDER BY block_time ASC
+        LIMIT 1
+      ),
+      min_event AS (
+        SELECT compute_event_id(block_number, 0, 0) AS min_event_id,
+               block_time                           AS cutoff_time
+        FROM earliest_block
+      ),
+      last_day_swaps AS (
+        SELECT s.pool_key_id,
+               s.block_time,
+               s.transaction_hash,
+               s.event_id,
+               s.locker,
+               s.delta0,
+               s.delta1
+        FROM min_event me
+             JOIN swaps s ON s.chain_id = ${chainId}
+             JOIN relevant_pool_keys rk ON s.pool_key_id = rk.pool_key_id
+        WHERE s.event_id >= me.min_event_id
+        ORDER BY s.event_id DESC
+        LIMIT ${limit}
+      ),
+      last_day_updates AS (
+        SELECT pu.pool_key_id,
+               b.block_time,
+               pu.transaction_hash,
+               pu.event_id,
+               pu.locker,
+               pu.delta0,
+               pu.delta1
+        FROM min_event me
+                 JOIN position_updates pu ON pu.chain_id = ${chainId}
+                 JOIN blocks b ON pu.block_number = b.block_number
+                               AND pu.chain_id = b.chain_id
+                 JOIN relevant_pool_keys rk ON pu.pool_key_id = rk.pool_key_id
+        WHERE pu.event_id >= me.min_event_id
+          AND b.block_time >= me.cutoff_time
+        ORDER BY pu.event_id DESC
+        LIMIT ${limit}
+      ),
       relevant_swaps AS (
         SELECT 0 AS type,
                relevant_pool_keys.pool_key_id AS pool_key_id,
@@ -700,37 +738,30 @@ export class Queries {
                relevant_pool_keys.tick_spacing,
                relevant_pool_keys.extension,
                relevant_pool_keys.core_address,
-               swaps.block_time AS timestamp,
+               last_day_swaps.block_time AS timestamp,
                transaction_hash,
                event_id,
                locker,
                delta0,
                delta1
-        FROM swaps JOIN relevant_pool_keys ON swaps.pool_key_id = relevant_pool_keys.pool_key_id,
-             earliest_block_time
-        WHERE swaps.block_time >= earliest_block_time.block_time
-          AND swaps.chain_id = ${chainId}
+        FROM last_day_swaps
+               JOIN relevant_pool_keys ON last_day_swaps.pool_key_id = relevant_pool_keys.pool_key_id
       ),
       relevant_updates AS (
         SELECT 1 AS type,
-               relevant_pool_keys.pool_key_id AS pool_key_id,
-               relevant_pool_keys.fee,
-               relevant_pool_keys.tick_spacing,
-               relevant_pool_keys.extension,
-               relevant_pool_keys.core_address,
-               blocks.block_time AS timestamp,
+               rk.pool_key_id AS pool_key_id,
+               rk.fee,
+               rk.tick_spacing,
+               rk.extension,
+               rk.core_address,
+               last_day_updates.block_time AS timestamp,
                transaction_hash,
                event_id,
                locker,
                delta0,
                delta1
-        FROM position_updates
-                 JOIN relevant_pool_keys ON position_updates.pool_key_id = relevant_pool_keys.pool_key_id
-                 JOIN blocks ON position_updates.block_number = blocks.block_number
-                                AND position_updates.chain_id = blocks.chain_id,
-             earliest_block_time
-        WHERE blocks.block_time >= earliest_block_time.block_time
-          AND position_updates.chain_id = ${chainId}
+        FROM last_day_updates
+                 JOIN relevant_pool_keys rk ON last_day_updates.pool_key_id = rk.pool_key_id
       ),
       combined AS (
         SELECT *
