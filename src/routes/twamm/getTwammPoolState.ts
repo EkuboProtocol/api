@@ -26,7 +26,6 @@ type TwammStateResponseType = z.infer<typeof GetTwammStateResponseType>;
 
 const SharedGetPairStateParameters = {
   chainId: Path(ChainIdType, { required: true }),
-  coreAddress: Path(AddressType, { required: true, example: "0xabcd" }),
   tokenA: Path(TokenIdentifierType, { required: true, example: "0x0" }),
   tokenB: Path(TokenIdentifierType, {
     required: true,
@@ -44,6 +43,7 @@ export class GetTwammPoolState extends EkuboAPIRoute {
       "Returns the current state of the given TWAMM pool, including the future order expirations",
     parameters: {
       ...SharedGetPairStateParameters,
+      coreAddress: Path(AddressType, { required: true, example: "0xabcd" }),
       fee: Path(NumericStringType, { required: true, example: "" }),
     },
     responses: {
