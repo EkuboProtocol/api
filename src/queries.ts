@@ -674,115 +674,61 @@ export class Queries {
         delta1: string;
       }[]
     >`
-      WITH relevant_pool_keys AS (
-        SELECT pool_key_id,
-               fee,
-               pool_extension AS extension,
-               tick_spacing,
-               core_address
-        FROM pool_keys
-        WHERE token0 = ${token0.toString()}
-          AND token1 = ${token1.toString()}
-          AND chain_id = ${chainId}
-      ),
-      earliest_block AS (
-        SELECT block_number, block_time
-        FROM blocks
-        WHERE chain_id = ${chainId}
-          AND block_time >= NOW() - INTERVAL '1 days'
-        ORDER BY block_time ASC
-        LIMIT 1
-      ),
-      min_event AS (
-        SELECT compute_event_id(block_number, 0, 0) AS min_event_id,
-               block_time                           AS cutoff_time
-        FROM earliest_block
-      ),
-      last_day_swaps AS (
-        SELECT s.pool_key_id,
-               s.block_time,
-               s.transaction_hash,
-               s.event_id,
-               s.locker,
-               s.delta0,
-               s.delta1
-        FROM min_event me
-             JOIN swaps s ON s.chain_id = ${chainId}
-             JOIN relevant_pool_keys rk ON s.pool_key_id = rk.pool_key_id
-        WHERE s.event_id >= me.min_event_id
-        ORDER BY s.event_id DESC
-        LIMIT ${limit}
-      ),
-      last_day_updates AS (
-        SELECT pu.pool_key_id,
-               b.block_time,
-               pu.transaction_hash,
-               pu.event_id,
-               pu.locker,
-               pu.delta0,
-               pu.delta1
-        FROM min_event me
-                 JOIN position_updates pu ON pu.chain_id = ${chainId}
-                 JOIN blocks b ON pu.block_number = b.block_number
-                               AND pu.chain_id = b.chain_id
-                 JOIN relevant_pool_keys rk ON pu.pool_key_id = rk.pool_key_id
-        WHERE pu.event_id >= me.min_event_id
-          AND b.block_time >= me.cutoff_time
-        ORDER BY pu.event_id DESC
-        LIMIT ${limit}
-      ),
-      relevant_swaps AS (
-        SELECT 0 AS type,
-               relevant_pool_keys.pool_key_id AS pool_key_id,
-               relevant_pool_keys.fee,
-               relevant_pool_keys.tick_spacing,
-               relevant_pool_keys.extension,
-               relevant_pool_keys.core_address,
-               last_day_swaps.block_time AS timestamp,
-               transaction_hash,
-               event_id,
-               locker,
-               delta0,
-               delta1
-        FROM last_day_swaps
-               JOIN relevant_pool_keys ON last_day_swaps.pool_key_id = relevant_pool_keys.pool_key_id
-      ),
-      relevant_updates AS (
-        SELECT 1 AS type,
-               rk.pool_key_id AS pool_key_id,
-               rk.fee,
-               rk.tick_spacing,
-               rk.extension,
-               rk.core_address,
-               last_day_updates.block_time AS timestamp,
-               transaction_hash,
-               event_id,
-               locker,
-               delta0,
-               delta1
-        FROM last_day_updates
-                 JOIN relevant_pool_keys rk ON last_day_updates.pool_key_id = rk.pool_key_id
-      ),
-      combined AS (
-        SELECT *
-        FROM relevant_updates
-        UNION ALL
-        SELECT *
-        FROM relevant_swaps
-      )
-      SELECT core_address,
-             delta0,
-             delta1,
-             extension,
-             fee,
-             locker,
-             tick_spacing,
-             timestamp,
-             transaction_hash,
-             type
-      FROM combined
-      ORDER BY event_id DESC
-      LIMIT ${limit}
+    WITH lb AS MATERIALIZED (SELECT block_time
+                         FROM blocks
+                         WHERE chain_id = ${chainId}
+                         ORDER BY block_number DESC
+                         LIMIT 1),
+     min_event AS MATERIALIZED (SELECT compute_event_id(
+                                               (SELECT block_number
+                                                FROM blocks
+                                                WHERE chain_id = ${chainId}
+                                                  AND block_time >= (SELECT block_time FROM lb) - INTERVAL '1 day'
+                                                ORDER BY block_time, block_number
+                                                LIMIT 1),
+                                               0, 0
+                                       ) AS min_event_id),
+     rpk AS MATERIALIZED (SELECT pool_key_id, core_address, pool_extension, fee, tick_spacing
+                          FROM pool_keys
+                          WHERE chain_id = ${chainId}
+                            AND token0 = ${token0.toString()}
+                            AND token1 = ${token1.toString()}),
+     all_events AS (SELECT pbc.*,
+                           rpk.*,
+                           COALESCE(s.locker, pu.locker) AS locker,
+                           CASE
+                               WHEN EXISTS (SELECT 1
+                                            FROM swaps s
+                                            WHERE s.chain_id = pbc.chain_id
+                                              AND s.event_id = pbc.event_id) THEN 0
+                               WHEN EXISTS (SELECT 1
+                                            FROM position_updates pu
+                                            WHERE pu.chain_id = pbc.chain_id
+                                              AND pu.event_id = pbc.event_id) THEN 1
+                               END                       AS event_type
+                    FROM pool_balance_change pbc
+                             JOIN rpk USING (pool_key_id)
+                             LEFT JOIN swaps s USING (chain_id, event_id)
+                             LEFT JOIN position_updates pu USING (chain_id, event_id)
+
+                             CROSS JOIN min_event me
+                    WHERE pbc.chain_id = ${chainId}
+                      AND pbc.event_id >= me.min_event_id
+                      AND (s.event_id IS NOT NULL OR pu.event_id IS NOT NULL)
+                    ORDER BY pbc.event_id DESC
+                    LIMIT ${limit})
+SELECT core_address,
+       delta0,
+       delta1,
+       pool_extension AS "extension",
+       fee,
+       locker,
+       tick_spacing,
+       block_time     AS timestamp,
+       transaction_hash,
+       event_type     AS type
+FROM all_events
+ORDER BY event_id DESC
     `;
   }
 
