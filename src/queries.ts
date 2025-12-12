@@ -2027,6 +2027,10 @@ export async function createQueries(env: Env) {
     max: 1,
     fetch_types: false,
     types: { bigint: postgres.BigInt },
+    connection: {
+      // set the statement timeout to aggressively disconnect
+      statement_timeout: 5_000,
+    },
   });
 
   return new Queries(sql);
