@@ -980,15 +980,22 @@ ORDER BY po.token_id DESC
 
   public async getTwammPoolStateByKey({
     chainId,
+    coreAddress,
     token0,
     token1,
     fee,
   }: {
     chainId: bigint;
+    coreAddress?: bigint;
     token0: bigint;
     token1: bigint;
     fee?: bigint;
   }) {
+    const coreAddressCondition =
+      coreAddress !== undefined
+        ? this.sql`pk.core_address = ${coreAddress.toString()}`
+        : this.sql`TRUE`;
+
     const feeParam = fee?.toString() ?? null;
     return this.sql<
       Pick<
@@ -1005,6 +1012,7 @@ ORDER BY po.token_id DESC
       WHERE pk.chain_id = ${chainId}
         AND pk.token0 = ${token0.toString()}
         AND pk.token1 = ${token1.toString()}
+        AND ${coreAddressCondition}
         AND ${feeParam ? this.sql`pk.fee = ${feeParam}` : this.sql`true`}
     `;
   }
@@ -1014,12 +1022,19 @@ ORDER BY po.token_id DESC
     token1,
     fee,
     chainId,
+    coreAddress,
   }: {
     chainId: bigint;
+    coreAddress?: bigint;
     token0: bigint;
     token1: bigint;
     fee?: bigint;
   }) {
+    const coreAddressCondition =
+      coreAddress !== undefined
+        ? this.sql`pk.core_address = ${coreAddress.toString()}`
+        : this.sql`TRUE`;
+
     const feeParam = fee?.toString() ?? null;
     return this.sql<
       {
@@ -1035,6 +1050,7 @@ ORDER BY po.token_id DESC
       WHERE pk.chain_id = ${chainId}
         AND pk.token0 = ${token0.toString()}
         AND pk.token1 = ${token1.toString()}
+        AND ${coreAddressCondition}
         AND ${feeParam ? this.sql`pk.fee = ${feeParam}` : this.sql`true`}
         AND time > tps.last_virtual_execution_time
       GROUP BY time
