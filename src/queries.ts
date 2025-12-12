@@ -698,77 +698,41 @@ export class Queries {
                block_time                           AS cutoff_time
         FROM earliest_block
       ),
-      last_day_swaps AS (
-        SELECT s.pool_key_id,
-               s.block_time,
-               s.transaction_hash,
-               s.event_id,
-               s.locker,
-               s.delta0,
-               s.delta1
+      pool_events AS (
+        SELECT pbc.pool_key_id,
+               pbc.block_time,
+               pbc.transaction_hash,
+               pbc.event_id,
+               pbc.delta0,
+               pbc.delta1
         FROM min_event me
-             JOIN swaps s ON s.chain_id = ${chainId}
-             JOIN relevant_pool_keys rk ON s.pool_key_id = rk.pool_key_id
-        WHERE s.event_id >= me.min_event_id
-        ORDER BY s.event_id DESC
+                 JOIN pool_balance_change pbc ON pbc.chain_id = ${chainId}
+        WHERE pbc.pool_key_id IN (SELECT pool_key_id FROM relevant_pool_keys)
+          AND pbc.event_id >= me.min_event_id
+        ORDER BY pbc.event_id DESC
         LIMIT ${limit}
       ),
-      last_day_updates AS (
-        SELECT pu.pool_key_id,
-               b.block_time,
-               pu.transaction_hash,
-               pu.event_id,
-               pu.locker,
-               pu.delta0,
-               pu.delta1
-        FROM min_event me
-                 JOIN position_updates pu ON pu.chain_id = ${chainId}
-                 JOIN blocks b ON pu.block_number = b.block_number
-                               AND pu.chain_id = b.chain_id
-                 JOIN relevant_pool_keys rk ON pu.pool_key_id = rk.pool_key_id
-        WHERE pu.event_id >= me.min_event_id
-          AND b.block_time >= me.cutoff_time
-        ORDER BY pu.event_id DESC
-        LIMIT ${limit}
-      ),
-      relevant_swaps AS (
-        SELECT 0 AS type,
-               relevant_pool_keys.pool_key_id AS pool_key_id,
-               relevant_pool_keys.fee,
-               relevant_pool_keys.tick_spacing,
-               relevant_pool_keys.extension,
-               relevant_pool_keys.core_address,
-               last_day_swaps.block_time AS timestamp,
-               transaction_hash,
-               event_id,
-               locker,
-               delta0,
-               delta1
-        FROM last_day_swaps
-               JOIN relevant_pool_keys ON last_day_swaps.pool_key_id = relevant_pool_keys.pool_key_id
-      ),
-      relevant_updates AS (
-        SELECT 1 AS type,
+      enriched_events AS (
+        SELECT CASE WHEN s.event_id IS NOT NULL THEN 0 ELSE 1 END AS type,
                rk.pool_key_id AS pool_key_id,
                rk.fee,
                rk.tick_spacing,
                rk.extension,
                rk.core_address,
-               last_day_updates.block_time AS timestamp,
-               transaction_hash,
-               event_id,
-               locker,
-               delta0,
-               delta1
-        FROM last_day_updates
-                 JOIN relevant_pool_keys rk ON last_day_updates.pool_key_id = rk.pool_key_id
+               pe.block_time AS timestamp,
+               COALESCE(s.transaction_hash, pu.transaction_hash, pe.transaction_hash) AS transaction_hash,
+               pe.event_id,
+               COALESCE(s.locker, pu.locker) AS locker,
+               pe.delta0,
+               pe.delta1
+        FROM pool_events pe
+                 JOIN relevant_pool_keys rk ON pe.pool_key_id = rk.pool_key_id
+                 LEFT JOIN swaps s ON s.chain_id = ${chainId} AND s.event_id = pe.event_id
+                 LEFT JOIN position_updates pu ON pu.chain_id = ${chainId} AND pu.event_id = pe.event_id
       ),
       combined AS (
         SELECT *
-        FROM relevant_updates
-        UNION ALL
-        SELECT *
-        FROM relevant_swaps
+        FROM enriched_events
       )
       SELECT core_address,
              delta0,
