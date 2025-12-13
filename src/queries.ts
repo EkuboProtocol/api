@@ -674,48 +674,56 @@ export class Queries {
         delta1: string;
       }[]
     >`
-    WITH lb AS MATERIALIZED (SELECT block_time
-                         FROM blocks
-                         WHERE chain_id = ${chainId}
-                         ORDER BY block_number DESC
-                         LIMIT 1),
-     min_event AS MATERIALIZED (SELECT compute_event_id(
+WITH last_block AS (SELECT block_time
+                    FROM blocks
+                    WHERE chain_id = ${chainId}
+                    ORDER BY block_number DESC
+                    LIMIT 1),
+     minimum_event_from_day AS (SELECT compute_event_id(
                                                (SELECT block_number
                                                 FROM blocks
                                                 WHERE chain_id = ${chainId}
-                                                  AND block_time >= (SELECT block_time FROM lb) - INTERVAL '1 day'
+                                                  AND block_time >= (SELECT block_time FROM last_block) - INTERVAL '1 day'
                                                 ORDER BY block_time, block_number
                                                 LIMIT 1),
                                                0, 0
                                        ) AS min_event_id),
-     rpk AS MATERIALIZED (SELECT pool_key_id, core_address, pool_extension, fee, tick_spacing
-                          FROM pool_keys
-                          WHERE chain_id = ${chainId}
-                            AND token0 = ${token0.toString()}
-                            AND token1 = ${token1.toString()}),
-     all_events AS (SELECT pbc.*,
-                           rpk.*,
-                           COALESCE(s.locker, pu.locker) AS locker,
+     relevant_pool_keys AS (SELECT pool_key_id
+                            FROM pool_keys
+                            WHERE chain_id = ${chainId}
+                              AND token0 = ${token0.toString()}
+                              AND token1 = ${token1.toString()}),
+     last_day_events AS (SELECT pbc.chain_id,
+                                pbc.event_id,
+                                rpk.pool_key_id
+                         FROM pool_balance_change pbc
+                                  JOIN relevant_pool_keys rpk USING (pool_key_id),
+                              minimum_event_from_day
+                         WHERE chain_id = ${chainId}
+                           AND event_id >= min_event_id
+                         ORDER BY event_id DESC
+                         LIMIT ${limit}),
+     all_events AS (SELECT lde.*,
+                           COALESCE(s.block_number, pu.block_number)         AS block_number,
+                           COALESCE(s.transaction_hash, pu.transaction_hash) AS transaction_hash,
+                           COALESCE(s.delta0, pu.delta0)                     AS delta0,
+                           COALESCE(s.delta1, pu.delta1)                     AS delta1,
+                           COALESCE(s.locker, pu.locker)                     AS locker,
                            CASE
                                WHEN EXISTS (SELECT 1
                                             FROM swaps s
-                                            WHERE s.chain_id = pbc.chain_id
-                                              AND s.event_id = pbc.event_id) THEN 0
+                                            WHERE s.chain_id = lde.chain_id
+                                              AND s.event_id = lde.event_id) THEN 0
                                WHEN EXISTS (SELECT 1
                                             FROM position_updates pu
-                                            WHERE pu.chain_id = pbc.chain_id
-                                              AND pu.event_id = pbc.event_id) THEN 1
-                               END                       AS event_type
-                    FROM pool_balance_change pbc
-                             JOIN rpk USING (pool_key_id)
+                                            WHERE pu.chain_id = lde.chain_id
+                                              AND pu.event_id = lde.event_id) THEN 1
+                               END                                           AS event_type
+                    FROM last_day_events lde
                              LEFT JOIN swaps s USING (chain_id, event_id)
                              LEFT JOIN position_updates pu USING (chain_id, event_id)
-
-                             CROSS JOIN min_event me
-                    WHERE pbc.chain_id = ${chainId}
-                      AND pbc.event_id >= me.min_event_id
+                    WHERE lde.chain_id = ${chainId}
                       AND (s.event_id IS NOT NULL OR pu.event_id IS NOT NULL)
-                    ORDER BY pbc.event_id DESC
                     LIMIT ${limit})
 SELECT core_address,
        delta0,
@@ -728,6 +736,8 @@ SELECT core_address,
        transaction_hash,
        event_type     AS type
 FROM all_events
+         JOIN blocks USING (chain_id, block_number)
+         JOIN pool_keys USING (pool_key_id)
 ORDER BY event_id DESC
     `;
   }
@@ -2026,6 +2036,7 @@ export async function createQueries(env: Env) {
   const sql = postgres(connectionString, {
     max: 1,
     fetch_types: false,
+    debug: true,
     types: { bigint: postgres.BigInt },
     connection: {
       application_name: "ekubo-api",
