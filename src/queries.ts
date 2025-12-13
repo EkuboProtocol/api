@@ -2028,6 +2028,7 @@ export async function createQueries(env: Env) {
     fetch_types: false,
     types: { bigint: postgres.BigInt },
     connection: {
+      application_name: "ekubo-api",
       // set the statement timeout to aggressively disconnect
       statement_timeout: 5_000,
     },
