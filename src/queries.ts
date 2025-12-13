@@ -7,6 +7,7 @@ export interface PositionMetadata {
   minted_tx_hash: string;
   minted_timestamp: Date;
   positions_address: string;
+  salt: string;
   lower_bound: string;
   upper_bound: string;
   token0: string;
@@ -261,41 +262,48 @@ export class Queries {
     tokenId: bigint,
   ): Promise<PositionMetadata | null> {
     const rows = await this.sql<PositionMetadata[]>`
-      SELECT
-        transaction_hash AS minted_tx_hash,
-        mint_position_update.lower_bound,
-        mint_position_update.upper_bound,
-        emitter AS positions_address,
-        pk.token0,
-        pk.token1,
-        pk.fee,
-        pk.fee_denominator,
-        pk.tick_spacing,
-        pk.pool_extension AS extension,
-        b.block_time AS minted_timestamp
-      FROM
-        nonfungible_token_transfers AS nft
-        JOIN blocks b USING (block_number, chain_id)
-        JOIN LATERAL (
-          SELECT
-            lower_bound,
-            upper_bound,
-            pool_key_id
-          FROM
-            position_updates AS pu LEFT JOIN nft_locker_mappings nlm ON pu.locker = nlm.locker
-          WHERE
-            pu.salt = nft_token_salt(nlm.token_id_transform, nft.token_id)
-            AND pu.chain_id = ${chainId}
-          ORDER BY
-            pu.event_id DESC
-          LIMIT 1) AS mint_position_update ON TRUE
-        JOIN pool_keys pk USING (pool_key_id)
-      WHERE
-        nft.token_id = ${tokenId.toString()}
-        AND from_address = 0
-        AND nft.chain_id = ${chainId}
-        AND nft.emitter = ${nftAddress.toString()}
-      LIMIT 1
+WITH token_mint AS (SELECT nft.chain_id,
+                           transaction_hash                             AS minted_tx_hash,
+                           nft.emitter                                  AS nft_address,
+                           COALESCE(nlm.locker, nft.emitter)            AS locker,
+                           nft_token_salt(token_id_transform, token_id) AS salt,
+                           block_time                                   AS minted_timestamp
+                    FROM nonfungible_token_transfers AS nft
+                             JOIN blocks USING (chain_id, block_number)
+                             LEFT JOIN nft_locker_mappings nlm
+                                       ON nft.chain_id = nlm.chain_id AND nft.emitter = nlm.nft_address
+                    WHERE nft.chain_id = ${chainId}
+                      AND nft.emitter = ${nftAddress.toString()}
+                      AND nft.token_id = ${tokenId.toString()}
+                      AND nft.from_address = 0
+                    ORDER BY nft.event_id
+                    LIMIT 1)
+SELECT minted_tx_hash,
+       lpu.lower_bound,
+       lpu.upper_bound,
+       locker            AS positions_address,
+       salt,
+       minted_timestamp,
+       pk.token0,
+       pk.token1,
+       pk.fee,
+       pk.fee_denominator,
+       pk.tick_spacing,
+       pk.pool_extension AS extension
+FROM token_mint AS mint
+         LEFT JOIN LATERAL (
+    SELECT pool_key_id,
+           lower_bound,
+           upper_bound
+    FROM position_updates AS pu
+    WHERE pu.chain_id = mint.chain_id
+      AND pu.locker = mint.locker
+      AND pu.salt = mint.salt
+    -- latest one
+    ORDER BY pu.event_id DESC
+    LIMIT 1) AS lpu
+                   ON TRUE
+         JOIN pool_keys pk USING (pool_key_id)
     `;
 
     if (rows.length !== 1) {
