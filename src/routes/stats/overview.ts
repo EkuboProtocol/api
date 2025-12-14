@@ -76,7 +76,6 @@ const RevenueByDateEntryType = RevenueEntryType.extend({
 });
 
 const OverviewRevenueResponseType = z.object({
-  revenueByToken: z.array(RevenueEntryType),
   revenueByTokenByDate: z.array(RevenueByDateEntryType),
   revenueByToken_24h: z.array(RevenueEntryType),
 });
@@ -93,7 +92,6 @@ const VolumeByDateEntryType = VolumeEntryType.extend({
 });
 
 const OverviewVolumeResponseType = z.object({
-  volumeByToken: z.array(VolumeEntryType),
   volumeByTokenByDate: z.array(VolumeByDateEntryType),
   volumeByToken_24h: z.array(VolumeEntryType),
 });
@@ -192,18 +190,11 @@ export class GetOverviewRevenue extends EkuboAPIRoute {
       chainIdParam !== undefined ? ChainIdType.parse(chainIdParam) : null;
     const queries = await createQueries(env);
 
-    const [rawRevenueByToken, rawRevenueByTokenByDate, rawRevenueByToken_24h] =
-      await Promise.all([
-        queries.getRevenueByToken({ chainId }),
-        queries.getRevenueByTokenByDate(chainId, thirtyDaysAgo),
-        queries.getRevenueByToken({ since: twentyFourHoursAgo, chainId }),
-      ]);
+    const [rawRevenueByTokenByDate, rawRevenueByToken_24h] = await Promise.all([
+      queries.getRevenueByTokenByDate(chainId, thirtyDaysAgo),
+      queries.getRevenueByToken({ since: twentyFourHoursAgo, chainId }),
+    ]);
 
-    const revenueByToken = rawRevenueByToken.map((row) => ({
-      token: toHex(row.token),
-      revenue: row.revenue,
-      chain_id: toHex(row.chain_id),
-    }));
     const revenueByTokenByDate = rawRevenueByTokenByDate.map(
       normalizeRevenueByDateRow,
     );
@@ -214,7 +205,6 @@ export class GetOverviewRevenue extends EkuboAPIRoute {
     }));
 
     const response = {
-      revenueByToken,
       revenueByToken_24h,
       revenueByTokenByDate,
     } satisfies z.infer<typeof OverviewRevenueResponseType>;
@@ -254,22 +244,20 @@ export class GetOverviewVolume extends EkuboAPIRoute {
       chainIdParam !== undefined ? ChainIdType.parse(chainIdParam) : null;
     const queries = await createQueries(env);
 
-    const [rawVolumeByToken, rawVolumeByToken_24h, volumeByTokenByDate] =
-      await Promise.all([
-        queries.getTotalVolume({ chainId }),
-        queries.getTotalVolume({ chainId, since: twentyFourHoursAgo }),
-        queries.getVolumeByTokenByDate(chainId, thirtyDaysAgo),
-      ]);
+    const [rawVolumeByToken_24h, volumeByTokenByDate] = await Promise.all([
+      queries.getTotalVolume({
+        chainId,
+        since: twentyFourHoursAgo,
+        minVolumeUsd: 1000,
+      }),
+      queries.getVolumeByTokenByDate(chainId, thirtyDaysAgo),
+    ]);
 
-    const volumeByToken = rawVolumeByToken.map((row) =>
-      normalizeVolumeRow(row as VolumeRow),
-    );
     const volumeByToken_24h = rawVolumeByToken_24h.map((row) =>
       normalizeVolumeRow(row as VolumeRow),
     );
 
     const response = {
-      volumeByToken,
       volumeByTokenByDate: volumeByTokenByDate.map((vol) => ({
         ...vol,
         token: toHex(vol.token),

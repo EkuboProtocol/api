@@ -66,7 +66,6 @@ const VolumeByDateEntryType = VolumeEntryType.extend({
 
 const PairVolumeResponseType = z.object({
   chain_id: z.string(),
-  volumeByToken: z.array(VolumeEntryType),
   volumeByTokenByDate: z.array(VolumeByDateEntryType),
   volumeByToken_24h: z.array(VolumeEntryType),
 });
@@ -207,27 +206,21 @@ export class GetPairInfoVolume extends EkuboAPIRoute {
     const thirtyDaysAgo = new Date(timestamp - 1000 * 60 * 60 * 24 * 30);
     const twentyFourHoursAgo = new Date(timestamp - 1000 * 60 * 60 * 24);
 
-    const [rawVolumeByToken, rawVolumeByToken_24h, volumeByTokenByDate] =
-      await Promise.all([
-        queries.getTotalVolume({ pair, chainId }),
-        queries.getTotalVolume({
-          chainId,
-          since: twentyFourHoursAgo,
-          pair,
-        }),
-        queries.getVolumeByTokenByDate(chainId, thirtyDaysAgo, pair),
-      ]);
+    const [rawVolumeByToken_24h, volumeByTokenByDate] = await Promise.all([
+      queries.getTotalVolume({
+        chainId,
+        since: twentyFourHoursAgo,
+        pair,
+      }),
+      queries.getVolumeByTokenByDate(chainId, thirtyDaysAgo, pair),
+    ]);
 
-    const volumeByToken = rawVolumeByToken.map((row) =>
-      normalizePairVolumeRow(row as PairVolumeRow),
-    );
     const volumeByToken_24h = rawVolumeByToken_24h.map((row) =>
       normalizePairVolumeRow(row as PairVolumeRow),
     );
 
     const response = {
       chain_id: toHex(chainId),
-      volumeByToken,
       volumeByTokenByDate: volumeByTokenByDate.map((vol) => ({
         ...vol,
         chain_id: toHex(vol.chain_id),

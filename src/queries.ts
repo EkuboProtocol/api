@@ -1174,10 +1174,12 @@ ORDER BY po.token_id DESC
     chainId,
     since,
     pair,
+    minVolumeUsd,
   }: {
     chainId?: bigint | null;
     since?: Date;
     pair?: { chainId: bigint; token0: bigint; token1: bigint };
+    minVolumeUsd?: number;
   }) {
     return this.sql<{ token: string; chain_id: bigint; volume: string }[]>`
       SELECT pk.chain_id,
@@ -1203,7 +1205,7 @@ ORDER BY po.token_id DESC
         AND t.visibility_priority >= 0
         AND ${chainId ? this.sql`pk.chain_id = ${chainId}` : this.sql`true`}
       GROUP BY pk.chain_id, hvbt.token
-      HAVING SUM(volume * usd_price / pow(10::float, t.token_decimals)) > 1000
+      ${minVolumeUsd ? this.sql`HAVING SUM(volume * usd_price / pow(10::float, t.token_decimals)) > ${minVolumeUsd}` : this.sql``}
     `;
   }
 
@@ -1211,6 +1213,7 @@ ORDER BY po.token_id DESC
     chainId: bigint | null,
     after: Date,
     pair?: { chainId: bigint; token0: bigint; token1: bigint },
+    minVolumeUsd?: number,
   ) {
     return this.sql<
       {
@@ -1245,7 +1248,7 @@ ORDER BY po.token_id DESC
         }
         AND visibility_priority >= 0
       GROUP BY hvbt.token, date, pk.chain_id
-      HAVING SUM(volume * usd_price / pow(10::float, t.token_decimals)) > 1000
+      ${minVolumeUsd ? this.sql`HAVING SUM(volume * usd_price / pow(10::float, t.token_decimals)) > ${minVolumeUsd}` : this.sql``}
     `;
   }
 
