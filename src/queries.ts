@@ -109,14 +109,9 @@ export class Queries {
     const rows = await this.sql<RawErc20TokenRow[]>`
       SELECT 
         chain_id, token_address, token_symbol, token_name, token_decimals,
-        logo_url, visibility_priority, sort_order, total_supply, usd_price
+        logo_url, visibility_priority, sort_order, total_supply, p.value AS usd_price
       FROM erc20_tokens t
-      LEFT JOIN LATERAL (SELECT value as usd_price
-                            FROM erc20_tokens_usd_prices up
-                            WHERE up.chain_id = t.chain_id
-                              AND up.token_address = t.token_address
-                            ORDER BY up.timestamp DESC
-                            LIMIT 1) AS p ON TRUE
+      LEFT JOIN erc20_tokens_latest_price p USING (chain_id, token_address)
       WHERE ${chainIdCondition}
         AND visibility_priority >= ${minVisibilityPriority}
         AND ${afterTokenCondition}
@@ -145,14 +140,9 @@ export class Queries {
         visibility_priority,
         sort_order,
         total_supply,
-        usd_price
+        p.value AS usd_price
       FROM erc20_tokens t
-      LEFT JOIN LATERAL (SELECT value as usd_price
-                            FROM erc20_tokens_usd_prices up
-                            WHERE up.chain_id = t.chain_id
-                              AND up.token_address = t.token_address
-                            ORDER BY up.timestamp DESC
-                            LIMIT 1) AS p ON TRUE
+      LEFT JOIN erc20_tokens_latest_price AS p USING (chain_id, token_address)
       WHERE chain_id = ${chainId}
         AND token_address = ${tokenAddress.toString()};
     `;
@@ -178,14 +168,9 @@ export class Queries {
         visibility_priority,
         sort_order,
         total_supply,
-        usd_price
+        p.value AS usd_price
       FROM erc20_tokens t
-      LEFT JOIN LATERAL (SELECT value as usd_price
-                            FROM erc20_tokens_usd_prices up
-                            WHERE up.chain_id = t.chain_id
-                              AND up.token_address = t.token_address
-                            ORDER BY up.timestamp DESC
-                            LIMIT 1) AS p ON TRUE
+      LEFT JOIN erc20_tokens_latest_price AS p USING (chain_id, token_address)
       WHERE (chain_id, token_address) IN ${this.sql(
         ids.map(
           ({ chainId, tokenAddress }) =>
@@ -1189,12 +1174,7 @@ ORDER BY po.token_id DESC
       FROM hourly_volume_by_token hvbt
             JOIN pool_keys pk USING (pool_key_id)
             JOIN erc20_tokens t ON t.chain_id = pk.chain_id AND t.token_address = hvbt.token
-            JOIN LATERAL (SELECT value as usd_price
-                            FROM erc20_tokens_usd_prices up
-                            WHERE up.chain_id = t.chain_id
-                              AND up.token_address = t.token_address
-                            ORDER BY up.timestamp DESC
-                            LIMIT 1) AS tp ON TRUE
+            JOIN erc20_tokens_latest_price tp ON tp.chain_id = t.chain_id AND tp.token_address = t.token_address
       WHERE ${since ? this.sql`hour >= ${since}` : this.sql`true`}
         AND ${
           pair
@@ -1205,7 +1185,7 @@ ORDER BY po.token_id DESC
         AND t.visibility_priority >= 0
         AND ${chainId ? this.sql`pk.chain_id = ${chainId}` : this.sql`true`}
       GROUP BY pk.chain_id, hvbt.token
-      ${minVolumeUsd ? this.sql`HAVING SUM(volume * usd_price / pow(10::float, t.token_decimals)) > ${minVolumeUsd}` : this.sql``}
+      ${minVolumeUsd ? this.sql`HAVING SUM(volume * tp.value / pow(10::float, t.token_decimals)) > ${minVolumeUsd}` : this.sql``}
     `;
   }
 
@@ -1232,12 +1212,7 @@ ORDER BY po.token_id DESC
       FROM hourly_volume_by_token hvbt
             JOIN pool_keys pk USING (pool_key_id)
             JOIN erc20_tokens t ON pk.chain_id = t.chain_id AND hvbt.token = t.token_address
-            JOIN LATERAL (SELECT value as usd_price
-                            FROM erc20_tokens_usd_prices up
-                            WHERE up.chain_id = t.chain_id
-                              AND up.token_address = t.token_address
-                            ORDER BY up.timestamp DESC
-                            LIMIT 1) AS tp ON TRUE
+            JOIN erc20_tokens_latest_price tp ON tp.chain_id = t.chain_id AND tp.token_address = t.token_address
       WHERE hour >= ${after}
         AND ${chainId ? this.sql`pk.chain_id = ${chainId}` : this.sql`true`}
         AND ${
@@ -1248,7 +1223,7 @@ ORDER BY po.token_id DESC
         }
         AND visibility_priority >= 0
       GROUP BY hvbt.token, date, pk.chain_id
-      ${minVolumeUsd ? this.sql`HAVING SUM(volume * usd_price / pow(10::float, t.token_decimals)) > ${minVolumeUsd}` : this.sql``}
+      ${minVolumeUsd ? this.sql`HAVING SUM(volume * tp.value / pow(10::float, t.token_decimals)) > ${minVolumeUsd}` : this.sql``}
     `;
   }
 
@@ -1325,19 +1300,9 @@ SELECT
 FROM last_24h_pool_stats_materialized l24
          JOIN pool_keys pk USING (pool_key_id)
          JOIN erc20_tokens t0 ON pk.chain_id = t0.chain_id AND pk.token0 = t0.token_address
-         LEFT JOIN LATERAL (SELECT value as usd_price
-                            FROM erc20_tokens_usd_prices up
-                            WHERE up.chain_id = t0.chain_id
-                              AND up.token_address = t0.token_address
-                            ORDER BY up.timestamp DESC
-                            LIMIT 1) AS t0p ON TRUE
+         LEFT JOIN erc20_tokens_latest_price t0p ON t0p.chain_id = t0.chain_id AND t0p.token_address = t0.token_address
          JOIN erc20_tokens t1 ON pk.chain_id = t1.chain_id AND pk.token1 = t1.token_address
-         LEFT JOIN LATERAL (SELECT value as usd_price
-                            FROM erc20_tokens_usd_prices up
-                            WHERE up.chain_id = t1.chain_id
-                              AND up.token_address = t1.token_address
-                            ORDER BY up.timestamp DESC
-                            LIMIT 1) AS t1p ON TRUE
+         LEFT JOIN erc20_tokens_latest_price t1p ON t1p.chain_id = t1.chain_id AND t1p.token_address = t1.token_address
          LEFT JOIN token_pair_realized_volatility_materialized tprv
                    ON pk.chain_id = tprv.chain_id AND pk.token0 = tprv.token0 AND pk.token1 = tprv.token1
          LEFT JOIN LATERAL (
@@ -1352,8 +1317,8 @@ WHERE pk.chain_id = COALESCE(${chainId ?? null}, pk.chain_id)
   AND t0.visibility_priority >= 0
   AND t1.visibility_priority >= 0
 GROUP BY pk.token0, pk.token1, pk.chain_id, t0.token_decimals, t1.token_decimals
-HAVING SUM(tvl0_total / POWER(10::NUMERIC, t0.token_decimals) * COALESCE(t0p.usd_price, 0::NUMERIC) +
-           tvl1_total / POWER(10::NUMERIC, t1.token_decimals) * COALESCE(t1p.usd_price, 0::NUMERIC))
+HAVING SUM(tvl0_total / POWER(10::NUMERIC, t0.token_decimals) * COALESCE(t0p.value, 0::NUMERIC) +
+           tvl1_total / POWER(10::NUMERIC, t1.token_decimals) * COALESCE(t1p.value, 0::NUMERIC))
            >= ${minTvlUsd}
     `;
   }
@@ -1402,19 +1367,9 @@ HAVING SUM(tvl0_total / POWER(10::NUMERIC, t0.token_decimals) * COALESCE(t0p.usd
         last_24h_pool_stats_materialized l24
         JOIN pool_keys p USING (pool_key_id)
         JOIN erc20_tokens t0 ON p.chain_id = t0.chain_id AND p.token0 = t0.token_address
-        LEFT JOIN LATERAL (SELECT value as usd_price
-                            FROM erc20_tokens_usd_prices up
-                            WHERE up.chain_id = t0.chain_id
-                              AND up.token_address = t0.token_address
-                            ORDER BY up.timestamp DESC
-                            LIMIT 1) AS t0p ON TRUE
+        LEFT JOIN erc20_tokens_latest_price t0p ON t0p.chain_id = t0.chain_id AND t0p.token_address = t0.token_address
         JOIN erc20_tokens t1 ON p.chain_id = t1.chain_id AND p.token1 = t1.token_address
-        LEFT JOIN LATERAL (SELECT value as usd_price
-                            FROM erc20_tokens_usd_prices up
-                            WHERE up.chain_id = t1.chain_id
-                              AND up.token_address = t1.token_address
-                            ORDER BY up.timestamp DESC
-                            LIMIT 1) AS t1p ON TRUE
+         LEFT JOIN erc20_tokens_latest_price t1p ON t1p.chain_id = t1.chain_id AND t1p.token_address = t1.token_address
         LEFT JOIN token_pair_realized_volatility_materialized tprv ON p.chain_id = tprv.chain_id AND p.token0 = tprv.token0 AND p.token1 = tprv.token1
         LEFT JOIN LATERAL (
           SELECT
@@ -1433,8 +1388,8 @@ HAVING SUM(tvl0_total / POWER(10::NUMERIC, t0.token_decimals) * COALESCE(t0p.usd
         AND p.token0 = ${pair.token0.toString()}
         AND p.token1 = ${pair.token1.toString()}
         AND (
-          (tvl0_total / POWER(10::numeric, t0.token_decimals)) * COALESCE(t0p.usd_price, 0::numeric) +
-          (tvl1_total / POWER(10::numeric, t1.token_decimals)) * COALESCE(t1p.usd_price, 0::numeric)
+          (tvl0_total / POWER(10::numeric, t0.token_decimals)) * COALESCE(t0p.value, 0::numeric) +
+          (tvl1_total / POWER(10::numeric, t1.token_decimals)) * COALESCE(t1p.value, 0::numeric)
         ) >= ${minTvlUsd}
     `;
   }
