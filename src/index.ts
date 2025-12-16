@@ -3,6 +3,49 @@ import { Env } from "./env";
 import { RequestContext } from "./shared/context";
 import { router } from "./router";
 
+function normalizeQueryValue(key: string, value: string): string {
+  if (key.toLowerCase() === "chainid") {
+    try {
+      return BigInt(value).toString();
+    } catch {
+      return value;
+    }
+  }
+
+  return value;
+}
+
+function normalizeRequestForCache(request: IRequest): URL {
+  const url = new URL(request.url);
+  const params = Array.from(url.searchParams.entries());
+
+  if (params.length === 0) {
+    return url;
+  }
+
+  const normalizedParams = new URLSearchParams();
+  params
+    .sort(([aKey, aValue], [bKey, bValue]) =>
+      aKey === bKey ? aValue.localeCompare(bValue) : aKey.localeCompare(bKey),
+    )
+    .forEach(([key, value]) =>
+      normalizedParams.append(key, normalizeQueryValue(key, value)),
+    );
+
+  const normalizedUrl = new URL(url.toString());
+  normalizedUrl.search = normalizedParams.toString();
+
+  return normalizedUrl;
+}
+
+function getCacheKey(request: IRequest): URL | null {
+  if (request.method.toLowerCase() !== "get") {
+    return null;
+  }
+
+  return normalizeRequestForCache(request);
+}
+
 const cache = caches.default;
 
 const { preflight, corsify } = createCors({
@@ -17,11 +60,11 @@ export default {
     const preflightResponse = preflight(request);
     if (preflightResponse) return preflightResponse;
 
-    const cacheable = request.method.toLowerCase() === "get";
+    const cacheKey = getCacheKey(request);
     // check cache hits for request
     // we do this outside of the router because we do not want to RE-CACHE a successful response by including the cache logic in the router handler
-    if (cacheable) {
-      const cached = await cache.match(request);
+    if (cacheKey) {
+      const cached = await cache.match(cacheKey);
       if (cached) {
         const corsified = corsify(cached);
         corsified.headers.set("Access-Control-Allow-Origin", "*");
@@ -43,8 +86,8 @@ export default {
       }
     }
 
-    if (cacheable && response.ok) {
-      await cache.put(request, response.clone());
+    if (cacheKey && response.ok) {
+      await cache.put(cacheKey, response.clone());
     }
 
     const corsified = corsify(response);
