@@ -1539,7 +1539,7 @@ SELECT
   next_drop_time,
   allowed_extensions,
   rewards
-FROM incentives.campaign_rewards_overview
+FROM incentives.campaign_rewards_overview_materialized
 WHERE ${chainId ? this.sql`chain_id = ${chainId}` : this.sql`TRUE`}
     `;
   }
