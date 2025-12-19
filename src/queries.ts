@@ -68,7 +68,7 @@ export interface RawErc20TokenRow {
   sort_order: number;
   total_supply: string | null;
   usd_price: string | null;
-  bridge_infos?: Record<string, { bridge_address: string }>;
+  bridge_infos: Record<string, { bridge_address: string }> | null;
 }
 
 export class Queries {
@@ -111,7 +111,7 @@ export class Queries {
       SELECT 
         chain_id, token_address, token_symbol, token_name, token_decimals,
         logo_url, visibility_priority, sort_order, total_supply, p.value AS usd_price,
-        COALESCE(bridge.bridge_infos, '{}'::jsonb) AS bridge_infos
+        bridge.bridge_infos AS bridge_infos
       FROM erc20_tokens t
       LEFT JOIN erc20_tokens_latest_price p USING (chain_id, token_address)
       LEFT JOIN LATERAL (
@@ -152,7 +152,7 @@ export class Queries {
         sort_order,
         total_supply,
         p.value AS usd_price,
-        COALESCE(bridge.bridge_infos, '{}'::jsonb) AS bridge_infos
+        bridge.bridge_infos AS bridge_infos
       FROM erc20_tokens t
       LEFT JOIN erc20_tokens_latest_price AS p USING (chain_id, token_address)
       LEFT JOIN LATERAL (
@@ -190,7 +190,7 @@ export class Queries {
         sort_order,
         total_supply,
         p.value AS usd_price,
-        COALESCE(bridge.bridge_infos, '{}'::jsonb) AS bridge_infos
+        bridge.bridge_infos AS bridge_infos
       FROM erc20_tokens t
       LEFT JOIN erc20_tokens_latest_price AS p USING (chain_id, token_address)
       LEFT JOIN LATERAL (

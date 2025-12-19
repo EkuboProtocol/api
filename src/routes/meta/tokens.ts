@@ -66,13 +66,15 @@ export const TokenType = z
         })
         .gte(0),
     ),
-    bridgeInfos: z.record(
-      z.string({ description: "Destination chain ID" }),
-      z.object({
-        bridge_address: z.string({
-          description: "Token address for the destination chain",
+    bridgeInfos: z.nullable(
+      z.record(
+        z.string({ description: "Destination chain ID" }),
+        z.object({
+          bridge_address: z.string({
+            description: "Token address for the destination chain",
+          }),
         }),
-      }),
+      ),
     ),
   })
   .required({
@@ -97,10 +99,14 @@ type TokenListResponse = z.infer<typeof TokenListResponseType>;
 type RawBridgeInfoMap = NonNullable<RawErc20TokenRow["bridge_infos"]>;
 
 function formatBridgeInfos(
-  bridgeInfos: RawBridgeInfoMap | undefined,
-): Record<string, { bridge_address: string }> {
+  bridgeInfos: RawBridgeInfoMap | null | undefined,
+): Record<string, { bridge_address: string }> | null {
+  if (!bridgeInfos) {
+    return null;
+  }
+
   return Object.fromEntries(
-    Object.entries(bridgeInfos ?? {}).map(
+    Object.entries(bridgeInfos).map(
       ([chainId, { bridge_address }]): [string, { bridge_address: string }] => [
         BigInt(chainId).toString(),
         { bridge_address: toHex(BigInt(bridge_address), 20) },
