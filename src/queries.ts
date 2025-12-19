@@ -68,6 +68,7 @@ export interface RawErc20TokenRow {
   sort_order: number;
   total_supply: string | null;
   usd_price: string | null;
+  bridge_infos?: Record<string, { bridge_address: string }>;
 }
 
 export class Queries {
@@ -109,9 +110,19 @@ export class Queries {
     const rows = await this.sql<RawErc20TokenRow[]>`
       SELECT 
         chain_id, token_address, token_symbol, token_name, token_decimals,
-        logo_url, visibility_priority, sort_order, total_supply, p.value AS usd_price
+        logo_url, visibility_priority, sort_order, total_supply, p.value AS usd_price,
+        COALESCE(bridge.bridge_infos, '{}'::jsonb) AS bridge_infos
       FROM erc20_tokens t
       LEFT JOIN erc20_tokens_latest_price p USING (chain_id, token_address)
+      LEFT JOIN LATERAL (
+        SELECT jsonb_object_agg(
+          dest_chain_id,
+          jsonb_build_object('bridge_address', dest_token_address)
+        ) AS bridge_infos
+        FROM erc20_tokens_bridge_relationships br
+        WHERE br.source_chain_id = t.chain_id
+          AND br.source_token_address = t.token_address
+      ) AS bridge ON TRUE
       WHERE ${chainIdCondition}
         AND visibility_priority >= ${minVisibilityPriority}
         AND ${afterTokenCondition}
@@ -140,9 +151,19 @@ export class Queries {
         visibility_priority,
         sort_order,
         total_supply,
-        p.value AS usd_price
+        p.value AS usd_price,
+        COALESCE(bridge.bridge_infos, '{}'::jsonb) AS bridge_infos
       FROM erc20_tokens t
       LEFT JOIN erc20_tokens_latest_price AS p USING (chain_id, token_address)
+      LEFT JOIN LATERAL (
+        SELECT jsonb_object_agg(
+          dest_chain_id,
+          jsonb_build_object('bridge_address', dest_token_address)
+        ) AS bridge_infos
+        FROM erc20_tokens_bridge_relationships br
+        WHERE br.source_chain_id = t.chain_id
+          AND br.source_token_address = t.token_address
+      ) AS bridge ON TRUE
       WHERE chain_id = ${chainId}
         AND token_address = ${tokenAddress.toString()};
     `;
@@ -168,9 +189,19 @@ export class Queries {
         visibility_priority,
         sort_order,
         total_supply,
-        p.value AS usd_price
+        p.value AS usd_price,
+        COALESCE(bridge.bridge_infos, '{}'::jsonb) AS bridge_infos
       FROM erc20_tokens t
       LEFT JOIN erc20_tokens_latest_price AS p USING (chain_id, token_address)
+      LEFT JOIN LATERAL (
+        SELECT jsonb_object_agg(
+          dest_chain_id,
+          jsonb_build_object('bridge_address', dest_token_address)
+        ) AS bridge_infos
+        FROM erc20_tokens_bridge_relationships br
+        WHERE br.source_chain_id = t.chain_id
+          AND br.source_token_address = t.token_address
+      ) AS bridge ON TRUE
       WHERE (chain_id, token_address) IN ${this.sql(
         ids.map(
           ({ chainId, tokenAddress }) =>

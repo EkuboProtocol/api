@@ -66,6 +66,14 @@ export const TokenType = z
         })
         .gte(0),
     ),
+    bridgeInfos: z.record(
+      z.string({ description: "Destination chain ID" }),
+      z.object({
+        bridge_address: z.string({
+          description: "Token address for the destination chain",
+        }),
+      }),
+    ),
   })
   .required({
     chain_id: true,
@@ -77,6 +85,7 @@ export const TokenType = z
     sort_order: true,
     total_supply: true,
     usd_price: true,
+    bridgeInfos: true,
   });
 
 export type TokenInfo = z.infer<typeof TokenType>;
@@ -84,6 +93,21 @@ const TokenListResponseType = z
   .array(TokenType)
   .openapi({ description: "Array of tokens" });
 type TokenListResponse = z.infer<typeof TokenListResponseType>;
+
+type RawBridgeInfoMap = NonNullable<RawErc20TokenRow["bridge_infos"]>;
+
+function formatBridgeInfos(
+  bridgeInfos: RawBridgeInfoMap | undefined,
+): Record<string, { bridge_address: string }> {
+  return Object.fromEntries(
+    Object.entries(bridgeInfos ?? {}).map(
+      ([chainId, { bridge_address }]): [string, { bridge_address: string }] => [
+        BigInt(chainId).toString(),
+        { bridge_address: toHex(BigInt(bridge_address), 20) },
+      ],
+    ),
+  );
+}
 
 function buildTokenInfo(row: RawErc20TokenRow): TokenInfo {
   const decimals = Number(row.token_decimals);
@@ -102,6 +126,7 @@ function buildTokenInfo(row: RawErc20TokenRow): TokenInfo {
         ? Number(row.total_supply) / Math.pow(10, decimals)
         : null,
     usd_price: row.usd_price !== null ? Number(row.usd_price) : null,
+    bridgeInfos: formatBridgeInfos(row.bridge_infos),
   };
 }
 
