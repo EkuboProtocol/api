@@ -117,7 +117,7 @@ export class Queries {
       LEFT JOIN LATERAL (
         SELECT jsonb_object_agg(
           dest_chain_id,
-          jsonb_build_object('bridge_address', dest_token_address)
+          jsonb_build_object('bridge_address', dest_token_address::TEXT)
         ) AS bridge_infos
         FROM erc20_tokens_bridge_relationships br
         WHERE br.source_chain_id = t.chain_id
@@ -158,7 +158,7 @@ export class Queries {
       LEFT JOIN LATERAL (
         SELECT jsonb_object_agg(
           dest_chain_id,
-          jsonb_build_object('bridge_address', dest_token_address)
+          jsonb_build_object('bridge_address', dest_token_address::TEXT)
         ) AS bridge_infos
         FROM erc20_tokens_bridge_relationships br
         WHERE br.source_chain_id = t.chain_id
@@ -196,7 +196,7 @@ export class Queries {
       LEFT JOIN LATERAL (
         SELECT jsonb_object_agg(
           dest_chain_id,
-          jsonb_build_object('bridge_address', dest_token_address)
+          jsonb_build_object('bridge_address', dest_token_address::TEXT)
         ) AS bridge_infos
         FROM erc20_tokens_bridge_relationships br
         WHERE br.source_chain_id = t.chain_id
