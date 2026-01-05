@@ -31,7 +31,10 @@ export async function generatePositionNft(
     token0: BigInt(positionMetadata.token0),
     token1: BigInt(positionMetadata.token1),
     fee: BigInt(positionMetadata.fee),
-    tickSpacing: Number(positionMetadata.tick_spacing),
+    tickSpacing:
+      positionMetadata.tick_spacing !== null
+        ? Number(positionMetadata.tick_spacing)
+        : null,
     extension: extensionValue,
   });
 
