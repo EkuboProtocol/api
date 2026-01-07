@@ -105,14 +105,17 @@ function formatBridgeInfos(
     return null;
   }
 
-  return Object.fromEntries(
-    Object.entries(bridgeInfos).map(
-      ([chainId, { bridge_address }]): [string, { bridge_address: string }] => [
-        BigInt(chainId).toString(),
-        { bridge_address: toHex(BigInt(bridge_address), 20) },
-      ],
-    ),
-  );
+  const result: Record<string, { bridge_address: string }> = {};
+
+  for (const chainId in bridgeInfos) {
+    const { bridge_address } = bridgeInfos[chainId];
+
+    result[BigInt(chainId).toString()] = {
+      bridge_address: toHex(BigInt(bridge_address), 20),
+    };
+  }
+
+  return result;
 }
 
 function buildTokenInfo(row: RawErc20TokenRow): TokenInfo {
