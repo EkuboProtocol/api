@@ -826,7 +826,7 @@ ORDER BY event_id DESC
     const token0 = pair?.token0?.toString() ?? null;
     const token1 = pair?.token1?.toString() ?? null;
     return this.sql<
-      { token: string; date: string; balance: string; chain_id: bigint }[]
+      { token: string; date: string; delta: string; chain_id: bigint }[]
     >`
       SELECT pk.chain_id,
              htd.token,

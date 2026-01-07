@@ -25,6 +25,7 @@ const TokenDeltaEntryType = z.object({
   token: z.string(),
   date: TimestampType,
   delta: z.string(),
+  chain_id: z.string(),
 });
 
 const PairTvlResponseType = z.object({
@@ -41,17 +42,6 @@ const normalizePairVolumeRow = (row: PairVolumeRow) => ({
   token: row.token,
   volume: row.volume,
   fees: row.fees ?? "0",
-});
-
-type PairTvlDeltaRow = {
-  token: string;
-  date: string | Date;
-} & Partial<{ delta: string; balance: string }>;
-
-const normalizePairTvlDeltaRow = (row: PairTvlDeltaRow) => ({
-  token: row.token,
-  date: row.date,
-  delta: row.delta ?? row.balance ?? "0",
 });
 
 const VolumeEntryType = z.object({
@@ -154,9 +144,12 @@ export class GetPairInfoTvl extends EkuboAPIRoute {
       queries.getTvlDeltaByTokenByDate(chainId, thirtyDaysAgo, pair),
     ]);
 
-    const tvlDeltaByTokenByDate = rawTvlDeltaByTokenByDate.map((row) =>
-      normalizePairTvlDeltaRow(row as PairTvlDeltaRow),
-    );
+    const tvlDeltaByTokenByDate = rawTvlDeltaByTokenByDate.map((row) => ({
+      token: row.token,
+      date: row.date,
+      delta: row.delta ?? "0",
+      chain_id: toHex(row.chain_id),
+    }));
 
     const response = {
       tvlByToken: tvlByToken.map((tvl) => ({
