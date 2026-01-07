@@ -626,13 +626,18 @@ FROM token_mint AS mint
     token0: bigint;
     token1: bigint;
     fee: bigint;
-    tickSpacing: number;
+    tickSpacing: number | null;
     extension: bigint;
   }): Promise<{
     is_twamm: boolean;
     is_oracle: boolean;
     is_mev_capture: boolean;
   } | null> {
+    const tickSpacingCondition =
+      tickSpacing === null
+        ? this.sql`pk.tick_spacing IS NULL`
+        : this.sql`pk.tick_spacing = ${tickSpacing}`;
+
     const rows = await this.sql<
       {
         is_twamm: boolean;
@@ -661,7 +666,7 @@ FROM token_mint AS mint
         AND pk.token0 = ${token0.toString()}
         AND pk.token1 = ${token1.toString()}
         AND pk.fee = ${fee.toString()}
-        AND pk.tick_spacing = ${tickSpacing}
+        AND ${tickSpacingCondition}
         AND pk.pool_extension = ${extension.toString()}
       LIMIT 1
     `;
@@ -852,7 +857,7 @@ ORDER BY event_id DESC
     const token0 = pair?.token0?.toString() ?? null;
     const token1 = pair?.token1?.toString() ?? null;
     return this.sql<
-      { token: string; date: string; balance: string; chain_id: bigint }[]
+      { token: string; date: string; delta: string; chain_id: bigint }[]
     >`
       SELECT pk.chain_id,
              htd.token,
