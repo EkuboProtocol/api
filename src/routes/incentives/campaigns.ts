@@ -15,6 +15,8 @@ export const CampaignType = z
   .object({
     slug: z.string(),
     chain_id: HexStringType,
+    coreAddress: HexStringType,
+    allowedLockers: z.array(HexStringType).or(z.null()),
     name: z.string(),
     rewardToken: AddressType,
     startTime: z.date(),
@@ -52,6 +54,8 @@ export const CampaignType = z
   })
   .required({
     slug: true,
+    coreAddress: true,
+    allowedLockers: true,
     name: true,
     rewardToken: true,
     startTime: true,
@@ -105,6 +109,8 @@ export class ListCampaigns extends EkuboAPIRoute {
           return {
             slug: c.slug,
             chain_id: toHex(c.chain_id),
+            coreAddress: toHex(c.core_address),
+            allowedLockers: c.allowed_lockers?.map(toHex) ?? null,
             startTime: c.start_time,
             endTime: c.end_time,
             name: c.name,

@@ -1543,6 +1543,8 @@ ORDER BY pp.last_transfer_event_id DESC;
     return this.sql<
       {
         chain_id: bigint;
+        core_address: string;
+        allowed_lockers: string[] | null;
         start_time: Date;
         end_time: Date | null;
         name: string;
@@ -1567,6 +1569,8 @@ ORDER BY pp.last_transfer_event_id DESC;
     >`
 SELECT
   chain_id,
+  core_address,
+  allowed_lockers,
   slug,
   start_time,
   end_time,
