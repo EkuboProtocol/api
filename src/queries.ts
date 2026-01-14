@@ -1464,6 +1464,7 @@ WITH base_positions AS (SELECT nfp.chain_id,
                                core_address,
                                COALESCE(nlm.locker, nfp.nft_address) AS positions_address,
                                token_id,
+                               nft_token_salt(token_id_transform, token_id) AS salt,
                                token0,
                                token1,
                                fee,
@@ -1527,7 +1528,7 @@ FROM pp
              JOIN incentives.campaigns c ON crbpm.campaign_id = c.id
     WHERE c.chain_id = pp.chain_id
       AND crbpm.locker = pp.positions_address
-      AND crbpm.salt = pp.token_id
+      AND crbpm.salt = pp.salt
     ) pr ON TRUE
 ORDER BY pp.last_transfer_event_id DESC;
     `;
