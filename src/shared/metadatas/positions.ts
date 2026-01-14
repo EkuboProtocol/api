@@ -20,6 +20,7 @@ export async function generatePositionNftMetadata(
       trait_type: "positions_address",
       value: toHex(positionMetadata.positions_address),
     },
+    { trait_type: "salt", value: toHex(positionMetadata.salt) },
     {
       trait_type: "minted_tx_hash",
       value: toHex(positionMetadata.minted_tx_hash),
