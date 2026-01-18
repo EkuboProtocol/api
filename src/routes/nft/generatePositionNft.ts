@@ -39,6 +39,7 @@ export async function generatePositionNft(
   });
 
   let poolType: "dca" | "oracle" | "mev_capture" | "full_range" | undefined;
+  // todo: handle boosted fees or unknown pools in the generation
 
   if (poolClassification?.is_twamm) {
     poolType = "dca";

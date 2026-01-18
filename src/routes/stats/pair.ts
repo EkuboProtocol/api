@@ -76,6 +76,20 @@ const PoolStatsType = z.object({
   depth0: z.string(),
   depth1: z.string(),
   depth_percent: z.number().nullable(),
+  boosts: z
+    .object({
+      donate_rate0: z.string(),
+      donate_rate1: z.string(),
+      last_donated_time: z.number().int().min(0),
+      future_donation_deltas: z.array(
+        z.object({
+          time: z.number().int().min(0),
+          donate_rate_delta0: z.string(),
+          donate_rate_delta1: z.string(),
+        }),
+      ),
+    })
+    .nullable(),
 });
 
 const PairPoolsResponseType = z.object({
@@ -267,7 +281,35 @@ export class GetPairInfoPools extends EkuboAPIRoute {
     const topPools = await queries.getTopPools(chainId, pair, minTvlUsd);
 
     const response = {
-      topPools,
+      topPools: topPools.map((pool) => {
+        const {
+          boosted_fees_donate_rate0,
+          boosted_fees_donate_rate1,
+          boosted_fees_last_donated_time,
+          boosted_fees_future_deltas,
+          ...rest
+        } = pool;
+
+        return {
+          ...rest,
+          boosts:
+            boosted_fees_last_donated_time === null
+              ? null
+              : {
+                  donate_rate0: boosted_fees_donate_rate0 ?? "0",
+                  donate_rate1: boosted_fees_donate_rate1 ?? "0",
+                  last_donated_time:
+                    boosted_fees_last_donated_time.getTime() / 1000,
+                  future_donation_deltas: (
+                    boosted_fees_future_deltas ?? []
+                  ).map((delta) => ({
+                    time: Number(delta.time),
+                    donate_rate_delta0: delta.donate_rate_delta0,
+                    donate_rate_delta1: delta.donate_rate_delta1,
+                  })),
+                },
+        };
+      }),
     } satisfies z.infer<typeof PairPoolsResponseType>;
 
     return json(response, {

@@ -632,6 +632,7 @@ FROM token_mint AS mint
     is_twamm: boolean;
     is_oracle: boolean;
     is_mev_capture: boolean;
+    is_boosted_fees: boolean;
   } | null> {
     const tickSpacingCondition =
       tickSpacing === null
@@ -643,6 +644,7 @@ FROM token_mint AS mint
         is_twamm: boolean;
         is_oracle: boolean;
         is_mev_capture: boolean;
+        is_boosted_fees: boolean;
       }[]
     >`
       SELECT
@@ -660,7 +662,12 @@ FROM token_mint AS mint
           SELECT 1
           FROM mev_capture_pool_keys
           WHERE pool_key_id = pk.pool_key_id
-        ) AS is_mev_capture
+        ) AS is_mev_capture,
+        EXISTS (
+          SELECT 1
+          FROM boosted_fees_donated
+          WHERE pool_key_id = pk.pool_key_id
+        ) AS is_boosted_fees
       FROM pool_keys pk
       WHERE pk.chain_id = ${chainId}
         AND pk.token0 = ${token0.toString()}
@@ -1381,6 +1388,14 @@ HAVING SUM(tvl0_total / POWER(10::NUMERIC, t0.token_decimals) * COALESCE(t0p.val
         depth0: string;
         depth1: string;
         depth_percent: number | null;
+        boosted_fees_donate_rate0: string | null;
+        boosted_fees_donate_rate1: string | null;
+        boosted_fees_last_donated_time: Date | null;
+        boosted_fees_future_deltas: {
+          time: string;
+          donate_rate_delta0: string;
+          donate_rate_delta1: string;
+        }[] | null;
       }[]
     >`
       SELECT
@@ -1398,7 +1413,11 @@ HAVING SUM(tvl0_total / POWER(10::NUMERIC, t0.token_decimals) * COALESCE(t0p.val
         tvl1_delta_24h,
         coalesce(depth0, 0::numeric) AS depth0,
         coalesce(depth1, 0::numeric) AS depth1,
-        depth_percent
+        depth_percent,
+        bps.donate_rate0 AS boosted_fees_donate_rate0,
+        bps.donate_rate1 AS boosted_fees_donate_rate1,
+        bps.last_donated_time AS boosted_fees_last_donated_time,
+        bfrd.future_deltas AS boosted_fees_future_deltas
       FROM
         last_24h_pool_stats_materialized l24
         JOIN pool_keys p USING (pool_key_id)
@@ -1407,6 +1426,27 @@ HAVING SUM(tvl0_total / POWER(10::NUMERIC, t0.token_decimals) * COALESCE(t0p.val
         JOIN erc20_tokens t1 ON p.chain_id = t1.chain_id AND p.token1 = t1.token_address
          LEFT JOIN erc20_tokens_latest_price t1p ON t1p.chain_id = t1.chain_id AND t1p.token_address = t1.token_address
         LEFT JOIN token_pair_realized_volatility_materialized tprv ON p.chain_id = tprv.chain_id AND p.token0 = tprv.token0 AND p.token1 = tprv.token1
+        LEFT JOIN boosted_fees_pool_states bps ON bps.pool_key_id = p.pool_key_id
+        LEFT JOIN LATERAL (
+          SELECT
+            jsonb_agg(
+              jsonb_build_object(
+                'time',
+                EXTRACT(epoch FROM bfrd.time)::text,
+                'donate_rate_delta0',
+                bfrd.net_donate_rate_delta0::text,
+                'donate_rate_delta1',
+                bfrd.net_donate_rate_delta1::text
+              )
+              ORDER BY bfrd.time
+            ) AS future_deltas
+          FROM
+            boosted_fees_donate_rate_deltas bfrd
+          WHERE
+            bfrd.pool_key_id = p.pool_key_id
+            AND bps.pool_key_id IS NOT NULL
+            AND bfrd.time > bps.last_donated_time
+        ) bfrd ON TRUE
         LEFT JOIN LATERAL (
           SELECT
             *
@@ -1424,9 +1464,13 @@ HAVING SUM(tvl0_total / POWER(10::NUMERIC, t0.token_decimals) * COALESCE(t0p.val
         AND p.token0 = ${pair.token0.toString()}
         AND p.token1 = ${pair.token1.toString()}
         AND (
-          (tvl0_total / POWER(10::numeric, t0.token_decimals)) * COALESCE(t0p.value, 0::numeric) +
-          (tvl1_total / POWER(10::numeric, t1.token_decimals)) * COALESCE(t1p.value, 0::numeric)
-        ) >= ${minTvlUsd}
+          (
+            (tvl0_total / POWER(10::numeric, t0.token_decimals)) * COALESCE(t0p.value, 0::numeric) +
+            (tvl1_total / POWER(10::numeric, t1.token_decimals)) * COALESCE(t1p.value, 0::numeric)
+          ) >= ${minTvlUsd}
+          OR COALESCE(bps.donate_rate0, 0::numeric) <> 0
+          OR COALESCE(bps.donate_rate1, 0::numeric) <> 0
+        )
     `;
   }
 
