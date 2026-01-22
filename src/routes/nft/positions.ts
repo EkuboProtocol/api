@@ -66,6 +66,9 @@ const PoolKeySummaryType = z.object({
   fee: HexStringType,
   tick_spacing: HexStringType.nullable(),
   extension: HexStringType,
+  stableswap_params: z
+    .object({ center_tick: z.number(), amplification: z.number() })
+    .nullable(),
 });
 
 const PoolStateSummaryType = z.object({
@@ -408,6 +411,15 @@ export class ListPositionsByAddress extends EkuboAPIRoute {
 
     const response = {
       data: rows.map((row) => {
+        const stableswap_params =
+          row.stableswap_amplification !== null &&
+          row.stableswap_center_tick !== null
+            ? {
+                center_tick: Number(row.stableswap_center_tick),
+                amplification: Number(row.stableswap_amplification),
+              }
+            : null;
+
         return {
           id: toHex(BigInt(row.token_id)),
           chain_id: toHex(row.chain_id),
@@ -418,6 +430,7 @@ export class ListPositionsByAddress extends EkuboAPIRoute {
             fee: toHex(row.fee),
             tick_spacing: row.tick_spacing ? toHex(row.tick_spacing) : null,
             extension: toHex(row.extension),
+            stableswap_params,
           },
           bounds: {
             lower: Number(row.lower_bound),

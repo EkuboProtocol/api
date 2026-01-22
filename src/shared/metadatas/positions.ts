@@ -15,6 +15,8 @@ export async function generatePositionNftMetadata(
   chainId: bigint,
   image: string,
 ): Promise<NFTMetadata> {
+  const isStableSwap = positionMetadata.tick_spacing === null;
+
   const attributesStored: NFTMetadata["attributes"] = [
     {
       trait_type: "positions_address",
@@ -51,6 +53,14 @@ export async function generatePositionNftMetadata(
     {
       trait_type: "chain_id",
       value: chainId.toString(),
+    },
+    {
+      trait_type: "stableswap_center_tick",
+      value: positionMetadata.stableswap_center_tick?.toString() ?? null,
+    },
+    {
+      trait_type: "stableswap_amplification",
+      value: positionMetadata.stableswap_amplification?.toString() ?? null,
     },
   ];
 
@@ -91,17 +101,15 @@ export async function generatePositionNftMetadata(
           ),
         ];
 
-    const isFullRange = positionMetadata.tick_spacing === null;
-
     return {
       name: `${numerator.symbol} / ${
         denominator.symbol
       } : ${lowerPrice} <> ${upperPrice} : ${feeToPercent(
         positionMetadata.fee,
         positionMetadata.fee_denominator,
-      )}% / ${isFullRange ? "MAX" : positionMetadata.tick_spacing === null ? "FR" : tickSpacingToPercent(positionMetadata.tick_spacing)}%`,
-      description: isFullRange
-        ? `A full range liquidity position in Ekubo consisting of the ${numerator.name} and ${denominator.name} tokens and charging a ${feeToPercent(positionMetadata.fee, positionMetadata.fee_denominator)}% fee on swaps.`
+      )}${isStableSwap ? "" : ` / ${tickSpacingToPercent(positionMetadata.tick_spacing!)}`}`,
+      description: isStableSwap
+        ? `A stable swap liquidity position in Ekubo consisting of the ${numerator.name} and ${denominator.name} tokens and charging a ${feeToPercent(positionMetadata.fee, positionMetadata.fee_denominator)}% fee on swaps.`
         : `A liquidity position in Ekubo consisting of the ${
             numerator.name
           } and ${

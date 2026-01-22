@@ -16,6 +16,8 @@ export interface PositionMetadata {
   fee_denominator: string;
   tick_spacing: string | null;
   extension: string;
+  stableswap_center_tick: number | null;
+  stableswap_amplification: string | null;
 }
 
 export interface TwammOrderMetadata {
@@ -305,7 +307,9 @@ SELECT minted_tx_hash,
        pk.fee,
        pk.fee_denominator,
        pk.tick_spacing,
-       pk.pool_extension AS extension
+       pk.pool_extension AS extension,
+       pk.stableswap_center_tick,
+       pk.stableswap_amplification
 FROM token_mint AS mint
          LEFT JOIN LATERAL (
     SELECT pool_key_id,
@@ -1391,11 +1395,13 @@ HAVING SUM(tvl0_total / POWER(10::NUMERIC, t0.token_decimals) * COALESCE(t0p.val
         boosted_fees_donate_rate0: string | null;
         boosted_fees_donate_rate1: string | null;
         boosted_fees_last_donated_time: Date | null;
-        boosted_fees_future_deltas: {
-          time: string;
-          donate_rate_delta0: string;
-          donate_rate_delta1: string;
-        }[] | null;
+        boosted_fees_future_deltas:
+          | {
+              time: string;
+              donate_rate_delta0: string;
+              donate_rate_delta1: string;
+            }[]
+          | null;
       }[]
     >`
       SELECT
@@ -1518,7 +1524,9 @@ WITH base_positions AS (SELECT nfp.chain_id,
                                upper_bound,
                                liquidity,
                                pool_key_id,
-                               last_transfer_event_id
+                               last_transfer_event_id,
+                               stableswap_center_tick,
+                               stableswap_amplification
                         FROM nonfungible_token_positions_view AS nfp
                                  LEFT JOIN nft_locker_mappings nlm USING (chain_id, nft_address)
                                  JOIN pool_keys USING (pool_key_id)
@@ -1556,7 +1564,9 @@ SELECT pp.chain_id,
        ps.sqrt_ratio AS pool_state_sqrt_ratio,
        ps.tick       AS pool_state_tick,
        ps.liquidity  AS pool_state_liquidity,
-       pr.rewards
+       pr.rewards,
+       pp.stableswap_center_tick,
+       pp.stableswap_amplification
 FROM pp
          CROSS JOIN total_count
          LEFT JOIN pool_states ps ON pp.pool_key_id = ps.pool_key_id
