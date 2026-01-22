@@ -17,6 +17,23 @@ export async function generatePositionNftMetadata(
 ): Promise<NFTMetadata> {
   const isStableSwap = positionMetadata.tick_spacing === null;
 
+  const stableSwapAttributes =
+    isStableSwap &&
+    positionMetadata.stableswap_center_tick !== null &&
+    positionMetadata.stableswap_amplification !== null
+      ? [
+          {
+            trait_type: "stableswap_center_tick",
+            value: positionMetadata.stableswap_center_tick?.toString() ?? null,
+          },
+          {
+            trait_type: "stableswap_amplification",
+            value:
+              positionMetadata.stableswap_amplification?.toString() ?? null,
+          },
+        ]
+      : [];
+
   const attributesStored: NFTMetadata["attributes"] = [
     {
       trait_type: "positions_address",
@@ -54,14 +71,7 @@ export async function generatePositionNftMetadata(
       trait_type: "chain_id",
       value: chainId.toString(),
     },
-    {
-      trait_type: "stableswap_center_tick",
-      value: positionMetadata.stableswap_center_tick?.toString() ?? null,
-    },
-    {
-      trait_type: "stableswap_amplification",
-      value: positionMetadata.stableswap_amplification?.toString() ?? null,
-    },
+    ...stableSwapAttributes,
   ];
 
   const [token0, token1] = await Promise.all([
