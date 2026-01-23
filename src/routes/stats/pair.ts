@@ -76,6 +76,12 @@ const PoolStatsType = z.object({
   depth0: z.string(),
   depth1: z.string(),
   depth_percent: z.number().nullable(),
+  stableswap_params: z
+    .object({
+      center_tick: z.number().int(),
+      amplification: z.number().int(),
+    })
+    .nullable(),
   boosts: z
     .object({
       donate_rate0: z.string(),
@@ -287,11 +293,22 @@ export class GetPairInfoPools extends EkuboAPIRoute {
           boosted_fees_donate_rate1,
           boosted_fees_last_donated_time,
           boosted_fees_future_deltas,
+          stableswap_amplification,
+          stableswap_center_tick,
           ...rest
         } = pool;
 
+        const stableswap_params =
+          stableswap_amplification !== null && stableswap_center_tick !== null
+            ? {
+                center_tick: Number(stableswap_center_tick),
+                amplification: Number(stableswap_amplification),
+              }
+            : null;
+
         return {
           ...rest,
+          stableswap_params,
           boosts:
             boosted_fees_last_donated_time === null
               ? null

@@ -1391,6 +1391,8 @@ HAVING SUM(tvl0_total / POWER(10::NUMERIC, t0.token_decimals) * COALESCE(t0p.val
         tvl1_delta_24h: string;
         depth0: string;
         depth1: string;
+        stableswap_center_tick: string | null;
+        stableswap_amplification: string | null;
         depth_percent: number | null;
         boosted_fees_donate_rate0: string | null;
         boosted_fees_donate_rate1: string | null;
@@ -1409,6 +1411,8 @@ HAVING SUM(tvl0_total / POWER(10::NUMERIC, t0.token_decimals) * COALESCE(t0p.val
         p.tick_spacing,
         p.core_address,
         p.pool_extension AS extension,
+        p.stableswap_amplification,
+        p.stableswap_center_tick,
         volume0_24h,
         volume1_24h,
         fees0_24h,
