@@ -2,6 +2,7 @@ import { generatePositionSvg } from "@ekubo/position-svg-generator";
 import { getTokenByAddress } from "../meta/tokens";
 import { PositionMetadata, Queries } from "../../queries";
 import { feeToPercent, formattedPrice, tickSpacingToPercent } from "./format";
+import { MAX_TICK, MIN_TICK } from "@ekubo/evm-sdk";
 
 export async function generatePositionNft(
   id: bigint,
@@ -23,7 +24,10 @@ export async function generatePositionNft(
 
   const reversed = token0 && token1 && token0.sort_order >= token1.sort_order;
 
-  const isFullRange = positionMetadata.tick_spacing === null;
+  const isFullRange =
+    positionMetadata.tick_spacing === null &&
+    Number(positionMetadata.lower_bound) === MIN_TICK &&
+    Number(positionMetadata.upper_bound) === MAX_TICK;
   const extensionValue = BigInt(positionMetadata.extension);
 
   const poolClassification = await queries.getPoolClassification({
@@ -38,8 +42,7 @@ export async function generatePositionNft(
     extension: extensionValue,
   });
 
-  let poolType: "dca" | "oracle" | "mev_capture" | "full_range" | undefined;
-  // todo: handle boosted fees or unknown pools in the generation
+  let poolType: "dca" | "oracle" | "mev_capture" | "boosted_fees" | undefined;
 
   if (poolClassification?.is_twamm) {
     poolType = "dca";
@@ -47,8 +50,8 @@ export async function generatePositionNft(
     poolType = "oracle";
   } else if (poolClassification?.is_mev_capture) {
     poolType = "mev_capture";
-  } else if (extensionValue === 0n && isFullRange) {
-    poolType = "full_range";
+  } else if (poolClassification?.is_boosted_fees) {
+    poolType = "boosted_fees";
   }
 
   const [formattedMinPrice, formattedMaxPrice] =
@@ -94,13 +97,15 @@ export async function generatePositionNft(
       positionMetadata.fee,
       positionMetadata.fee_denominator,
     ),
-    formattedTickSpacingPercent: tickSpacingToPercent(
-      positionMetadata.tick_spacing ?? "",
-    ),
+    formattedTickSpacingPercent:
+      positionMetadata.tick_spacing === null
+        ? ""
+        : tickSpacingToPercent(positionMetadata.tick_spacing),
 
     formattedMinPrice,
     formattedMaxPrice,
 
     type: poolType,
+    isFullRange,
   });
 }
