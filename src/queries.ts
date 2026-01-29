@@ -3,6 +3,15 @@ import { Env } from "./env";
 
 export type StateFilter = "opened" | "closed";
 
+type PoolKeyFilters = {
+  tickSpacing?: number;
+  fee?: bigint;
+  extension?: bigint;
+  coreAddress?: bigint;
+  amplification?: number;
+  centerTick?: number;
+};
+
 export interface PositionMetadata {
   minted_tx_hash: string;
   minted_timestamp: Date;
@@ -864,9 +873,35 @@ ORDER BY event_id DESC
   public getTvlByToken(
     chainId: bigint | null,
     pair?: { token0: bigint; token1: bigint },
+    poolKeyFilters?: PoolKeyFilters,
   ) {
     const token0 = pair?.token0?.toString() ?? null;
     const token1 = pair?.token1?.toString() ?? null;
+    const tickSpacingCondition =
+      poolKeyFilters?.tickSpacing === undefined
+        ? this.sql`TRUE`
+        : this.sql`pk.tick_spacing = ${poolKeyFilters.tickSpacing}`;
+    const feeParam = poolKeyFilters?.fee?.toString() ?? null;
+    const feeCondition = feeParam
+      ? this.sql`pk.fee = ${feeParam}`
+      : this.sql`TRUE`;
+    const extensionParam = poolKeyFilters?.extension?.toString() ?? null;
+    const extensionCondition = extensionParam
+      ? this.sql`pk.pool_extension = ${extensionParam}`
+      : this.sql`TRUE`;
+    const coreAddressParam = poolKeyFilters?.coreAddress?.toString() ?? null;
+    const coreAddressCondition = coreAddressParam
+      ? this.sql`pk.core_address = ${coreAddressParam}`
+      : this.sql`TRUE`;
+    const amplificationCondition =
+      poolKeyFilters?.amplification === undefined
+        ? this.sql`TRUE`
+        : this
+            .sql`pk.stableswap_amplification = ${poolKeyFilters.amplification}`;
+    const centerTickCondition =
+      poolKeyFilters?.centerTick === undefined
+        ? this.sql`TRUE`
+        : this.sql`pk.stableswap_center_tick = ${poolKeyFilters.centerTick}`;
     return this.sql<{ chain_id: bigint; token: string; balance: string }[]>`
       WITH summed0 AS (
              SELECT pk.chain_id,
@@ -877,6 +912,12 @@ ORDER BY event_id DESC
              WHERE pk.token0 = COALESCE(${token0}, pk.token0)
                AND pk.token1 = COALESCE(${token1}, pk.token1)
                AND pk.chain_id = COALESCE(${chainId ?? null}, pk.chain_id)
+               AND ${tickSpacingCondition}
+               AND ${feeCondition}
+               AND ${extensionCondition}
+               AND ${coreAddressCondition}
+               AND ${amplificationCondition}
+               AND ${centerTickCondition}
              GROUP BY pk.token0, pk.chain_id
            ),
            summed1 AS (
@@ -888,6 +929,12 @@ ORDER BY event_id DESC
              WHERE pk.token0 = COALESCE(${token0}, pk.token0)
                AND pk.token1 = COALESCE(${token1}, pk.token1)
                AND pk.chain_id = COALESCE(${chainId ?? null}, pk.chain_id)
+               AND ${tickSpacingCondition}
+               AND ${feeCondition}
+               AND ${extensionCondition}
+               AND ${coreAddressCondition}
+               AND ${amplificationCondition}
+               AND ${centerTickCondition}
              GROUP BY pk.token1, pk.chain_id
            ),
            all_balances AS (
@@ -907,9 +954,35 @@ ORDER BY event_id DESC
     chainId: bigint | null,
     after: Date,
     pair?: { token0: bigint; token1: bigint },
+    poolKeyFilters?: PoolKeyFilters,
   ) {
     const token0 = pair?.token0?.toString() ?? null;
     const token1 = pair?.token1?.toString() ?? null;
+    const tickSpacingCondition =
+      poolKeyFilters?.tickSpacing === undefined
+        ? this.sql`TRUE`
+        : this.sql`pk.tick_spacing = ${poolKeyFilters.tickSpacing}`;
+    const feeParam = poolKeyFilters?.fee?.toString() ?? null;
+    const feeCondition = feeParam
+      ? this.sql`pk.fee = ${feeParam}`
+      : this.sql`TRUE`;
+    const extensionParam = poolKeyFilters?.extension?.toString() ?? null;
+    const extensionCondition = extensionParam
+      ? this.sql`pk.pool_extension = ${extensionParam}`
+      : this.sql`TRUE`;
+    const coreAddressParam = poolKeyFilters?.coreAddress?.toString() ?? null;
+    const coreAddressCondition = coreAddressParam
+      ? this.sql`pk.core_address = ${coreAddressParam}`
+      : this.sql`TRUE`;
+    const amplificationCondition =
+      poolKeyFilters?.amplification === undefined
+        ? this.sql`TRUE`
+        : this
+            .sql`pk.stableswap_amplification = ${poolKeyFilters.amplification}`;
+    const centerTickCondition =
+      poolKeyFilters?.centerTick === undefined
+        ? this.sql`TRUE`
+        : this.sql`pk.stableswap_center_tick = ${poolKeyFilters.centerTick}`;
     return this.sql<
       { token: string; date: string; delta: string; chain_id: bigint }[]
     >`
@@ -923,6 +996,12 @@ ORDER BY event_id DESC
         AND pk.token0 = COALESCE(${token0}, pk.token0)
         AND pk.token1 = COALESCE(${token1}, pk.token1)
         AND pk.chain_id = COALESCE(${chainId ?? null}, pk.chain_id)
+        AND ${tickSpacingCondition}
+        AND ${feeCondition}
+        AND ${extensionCondition}
+        AND ${coreAddressCondition}
+        AND ${amplificationCondition}
+        AND ${centerTickCondition}
       GROUP BY htd.token, pk.chain_id, date
     `;
   }
@@ -1250,12 +1329,40 @@ ORDER BY po.token_id DESC
     since,
     pair,
     minVolumeUsd,
+    poolKeyFilters,
   }: {
     chainId?: bigint | null;
     since?: Date;
     pair?: { chainId: bigint; token0: bigint; token1: bigint };
     minVolumeUsd?: number;
+    poolKeyFilters?: PoolKeyFilters;
   }) {
+    const tickSpacingCondition =
+      poolKeyFilters?.tickSpacing === undefined
+        ? this.sql`TRUE`
+        : this.sql`pk.tick_spacing = ${poolKeyFilters.tickSpacing}`;
+    const feeParam = poolKeyFilters?.fee?.toString() ?? null;
+    const feeCondition = feeParam
+      ? this.sql`pk.fee = ${feeParam}`
+      : this.sql`TRUE`;
+    const extensionParam = poolKeyFilters?.extension?.toString() ?? null;
+    const extensionCondition = extensionParam
+      ? this.sql`pk.pool_extension = ${extensionParam}`
+      : this.sql`TRUE`;
+    const coreAddressParam = poolKeyFilters?.coreAddress?.toString() ?? null;
+    const coreAddressCondition = coreAddressParam
+      ? this.sql`pk.core_address = ${coreAddressParam}`
+      : this.sql`TRUE`;
+    const amplificationCondition =
+      poolKeyFilters?.amplification === undefined
+        ? this.sql`TRUE`
+        : this
+            .sql`pk.stableswap_amplification = ${poolKeyFilters.amplification}`;
+    const centerTickCondition =
+      poolKeyFilters?.centerTick === undefined
+        ? this.sql`TRUE`
+        : this.sql`pk.stableswap_center_tick = ${poolKeyFilters.centerTick}`;
+
     return this.sql<{ token: string; chain_id: bigint; volume: string }[]>`
       SELECT pk.chain_id,
              hvbt.token,
@@ -1274,6 +1381,12 @@ ORDER BY po.token_id DESC
         }
         AND t.visibility_priority >= 0
         AND ${chainId ? this.sql`pk.chain_id = ${chainId}` : this.sql`true`}
+        AND ${tickSpacingCondition}
+        AND ${feeCondition}
+        AND ${extensionCondition}
+        AND ${coreAddressCondition}
+        AND ${amplificationCondition}
+        AND ${centerTickCondition}
       GROUP BY pk.chain_id, hvbt.token
       ${minVolumeUsd ? this.sql`HAVING SUM(volume * tp.value / pow(10::float, t.token_decimals)) > ${minVolumeUsd}` : this.sql``}
     `;
@@ -1284,7 +1397,33 @@ ORDER BY po.token_id DESC
     after: Date,
     pair?: { chainId: bigint; token0: bigint; token1: bigint },
     minVolumeUsd?: number,
+    poolKeyFilters?: PoolKeyFilters,
   ) {
+    const tickSpacingCondition =
+      poolKeyFilters?.tickSpacing === undefined
+        ? this.sql`TRUE`
+        : this.sql`pk.tick_spacing = ${poolKeyFilters.tickSpacing}`;
+    const feeParam = poolKeyFilters?.fee?.toString() ?? null;
+    const feeCondition = feeParam
+      ? this.sql`pk.fee = ${feeParam}`
+      : this.sql`TRUE`;
+    const extensionParam = poolKeyFilters?.extension?.toString() ?? null;
+    const extensionCondition = extensionParam
+      ? this.sql`pk.pool_extension = ${extensionParam}`
+      : this.sql`TRUE`;
+    const coreAddressParam = poolKeyFilters?.coreAddress?.toString() ?? null;
+    const coreAddressCondition = coreAddressParam
+      ? this.sql`pk.core_address = ${coreAddressParam}`
+      : this.sql`TRUE`;
+    const amplificationCondition =
+      poolKeyFilters?.amplification === undefined
+        ? this.sql`TRUE`
+        : this
+            .sql`pk.stableswap_amplification = ${poolKeyFilters.amplification}`;
+    const centerTickCondition =
+      poolKeyFilters?.centerTick === undefined
+        ? this.sql`TRUE`
+        : this.sql`pk.stableswap_center_tick = ${poolKeyFilters.centerTick}`;
     return this.sql<
       {
         chain_id: bigint;
@@ -1312,6 +1451,12 @@ ORDER BY po.token_id DESC
             : this.sql`true`
         }
         AND visibility_priority >= 0
+        AND ${tickSpacingCondition}
+        AND ${feeCondition}
+        AND ${extensionCondition}
+        AND ${coreAddressCondition}
+        AND ${amplificationCondition}
+        AND ${centerTickCondition}
       GROUP BY hvbt.token, date, pk.chain_id
       ${minVolumeUsd ? this.sql`HAVING SUM(volume * tp.value / pow(10::float, t.token_decimals)) > ${minVolumeUsd}` : this.sql``}
     `;
