@@ -690,12 +690,49 @@ FROM token_mint AS mint
     token1,
     limit,
     chainId,
+    tickSpacing,
+    fee,
+    extension,
+    coreAddress,
+    amplification,
+    centerTick,
   }: {
     token0: bigint;
     token1: bigint;
     limit: number;
     chainId: bigint;
+    tickSpacing?: number;
+    fee?: bigint;
+    extension?: bigint;
+    coreAddress?: bigint;
+    amplification?: number;
+    centerTick?: number;
   }) {
+    const tickSpacingCondition =
+      tickSpacing === undefined
+        ? this.sql`TRUE`
+        : this.sql`pk.tick_spacing = ${tickSpacing}`;
+    const feeParam = fee?.toString() ?? null;
+    const feeCondition = feeParam
+      ? this.sql`pk.fee = ${feeParam}`
+      : this.sql`TRUE`;
+    const extensionParam = extension?.toString() ?? null;
+    const extensionCondition = extensionParam
+      ? this.sql`pk.pool_extension = ${extensionParam}`
+      : this.sql`TRUE`;
+    const coreAddressParam = coreAddress?.toString() ?? null;
+    const coreAddressCondition = coreAddressParam
+      ? this.sql`pk.core_address = ${coreAddressParam}`
+      : this.sql`TRUE`;
+    const amplificationCondition =
+      amplification === undefined
+        ? this.sql`TRUE`
+        : this.sql`pk.stableswap_amplification = ${amplification}`;
+    const centerTickCondition =
+      centerTick === undefined
+        ? this.sql`TRUE`
+        : this.sql`pk.stableswap_center_tick = ${centerTick}`;
+
     return this.sql<
       {
         type: 0 | 1;
@@ -732,7 +769,13 @@ WITH last_block AS (SELECT block_time
                             FROM pool_keys
                             WHERE chain_id = ${chainId}
                               AND token0 = ${token0.toString()}
-                              AND token1 = ${token1.toString()}),
+                              AND token1 = ${token1.toString()}
+                              AND ${tickSpacingCondition}
+                              AND ${feeCondition}
+                              AND ${extensionCondition}
+                              AND ${coreAddressCondition}
+                              AND ${amplificationCondition}
+                              AND ${centerTickCondition}),
      last_day_events AS (SELECT pbc.chain_id,
                                 pbc.event_id,
                                 rpk.pool_key_id

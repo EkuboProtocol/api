@@ -1,6 +1,7 @@
 import { EkuboAPIRoute, RequestContext } from "../../shared/context";
 import { IRequest, json, StatusError } from "itty-router";
 import {
+  AddressType,
   ChainIdType,
   NumericStringType,
   TokenIdentifierType,
@@ -127,6 +128,9 @@ const PairEventType = z.object({
 const PairEventsResponseType = z.object({
   data: z.array(PairEventType),
 });
+
+const TickSpacingQueryParameter = z.coerce.number().int();
+const StableswapParamQueryParameter = z.coerce.number().int();
 
 export class GetPairInfoTvl extends EkuboAPIRoute {
   static route = "/pair/:chainId/:tokenA/:tokenB/tvl";
@@ -392,6 +396,36 @@ export class ListPairEvents extends EkuboAPIRoute {
       chainId: Path(ChainIdType, { required: true }),
       tokenA: Path(TokenIdentifierType),
       tokenB: Path(TokenIdentifierType),
+      tickSpacing: Query(TickSpacingQueryParameter, {
+        required: false,
+        description:
+          "Restrict events to pools with the given tick spacing. Requires fee, extension, and coreAddress.",
+      }),
+      fee: Query(NumericStringType, {
+        required: false,
+        description:
+          "Restrict events to pools with the given fee. Requires tickSpacing, extension, and coreAddress.",
+      }),
+      extension: Query(AddressType, {
+        required: false,
+        description:
+          "Restrict events to pools with the given extension. Requires tickSpacing, fee, and coreAddress.",
+      }),
+      coreAddress: Query(AddressType, {
+        required: false,
+        description:
+          "Restrict events to pools with the given core address. Requires tickSpacing, fee, and extension.",
+      }),
+      amplification: Query(StableswapParamQueryParameter, {
+        required: false,
+        description:
+          "Restrict events to pools with the given stableswap amplification. Requires centerTick and the full pool filter set.",
+      }),
+      centerTick: Query(StableswapParamQueryParameter, {
+        required: false,
+        description:
+          "Restrict events to pools with the given stableswap center tick. Requires amplification and the full pool filter set.",
+      }),
     },
     responses: {
       "200": {
@@ -408,11 +442,70 @@ export class ListPairEvents extends EkuboAPIRoute {
       request.params,
       chainId,
     );
+    const hasTickSpacing = request.query?.tickSpacing !== undefined;
+    const hasFee = request.query?.fee !== undefined;
+    const hasExtension = request.query?.extension !== undefined;
+    const hasCoreAddress = request.query?.coreAddress !== undefined;
+    const hasAnyPoolFilter =
+      hasTickSpacing || hasFee || hasExtension || hasCoreAddress;
+    const hasAllPoolFilters =
+      hasTickSpacing && hasFee && hasExtension && hasCoreAddress;
+
+    if (hasAnyPoolFilter && !hasAllPoolFilters) {
+      throw new StatusError(
+        400,
+        "`tickSpacing`, `fee`, `extension`, and `coreAddress` must be provided together",
+      );
+    }
+
+    const hasAmplification = request.query?.amplification !== undefined;
+    const hasCenterTick = request.query?.centerTick !== undefined;
+
+    if (hasAmplification !== hasCenterTick) {
+      throw new StatusError(
+        400,
+        "`amplification` and `centerTick` must be provided together",
+      );
+    }
+
+    if (!hasAllPoolFilters && (hasAmplification || hasCenterTick)) {
+      throw new StatusError(
+        400,
+        "`amplification` and `centerTick` require `tickSpacing`, `fee`, `extension`, and `coreAddress`",
+      );
+    }
+
+    const tickSpacing = hasAllPoolFilters
+      ? TickSpacingQueryParameter.parse(request.query?.tickSpacing)
+      : undefined;
+    const fee = hasAllPoolFilters
+      ? BigInt(NumericStringType.parse(request.query?.fee))
+      : undefined;
+    const extension = hasAllPoolFilters
+      ? BigInt(AddressType.parse(request.query?.extension))
+      : undefined;
+    const coreAddress = hasAllPoolFilters
+      ? BigInt(AddressType.parse(request.query?.coreAddress))
+      : undefined;
+    const amplification =
+      hasAllPoolFilters && hasAmplification
+        ? StableswapParamQueryParameter.parse(request.query?.amplification)
+        : undefined;
+    const centerTick =
+      hasAllPoolFilters && hasCenterTick
+        ? StableswapParamQueryParameter.parse(request.query?.centerTick)
+        : undefined;
 
     const rows = await queries.getPairEvents({
       ...pair,
       limit: 100,
       chainId,
+      tickSpacing,
+      fee,
+      extension,
+      coreAddress,
+      amplification,
+      centerTick,
     });
 
     const response = {
