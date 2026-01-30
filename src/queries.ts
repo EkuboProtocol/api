@@ -775,7 +775,7 @@ WITH last_block AS (SELECT block_time
                                                0, 0
                                        ) AS min_event_id),
      relevant_pool_keys AS (SELECT pool_key_id
-                            FROM pool_keys
+                            FROM pool_keys pk
                             WHERE chain_id = ${chainId}
                               AND token0 = ${token0.toString()}
                               AND token1 = ${token1.toString()}
