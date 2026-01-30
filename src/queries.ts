@@ -720,7 +720,9 @@ FROM token_mint AS mint
     const tickSpacingCondition =
       tickSpacing === undefined
         ? this.sql`TRUE`
-        : this.sql`pk.tick_spacing = ${tickSpacing}`;
+        : tickSpacing === 0
+          ? this.sql`pk.tick_spacing IS NULL`
+          : this.sql`pk.tick_spacing = ${tickSpacing}`;
     const feeParam = fee?.toString() ?? null;
     const feeCondition = feeParam
       ? this.sql`pk.fee = ${feeParam}`
@@ -880,7 +882,9 @@ ORDER BY event_id DESC
     const tickSpacingCondition =
       poolKeyFilters?.tickSpacing === undefined
         ? this.sql`TRUE`
-        : this.sql`pk.tick_spacing = ${poolKeyFilters.tickSpacing}`;
+        : poolKeyFilters.tickSpacing === 0
+          ? this.sql`pk.tick_spacing IS NULL`
+          : this.sql`pk.tick_spacing = ${poolKeyFilters.tickSpacing}`;
     const feeParam = poolKeyFilters?.fee?.toString() ?? null;
     const feeCondition = feeParam
       ? this.sql`pk.fee = ${feeParam}`
@@ -961,7 +965,9 @@ ORDER BY event_id DESC
     const tickSpacingCondition =
       poolKeyFilters?.tickSpacing === undefined
         ? this.sql`TRUE`
-        : this.sql`pk.tick_spacing = ${poolKeyFilters.tickSpacing}`;
+        : poolKeyFilters.tickSpacing === 0
+          ? this.sql`pk.tick_spacing IS NULL`
+          : this.sql`pk.tick_spacing = ${poolKeyFilters.tickSpacing}`;
     const feeParam = poolKeyFilters?.fee?.toString() ?? null;
     const feeCondition = feeParam
       ? this.sql`pk.fee = ${feeParam}`
@@ -1340,7 +1346,9 @@ ORDER BY po.token_id DESC
     const tickSpacingCondition =
       poolKeyFilters?.tickSpacing === undefined
         ? this.sql`TRUE`
-        : this.sql`pk.tick_spacing = ${poolKeyFilters.tickSpacing}`;
+        : poolKeyFilters.tickSpacing === 0
+          ? this.sql`pk.tick_spacing IS NULL`
+          : this.sql`pk.tick_spacing = ${poolKeyFilters.tickSpacing}`;
     const feeParam = poolKeyFilters?.fee?.toString() ?? null;
     const feeCondition = feeParam
       ? this.sql`pk.fee = ${feeParam}`
@@ -1402,7 +1410,9 @@ ORDER BY po.token_id DESC
     const tickSpacingCondition =
       poolKeyFilters?.tickSpacing === undefined
         ? this.sql`TRUE`
-        : this.sql`pk.tick_spacing = ${poolKeyFilters.tickSpacing}`;
+        : poolKeyFilters.tickSpacing === 0
+          ? this.sql`pk.tick_spacing IS NULL`
+          : this.sql`pk.tick_spacing = ${poolKeyFilters.tickSpacing}`;
     const feeParam = poolKeyFilters?.fee?.toString() ?? null;
     const feeCondition = feeParam
       ? this.sql`pk.fee = ${feeParam}`
