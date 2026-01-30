@@ -64,7 +64,7 @@ export default {
     // check cache hits for request
     // we do this outside of the router because we do not want to RE-CACHE a successful response by including the cache logic in the router handler
     if (cacheKey) {
-      const cached = await cache.match(cacheKey);
+      const cached = false;
       if (cached) {
         const corsified = corsify(cached);
         corsified.headers.set("Access-Control-Allow-Origin", "*");
