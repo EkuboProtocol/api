@@ -137,6 +137,7 @@ const PairTopPositionsEntryType = z.object({
   core_address: z.string(),
   positions_address: z.string(),
   owner: AddressType,
+  minted_timestamp: TimestampType,
   pool_key: z.object({
     token0: z.string(),
     token1: z.string(),
@@ -642,6 +643,7 @@ export class GetPairTopPositions extends EkuboAPIRoute {
           core_address: toHex(row.core_address),
           positions_address: toHex(row.positions_address),
           owner: toHex(row.owner),
+          minted_timestamp: row.minted_timestamp,
           pool_key: {
             token0: toHex(row.token0),
             token1: toHex(row.token1),

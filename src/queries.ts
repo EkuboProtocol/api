@@ -1851,6 +1851,7 @@ ORDER BY pp.last_transfer_event_id DESC;
         lower_bound: string;
         upper_bound: string;
         liquidity: string;
+        minted_timestamp: Date;
         pool_state_sqrt_ratio: string | null;
         pool_state_tick: number | null;
         pool_state_liquidity: string | null;
@@ -1872,6 +1873,7 @@ ORDER BY pp.last_transfer_event_id DESC;
              nfp.lower_bound,
              nfp.upper_bound,
              nfp.liquidity,
+             mint.minted_timestamp,
              ps.sqrt_ratio AS pool_state_sqrt_ratio,
              ps.tick       AS pool_state_tick,
              ps.liquidity  AS pool_state_liquidity,
@@ -1880,6 +1882,17 @@ ORDER BY pp.last_transfer_event_id DESC;
       FROM nonfungible_token_positions_view AS nfp
                LEFT JOIN nft_locker_mappings nlm USING (chain_id, nft_address)
                JOIN pool_keys pk USING (pool_key_id)
+               LEFT JOIN LATERAL (
+        SELECT b.block_time AS minted_timestamp
+        FROM nonfungible_token_transfers nft
+                 JOIN blocks b USING (chain_id, block_number)
+        WHERE nft.chain_id = nfp.chain_id
+          AND nft.emitter = nfp.nft_address
+          AND nft.token_id = nfp.token_id
+          AND nft.from_address = 0
+        ORDER BY nft.event_id
+        LIMIT 1
+      ) mint ON TRUE
                LEFT JOIN pool_states ps ON pk.pool_key_id = ps.pool_key_id
       WHERE nfp.chain_id = ${chainId}
         AND pk.token0 = ${pair.token0.toString()}
