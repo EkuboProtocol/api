@@ -3,6 +3,7 @@ import { IRequest, json, StatusError } from "itty-router";
 import {
   AddressType,
   ChainIdType,
+  DecimalStringType,
   NumericStringType,
   TokenIdentifierType,
 } from "../../shared/validation/address";
@@ -127,6 +128,41 @@ const PairEventType = z.object({
 
 const PairEventsResponseType = z.object({
   data: z.array(PairEventType),
+});
+
+const PairTopPositionsEntryType = z.object({
+  id: z.string(),
+  chain_id: z.string(),
+  nft_address: z.string(),
+  core_address: z.string(),
+  positions_address: z.string(),
+  owner: AddressType,
+  pool_key: z.object({
+    token0: z.string(),
+    token1: z.string(),
+    fee: z.string(),
+    tick_spacing: z.string().nullable(),
+    extension: z.string(),
+    stableswap_params: z
+      .object({ center_tick: z.number(), amplification: z.number() })
+      .nullable(),
+  }),
+  bounds: z.object({
+    lower: z.number(),
+    upper: z.number(),
+  }),
+  liquidity: z.string(),
+  pool_state: z
+    .object({
+      sqrt_ratio: DecimalStringType,
+      tick: z.number().int(),
+      liquidity: DecimalStringType,
+    })
+    .nullable(),
+});
+
+const PairTopPositionsResponseType = z.object({
+  data: z.array(PairTopPositionsEntryType),
 });
 
 const TickSpacingQueryParameter = z.coerce.number().int();
@@ -546,6 +582,95 @@ export class ListPairEvents extends EkuboAPIRoute {
       headers: {
         "cache-control": "public, max-age=180, must-revalidate",
       },
+    });
+  }
+}
+
+export class GetPairTopPositions extends EkuboAPIRoute {
+  static route = "/pair/:chainId/:tokenA/:tokenB/positions";
+
+  static schema: OpenAPIRouteSchema = {
+    tags: ["Stats"],
+    summary: "Get top positions for pair",
+    description:
+      "Returns the top positions (by liquidity) for the given trading pair",
+    parameters: {
+      chainId: Path(ChainIdType, { required: true }),
+      tokenA: Path(TokenIdentifierType),
+      tokenB: Path(TokenIdentifierType),
+      ...PoolFilterQueryParameters,
+    },
+    responses: {
+      "200": {
+        description: "Top positions for the given pair",
+        schema: PairTopPositionsResponseType,
+      },
+    },
+  };
+
+  async handle(request: IRequest, { env }: RequestContext) {
+    const chainId = BigInt(request.params.chainId);
+    const { queries, pair } = await parseOutTokens(
+      env,
+      request.params,
+      chainId,
+    );
+    const poolKeyFilters = parsePoolKeyFilters(request);
+    console.log(request.params);
+
+    const rows = await queries.getTopPositionsByPair({
+      chainId,
+      pair,
+      poolKeyFilters,
+      limit: 10,
+    });
+
+    const response = {
+      data: rows.map((row) => {
+        const stableswap_params =
+          row.stableswap_amplification !== null &&
+          row.stableswap_center_tick !== null
+            ? {
+                center_tick: Number(row.stableswap_center_tick),
+                amplification: Number(row.stableswap_amplification),
+              }
+            : null;
+        return {
+          id: toHex(BigInt(row.token_id)),
+          chain_id: toHex(row.chain_id),
+          nft_address: toHex(row.nft_address),
+          core_address: toHex(row.core_address),
+          positions_address: toHex(row.positions_address),
+          owner: toHex(row.owner),
+          pool_key: {
+            token0: toHex(row.token0),
+            token1: toHex(row.token1),
+            fee: toHex(row.fee),
+            tick_spacing: row.tick_spacing ? toHex(row.tick_spacing) : null,
+            extension: toHex(row.extension),
+            stableswap_params,
+          },
+          bounds: {
+            lower: Number(row.lower_bound),
+            upper: Number(row.upper_bound),
+          },
+          liquidity: row.liquidity,
+          pool_state:
+            row.pool_state_sqrt_ratio === null ||
+            row.pool_state_tick === null ||
+            row.pool_state_liquidity === null
+              ? null
+              : {
+                  sqrt_ratio: row.pool_state_sqrt_ratio,
+                  tick: Number(row.pool_state_tick),
+                  liquidity: row.pool_state_liquidity,
+                },
+        };
+      }),
+    } satisfies z.infer<typeof PairTopPositionsResponseType>;
+
+    return json(response, {
+      headers: {},
     });
   }
 }

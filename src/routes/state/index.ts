@@ -13,7 +13,6 @@ import {
   NumericStringType,
 } from "../../shared/validation/address";
 import { z } from "zod";
-import toHex from "../../shared/toHex";
 
 const LiquidityPointType = z.object({
   tick: z.string(),

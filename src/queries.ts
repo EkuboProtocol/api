@@ -1796,6 +1796,106 @@ ORDER BY pp.last_transfer_event_id DESC;
     };
   }
 
+  public async getTopPositionsByPair({
+    chainId,
+    pair,
+    poolKeyFilters,
+    limit = 10,
+  }: {
+    chainId: bigint;
+    pair: { token0: bigint; token1: bigint };
+    poolKeyFilters?: PoolKeyFilters;
+    limit?: number;
+  }) {
+    const tickSpacingCondition =
+      poolKeyFilters?.tickSpacing === undefined
+        ? this.sql`TRUE`
+        : poolKeyFilters.tickSpacing === 0
+          ? this.sql`pk.tick_spacing IS NULL`
+          : this.sql`pk.tick_spacing = ${poolKeyFilters.tickSpacing}`;
+    const feeParam = poolKeyFilters?.fee?.toString() ?? null;
+    const feeCondition = feeParam
+      ? this.sql`pk.fee = ${feeParam}`
+      : this.sql`TRUE`;
+    const extensionParam = poolKeyFilters?.extension?.toString() ?? null;
+    const extensionCondition = extensionParam
+      ? this.sql`pk.pool_extension = ${extensionParam}`
+      : this.sql`TRUE`;
+    const coreAddressParam = poolKeyFilters?.coreAddress?.toString() ?? null;
+    const coreAddressCondition = coreAddressParam
+      ? this.sql`pk.core_address = ${coreAddressParam}`
+      : this.sql`TRUE`;
+    const amplificationCondition =
+      poolKeyFilters?.amplification === undefined
+        ? this.sql`TRUE`
+        : this
+            .sql`pk.stableswap_amplification = ${poolKeyFilters.amplification}`;
+    const centerTickCondition =
+      poolKeyFilters?.centerTick === undefined
+        ? this.sql`TRUE`
+        : this.sql`pk.stableswap_center_tick = ${poolKeyFilters.centerTick}`;
+
+    return this.sql<
+      {
+        chain_id: bigint;
+        nft_address: string;
+        core_address: string;
+        positions_address: string;
+        owner: string;
+        token_id: string;
+        token0: string;
+        token1: string;
+        fee: string;
+        tick_spacing: string | null;
+        extension: string;
+        lower_bound: string;
+        upper_bound: string;
+        liquidity: string;
+        pool_state_sqrt_ratio: string | null;
+        pool_state_tick: number | null;
+        pool_state_liquidity: string | null;
+        stableswap_center_tick: number | null;
+        stableswap_amplification: string | null;
+      }[]
+    >`
+      SELECT nfp.chain_id,
+             nfp.nft_address,
+             pk.core_address,
+             COALESCE(nlm.locker, nfp.nft_address) AS positions_address,
+             nfp.current_owner AS owner,
+             nfp.token_id,
+             pk.token0,
+             pk.token1,
+             pk.fee,
+             pk.tick_spacing,
+             pk.pool_extension                      AS "extension",
+             nfp.lower_bound,
+             nfp.upper_bound,
+             nfp.liquidity,
+             ps.sqrt_ratio AS pool_state_sqrt_ratio,
+             ps.tick       AS pool_state_tick,
+             ps.liquidity  AS pool_state_liquidity,
+             pk.stableswap_center_tick,
+             pk.stableswap_amplification
+      FROM nonfungible_token_positions_view AS nfp
+               LEFT JOIN nft_locker_mappings nlm USING (chain_id, nft_address)
+               JOIN pool_keys pk USING (pool_key_id)
+               LEFT JOIN pool_states ps ON pk.pool_key_id = ps.pool_key_id
+      WHERE nfp.chain_id = ${chainId}
+        AND pk.token0 = ${pair.token0.toString()}
+        AND pk.token1 = ${pair.token1.toString()}
+        AND nfp.liquidity != 0
+        AND ${tickSpacingCondition}
+        AND ${feeCondition}
+        AND ${extensionCondition}
+        AND ${coreAddressCondition}
+        AND ${amplificationCondition}
+        AND ${centerTickCondition}
+      ORDER BY nfp.liquidity DESC
+      LIMIT ${limit};
+    `;
+  }
+
   async listCampaigns(chainId: bigint | null = null) {
     return this.sql<
       {
