@@ -615,6 +615,38 @@ FROM token_mint AS mint
     `;
   }
 
+  public async getPoolKeyByCoreAndId(
+    chainId: bigint,
+    coreAddress: bigint,
+    poolId: bigint,
+  ) {
+    return this.sql<
+      {
+        token0: string;
+        token1: string;
+        fee: string;
+        tick_spacing: number | null;
+        extension: string;
+        stableswap_center_tick: string | null;
+        stableswap_amplification: string | null;
+      }[]
+    >`
+      SELECT
+        token0,
+        token1,
+        fee,
+        tick_spacing,
+        pool_extension AS extension,
+        stableswap_center_tick,
+        stableswap_amplification
+      FROM pool_keys
+      WHERE chain_id = ${chainId}
+        AND core_address = ${coreAddress.toString()}
+        AND pool_id = ${poolId.toString()}
+      LIMIT 1
+    `;
+  }
+
   public async getPoolClassification({
     chainId,
     token0,
