@@ -63,6 +63,7 @@ const PairVolumeResponseType = z.object({
 });
 
 const PoolStatsType = z.object({
+  pool_id: z.string(),
   fee: z.string(),
   tick_spacing: z.number().int(),
   core_address: z.string(),

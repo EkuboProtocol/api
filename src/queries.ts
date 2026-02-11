@@ -1467,6 +1467,7 @@ HAVING SUM(tvl0_total / POWER(10::NUMERIC, t0.token_decimals) * COALESCE(t0p.val
   ) {
     return this.sql<
       {
+        pool_id: string;
         fee: string;
         tick_spacing: number;
         core_address: string;
@@ -1497,6 +1498,7 @@ HAVING SUM(tvl0_total / POWER(10::NUMERIC, t0.token_decimals) * COALESCE(t0p.val
       }[]
     >`
       SELECT
+        p.pool_id,
         p.fee,
         p.tick_spacing,
         p.core_address,
