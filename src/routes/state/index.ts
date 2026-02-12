@@ -1,18 +1,14 @@
-import {
-  OpenAPIRouteSchema,
-  Path,
-  Query,
-} from "@cloudflare/itty-router-openapi";
-import { IRequest, json } from "itty-router";
+import { OpenAPIRouteSchema, Path } from "@cloudflare/itty-router-openapi";
+import { IRequest, json, StatusError } from "itty-router";
 import { EkuboAPIRoute, RequestContext } from "../../shared/context";
 import { createQueries } from "../../queries";
 import {
   AddressType,
   ChainIdType,
-  HexStringType,
   NumericStringType,
 } from "../../shared/validation/address";
 import { z } from "zod";
+import toHex from "../../shared/toHex";
 
 const LiquidityPointType = z.object({
   tick: z.string(),
@@ -24,9 +20,23 @@ const LiquidityResponseType = z.object({
   data: LiquiditySeriesType,
 });
 
+const PoolKeyType = z.object({
+  token0: z.string(),
+  token1: z.string(),
+  fee: z.string(),
+  tick_spacing: z.string().nullable(),
+  extension: z.string(),
+  stableswap_params: z
+    .object({ center_tick: z.number().int(), amplification: z.number().int() })
+    .nullable(),
+});
+
+const PoolKeyResponseType = z.object({
+  pool_key: PoolKeyType,
+});
+
 export class GetPoolLiquidity extends EkuboAPIRoute {
-  static route =
-    "/pools/:chainId/:coreAddress/:token0/:token1/:fee/:tickSpacing/:extension/liquidity";
+  static route = "/pools/:chainId/:coreAddress/:poolId/liquidity";
 
   static schema: OpenAPIRouteSchema = {
     tags: ["Swap"],
@@ -36,17 +46,7 @@ export class GetPoolLiquidity extends EkuboAPIRoute {
     parameters: {
       chainId: Path(ChainIdType, { required: true }),
       coreAddress: Path(AddressType, { example: "0xabcd" }),
-      token0: Path(AddressType, {
-        example: "0x0000000000000000000000000000000000000000",
-      }),
-      token1: Path(AddressType, {
-        example: "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48",
-      }),
-      fee: Path(NumericStringType, {
-        example: "1020847100762815390390123822295304634",
-      }),
-      tickSpacing: Path(NumericStringType, { example: "5982" }),
-      extension: Path(AddressType, { example: "0xabcd" }),
+      poolId: Path(NumericStringType, { example: "1" }),
     },
     responses: {
       "200": {
@@ -57,33 +57,86 @@ export class GetPoolLiquidity extends EkuboAPIRoute {
   };
 
   async handle(
-    {
-      params: {
-        chainId,
-        coreAddress,
-        token0,
-        token1,
-        fee,
-        tickSpacing,
-        extension,
-      },
-    }: IRequest,
+    { params: { chainId, coreAddress, poolId } }: IRequest,
     { env }: RequestContext,
   ) {
     const queries = await createQueries(env);
 
     const rows = await queries.getPoolLiquidityGraph(BigInt(chainId), {
       coreAddress: BigInt(coreAddress),
-      token0: BigInt(token0),
-      token1: BigInt(token1),
-      fee: BigInt(fee),
-      tickSpacing: Number(tickSpacing),
-      extension: BigInt(extension),
+      poolId: BigInt(poolId),
     });
 
     const response = {
       data: rows,
     } satisfies z.infer<typeof LiquidityResponseType>;
+
+    return json(response, {
+      headers: {
+        "cache-control": "public, max-age=1800, must-revalidate",
+      },
+    });
+  }
+}
+
+export class GetPoolKey extends EkuboAPIRoute {
+  static route = "/pools/:chainId/:coreAddress/:poolId/key";
+
+  static schema: OpenAPIRouteSchema = {
+    tags: ["Swap"],
+    summary: "Get pool key",
+    description:
+      "Returns the pool key details for the given core address and pool id",
+    parameters: {
+      chainId: Path(ChainIdType, { required: true }),
+      coreAddress: Path(AddressType, { example: "0xabcd" }),
+      poolId: Path(NumericStringType, { example: "1" }),
+    },
+    responses: {
+      "200": {
+        schema: PoolKeyResponseType,
+        description: "Pool key details for the given pool",
+      },
+    },
+  };
+
+  async handle(
+    { params: { chainId, coreAddress, poolId } }: IRequest,
+    { env }: RequestContext,
+  ) {
+    const queries = await createQueries(env);
+
+    const rows = await queries.getPoolKeyByCoreAndId(
+      BigInt(chainId),
+      BigInt(coreAddress),
+      BigInt(poolId),
+    );
+
+    if (rows.length !== 1) {
+      throw new StatusError(404, "Pool not found");
+    }
+
+    const row = rows[0];
+
+    const stableswap_params =
+      row.stableswap_amplification !== null &&
+      row.stableswap_center_tick !== null
+        ? {
+            center_tick: Number(row.stableswap_center_tick),
+            amplification: Number(row.stableswap_amplification),
+          }
+        : null;
+
+    const response = {
+      pool_key: {
+        token0: toHex(row.token0),
+        token1: toHex(row.token1),
+        fee: toHex(row.fee),
+        tick_spacing: row.tick_spacing ? toHex(row.tick_spacing) : null,
+        extension: toHex(row.extension),
+        stableswap_params,
+      },
+    } satisfies z.infer<typeof PoolKeyResponseType>;
 
     return json(response, {
       headers: {
