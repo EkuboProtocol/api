@@ -722,9 +722,9 @@ FROM token_mint AS mint
     tickSpacing,
     fee,
     extension,
-    coreAddress,
     amplification,
     centerTick,
+    poolKeyFilters,
   }: {
     token0: bigint;
     token1: bigint;
@@ -733,9 +733,9 @@ FROM token_mint AS mint
     tickSpacing?: number;
     fee?: bigint;
     extension?: bigint;
-    coreAddress?: bigint;
     amplification?: number;
     centerTick?: number;
+    poolKeyFilters?: PoolKeyFilters;
   }) {
     const tickSpacingCondition =
       tickSpacing === undefined
@@ -751,9 +751,13 @@ FROM token_mint AS mint
     const extensionCondition = extensionParam
       ? this.sql`pk.pool_extension = ${extensionParam}`
       : this.sql`TRUE`;
-    const coreAddressParam = coreAddress?.toString() ?? null;
+    const coreAddressParam = poolKeyFilters?.coreAddress?.toString() ?? null;
     const coreAddressCondition = coreAddressParam
       ? this.sql`pk.core_address = ${coreAddressParam}`
+      : this.sql`TRUE`;
+    const poolIdParam = poolKeyFilters?.poolId?.toString() ?? null;
+    const poolIdCondition = poolIdParam
+      ? this.sql`pk.pool_id = ${poolIdParam}`
       : this.sql`TRUE`;
     const amplificationCondition =
       amplification === undefined
@@ -805,6 +809,7 @@ WITH last_block AS (SELECT block_time
                               AND ${feeCondition}
                               AND ${extensionCondition}
                               AND ${coreAddressCondition}
+                              AND ${poolIdCondition}
                               AND ${amplificationCondition}
                               AND ${centerTickCondition}),
      last_day_events AS (SELECT pbc.chain_id,

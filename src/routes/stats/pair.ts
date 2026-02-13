@@ -503,7 +503,7 @@ export class ListPairEvents extends EkuboAPIRoute {
       ...pair,
       limit: 100,
       chainId,
-      ...poolKeyFilters,
+      poolKeyFilters,
     });
 
     const response = {
