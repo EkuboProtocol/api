@@ -34,3 +34,9 @@ export const ChainIdType = z.coerce
     title: "Chain ID",
     description: "The ID of the network that is being fetched",
   });
+
+export const VisibilityPriorityType = z.coerce.number().int().min(-100).max(100)
+  .openapi({
+    title: "Visibility Priority",
+    description: "Token visibility priority threshold",
+  });

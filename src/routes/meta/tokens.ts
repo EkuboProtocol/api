@@ -7,7 +7,11 @@ import { IRequest, json, StatusError } from "itty-router";
 import { z } from "zod";
 import { EkuboAPIRoute, RequestContext } from "../../shared/context";
 import { ErrorResponseType } from "../../shared/errors";
-import { AddressType, ChainIdType } from "../../shared/validation/address";
+import {
+  AddressType,
+  ChainIdType,
+  VisibilityPriorityType,
+} from "../../shared/validation/address";
 import { createQueries, Queries, RawErc20TokenRow } from "../../queries";
 import toHex from "../../shared/toHex";
 
@@ -257,7 +261,7 @@ export class ListTokens extends EkuboAPIRoute {
         example: "1:0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48",
         required: false,
       }),
-      minVisibilityPriority: Query(z.coerce.number().min(-100).max(100).int(), {
+      minVisibilityPriority: Query(VisibilityPriorityType, {
         required: false,
       }),
     },
@@ -271,7 +275,9 @@ export class ListTokens extends EkuboAPIRoute {
 
   async handle({ query }: IRequest, { env }: RequestContext) {
     const chainId = ChainIdType.optional().parse(query.chainId);
-    const minVisibilityPriority = Number(query.minVisibilityPriority ?? 0);
+    const minVisibilityPriority = VisibilityPriorityType.parse(
+      query.minVisibilityPriority ?? 0,
+    );
     const pageSize = Number(query.pageSize ?? 1000);
     const [afterTokenChainId, afterTokenAddress] =
       typeof query.afterToken === "string" ? query.afterToken.split(":") : [];

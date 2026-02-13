@@ -3,36 +3,48 @@ import { Env } from "./env";
 import { RequestContext } from "./shared/context";
 import { router } from "./router";
 
-function normalizeQueryValue(key: string, value: string): string {
-  if (key.toLowerCase() === "chainid") {
-    try {
-      return BigInt(value).toString();
-    } catch {
-      return value;
-    }
+const NUMERICISH_REGEX = /^(?:0x[0-9a-fA-F]+|[+-]?\d+)$/;
+const MAX_NUMERICISH_LENGTH = 128;
+
+function normalizeNumberishValue(value: string): string {
+  if (value.length === 0 || value.length > MAX_NUMERICISH_LENGTH) {
+    return value;
   }
 
-  return value;
+  if (!NUMERICISH_REGEX.test(value)) {
+    return value;
+  }
+
+  try {
+    return BigInt(value).toString();
+  } catch {
+    return value;
+  }
 }
 
 function normalizeRequestForCache(request: IRequest): URL {
   const url = new URL(request.url);
-  const params = Array.from(url.searchParams.entries());
+  const normalizedUrl = new URL(url.toString());
+
+  // Canonicalize integer-like path segments, e.g. /0x123 -> /291.
+  const normalizedPathSegments = normalizedUrl.pathname
+    .split("/")
+    .map((segment) => normalizeNumberishValue(segment));
+  normalizedUrl.pathname = normalizedPathSegments.join("/");
+
+  const params = Array.from(normalizedUrl.searchParams.entries());
 
   if (params.length === 0) {
-    return url;
+    return normalizedUrl;
   }
 
   const normalizedParams = new URLSearchParams();
   params
+    .map(([key, value]) => [key, normalizeNumberishValue(value)] as const)
     .sort(([aKey, aValue], [bKey, bValue]) =>
       aKey === bKey ? aValue.localeCompare(bValue) : aKey.localeCompare(bKey),
     )
-    .forEach(([key, value]) =>
-      normalizedParams.append(key, normalizeQueryValue(key, value)),
-    );
-
-  const normalizedUrl = new URL(url.toString());
+    .forEach(([key, value]) => normalizedParams.append(key, value));
   normalizedUrl.search = normalizedParams.toString();
 
   return normalizedUrl;

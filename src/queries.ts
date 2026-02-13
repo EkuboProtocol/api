@@ -2220,6 +2220,72 @@ AND chain_id IS NOT NULL
     return BigInt(rows[0]?.amount_delegated ?? 0);
   }
 
+  async listAuctionsByKey({
+    chainId,
+    minVisibilityPriority,
+    owner,
+  }: {
+    chainId: bigint | null;
+    minVisibilityPriority: number;
+    owner: bigint | null;
+  }) {
+    const chainIdCondition =
+      chainId === null ? this.sql`TRUE` : this.sql`afa.chain_id = ${chainId}`;
+
+    const ownerCondition =
+      owner === null
+        ? this.sql`TRUE`
+        : this.sql`nfo.current_owner = ${owner.toString()}`;
+
+    return this.sql<
+      {
+        chain_id: bigint;
+        token0: string;
+        token1: string;
+        config: string;
+        token_id: string;
+        owner: string;
+        auctions_contract_address: string;
+        total_sale_rate: string;
+      }[]
+    >`
+      SELECT afa.chain_id,
+            afa.token0,
+            afa.token1,
+            afa.config,
+            afa.token_id       AS token_id,
+            nfo.current_owner  AS owner,
+            afa.emitter        AS auctions_contract_address,
+            SUM(afa.sale_rate) AS total_sale_rate
+      FROM auction_funds_added AS afa
+              JOIN nonfungible_token_owners AS nfo
+                    ON nfo.chain_id = afa.chain_id
+                        AND nfo.nft_address = afa.emitter
+                        AND nfo.token_id = afa.token_id
+              JOIN blocks AS b
+                    ON b.chain_id = afa.chain_id
+                        AND b.block_number = afa.block_number
+              JOIN erc20_tokens AS t0
+                    ON t0.chain_id = afa.chain_id
+                        AND t0.token_address = afa.token0
+              JOIN erc20_tokens AS t1
+                    ON t1.chain_id = afa.chain_id
+                        AND t1.token_address = afa.token1
+      WHERE ${chainIdCondition}
+        AND t0.visibility_priority >= ${minVisibilityPriority}
+        AND t1.visibility_priority >= ${minVisibilityPriority}
+        AND ${ownerCondition}
+      GROUP BY afa.chain_id,
+              afa.token0,
+              afa.token1,
+              afa.config,
+              afa.token_id,
+              nfo.current_owner,
+              afa.emitter
+      ORDER BY MAX(b.block_time) DESC, afa.token_id
+    `;
+  }
+
   async getLimitOrdersByAddress(
     address: bigint,
     state: StateFilter | null,
