@@ -38,6 +38,28 @@ export interface TwammOrderMetadata {
   fee: string;
 }
 
+export interface AuctionNftMetadata {
+  minted_tx_hash: string;
+  minted_timestamp: Date;
+  current_owner: string | null;
+  token0: string;
+  token1: string;
+  config: string;
+  token0_symbol: string | null;
+  token1_symbol: string | null;
+  total_sale_rate: string;
+  first_funded_timestamp: Date;
+  last_funded_timestamp: Date;
+  fund_add_events: number;
+  creator_proceeds: string | null;
+  proceeds_collect_events: number | null;
+  creator_amount: string | null;
+  boost_amount: string | null;
+  completed_timestamp: Date | null;
+  boost_rate: string | null;
+  boost_end_time: Date | null;
+}
+
 export interface LimitOrderMetadata {
   minted_tx_hash: string;
   minted_timestamp: Date;
@@ -2283,6 +2305,135 @@ AND chain_id IS NOT NULL
               nfo.current_owner,
               afa.emitter
       ORDER BY MAX(b.block_time) DESC, afa.token_id
+    `;
+  }
+
+  async getAuctionNftMetadata(
+    tokenId: bigint,
+    nftAddress: bigint,
+    chainId: bigint,
+  ) {
+    return this.sql<AuctionNftMetadata[]>`
+      WITH minted AS (
+        SELECT nft.transaction_hash AS minted_tx_hash,
+               b.block_time AS minted_timestamp
+        FROM nonfungible_token_transfers AS nft
+               JOIN blocks AS b
+                    ON b.chain_id = nft.chain_id
+                        AND b.block_number = nft.block_number
+        WHERE nft.chain_id = ${chainId}
+          AND nft.emitter = ${nftAddress.toString()}
+          AND nft.token_id = ${tokenId.toString()}
+          AND nft.from_address = 0
+        ORDER BY nft.event_id
+        LIMIT 1
+      ),
+           owner_data AS (
+             SELECT nfo.current_owner
+             FROM nonfungible_token_owners AS nfo
+             WHERE nfo.chain_id = ${chainId}
+               AND nfo.nft_address = ${nftAddress.toString()}
+               AND nfo.token_id = ${tokenId.toString()}
+           ),
+           auction_keys AS (
+             SELECT afa.token0,
+                    afa.token1,
+                    afa.config,
+                    SUM(afa.sale_rate) AS total_sale_rate,
+                    MIN(b.block_time)  AS first_funded_timestamp,
+                    MAX(b.block_time)  AS last_funded_timestamp,
+                    COUNT(*)::INT      AS fund_add_events
+             FROM auction_funds_added AS afa
+                    JOIN blocks AS b
+                         ON b.chain_id = afa.chain_id
+                             AND b.block_number = afa.block_number
+             WHERE afa.chain_id = ${chainId}
+               AND afa.emitter = ${nftAddress.toString()}
+               AND afa.token_id = ${tokenId.toString()}
+             GROUP BY afa.token0, afa.token1, afa.config
+           ),
+           proceeds_data AS (
+             SELECT acp.token0,
+                    acp.token1,
+                    acp.config,
+                    SUM(acp.amount) AS creator_proceeds,
+                    COUNT(*)::INT   AS proceeds_collect_events
+             FROM auction_creator_proceeds_collected AS acp
+             WHERE acp.chain_id = ${chainId}
+               AND acp.emitter = ${nftAddress.toString()}
+               AND acp.token_id = ${tokenId.toString()}
+             GROUP BY acp.token0, acp.token1, acp.config
+           ),
+           completion_data AS (
+             SELECT DISTINCT ON (ac.token0, ac.token1, ac.config)
+               ac.token0,
+               ac.token1,
+               ac.config,
+               ac.creator_amount,
+               ac.boost_amount,
+               b.block_time AS completed_timestamp
+             FROM auction_completed AS ac
+                    JOIN blocks AS b
+                         ON b.chain_id = ac.chain_id
+                             AND b.block_number = ac.block_number
+             WHERE ac.chain_id = ${chainId}
+               AND ac.emitter = ${nftAddress.toString()}
+               AND ac.token_id = ${tokenId.toString()}
+             ORDER BY ac.token0, ac.token1, ac.config, ac.event_id DESC
+           ),
+           boost_data AS (
+             SELECT DISTINCT ON (abs.token0, abs.token1, abs.config)
+               abs.token0,
+               abs.token1,
+               abs.config,
+               abs.boost_rate,
+               abs.boost_end_time
+             FROM auction_boost_started AS abs
+             WHERE abs.chain_id = ${chainId}
+               AND abs.emitter = ${nftAddress.toString()}
+             ORDER BY abs.token0, abs.token1, abs.config, abs.event_id DESC
+           )
+      SELECT minted.minted_tx_hash,
+             minted.minted_timestamp,
+             owner_data.current_owner,
+             ak.token0,
+             ak.token1,
+             ak.config,
+             t0.token_symbol AS token0_symbol,
+             t1.token_symbol AS token1_symbol,
+             ak.total_sale_rate,
+             ak.first_funded_timestamp,
+             ak.last_funded_timestamp,
+             ak.fund_add_events,
+             pd.creator_proceeds,
+             pd.proceeds_collect_events,
+             cd.creator_amount,
+             cd.boost_amount,
+             cd.completed_timestamp,
+             bd.boost_rate,
+             bd.boost_end_time
+      FROM auction_keys AS ak
+             JOIN minted ON TRUE
+             LEFT JOIN owner_data ON TRUE
+             LEFT JOIN erc20_tokens AS t0
+                       ON t0.chain_id = ${chainId}
+                           AND t0.token_address = ak.token0
+             LEFT JOIN erc20_tokens AS t1
+                       ON t1.chain_id = ${chainId}
+                           AND t1.token_address = ak.token1
+             LEFT JOIN proceeds_data AS pd
+                       ON pd.token0 = ak.token0
+                           AND pd.token1 = ak.token1
+                           AND pd.config = ak.config
+             LEFT JOIN completion_data AS cd
+                       ON cd.token0 = ak.token0
+                           AND cd.token1 = ak.token1
+                           AND cd.config = ak.config
+             LEFT JOIN boost_data AS bd
+                       ON bd.token0 = ak.token0
+                           AND bd.token1 = ak.token1
+                           AND bd.config = ak.config
+      ORDER BY ak.last_funded_timestamp DESC, ak.token0, ak.token1, ak.config
     `;
   }
 

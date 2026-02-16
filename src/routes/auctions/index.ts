@@ -14,11 +14,14 @@ import {
 } from "../../shared/validation/address";
 import { z } from "zod";
 import { IRequest, json, StatusError } from "itty-router";
-import { createQueries } from "../../queries";
+import { createQueries, TwammOrderMetadata } from "../../queries";
 import toHex from "../../shared/toHex";
 import { NFTMetadata, NFTMetadataSchema, TokenIdType } from "../nft/format";
 import { generateDcaOrderNft } from "../nft/generateDcaOrderNft";
-import { generateTwapOrderNftMetadata } from "../../shared/metadatas/twap";
+
+function formatAttributeTimestamp(value: Date | null) {
+  return value ? Math.floor(value.getTime() / 1000).toString() : null;
+}
 
 const AuctionKeyType = z.object({
   token0: AddressType,
@@ -144,9 +147,7 @@ export class GetAuctionNftMetadata extends EkuboAPIRoute {
     const chainId = BigInt(chainIdParam);
     const queries = await createQueries(env);
 
-    let metadata: NFTMetadata;
-
-    const twammOrderMetadata = await queries.getTwammOrderMetadata(
+    const auctionRows = await queries.getAuctionNftMetadata(
       id,
       BigInt(nftAddress),
       chainId,
@@ -155,11 +156,115 @@ export class GetAuctionNftMetadata extends EkuboAPIRoute {
     const origin = new URL(url).origin;
     const image = `${origin}/auctions/${chainId.toString()}/${nftAddress}/${id.toString()}/image.svg`;
 
-    if (twammOrderMetadata && twammOrderMetadata.length !== 0) {
-      metadata = generateTwapOrderNftMetadata(twammOrderMetadata, image);
-    } else {
+    if (!auctionRows.length) {
       throw new StatusError(404, `Token ID ${id} not found`);
     }
+
+    const [firstRow] = auctionRows;
+    const attributes: NFTMetadata["attributes"] = [
+      {
+        trait_type: "minted_tx_hash",
+        value: toHex(BigInt(firstRow.minted_tx_hash)),
+      },
+      {
+        trait_type: "minted_timestamp",
+        value: firstRow.minted_timestamp.getTime().toString(),
+      },
+      {
+        trait_type: "nft_address",
+        value: toHex(BigInt(nftAddress)),
+      },
+      {
+        trait_type: "token_id",
+        value: id.toString(),
+      },
+      {
+        trait_type: "current_owner",
+        value: firstRow.current_owner ? toHex(BigInt(firstRow.current_owner)) : null,
+      },
+      {
+        trait_type: "auction_key_count",
+        value: auctionRows.length.toString(),
+      },
+    ];
+    for (const [ix, row] of auctionRows.entries()) {
+      attributes.push(
+        {
+          trait_type: `token0_${ix}`,
+          value: toHex(BigInt(row.token0), 20),
+        },
+        {
+          trait_type: `token1_${ix}`,
+          value: toHex(BigInt(row.token1), 20),
+        },
+        {
+          trait_type: `token0_symbol_${ix}`,
+          value: row.token0_symbol,
+        },
+        {
+          trait_type: `token1_symbol_${ix}`,
+          value: row.token1_symbol,
+        },
+        {
+          trait_type: `config_${ix}`,
+          value: toHex(BigInt(row.config), 32),
+        },
+        {
+          trait_type: `total_sale_rate_${ix}`,
+          value: row.total_sale_rate,
+        },
+        {
+          trait_type: `fund_add_events_${ix}`,
+          value: row.fund_add_events.toString(),
+        },
+        {
+          trait_type: `first_funded_timestamp_${ix}`,
+          value: formatAttributeTimestamp(row.first_funded_timestamp),
+        },
+        {
+          trait_type: `last_funded_timestamp_${ix}`,
+          value: formatAttributeTimestamp(row.last_funded_timestamp),
+        },
+        {
+          trait_type: `creator_proceeds_collected_${ix}`,
+          value: row.creator_proceeds,
+        },
+        {
+          trait_type: `creator_proceeds_collect_events_${ix}`,
+          value:
+            row.proceeds_collect_events === null
+              ? null
+              : row.proceeds_collect_events.toString(),
+        },
+        {
+          trait_type: `boost_rate_${ix}`,
+          value: row.boost_rate,
+        },
+        {
+          trait_type: `boost_end_time_${ix}`,
+          value: formatAttributeTimestamp(row.boost_end_time),
+        },
+        {
+          trait_type: `completed_timestamp_${ix}`,
+          value: formatAttributeTimestamp(row.completed_timestamp),
+        },
+        {
+          trait_type: `creator_amount_${ix}`,
+          value: row.creator_amount,
+        },
+        {
+          trait_type: `boost_amount_${ix}`,
+          value: row.boost_amount,
+        },
+      );
+    }
+
+    const metadata: NFTMetadata = {
+      name: "Ekubo Auction NFT",
+      description: "An Ekubo auction NFT with one or more auction keys",
+      image,
+      attributes,
+    };
 
     return json(metadata, {
       headers: {
@@ -202,21 +307,35 @@ export class GetAuctionNftImage extends EkuboAPIRoute {
 
     const queries = await createQueries(env);
 
-    const twammOrderMetadata = await queries.getTwammOrderMetadata(
+    const auctionRows = await queries.getAuctionNftMetadata(
       id,
       BigInt(nftAddress),
       chainId,
     );
 
-    if (!twammOrderMetadata?.length) {
+    if (!auctionRows.length) {
       throw new StatusError(404, `Token ID ${id} not found`);
     }
+
+    const twammOrderMetadatas: TwammOrderMetadata[] = auctionRows.map((row) => ({
+      minted_tx_hash: row.minted_tx_hash,
+      minted_timestamp: row.minted_timestamp,
+      start_time: row.first_funded_timestamp,
+      end_time:
+        row.completed_timestamp ?? row.boost_end_time ?? row.last_funded_timestamp,
+      last_update_time: row.last_funded_timestamp,
+      token0: row.token0,
+      sale_rate0: row.total_sale_rate,
+      token1: row.token1,
+      sale_rate1: "0",
+      fee: row.config,
+    }));
 
     const svgString = await generateDcaOrderNft(
       id,
       chainIdParam,
       queries,
-      twammOrderMetadata,
+      twammOrderMetadatas,
     );
 
     return new Response(svgString, {
