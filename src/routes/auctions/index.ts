@@ -30,6 +30,7 @@ const AuctionKeyType = z.object({
 });
 
 const AuctionSummaryType = z.object({
+  chain_id: HexStringType,
   key: AuctionKeyType,
   token_id: HexStringType,
   owner: AddressType,
@@ -94,6 +95,7 @@ export class ListAuctions extends EkuboAPIRoute {
 
     const response = {
       auctions: rows.map((row) => ({
+        chain_id: toHex(row.chain_id),
         auctions_contract_address: toHex(BigInt(row.auctions_contract_address)),
         token_id: toHex(BigInt(row.token_id)),
         owner: toHex(BigInt(row.owner)),
