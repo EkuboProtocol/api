@@ -46,6 +46,7 @@ import { GetNftImage, GetNftMetadata } from "./routes/nft";
 import {
   GetAuctionNftImage,
   GetAuctionNftMetadata,
+  GetAuctionNftState,
   ListAuctions,
 } from "./routes/auctions";
 
@@ -101,6 +102,7 @@ export const router = OpenAPIRouter({
   .get(GetNftImage.route, GetNftImage)
   .get(ListAuctions.route, ListAuctions)
   .get(GetAuctionNftMetadata.route, GetAuctionNftMetadata)
+  .get(GetAuctionNftState.route, GetAuctionNftState)
   .get(GetAuctionNftImage.route, GetAuctionNftImage)
   .get(ListProposals.route, ListProposals)
   .get(ListTopDelegates.route, ListTopDelegates)

@@ -42,6 +42,24 @@ const ListAuctionsResponseType = z.object({
   auctions: z.array(AuctionSummaryType),
 });
 
+const AuctionStateType = z.object({
+  token0: HexStringType,
+  token1: HexStringType,
+  config: HexStringType,
+  total_sale_rate: DecimalStringType,
+  creator_proceeds_collected: DecimalStringType.nullable(),
+  boost_rate: DecimalStringType.nullable(),
+  boost_end_time: NumericStringType.nullable(),
+  completed_timestamp: NumericStringType.nullable(),
+  creator_amount: DecimalStringType.nullable(),
+  boost_amount: DecimalStringType.nullable(),
+});
+
+const AuctionNftStateResponseType = z.object({
+  current_owner: HexStringType.nullable(),
+  auctions: z.array(AuctionStateType),
+});
+
 export class ListAuctions extends EkuboAPIRoute {
   static route = "/auctions";
 
@@ -271,6 +289,75 @@ export class GetAuctionNftMetadata extends EkuboAPIRoute {
     return json(metadata, {
       headers: {
         "cache-control": "public,max-age=3600,immutable",
+      },
+    });
+  }
+}
+
+export class GetAuctionNftState extends EkuboAPIRoute {
+  static route = "/auctions/:chainId/:nftAddress/:id/state";
+
+  static schema: OpenAPIRouteSchema = {
+    tags: ["Auctions"],
+    summary: "Get auction NFT state",
+    description: "Returns dynamic auction NFT state for UI consumption",
+    parameters: {
+      chainId: Path(NumericStringType, {
+        description: "Chain ID for which to fetch state",
+      }),
+      nftAddress: Path(AddressType, {
+        description: "The NFT contract address",
+      }),
+      id: Path(TokenIdType),
+    },
+    responses: {
+      "200": {
+        description: "Auction NFT state data",
+        schema: AuctionNftStateResponseType,
+      },
+    },
+  };
+
+  async handle(
+    { params: { id: idStr, chainId: chainIdParam, nftAddress } }: IRequest,
+    { env }: RequestContext,
+  ) {
+    const id = BigInt(idStr);
+    const chainId = BigInt(chainIdParam);
+    const queries = await createQueries(env);
+
+    const auctionRows = await queries.getAuctionNftMetadata(
+      id,
+      BigInt(nftAddress),
+      chainId,
+    );
+
+    if (!auctionRows.length) {
+      throw new StatusError(404, `Token ID ${id} not found`);
+    }
+
+    const [firstRow] = auctionRows;
+    const response = {
+      current_owner: firstRow.current_owner
+        ? toHex(BigInt(firstRow.current_owner))
+        : null,
+      auctions: auctionRows.map((row) => ({
+        token0: toHex(BigInt(row.token0), 20),
+        token1: toHex(BigInt(row.token1), 20),
+        config: toHex(BigInt(row.config), 32),
+        total_sale_rate: row.total_sale_rate,
+        creator_proceeds_collected: row.creator_proceeds,
+        boost_rate: row.boost_rate,
+        boost_end_time: formatAttributeTimestamp(row.boost_end_time),
+        completed_timestamp: formatAttributeTimestamp(row.completed_timestamp),
+        creator_amount: row.creator_amount,
+        boost_amount: row.boost_amount,
+      })),
+    } satisfies z.infer<typeof AuctionNftStateResponseType>;
+
+    return json(response, {
+      headers: {
+        "cache-control": "no-cache",
       },
     });
   }
