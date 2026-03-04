@@ -2398,7 +2398,7 @@ AND chain_id IS NOT NULL
              SELECT ak.token0,
                     ak.token1,
                     ak.config,
-                    COUNT(DISTINCT NULLIF(nfov.current_owner, 0))::INT AS participants_count
+                    COUNT(DISTINCT COALESCE(NULLIF(nfov.current_owner, 0), nfov.previous_owner))::INT AS participants_count
              FROM auction_keys AS ak
                     LEFT JOIN LATERAL (
                       SELECT MOD(FLOOR(ak.config / POW(2::NUMERIC, 216)), POW(2::NUMERIC, 8)) <> 0 AS auction_is_selling_token1,
