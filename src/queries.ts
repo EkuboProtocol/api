@@ -51,6 +51,7 @@ export interface AuctionNftMetadata {
   first_funded_timestamp: Date;
   last_funded_timestamp: Date;
   fund_add_events: number;
+  participants_count: number;
   creator_proceeds: string | null;
   proceeds_collect_events: number | null;
   creator_amount: string | null;
@@ -2392,6 +2393,37 @@ AND chain_id IS NOT NULL
              WHERE abs.chain_id = ${chainId}
                AND abs.emitter = ${nftAddress.toString()}
              ORDER BY abs.token0, abs.token1, abs.config, abs.event_id DESC
+           ),
+           auction_participants AS (
+             SELECT ak.token0,
+                    ak.token1,
+                    ak.config,
+                    COUNT(DISTINCT NULLIF(nfov.current_owner, 0))::INT AS participants_count
+             FROM auction_keys AS ak
+                    LEFT JOIN LATERAL (
+                      SELECT MOD(FLOOR(ak.config / POW(2::NUMERIC, 216)), POW(2::NUMERIC, 8)) <> 0 AS auction_is_selling_token1,
+                             TO_TIMESTAMP(
+                               MOD(FLOOR(ak.config / POW(2::NUMERIC, 32)), POW(2::NUMERIC, 64))::DOUBLE PRECISION
+                             )                                                                       AS auction_start_time,
+                             TO_TIMESTAMP(
+                               (
+                                 MOD(FLOOR(ak.config / POW(2::NUMERIC, 32)), POW(2::NUMERIC, 64)) +
+                                 MOD(ak.config, POW(2::NUMERIC, 32))
+                               )::DOUBLE PRECISION
+                             )                                                                       AS auction_end_time
+                    ) AS cfg ON TRUE
+                    LEFT JOIN pool_keys AS pk
+                              ON pk.chain_id = ${chainId}
+                                  AND pk.token0 = ak.token0
+                                  AND pk.token1 = ak.token1
+                                  AND pk.fee = 0
+                    LEFT JOIN nonfungible_token_orders_view AS nfov
+                              ON nfov.chain_id = ${chainId}
+                                  AND nfov.pool_key_id = pk.pool_key_id
+                                  AND nfov.start_time = cfg.auction_start_time
+                                  AND nfov.end_time = cfg.auction_end_time
+                                  AND nfov.is_selling_token1 <> cfg.auction_is_selling_token1
+             GROUP BY ak.token0, ak.token1, ak.config
            )
       SELECT minted.minted_tx_hash,
              minted.minted_timestamp,
@@ -2405,6 +2437,7 @@ AND chain_id IS NOT NULL
              ak.first_funded_timestamp,
              ak.last_funded_timestamp,
              ak.fund_add_events,
+             COALESCE(ap.participants_count, 0)::INT AS participants_count,
              pd.creator_proceeds,
              pd.proceeds_collect_events,
              cd.creator_amount,
@@ -2433,6 +2466,10 @@ AND chain_id IS NOT NULL
                        ON bd.token0 = ak.token0
                            AND bd.token1 = ak.token1
                            AND bd.config = ak.config
+             LEFT JOIN auction_participants AS ap
+                       ON ap.token0 = ak.token0
+                           AND ap.token1 = ak.token1
+                           AND ap.config = ak.config
       ORDER BY ak.last_funded_timestamp DESC, ak.token0, ak.token1, ak.config
     `;
   }
