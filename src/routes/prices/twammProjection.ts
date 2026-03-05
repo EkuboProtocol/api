@@ -71,6 +71,7 @@ export interface ProjectTwammPoolStateAtTimeParams {
   sqrtRatio: bigint;
   liquidity: bigint;
   tick: number;
+  activeTickIndex?: number;
   token0SaleRate: bigint;
   token1SaleRate: bigint;
   lastExecutionTime: number;
@@ -126,6 +127,7 @@ class BasePoolProjector {
     sqrtRatio,
     liquidity,
     tick,
+    activeTickIndex,
     sortedTicks,
     chain,
   }: {
@@ -135,6 +137,7 @@ class BasePoolProjector {
     sqrtRatio: bigint;
     liquidity: bigint;
     tick: number;
+    activeTickIndex?: number;
     sortedTicks: Tick[];
     chain: ChainKind;
   }) {
@@ -147,7 +150,8 @@ class BasePoolProjector {
     this.state = {
       sqrtRatio,
       liquidity,
-      activeTickIndex: findNearestInitializedTickIndex(sortedTicks, tick),
+      activeTickIndex:
+        activeTickIndex ?? findNearestInitializedTickIndex(sortedTicks, tick),
     };
   }
 
@@ -256,6 +260,7 @@ export function projectTwammPoolStateAtTime({
   sqrtRatio,
   liquidity,
   tick,
+  activeTickIndex,
   token0SaleRate,
   token1SaleRate,
   lastExecutionTime,
@@ -277,6 +282,7 @@ export function projectTwammPoolStateAtTime({
     sqrtRatio,
     liquidity,
     tick,
+    activeTickIndex,
     sortedTicks,
     chain,
   });

@@ -42,13 +42,6 @@ const PoolPriceHistoryPointType = z.object({
   close: z.number(),
 });
 
-const PoolPriceLiveTailProjectionType = z.object({
-  from: z.number().int(),
-  to: z.number().int(),
-  price: z.number(),
-  sqrt_ratio: z.string(),
-});
-
 const GetPoolPriceHistoryResponseType = z.object({
   timestamp: z.number().int(),
   start: z.number().int(),
@@ -57,8 +50,6 @@ const GetPoolPriceHistoryResponseType = z.object({
   pool_key_id: z.string(),
   token0: z.string(),
   token1: z.string(),
-  execution_markers: z.array(z.number().int()),
-  live_tail_projection: PoolPriceLiveTailProjectionType.nullable(),
   data: z.array(PoolPriceHistoryPointType),
 });
 
@@ -232,7 +223,7 @@ export class GetPoolPriceHistory extends EkuboAPIRoute {
     tags: ["Prices"],
     summary: "Get pool price history",
     description:
-      "Returns swap-based pool OHLC history, TWAMM virtual execution markers, and a TWAMM live-tail projection",
+      "Returns pool OHLC history with swap candles and TWAMM-projected tail fill when needed",
     parameters: {
       chainId: Path(ChainIdType, { required: true }),
       coreAddress: Path(AddressType, { required: true, example: "0xabcd" }),
@@ -327,7 +318,9 @@ export class GetPoolPriceHistory extends EkuboAPIRoute {
       throw new StatusError(400, "Interval too small for the range");
     }
 
-    const [candles, priceSeed, markerRows, twammState] = await Promise.all([
+    const intervalMilliseconds = intervalSeconds * 1_000;
+
+    const [candles, priceSeed, twammState] = await Promise.all([
       queries.getPoolPriceHistoryCandles({
         poolKeyId: pool.pool_key_id,
         start,
@@ -335,11 +328,6 @@ export class GetPoolPriceHistory extends EkuboAPIRoute {
         intervalSeconds,
       }),
       queries.getPoolPriceSeed(pool.pool_key_id, start),
-      queries.getTwammVirtualExecutionMarkers({
-        poolKeyId: pool.pool_key_id,
-        start,
-        end,
-      }),
       queries.getPoolTwammState(pool.pool_key_id),
     ]);
 
@@ -353,8 +341,7 @@ export class GetPoolPriceHistory extends EkuboAPIRoute {
 
     if (
       priceSeed &&
-      (data.length === 0 ||
-        new Date(data[0].start).getTime() > start.getTime())
+      (data.length === 0 || new Date(data[0].start).getTime() > start.getTime())
     ) {
       const seedPrice = sqrtRatioX128ToPrice(priceSeed.sqrt_ratio_after);
       data.unshift({
@@ -365,10 +352,6 @@ export class GetPoolPriceHistory extends EkuboAPIRoute {
         close: seedPrice,
       });
     }
-
-    let liveTailProjection: z.infer<
-      typeof GetPoolPriceHistoryResponseType
-    >["live_tail_projection"] = null;
 
     if (twammState !== null) {
       const lastExecutionTimeSeconds = Math.floor(
@@ -388,37 +371,180 @@ export class GetPoolPriceHistory extends EkuboAPIRoute {
 
         if (poolTicks.length > 0) {
           try {
-            const projected = projectTwammPoolStateAtTime({
-              chainId,
-              token0: BigInt(pool.token0),
-              token1: BigInt(pool.token1),
-              fee: BigInt(pool.fee),
+            const token0 = BigInt(pool.token0);
+            const token1 = BigInt(pool.token1);
+            const fee = BigInt(pool.fee);
+            const sortedTicks = poolTicks.map((tick) => ({
+              tick: Number(tick.tick),
+              liquidityDelta: BigInt(tick.liquidity_delta),
+            }));
+            const saleRateDeltas = twammSaleRateDeltas.map((delta) => ({
+              time: Math.floor(delta.time.getTime() / 1_000),
+              saleRateDelta0: BigInt(delta.net_sale_rate_delta0),
+              saleRateDelta1: BigInt(delta.net_sale_rate_delta1),
+            }));
+
+            let projectedState: {
+              sqrtRatio: bigint;
+              liquidity: bigint;
+              activeTickIndex: number | undefined;
+              token0SaleRate: bigint;
+              token1SaleRate: bigint;
+              lastExecutionTime: number;
+            } = {
               sqrtRatio: BigInt(twammState.sqrt_ratio),
               liquidity: BigInt(twammState.liquidity),
-              tick: twammState.tick,
+              activeTickIndex: undefined,
               token0SaleRate: BigInt(twammState.token0_sale_rate),
               token1SaleRate: BigInt(twammState.token1_sale_rate),
               lastExecutionTime: lastExecutionTimeSeconds,
-              sortedTicks: poolTicks.map((tick) => ({
-                tick: Number(tick.tick),
-                liquidityDelta: BigInt(tick.liquidity_delta),
-              })),
-              saleRateDeltas: twammSaleRateDeltas.map((delta) => ({
-                time: Math.floor(delta.time.getTime() / 1_000),
-                saleRateDelta0: BigInt(delta.net_sale_rate_delta0),
-                saleRateDelta1: BigInt(delta.net_sale_rate_delta1),
-              })),
-              targetTime,
-            });
-
-            liveTailProjection = {
-              from: lastExecutionTimeSeconds,
-              to: targetTime,
-              price: sqrtRatioX128ToPrice(projected.sqrtRatio),
-              sqrt_ratio: projected.sqrtRatio.toString(),
             };
+
+            const advanceProjectionTo = (nextTime: number) => {
+              if (nextTime < projectedState.lastExecutionTime) {
+                throw new Error("Projection cannot go backward in time");
+              }
+
+              if (nextTime === projectedState.lastExecutionTime) {
+                return projectedState;
+              }
+
+              const nextState = projectTwammPoolStateAtTime({
+                chainId,
+                token0,
+                token1,
+                fee,
+                sqrtRatio: projectedState.sqrtRatio,
+                liquidity: projectedState.liquidity,
+                tick: twammState.tick,
+                activeTickIndex: projectedState.activeTickIndex,
+                token0SaleRate: projectedState.token0SaleRate,
+                token1SaleRate: projectedState.token1SaleRate,
+                lastExecutionTime: projectedState.lastExecutionTime,
+                sortedTicks,
+                saleRateDeltas,
+                targetTime: nextTime,
+              });
+
+              projectedState = {
+                ...nextState,
+                activeTickIndex: nextState.activeTickIndex,
+              };
+
+              return projectedState;
+            };
+
+            const tailStartMs =
+              data.length > 0
+                ? new Date(data[data.length - 1].start).getTime() +
+                  intervalMilliseconds
+                : start.getTime();
+
+            let firstProjectedBucketStartMs = tailStartMs;
+            const lastExecutionTimeMs = lastExecutionTimeSeconds * 1_000;
+
+            if (firstProjectedBucketStartMs < lastExecutionTimeMs) {
+              const skippedIntervals = Math.ceil(
+                (lastExecutionTimeMs - firstProjectedBucketStartMs) /
+                  intervalMilliseconds,
+              );
+              firstProjectedBucketStartMs +=
+                skippedIntervals * intervalMilliseconds;
+            }
+
+            if (firstProjectedBucketStartMs < end.getTime()) {
+              const projectedCandles: {
+                start: Date;
+                open: number;
+                high: number;
+                low: number;
+                close: number;
+              }[] = [];
+
+              const saleRateDeltaTimes = saleRateDeltas.map(
+                (delta) => delta.time,
+              );
+              let deltaTimeIndex = 0;
+
+              for (
+                let bucketStartMs = firstProjectedBucketStartMs;
+                bucketStartMs < end.getTime();
+                bucketStartMs += intervalMilliseconds
+              ) {
+                const bucketEndMs = Math.min(
+                  bucketStartMs + intervalMilliseconds,
+                  end.getTime(),
+                );
+                const bucketStartSeconds = Math.floor(bucketStartMs / 1_000);
+                const bucketEndSeconds = Math.floor(bucketEndMs / 1_000);
+
+                if (bucketEndSeconds <= bucketStartSeconds) {
+                  continue;
+                }
+
+                while (
+                  deltaTimeIndex < saleRateDeltaTimes.length &&
+                  saleRateDeltaTimes[deltaTimeIndex] <= bucketStartSeconds
+                ) {
+                  deltaTimeIndex++;
+                }
+
+                const checkpointTimes = [bucketStartSeconds];
+                let nextDeltaIndex = deltaTimeIndex;
+
+                while (
+                  nextDeltaIndex < saleRateDeltaTimes.length &&
+                  saleRateDeltaTimes[nextDeltaIndex] <= bucketEndSeconds
+                ) {
+                  checkpointTimes.push(saleRateDeltaTimes[nextDeltaIndex]);
+                  nextDeltaIndex++;
+                }
+
+                deltaTimeIndex = nextDeltaIndex;
+
+                if (
+                  checkpointTimes[checkpointTimes.length - 1] !==
+                  bucketEndSeconds
+                ) {
+                  checkpointTimes.push(bucketEndSeconds);
+                }
+
+                let open = 0;
+                let close = 0;
+                let high = Number.NEGATIVE_INFINITY;
+                let low = Number.POSITIVE_INFINITY;
+
+                for (let i = 0; i < checkpointTimes.length; i++) {
+                  const checkpointState = advanceProjectionTo(
+                    checkpointTimes[i],
+                  );
+                  const checkpointPrice = sqrtRatioX128ToPrice(
+                    checkpointState.sqrtRatio,
+                  );
+
+                  if (i === 0) {
+                    open = checkpointPrice;
+                  }
+
+                  close = checkpointPrice;
+                  high = Math.max(high, checkpointPrice);
+                  low = Math.min(low, checkpointPrice);
+                }
+
+                projectedCandles.push({
+                  start: new Date(bucketStartMs),
+                  open,
+                  high,
+                  low,
+                  close,
+                });
+              }
+
+              data.push(...projectedCandles);
+            }
+
           } catch {
-            liveTailProjection = null;
+            // Ignore TWAMM projection issues and return swap-based candles only.
           }
         }
       }
@@ -432,17 +558,15 @@ export class GetPoolPriceHistory extends EkuboAPIRoute {
       pool_key_id: pool.pool_key_id.toString(),
       token0: toHex(pool.token0),
       token1: toHex(pool.token1),
-      execution_markers: markerRows.map((row) => Number(row.time)),
-      live_tail_projection: liveTailProjection,
       data,
     } satisfies z.infer<typeof GetPoolPriceHistoryResponseType>;
 
     return json(response, {
-      headers: {
-        "cache-control": `public, max-age=${Math.ceil(
-          intervalSeconds / 4,
-        )}, must-revalidate`,
-      },
+      // headers: {
+      //   "cache-control": `public, max-age=${Math.ceil(
+      //     intervalSeconds / 4,
+      //   )}, must-revalidate`,
+      // },
     });
   }
 }

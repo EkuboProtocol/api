@@ -1386,31 +1386,6 @@ ORDER BY po.token_id DESC
     `;
   }
 
-  public async getTwammVirtualExecutionMarkers({
-    poolKeyId,
-    start,
-    end,
-  }: {
-    poolKeyId: bigint;
-    start: Date;
-    end: Date;
-  }) {
-    return this.sql<
-      {
-        time: bigint;
-      }[]
-    >`
-      SELECT DISTINCT EXTRACT(EPOCH FROM b.block_time)::int8 AS time
-      FROM twamm_virtual_order_executions voe
-             JOIN blocks b
-                  ON b.chain_id = voe.chain_id
-                      AND b.block_number = voe.block_number
-      WHERE voe.pool_key_id = ${poolKeyId}
-        AND b.block_time BETWEEN ${start} AND ${end}
-      ORDER BY time ASC
-    `;
-  }
-
   public async getVolumeWeightedPrice({
     baseToken,
     quoteToken,
