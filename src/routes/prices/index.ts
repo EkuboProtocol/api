@@ -440,8 +440,106 @@ export class GetPoolPriceHistory extends EkuboAPIRoute {
                   intervalMilliseconds
                 : start.getTime();
 
-            let firstProjectedBucketStartMs = tailStartMs;
             const lastExecutionTimeMs = lastExecutionTimeSeconds * 1_000;
+            const saleRateDeltaTimes = saleRateDeltas.map(
+              (delta) => delta.time,
+            );
+            let deltaTimeIndex = 0;
+
+            const projectSegment = (
+              segmentStartSeconds: number,
+              segmentEndSeconds: number,
+            ) => {
+              if (segmentEndSeconds <= segmentStartSeconds) {
+                return null;
+              }
+
+              while (
+                deltaTimeIndex < saleRateDeltaTimes.length &&
+                saleRateDeltaTimes[deltaTimeIndex] <= segmentStartSeconds
+              ) {
+                deltaTimeIndex++;
+              }
+
+              const checkpointTimes = [segmentStartSeconds];
+              let nextDeltaIndex = deltaTimeIndex;
+
+              while (
+                nextDeltaIndex < saleRateDeltaTimes.length &&
+                saleRateDeltaTimes[nextDeltaIndex] <= segmentEndSeconds
+              ) {
+                checkpointTimes.push(saleRateDeltaTimes[nextDeltaIndex]);
+                nextDeltaIndex++;
+              }
+
+              deltaTimeIndex = nextDeltaIndex;
+
+              if (
+                checkpointTimes[checkpointTimes.length - 1] !==
+                segmentEndSeconds
+              ) {
+                checkpointTimes.push(segmentEndSeconds);
+              }
+
+              let open = 0;
+              let close = 0;
+              let high = Number.NEGATIVE_INFINITY;
+              let low = Number.POSITIVE_INFINITY;
+
+              for (let i = 0; i < checkpointTimes.length; i++) {
+                const checkpointState = advanceProjectionTo(checkpointTimes[i]);
+                const checkpointPrice = sqrtRatioX128ToPrice(
+                  checkpointState.sqrtRatio,
+                );
+
+                if (i === 0) {
+                  open = checkpointPrice;
+                }
+
+                close = checkpointPrice;
+                high = Math.max(high, checkpointPrice);
+                low = Math.min(low, checkpointPrice);
+              }
+
+              return {
+                open,
+                high,
+                low,
+                close,
+              };
+            };
+
+            if (data.length > 0) {
+              const lastCandle = data[data.length - 1];
+              const lastCandleStartMs = new Date(lastCandle.start).getTime();
+              const lastCandleEndMs = Math.min(
+                lastCandleStartMs + intervalMilliseconds,
+                end.getTime(),
+              );
+              const segmentStartMs = Math.max(
+                lastCandleStartMs,
+                lastExecutionTimeMs,
+              );
+
+              const projectedLastSegment = projectSegment(
+                Math.floor(segmentStartMs / 1_000),
+                Math.floor(lastCandleEndMs / 1_000),
+              );
+
+              if (projectedLastSegment) {
+                lastCandle.high = Math.max(
+                  lastCandle.high,
+                  projectedLastSegment.high,
+                );
+                lastCandle.low = Math.min(
+                  lastCandle.low,
+                  projectedLastSegment.low,
+                );
+                lastCandle.close = projectedLastSegment.close;
+              }
+            }
+
+            let firstProjectedBucketStartMs = tailStartMs;
 
             if (firstProjectedBucketStartMs < lastExecutionTimeMs) {
               const skippedIntervals = Math.ceil(
@@ -461,11 +559,6 @@ export class GetPoolPriceHistory extends EkuboAPIRoute {
                 close: number;
               }[] = [];
 
-              const saleRateDeltaTimes = saleRateDeltas.map(
-                (delta) => delta.time,
-              );
-              let deltaTimeIndex = 0;
-
               for (
                 let bucketStartMs = firstProjectedBucketStartMs;
                 bucketStartMs < end.getTime();
@@ -482,67 +575,26 @@ export class GetPoolPriceHistory extends EkuboAPIRoute {
                   continue;
                 }
 
-                while (
-                  deltaTimeIndex < saleRateDeltaTimes.length &&
-                  saleRateDeltaTimes[deltaTimeIndex] <= bucketStartSeconds
-                ) {
-                  deltaTimeIndex++;
-                }
+                const projectedSegment = projectSegment(
+                  bucketStartSeconds,
+                  bucketEndSeconds,
+                );
 
-                const checkpointTimes = [bucketStartSeconds];
-                let nextDeltaIndex = deltaTimeIndex;
-
-                while (
-                  nextDeltaIndex < saleRateDeltaTimes.length &&
-                  saleRateDeltaTimes[nextDeltaIndex] <= bucketEndSeconds
-                ) {
-                  checkpointTimes.push(saleRateDeltaTimes[nextDeltaIndex]);
-                  nextDeltaIndex++;
-                }
-
-                deltaTimeIndex = nextDeltaIndex;
-
-                if (
-                  checkpointTimes[checkpointTimes.length - 1] !==
-                  bucketEndSeconds
-                ) {
-                  checkpointTimes.push(bucketEndSeconds);
-                }
-
-                let open = 0;
-                let close = 0;
-                let high = Number.NEGATIVE_INFINITY;
-                let low = Number.POSITIVE_INFINITY;
-
-                for (let i = 0; i < checkpointTimes.length; i++) {
-                  const checkpointState = advanceProjectionTo(
-                    checkpointTimes[i],
-                  );
-                  const checkpointPrice = sqrtRatioX128ToPrice(
-                    checkpointState.sqrtRatio,
-                  );
-
-                  if (i === 0) {
-                    open = checkpointPrice;
-                  }
-
-                  close = checkpointPrice;
-                  high = Math.max(high, checkpointPrice);
-                  low = Math.min(low, checkpointPrice);
+                if (!projectedSegment) {
+                  continue;
                 }
 
                 projectedCandles.push({
                   start: new Date(bucketStartMs),
-                  open,
-                  high,
-                  low,
-                  close,
+                  open: projectedSegment.open,
+                  high: projectedSegment.high,
+                  low: projectedSegment.low,
+                  close: projectedSegment.close,
                 });
               }
 
               data.push(...projectedCandles);
             }
-
           } catch {
             // Ignore TWAMM projection issues and return swap-based candles only.
           }
