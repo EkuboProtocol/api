@@ -8,6 +8,7 @@ export async function generateDcaOrderNft(
   chainId: string,
   queries: Queries,
   twammOrderMetadatas: TwammOrderMetadata[],
+  timedOrderKind: "dca" | "auction" = "dca",
 ) {
   const firstOrderMetadata = twammOrderMetadatas[0];
 
@@ -44,17 +45,22 @@ export async function generateDcaOrderNft(
     getTokenByAddress(queries, numericChainId, buyTokenAddress),
   ]);
 
-  return await generateDCAOrderSvg(id, chainId, {
-    sellTokenAddress,
-    buyTokenAddress,
+  return await generateDCAOrderSvg(
+    id,
+    chainId,
+    {
+      sellTokenAddress,
+      buyTokenAddress,
 
-    sellTokenSrc: sellToken?.logo_url,
-    buyTokenSrc: buyToken?.logo_url,
+      sellTokenSrc: sellToken?.logo_url,
+      buyTokenSrc: buyToken?.logo_url,
 
-    sellTokenSymbol: sellToken?.symbol,
-    buyTokenSymbol: buyToken?.symbol,
+      sellTokenSymbol: sellToken?.symbol,
+      buyTokenSymbol: buyToken?.symbol,
 
-    formattedStartTime: formatTimeToUTC(dates?.[0] ?? new Date(0)),
-    formattedEndTime: formatTimeToUTC(dates?.[1] ?? new Date()),
-  });
+      formattedStartTime: formatTimeToUTC(dates?.[0] ?? new Date(0)),
+      formattedEndTime: formatTimeToUTC(dates?.[1] ?? new Date()),
+    },
+    { kind: timedOrderKind },
+  );
 }

@@ -201,7 +201,9 @@ export class GetAuctionNftMetadata extends EkuboAPIRoute {
       },
       {
         trait_type: "current_owner",
-        value: firstRow.current_owner ? toHex(BigInt(firstRow.current_owner)) : null,
+        value: firstRow.current_owner
+          ? toHex(BigInt(firstRow.current_owner))
+          : null,
       },
       {
         trait_type: "auction_key_count",
@@ -408,25 +410,30 @@ export class GetAuctionNftImage extends EkuboAPIRoute {
       throw new StatusError(404, `Token ID ${id} not found`);
     }
 
-    const twammOrderMetadatas: TwammOrderMetadata[] = auctionRows.map((row) => ({
-      minted_tx_hash: row.minted_tx_hash,
-      minted_timestamp: row.minted_timestamp,
-      start_time: row.first_funded_timestamp,
-      end_time:
-        row.completed_timestamp ?? row.boost_end_time ?? row.last_funded_timestamp,
-      last_update_time: row.last_funded_timestamp,
-      token0: row.token0,
-      sale_rate0: row.total_sale_rate,
-      token1: row.token1,
-      sale_rate1: "0",
-      fee: row.config,
-    }));
+    const twammOrderMetadatas: TwammOrderMetadata[] = auctionRows.map(
+      (row) => ({
+        minted_tx_hash: row.minted_tx_hash,
+        minted_timestamp: row.minted_timestamp,
+        start_time: row.first_funded_timestamp,
+        end_time:
+          row.completed_timestamp ??
+          row.boost_end_time ??
+          row.last_funded_timestamp,
+        last_update_time: row.last_funded_timestamp,
+        token0: row.token0,
+        sale_rate0: row.total_sale_rate,
+        token1: row.token1,
+        sale_rate1: "0",
+        fee: "0",
+      }),
+    );
 
     const svgString = await generateDcaOrderNft(
       id,
       chainIdParam,
       queries,
       twammOrderMetadatas,
+      "auction",
     );
 
     return new Response(svgString, {
