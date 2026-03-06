@@ -255,11 +255,12 @@ export class GetPoolPriceHistory extends EkuboAPIRoute {
     const poolId = BigInt(params.poolId);
 
     const queries = await createQueries(env);
-    const pool = await queries.getPoolByCoreAndId({
+    const poolRows = await queries.getPoolKeyByCoreAndId(
       chainId,
       coreAddress,
       poolId,
-    });
+    );
+    const pool = poolRows[0] ?? null;
 
     if (!pool) {
       throw new StatusError(404, "Pool not found");

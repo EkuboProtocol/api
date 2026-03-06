@@ -645,6 +645,7 @@ FROM token_mint AS mint
   ) {
     return this.sql<
       {
+        pool_key_id: bigint;
         token0: string;
         token1: string;
         fee: string;
@@ -655,6 +656,7 @@ FROM token_mint AS mint
       }[]
     >`
       SELECT
+        pool_key_id,
         token0,
         token1,
         fee,
@@ -668,40 +670,6 @@ FROM token_mint AS mint
         AND pool_id = ${poolId.toString()}
       LIMIT 1
     `;
-  }
-
-  public async getPoolByCoreAndId({
-    chainId,
-    coreAddress,
-    poolId,
-  }: {
-    chainId: bigint;
-    coreAddress: bigint;
-    poolId: bigint;
-  }) {
-    const rows = await this.sql<
-      {
-        pool_key_id: bigint;
-        token0: string;
-        token1: string;
-        fee: string;
-        extension: string;
-      }[]
-    >`
-      SELECT
-        pool_key_id,
-        token0,
-        token1,
-        fee,
-        pool_extension AS extension
-      FROM pool_keys
-      WHERE chain_id = ${chainId}
-        AND core_address = ${coreAddress.toString()}
-        AND pool_id = ${poolId.toString()}
-      LIMIT 1
-    `;
-
-    return rows[0] ?? null;
   }
 
   public async getPoolPriceSeed(poolKeyId: bigint, beforeOrAt: Date) {
