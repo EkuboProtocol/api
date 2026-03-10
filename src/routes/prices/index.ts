@@ -613,11 +613,9 @@ export class GetPoolPriceHistory extends EkuboAPIRoute {
     } satisfies z.infer<typeof GetPoolPriceHistoryResponseType>;
 
     return json(response, {
-      // headers: {
-      //   "cache-control": `public, max-age=${Math.ceil(
-      //     intervalSeconds / 4,
-      //   )}, must-revalidate`,
-      // },
+      headers: {
+        "cache-control": `public, max-age=30, must-revalidate`,
+      },
     });
   }
 }
