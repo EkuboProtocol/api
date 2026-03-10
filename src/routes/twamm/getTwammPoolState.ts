@@ -9,7 +9,7 @@ import {
   TokenIdentifierType,
 } from "../../shared/validation/address";
 import { z } from "zod";
-import { MAX_U128 } from "@ekubo/evm-sdk";
+import { MAX_U128 } from "@ekubo/sdk";
 import { parseOutTokens } from "../../shared/parseOutTokens";
 
 const SaleRateDelta = z.object({

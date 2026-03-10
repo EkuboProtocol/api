@@ -170,13 +170,11 @@ const PairTopPositionsResponseType = z.object({
 const PoolFilterQueryParameters = {
   coreAddress: Query(AddressType, {
     required: false,
-    description:
-      "Restrict results to pools with the given core address.",
+    description: "Restrict results to pools with the given core address.",
   }),
   poolId: Query(NumericStringType, {
     required: false,
-    description:
-      "Restrict results to pools with the given pool id.",
+    description: "Restrict results to pools with the given pool id.",
   }),
 };
 
@@ -548,7 +546,6 @@ export class GetPairTopPositions extends EkuboAPIRoute {
       chainId,
     );
     const poolKeyFilters = parsePoolKeyFilters(request);
-    console.log(request.params);
 
     const rows = await queries.getTopPositionsByPair({
       chainId,

@@ -2,7 +2,11 @@ import { generatePositionSvg } from "@ekubo/position-svg-generator";
 import { getTokenByAddress } from "../meta/tokens";
 import { PositionMetadata, Queries } from "../../queries";
 import { feeToPercent, formattedPrice, tickSpacingToPercent } from "./format";
-import { MAX_TICK, MIN_TICK } from "@ekubo/evm-sdk";
+import {
+  EVM_MAX_TICK,
+  EVM_MIN_TICK,
+  STARKNET_MAX_TICK_SPACING,
+} from "@ekubo/sdk";
 
 export async function generatePositionNft(
   id: bigint,
@@ -25,9 +29,10 @@ export async function generatePositionNft(
   const reversed = token0 && token1 && token0.sort_order >= token1.sort_order;
 
   const isFullRange =
-    positionMetadata.tick_spacing === null &&
-    Number(positionMetadata.lower_bound) === MIN_TICK &&
-    Number(positionMetadata.upper_bound) === MAX_TICK;
+    (positionMetadata.tick_spacing === null &&
+      Number(positionMetadata.lower_bound) === EVM_MIN_TICK &&
+      Number(positionMetadata.upper_bound) === EVM_MAX_TICK) ||
+    Number(positionMetadata.tick_spacing) === STARKNET_MAX_TICK_SPACING;
   const extensionValue = BigInt(positionMetadata.extension);
 
   const poolClassification = await queries.getPoolClassification({

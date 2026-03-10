@@ -1,0 +1,331 @@
+// Bun Snapshot v1, https://bun.sh/docs/test/snapshots
+
+exports[`projectTwammPoolStateAtTime regression evm zero sale rates at t=32 1`] = `
+{
+  "activeTickIndex": 0,
+  "lastExecutionTime": 32,
+  "liquidity": "1000000000",
+  "sqrtRatio": "340282537062079388641046796912818126848",
+  "token0SaleRate": "0",
+  "token1SaleRate": "0",
+}
+`;
+
+exports[`projectTwammPoolStateAtTime regression evm one-sided sale rates from token1 at t=32 1`] = `
+{
+  "activeTickIndex": 0,
+  "lastExecutionTime": 32,
+  "liquidity": "1000000",
+  "sqrtRatio": "340293426097820858671877624900255943430",
+  "token0SaleRate": "0",
+  "token1SaleRate": "4294967296",
+}
+`;
+
+exports[`projectTwammPoolStateAtTime regression evm one-sided sale rates from token0 at t=32 1`] = `
+{
+  "activeTickIndex": 0,
+  "lastExecutionTime": 32,
+  "liquidity": "1000000",
+  "sqrtRatio": "340271818494565131944284334617395072209",
+  "token0SaleRate": "4294967296",
+  "token1SaleRate": "0",
+}
+`;
+
+exports[`projectTwammPoolStateAtTime regression evm at max sqrt ratio at t=32 1`] = `
+{
+  "activeTickIndex": 0,
+  "lastExecutionTime": 32,
+  "liquidity": "1000000",
+  "sqrtRatio": "6276949602062853172742588666607187473671941430179807625216",
+  "token0SaleRate": "0",
+  "token1SaleRate": "4294967296",
+}
+`;
+
+exports[`projectTwammPoolStateAtTime regression evm at min sqrt ratio at t=32 1`] = `
+{
+  "activeTickIndex": 0,
+  "lastExecutionTime": 32,
+  "liquidity": "1000000",
+  "sqrtRatio": "18447191164202170524",
+  "token0SaleRate": "4294967296",
+  "token1SaleRate": "0",
+}
+`;
+
+exports[`projectTwammPoolStateAtTime regression evm close to max usable price at t=32 1`] = `
+{
+  "activeTickIndex": 1,
+  "lastExecutionTime": 32,
+  "liquidity": "0",
+  "sqrtRatio": "6276949602062853172742588666607187473671941430179807625216",
+  "token0SaleRate": "0",
+  "token1SaleRate": "4294967296",
+}
+`;
+
+exports[`projectTwammPoolStateAtTime regression evm close to min usable price at t=32 1`] = `
+{
+  "activeTickIndex": -1,
+  "lastExecutionTime": 32,
+  "liquidity": "0",
+  "sqrtRatio": "18447191164202170524",
+  "token0SaleRate": "4294967296",
+  "token1SaleRate": "0",
+}
+`;
+
+exports[`projectTwammPoolStateAtTime regression evm sale rate deltas move away from edge halfway through at t=32 1`] = `
+{
+  "activeTickIndex": 0,
+  "lastExecutionTime": 32,
+  "liquidity": "1000000",
+  "sqrtRatio": "212678294161851353764283460770289689283",
+  "token0SaleRate": "429496729600000",
+  "token1SaleRate": "4294967296",
+}
+`;
+
+exports[`projectTwammPoolStateAtTime regression evm sale rate deltas go to zero halfway through at t=32 1`] = `
+{
+  "activeTickIndex": 0,
+  "lastExecutionTime": 32,
+  "liquidity": "100000",
+  "sqrtRatio": "340282537007642920237526075450283183660",
+  "token0SaleRate": "0",
+  "token1SaleRate": "0",
+}
+`;
+
+exports[`projectTwammPoolStateAtTime regression evm sale rate deltas double halfway through at t=32 1`] = `
+{
+  "activeTickIndex": 0,
+  "lastExecutionTime": 32,
+  "liquidity": "100000",
+  "sqrtRatio": "340282536898822228533195785493680231815",
+  "token0SaleRate": "8589934592",
+  "token1SaleRate": "8589934592",
+}
+`;
+
+exports[`projectTwammPoolStateAtTime regression evm price-after-no-swap examples at t=43200 1`] = `
+{
+  "activeTickIndex": 0,
+  "lastExecutionTime": 43200,
+  "liquidity": "70710696755630728101718334",
+  "sqrtRatio": "480723349593747841721585980537899561585",
+  "token0SaleRate": "10526880627450980392156862745",
+  "token1SaleRate": "10526880627450980392156862745",
+}
+`;
+
+exports[`projectTwammPoolStateAtTime regression evm price-after-no-swap examples at t=86400 1`] = `
+{
+  "activeTickIndex": 0,
+  "lastExecutionTime": 86400,
+  "liquidity": "70710696755630728101718334",
+  "sqrtRatio": "480217034354703129017608632269423489921",
+  "token0SaleRate": "10526880627450980392156862745",
+  "token1SaleRate": "10526880627450980392156862745",
+}
+`;
+
+exports[`projectTwammPoolStateAtTime regression evm moody examples at t=60 1`] = `
+{
+  "activeTickIndex": 0,
+  "lastExecutionTime": 60,
+  "liquidity": "1000000000000000000000",
+  "sqrtRatio": "481231811499356508032916671135276335104",
+  "token0SaleRate": "4294967296000000000000000000",
+  "token1SaleRate": "4294967296000000000000000000",
+}
+`;
+
+exports[`projectTwammPoolStateAtTime regression evm moody examples at t=90 1`] = `
+{
+  "activeTickIndex": 0,
+  "lastExecutionTime": 90,
+  "liquidity": "1000000000000000000000",
+  "sqrtRatio": "471441649416958073107681378881020802382",
+  "token0SaleRate": "4294967296000000000000000000",
+  "token1SaleRate": "4294967296000000000000000000",
+}
+`;
+
+exports[`projectTwammPoolStateAtTime regression evm moody examples at t=120 1`] = `
+{
+  "activeTickIndex": 0,
+  "lastExecutionTime": 120,
+  "liquidity": "1000000000000000000000",
+  "sqrtRatio": "462432609411975157929875274110526629149",
+  "token0SaleRate": "0",
+  "token1SaleRate": "0",
+}
+`;
+
+exports[`projectTwammPoolStateAtTime regression starknet zero sale rates at t=32 1`] = `
+{
+  "activeTickIndex": 0,
+  "lastExecutionTime": 32,
+  "liquidity": "1000000000",
+  "sqrtRatio": "340282537062079388658008856451427006219",
+  "token0SaleRate": "0",
+  "token1SaleRate": "0",
+}
+`;
+
+exports[`projectTwammPoolStateAtTime regression starknet one-sided sale rates from token1 at t=32 1`] = `
+{
+  "activeTickIndex": 0,
+  "lastExecutionTime": 32,
+  "liquidity": "1000000",
+  "sqrtRatio": "340293426097820858688839684438864822801",
+  "token0SaleRate": "0",
+  "token1SaleRate": "4294967296",
+}
+`;
+
+exports[`projectTwammPoolStateAtTime regression starknet one-sided sale rates from token0 at t=32 1`] = `
+{
+  "activeTickIndex": 0,
+  "lastExecutionTime": 32,
+  "liquidity": "1000000",
+  "sqrtRatio": "340271818494565131944284334617395072209",
+  "token0SaleRate": "4294967296",
+  "token1SaleRate": "0",
+}
+`;
+
+exports[`projectTwammPoolStateAtTime regression starknet at max sqrt ratio at t=32 1`] = `
+{
+  "activeTickIndex": 0,
+  "lastExecutionTime": 32,
+  "liquidity": "1000000",
+  "sqrtRatio": "6277100250585753475930931601400621808602321654880405518632",
+  "token0SaleRate": "0",
+  "token1SaleRate": "4294967296",
+}
+`;
+
+exports[`projectTwammPoolStateAtTime regression starknet at min sqrt ratio at t=32 1`] = `
+{
+  "activeTickIndex": 0,
+  "lastExecutionTime": 32,
+  "liquidity": "1000000",
+  "sqrtRatio": "18446748437148339061",
+  "token0SaleRate": "4294967296",
+  "token1SaleRate": "0",
+}
+`;
+
+exports[`projectTwammPoolStateAtTime regression starknet close to max usable price at t=32 1`] = `
+{
+  "activeTickIndex": 1,
+  "lastExecutionTime": 32,
+  "liquidity": "0",
+  "sqrtRatio": "6277100250585753475930931601400621808602321654880405518632",
+  "token0SaleRate": "0",
+  "token1SaleRate": "4294967296",
+}
+`;
+
+exports[`projectTwammPoolStateAtTime regression starknet close to min usable price at t=32 1`] = `
+{
+  "activeTickIndex": -1,
+  "lastExecutionTime": 32,
+  "liquidity": "0",
+  "sqrtRatio": "18446748437148339061",
+  "token0SaleRate": "4294967296",
+  "token1SaleRate": "0",
+}
+`;
+
+exports[`projectTwammPoolStateAtTime regression starknet sale rate deltas move away from edge halfway through at t=32 1`] = `
+{
+  "activeTickIndex": 0,
+  "lastExecutionTime": 32,
+  "liquidity": "1000000",
+  "sqrtRatio": "212678294161851353764283460770289689283",
+  "token0SaleRate": "429496729600000",
+  "token1SaleRate": "4294967296",
+}
+`;
+
+exports[`projectTwammPoolStateAtTime regression starknet sale rate deltas go to zero halfway through at t=32 1`] = `
+{
+  "activeTickIndex": 0,
+  "lastExecutionTime": 32,
+  "liquidity": "100000",
+  "sqrtRatio": "340282537007642920254482707995491902028",
+  "token0SaleRate": "0",
+  "token1SaleRate": "0",
+}
+`;
+
+exports[`projectTwammPoolStateAtTime regression starknet sale rate deltas double halfway through at t=32 1`] = `
+{
+  "activeTickIndex": 0,
+  "lastExecutionTime": 32,
+  "liquidity": "100000",
+  "sqrtRatio": "340282536898822228550141569260618453644",
+  "token0SaleRate": "8589934592",
+  "token1SaleRate": "8589934592",
+}
+`;
+
+exports[`projectTwammPoolStateAtTime regression starknet price-after-no-swap examples at t=43200 1`] = `
+{
+  "activeTickIndex": 0,
+  "lastExecutionTime": 43200,
+  "liquidity": "70710696755630728101718334",
+  "sqrtRatio": "480723349593747841774961896705100136844",
+  "token0SaleRate": "10526880627450980392156862745",
+  "token1SaleRate": "10526880627450980392156862745",
+}
+`;
+
+exports[`projectTwammPoolStateAtTime regression starknet price-after-no-swap examples at t=86400 1`] = `
+{
+  "activeTickIndex": 0,
+  "lastExecutionTime": 86400,
+  "liquidity": "70710696755630728101718334",
+  "sqrtRatio": "480217034354703129070759320246988480280",
+  "token0SaleRate": "10526880627450980392156862745",
+  "token1SaleRate": "10526880627450980392156862745",
+}
+`;
+
+exports[`projectTwammPoolStateAtTime regression starknet moody examples at t=60 1`] = `
+{
+  "activeTickIndex": 0,
+  "lastExecutionTime": 60,
+  "liquidity": "1000000000000000000000",
+  "sqrtRatio": "481231811499356508086519009265716982182",
+  "token0SaleRate": "4294967296000000000000000000",
+  "token1SaleRate": "4294967296000000000000000000",
+}
+`;
+
+exports[`projectTwammPoolStateAtTime regression starknet moody examples at t=90 1`] = `
+{
+  "activeTickIndex": 0,
+  "lastExecutionTime": 90,
+  "liquidity": "1000000000000000000000",
+  "sqrtRatio": "471441649416958073156966148369774588652",
+  "token0SaleRate": "4294967296000000000000000000",
+  "token1SaleRate": "4294967296000000000000000000",
+}
+`;
+
+exports[`projectTwammPoolStateAtTime regression starknet moody examples at t=120 1`] = `
+{
+  "activeTickIndex": 0,
+  "lastExecutionTime": 120,
+  "liquidity": "1000000000000000000000",
+  "sqrtRatio": "462432609411975157975265359638471888182",
+  "token0SaleRate": "0",
+  "token1SaleRate": "0",
+}
+`;

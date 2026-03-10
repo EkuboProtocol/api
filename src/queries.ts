@@ -645,6 +645,7 @@ FROM token_mint AS mint
   ) {
     return this.sql<
       {
+        pool_key_id: bigint;
         token0: string;
         token1: string;
         fee: string;
@@ -655,6 +656,7 @@ FROM token_mint AS mint
       }[]
     >`
       SELECT
+        pool_key_id,
         token0,
         token1,
         fee,
@@ -667,6 +669,89 @@ FROM token_mint AS mint
         AND core_address = ${coreAddress.toString()}
         AND pool_id = ${poolId.toString()}
       LIMIT 1
+    `;
+  }
+
+  public async getPoolPriceSeed(poolKeyId: bigint, beforeOrAt: Date) {
+    const rows = await this.sql<
+      {
+        block_time: Date;
+        sqrt_ratio_after: string;
+      }[]
+    >`
+      SELECT
+        block_time,
+        sqrt_ratio_after
+      FROM swaps
+      WHERE pool_key_id = ${poolKeyId}
+        AND block_time <= ${beforeOrAt}
+      ORDER BY block_time DESC, event_id DESC
+      LIMIT 1
+    `;
+
+    return rows[0] ?? null;
+  }
+
+  public async getPoolPriceHistoryCandles({
+    poolKeyId,
+    start,
+    end,
+    intervalSeconds,
+  }: {
+    poolKeyId: bigint;
+    start: Date;
+    end: Date;
+    intervalSeconds: number;
+  }) {
+    return this.sql<
+      {
+        start: Date;
+        open_sqrt_ratio: string;
+        high_sqrt_ratio: string;
+        low_sqrt_ratio: string;
+        close_sqrt_ratio: string;
+      }[]
+    >`
+      WITH bucketed_swaps AS (
+        SELECT
+          date_bin(
+            ${intervalSeconds} * INTERVAL '1 sec',
+            block_time,
+            '2000-01-01 00:00:00'::TIMESTAMP WITHOUT TIME ZONE
+          ) AS start,
+          block_time,
+          event_id,
+          sqrt_ratio_after
+        FROM swaps
+        WHERE pool_key_id = ${poolKeyId}
+          AND block_time BETWEEN ${start} AND ${end}
+      )
+      SELECT
+        start,
+        (ARRAY_AGG(sqrt_ratio_after ORDER BY block_time ASC, event_id ASC))[1] AS open_sqrt_ratio,
+        MAX(sqrt_ratio_after) AS high_sqrt_ratio,
+        MIN(sqrt_ratio_after) AS low_sqrt_ratio,
+        (ARRAY_AGG(sqrt_ratio_after ORDER BY block_time DESC, event_id DESC))[1] AS close_sqrt_ratio
+      FROM bucketed_swaps
+      GROUP BY start
+      ORDER BY start
+    `;
+  }
+
+  public async getPoolTicksById(poolKeyId: bigint) {
+    return this.sql<
+      {
+        tick: number;
+        liquidity_delta: string;
+      }[]
+    >`
+      SELECT
+        tick,
+        net_liquidity_delta_diff AS liquidity_delta
+      FROM per_pool_per_tick_liquidity
+      WHERE pool_key_id = ${poolKeyId}
+        AND net_liquidity_delta_diff <> 0
+      ORDER BY tick ASC
     `;
   }
 
@@ -1208,6 +1293,64 @@ ORDER BY po.token_id DESC
       GROUP BY time
       HAVING SUM(net_sale_rate_delta0) <> 0 OR SUM(net_sale_rate_delta1) <> 0
       ORDER BY time
+    `;
+  }
+
+  public async getPoolTwammState(poolKeyId: bigint) {
+    const rows = await this.sql<
+      {
+        sqrt_ratio: string;
+        tick: number;
+        liquidity: string;
+        fee: string;
+        token0_sale_rate: string;
+        token1_sale_rate: string;
+        last_execution_time: Date;
+      }[]
+    >`
+      SELECT
+        ps.sqrt_ratio,
+        ps.tick,
+        ps.liquidity,
+        pk.fee,
+        tps.token0_sale_rate,
+        tps.token1_sale_rate,
+        tps.last_virtual_execution_time AS last_execution_time
+      FROM twamm_pool_states tps
+             JOIN pool_states ps USING (pool_key_id)
+             JOIN pool_keys pk USING (pool_key_id)
+      WHERE tps.pool_key_id = ${poolKeyId}
+      LIMIT 1
+    `;
+
+    return rows[0] ?? null;
+  }
+
+  public async getTwammSaleRateDeltas({
+    poolKeyId,
+    after,
+    until,
+  }: {
+    poolKeyId: bigint;
+    after: Date;
+    until: Date;
+  }) {
+    return this.sql<
+      {
+        time: Date;
+        net_sale_rate_delta0: string;
+        net_sale_rate_delta1: string;
+      }[]
+    >`
+      SELECT
+        time,
+        net_sale_rate_delta0,
+        net_sale_rate_delta1
+      FROM twamm_sale_rate_deltas
+      WHERE pool_key_id = ${poolKeyId}
+        AND time > ${after}
+        AND time <= ${until}
+      ORDER BY time ASC
     `;
   }
 
