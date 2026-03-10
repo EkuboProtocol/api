@@ -1779,6 +1779,124 @@ HAVING SUM(tvl0_total / POWER(10::NUMERIC, t0.token_decimals) * COALESCE(t0p.val
     `;
   }
 
+  public async getBoostedFeesPools(chainId: bigint | null) {
+    return this.sql<
+      {
+        chain_id: bigint;
+        token0: string;
+        token1: string;
+        pool_id: string;
+        fee: string;
+        tick_spacing: number;
+        core_address: string;
+        extension: string;
+        volume0_24h: string;
+        volume1_24h: string;
+        fees0_24h: string;
+        fees1_24h: string;
+        tvl0_total: string;
+        tvl1_total: string;
+        tvl0_delta_24h: string;
+        tvl1_delta_24h: string;
+        depth0: string;
+        depth1: string;
+        stableswap_center_tick: string | null;
+        stableswap_amplification: string | null;
+        depth_percent: number | null;
+        boosted_fees_donate_rate0: string | null;
+        boosted_fees_donate_rate1: string | null;
+        boosted_fees_last_donated_time: Date | null;
+        boosted_fees_future_deltas:
+          | {
+              time: string;
+              donate_rate_delta0: string;
+              donate_rate_delta1: string;
+            }[]
+          | null;
+      }[]
+    >`
+      SELECT
+        p.chain_id,
+        p.token0,
+        p.token1,
+        p.pool_id,
+        p.fee,
+        p.tick_spacing,
+        p.core_address,
+        p.pool_extension AS extension,
+        p.stableswap_amplification,
+        p.stableswap_center_tick,
+        volume0_24h,
+        volume1_24h,
+        fees0_24h,
+        fees1_24h,
+        tvl0_total,
+        tvl1_total,
+        tvl0_delta_24h,
+        tvl1_delta_24h,
+        coalesce(depth0, 0::numeric) AS depth0,
+        coalesce(depth1, 0::numeric) AS depth1,
+        depth_percent,
+        bps.donate_rate0 AS boosted_fees_donate_rate0,
+        bps.donate_rate1 AS boosted_fees_donate_rate1,
+        bps.last_donated_time AS boosted_fees_last_donated_time,
+        bfrd.future_deltas AS boosted_fees_future_deltas
+      FROM
+        last_24h_pool_stats_materialized l24
+        JOIN pool_keys p USING (pool_key_id)
+        JOIN erc20_tokens t0 ON p.chain_id = t0.chain_id AND p.token0 = t0.token_address
+        LEFT JOIN erc20_tokens_latest_price t0p ON t0p.chain_id = t0.chain_id AND t0p.token_address = t0.token_address
+        JOIN erc20_tokens t1 ON p.chain_id = t1.chain_id AND p.token1 = t1.token_address
+        LEFT JOIN erc20_tokens_latest_price t1p ON t1p.chain_id = t1.chain_id AND t1p.token_address = t1.token_address
+        LEFT JOIN token_pair_realized_volatility_materialized tprv ON p.chain_id = tprv.chain_id AND p.token0 = tprv.token0 AND p.token1 = tprv.token1
+        JOIN boosted_fees_pool_states bps ON bps.pool_key_id = p.pool_key_id
+        LEFT JOIN LATERAL (
+          SELECT
+            jsonb_agg(
+              jsonb_build_object(
+                'time',
+                EXTRACT(epoch FROM bfrd.time)::text,
+                'donate_rate_delta0',
+                bfrd.net_donate_rate_delta0::text,
+                'donate_rate_delta1',
+                bfrd.net_donate_rate_delta1::text
+              )
+              ORDER BY bfrd.time
+            ) AS future_deltas
+          FROM
+            boosted_fees_donate_rate_deltas bfrd
+          WHERE
+            bfrd.pool_key_id = p.pool_key_id
+            AND bfrd.time > bps.last_donated_time
+        ) bfrd ON TRUE
+        LEFT JOIN LATERAL (
+          SELECT
+            *
+          FROM
+            pool_market_depth_materialized pmd
+          WHERE
+            p.pool_key_id = pmd.pool_key_id
+            AND GREATEST(tprv.realized_volatility, 0.001) >= pmd.depth_percent
+          ORDER BY
+            depth_percent DESC
+          LIMIT 1
+        ) AS pmd ON TRUE
+      WHERE
+        p.chain_id = COALESCE(${chainId ?? null}, p.chain_id)
+      ORDER BY
+        CASE
+          WHEN COALESCE(bps.donate_rate0, 0::numeric) <> 0
+            OR COALESCE(bps.donate_rate1, 0::numeric) <> 0 THEN 0
+          ELSE 1
+        END,
+        bps.last_donated_time DESC NULLS LAST,
+        p.chain_id,
+        p.token0,
+        p.token1,
+        p.pool_id
+    `;
+  }
+
   public async getPositionsByAddress(
     address: bigint,
     state: StateFilter | null = null,

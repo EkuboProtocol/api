@@ -3,6 +3,7 @@ import { version } from "../package.json";
 import { ListTokens, GetToken, BatchGetTokens } from "./routes/meta/tokens";
 import { GetBlock, GetClosestBlock } from "./routes/meta/blocks";
 import {
+  GetOverviewBoostedFeesPools,
   GetOverviewPairs,
   GetOverviewRevenue,
   GetOverviewTvl,
@@ -76,6 +77,7 @@ export const router = OpenAPIRouter({
   .get(GetClosestBlock.route, GetClosestBlock)
   .get(GetBlock.route, GetBlock)
   .get(GetOverviewPairs.route, GetOverviewPairs)
+  .get(GetOverviewBoostedFeesPools.route, GetOverviewBoostedFeesPools)
   .get(GetOverviewRevenue.route, GetOverviewRevenue)
   .get(GetOverviewTvl.route, GetOverviewTvl)
   .get(GetOverviewVolume.route, GetOverviewVolume)

@@ -65,6 +65,54 @@ const OverviewPairsResponseType = z.object({
   topPairs: z.array(OverviewPairEntryType),
 });
 
+const BoostedFeesStateType = z
+  .object({
+    donate_rate0: z.string(),
+    donate_rate1: z.string(),
+    last_donated_time: z.number().int().min(0),
+    future_donation_deltas: z.array(
+      z.object({
+        time: z.number().int().min(0),
+        donate_rate_delta0: z.string(),
+        donate_rate_delta1: z.string(),
+      }),
+    ),
+  })
+  .nullable();
+
+const BoostedFeesPoolEntryType = z.object({
+  chain_id: HexStringType,
+  token0: HexStringType,
+  token1: HexStringType,
+  pool_id: z.string(),
+  fee: z.string(),
+  tick_spacing: z.number().int(),
+  core_address: z.string(),
+  extension: z.string(),
+  volume0_24h: z.string(),
+  volume1_24h: z.string(),
+  fees0_24h: z.string(),
+  fees1_24h: z.string(),
+  tvl0_total: z.string(),
+  tvl1_total: z.string(),
+  tvl0_delta_24h: z.string(),
+  tvl1_delta_24h: z.string(),
+  depth0: z.string(),
+  depth1: z.string(),
+  depth_percent: z.number().nullable(),
+  stableswap_params: z
+    .object({
+      center_tick: z.number().int(),
+      amplification: z.number().int(),
+    })
+    .nullable(),
+  boosts: BoostedFeesStateType,
+});
+
+const OverviewBoostedFeesPoolsResponseType = z.object({
+  pools: z.array(BoostedFeesPoolEntryType),
+});
+
 const RevenueEntryType = z.object({
   token: z.string(),
   revenue: z.string(),
@@ -154,6 +202,89 @@ export class GetOverviewPairs extends EkuboAPIRoute {
         chain_id: toHex(tp.chain_id),
       })),
     } satisfies z.infer<typeof OverviewPairsResponseType>;
+
+    return json(response, {
+      headers: {
+        "cache-control": "public, max-age=600",
+      },
+    });
+  }
+}
+
+export class GetOverviewBoostedFeesPools extends EkuboAPIRoute {
+  static route = "/overview/boosted-fees-pools";
+  static schema: OpenAPIRouteSchema = {
+    tags: ["Stats"],
+    summary: "Get boosted fees pools",
+    description:
+      "Returns pools with boosted fees state, including current and scheduled donation deltas",
+    parameters: {
+      chainId: Query(ChainIdType, { required: false }),
+    },
+    responses: {
+      "200": {
+        description: "Pools with boosted fees data",
+        schema: OverviewBoostedFeesPoolsResponseType,
+      },
+    },
+  };
+
+  async handle(request: IRequest, { env }: RequestContext) {
+    const chainIdParam = request.query?.chainId;
+    const chainId =
+      chainIdParam !== undefined ? ChainIdType.parse(chainIdParam) : null;
+    const queries = await createQueries(env);
+
+    const pools = await queries.getBoostedFeesPools(chainId);
+
+    const response = {
+      pools: pools.map((pool) => {
+        const {
+          chain_id,
+          token0,
+          token1,
+          boosted_fees_donate_rate0,
+          boosted_fees_donate_rate1,
+          boosted_fees_last_donated_time,
+          boosted_fees_future_deltas,
+          stableswap_amplification,
+          stableswap_center_tick,
+          ...rest
+        } = pool;
+
+        const stableswap_params =
+          stableswap_amplification !== null && stableswap_center_tick !== null
+            ? {
+                center_tick: Number(stableswap_center_tick),
+                amplification: Number(stableswap_amplification),
+              }
+            : null;
+
+        return {
+          ...rest,
+          chain_id: toHex(chain_id),
+          token0: toHex(token0),
+          token1: toHex(token1),
+          stableswap_params,
+          boosts:
+            boosted_fees_last_donated_time === null
+              ? null
+              : {
+                  donate_rate0: boosted_fees_donate_rate0 ?? "0",
+                  donate_rate1: boosted_fees_donate_rate1 ?? "0",
+                  last_donated_time:
+                    boosted_fees_last_donated_time.getTime() / 1000,
+                  future_donation_deltas: (
+                    boosted_fees_future_deltas ?? []
+                  ).map((delta) => ({
+                    time: Number(delta.time),
+                    donate_rate_delta0: delta.donate_rate_delta0,
+                    donate_rate_delta1: delta.donate_rate_delta1,
+                  })),
+                },
+        };
+      }),
+    } satisfies z.infer<typeof OverviewBoostedFeesPoolsResponseType>;
 
     return json(response, {
       headers: {
