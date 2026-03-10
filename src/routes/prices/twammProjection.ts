@@ -2,10 +2,8 @@ import {
   calculateNextSqrtRatio,
   computeStep,
   EVM_MAX_SQRT_RATIO,
-  EVM_MAX_TICK_SPACING,
   EVM_MIN_SQRT_RATIO,
   STARKNET_MAX_SQRT_RATIO,
-  STARKNET_MAX_TICK_SPACING,
   STARKNET_MIN_SQRT_RATIO,
   toSqrtRatio,
 } from "@ekubo/sdk";
@@ -18,24 +16,16 @@ const MAX_BOUNDS_MIN_SQRT_RATIO = 22027144413679976675n;
 const MAX_BOUNDS_MAX_SQRT_RATIO =
   5256790760649093508123362461711849782692726119655358142129n;
 
-interface ChainParams {
-  MAX_TICK_SPACING: number;
-  MIN_SQRT_RATIO: bigint;
-  MAX_SQRT_RATIO: bigint;
-}
-
-const CHAIN_PARAMS: Record<ChainKind, ChainParams> = {
+const CHAIN_PARAMS = {
   evm: {
-    MAX_TICK_SPACING: EVM_MAX_TICK_SPACING,
     MIN_SQRT_RATIO: EVM_MIN_SQRT_RATIO,
     MAX_SQRT_RATIO: EVM_MAX_SQRT_RATIO,
   },
   starknet: {
-    MAX_TICK_SPACING: STARKNET_MAX_TICK_SPACING,
     MIN_SQRT_RATIO: STARKNET_MIN_SQRT_RATIO,
     MAX_SQRT_RATIO: STARKNET_MAX_SQRT_RATIO,
   },
-};
+} as const;
 
 interface Tick {
   tick: number;
@@ -90,7 +80,10 @@ function isPriceIncreasing(amount: bigint, isToken1: boolean): boolean {
   return amount < 0n !== isToken1;
 }
 
-function findNearestInitializedTickIndex(sortedTicks: Tick[], tick: number): number {
+function findNearestInitializedTickIndex(
+  sortedTicks: Tick[],
+  tick: number,
+): number {
   let left = 0;
   let right = sortedTicks.length;
 
