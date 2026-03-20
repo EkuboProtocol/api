@@ -194,7 +194,7 @@ export class Queries {
         WHERE br.source_chain_id = t.chain_id
           AND br.source_token_address = t.token_address
       ) AS bridge ON TRUE
-      WHERE chain_id = ${chainId}
+      WHERE chain_id = ${chainId.toString()}
         AND token_address = ${tokenAddress.toString()};
     `;
 
