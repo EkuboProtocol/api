@@ -2531,42 +2531,136 @@ AND chain_id IS NOT NULL
         owner: string;
         auctions_contract_address: string;
         total_sale_rate: string;
+        completed_timestamp: Date | null;
+        boost_end_time: Date | null;
       }[]
     >`
-      SELECT afa.chain_id,
-            afa.token0,
-            afa.token1,
-            afa.config,
-            afa.token_id       AS token_id,
-            nfo.current_owner  AS owner,
-            afa.emitter        AS auctions_contract_address,
-            SUM(afa.sale_rate) AS total_sale_rate
-      FROM auction_funds_added AS afa
-              JOIN nonfungible_token_owners AS nfo
-                    ON nfo.chain_id = afa.chain_id
-                        AND nfo.nft_address = afa.emitter
-                        AND nfo.token_id = afa.token_id
-              JOIN blocks AS b
-                    ON b.chain_id = afa.chain_id
-                        AND b.block_number = afa.block_number
-              JOIN erc20_tokens AS t0
-                    ON t0.chain_id = afa.chain_id
-                        AND t0.token_address = afa.token0
-              JOIN erc20_tokens AS t1
-                    ON t1.chain_id = afa.chain_id
-                        AND t1.token_address = afa.token1
-      WHERE ${chainIdCondition}
-        AND t0.visibility_priority >= ${minVisibilityPriority}
-        AND t1.visibility_priority >= ${minVisibilityPriority}
-        AND ${ownerCondition}
-      GROUP BY afa.chain_id,
+      WITH auction_keys AS (
+        SELECT afa.chain_id,
               afa.token0,
               afa.token1,
               afa.config,
-              afa.token_id,
-              nfo.current_owner,
-              afa.emitter
-      ORDER BY MAX(b.block_time) DESC, afa.token_id
+              afa.token_id       AS token_id,
+              nfo.current_owner  AS owner,
+              afa.emitter        AS auctions_contract_address,
+              SUM(afa.sale_rate) AS total_sale_rate,
+              MAX(b.block_time)  AS last_funded_timestamp
+        FROM auction_funds_added AS afa
+                JOIN nonfungible_token_owners AS nfo
+                      ON nfo.chain_id = afa.chain_id
+                          AND nfo.nft_address = afa.emitter
+                          AND nfo.token_id = afa.token_id
+                JOIN blocks AS b
+                      ON b.chain_id = afa.chain_id
+                          AND b.block_number = afa.block_number
+                JOIN erc20_tokens AS t0
+                      ON t0.chain_id = afa.chain_id
+                          AND t0.token_address = afa.token0
+                JOIN erc20_tokens AS t1
+                      ON t1.chain_id = afa.chain_id
+                          AND t1.token_address = afa.token1
+        WHERE ${chainIdCondition}
+          AND t0.visibility_priority >= ${minVisibilityPriority}
+          AND t1.visibility_priority >= ${minVisibilityPriority}
+          AND ${ownerCondition}
+        GROUP BY afa.chain_id,
+                afa.token0,
+                afa.token1,
+                afa.config,
+                afa.token_id,
+                nfo.current_owner,
+                afa.emitter
+      ),
+           completion_data AS (
+             SELECT DISTINCT ON (
+               ac.chain_id,
+               ac.emitter,
+               ac.token_id,
+               ac.token0,
+               ac.token1,
+               ac.config
+             )
+               ac.chain_id,
+               ac.emitter AS auctions_contract_address,
+               ac.token_id,
+               ac.token0,
+               ac.token1,
+               ac.config,
+               b.block_time AS completed_timestamp
+             FROM auction_completed AS ac
+                    JOIN auction_keys AS ak
+                         ON ak.chain_id = ac.chain_id
+                             AND ak.auctions_contract_address = ac.emitter
+                             AND ak.token_id = ac.token_id
+                             AND ak.token0 = ac.token0
+                             AND ak.token1 = ac.token1
+                             AND ak.config = ac.config
+                    JOIN blocks AS b
+                         ON b.chain_id = ac.chain_id
+                             AND b.block_number = ac.block_number
+             ORDER BY ac.chain_id,
+                      ac.emitter,
+                      ac.token_id,
+                      ac.token0,
+                      ac.token1,
+                      ac.config,
+                      ac.event_id DESC
+           ),
+           boost_data AS (
+             SELECT DISTINCT ON (
+               abs.chain_id,
+               abs.emitter,
+               abs.token0,
+               abs.token1,
+               abs.config
+             )
+               abs.chain_id,
+               abs.emitter AS auctions_contract_address,
+               abs.token0,
+               abs.token1,
+               abs.config,
+               abs.boost_end_time
+             FROM auction_boost_started AS abs
+                    JOIN auction_keys AS ak
+                         ON ak.chain_id = abs.chain_id
+                             AND ak.auctions_contract_address = abs.emitter
+                             AND ak.token0 = abs.token0
+                             AND ak.token1 = abs.token1
+                             AND ak.config = abs.config
+             ORDER BY abs.chain_id,
+                      abs.emitter,
+                      abs.token0,
+                      abs.token1,
+                      abs.config,
+                      abs.event_id DESC
+           )
+      SELECT ak.chain_id,
+            ak.token0,
+            ak.token1,
+            ak.config,
+            ak.token_id,
+            ak.owner,
+            ak.auctions_contract_address,
+            ak.total_sale_rate,
+            cd.completed_timestamp,
+            bd.boost_end_time
+      FROM auction_keys AS ak
+              LEFT JOIN completion_data AS cd
+                        ON cd.chain_id = ak.chain_id
+                            AND cd.auctions_contract_address =
+                                ak.auctions_contract_address
+                            AND cd.token_id = ak.token_id
+                            AND cd.token0 = ak.token0
+                            AND cd.token1 = ak.token1
+                            AND cd.config = ak.config
+              LEFT JOIN boost_data AS bd
+                        ON bd.chain_id = ak.chain_id
+                            AND bd.auctions_contract_address =
+                                ak.auctions_contract_address
+                            AND bd.token0 = ak.token0
+                            AND bd.token1 = ak.token1
+                            AND bd.config = ak.config
+      ORDER BY ak.last_funded_timestamp DESC, ak.token_id
     `;
   }
 
