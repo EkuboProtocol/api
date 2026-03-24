@@ -36,6 +36,8 @@ const AuctionSummaryType = z.object({
   owner: AddressType,
   auctions_contract_address: AddressType,
   total_sale_rate: DecimalStringType,
+  boost_end_time: NumericStringType.nullable(),
+  completed_timestamp: NumericStringType.nullable(),
 });
 
 const ListAuctionsResponseType = z.object({
@@ -124,6 +126,8 @@ export class ListAuctions extends EkuboAPIRoute {
           config: toHex(BigInt(row.config), 32),
         },
         total_sale_rate: row.total_sale_rate,
+        boost_end_time: formatAttributeTimestamp(row.boost_end_time),
+        completed_timestamp: formatAttributeTimestamp(row.completed_timestamp),
       })),
     } satisfies z.infer<typeof ListAuctionsResponseType>;
 
