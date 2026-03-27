@@ -1902,9 +1902,19 @@ HAVING SUM(tvl0_total / POWER(10::NUMERIC, t0.token_decimals) * COALESCE(t0p.val
     state: StateFilter | null = null,
     chainId: bigint | null = null,
     pagination: { page: number; pageSize: number },
+    additionalAddress: bigint | null = null,
   ) {
     const addressStr = address.toString();
+    const additionalAddressStr = additionalAddress?.toString() ?? null;
     const offset = (pagination.page - 1) * pagination.pageSize;
+    const currentOwnerCondition = additionalAddressStr
+      ? this
+          .sql`(current_owner = ${addressStr} OR current_owner = ${additionalAddressStr})`
+      : this.sql`current_owner = ${addressStr}`;
+    const previousOwnerCondition = additionalAddressStr
+      ? this
+          .sql`(previous_owner = ${addressStr} OR previous_owner = ${additionalAddressStr})`
+      : this.sql`previous_owner = ${addressStr}`;
 
     const rows = await this.sql<
       (PositionMetadata & {
@@ -1913,6 +1923,7 @@ HAVING SUM(tvl0_total / POWER(10::NUMERIC, t0.token_decimals) * COALESCE(t0p.val
         liquidity: string;
         nft_address: string;
         positions_address: string;
+        owner: string | null;
         total_count: number;
         pool_state_sqrt_ratio: string;
         pool_state_tick: string;
@@ -1930,6 +1941,7 @@ WITH base_positions AS (SELECT nfp.chain_id,
                                nft_address,
                                core_address,
                                COALESCE(nlm.locker, nfp.nft_address) AS positions_address,
+                               nfp.current_owner                     AS owner,
                                token_id,
                                nft_token_salt(token_id_transform, token_id) AS salt,
                                token0,
@@ -1951,12 +1963,12 @@ WITH base_positions AS (SELECT nfp.chain_id,
                         ${
                           state === "opened"
                             ? this
-                                .sql`nfp.liquidity != 0 AND current_owner = ${addressStr}`
+                                .sql`nfp.liquidity != 0 AND ${currentOwnerCondition}`
                             : state === "closed"
                               ? this
-                                  .sql`nfp.liquidity = 0 AND (previous_owner = ${addressStr} OR current_owner = ${addressStr})`
+                                  .sql`nfp.liquidity = 0 AND (${previousOwnerCondition} OR ${currentOwnerCondition})`
                               : this
-                                  .sql`(current_owner = ${addressStr} OR previous_owner = ${addressStr})`
+                                  .sql`(${currentOwnerCondition} OR ${previousOwnerCondition})`
                         }),
      total_count AS (SELECT COUNT(*)::INT AS total_count
                      FROM base_positions),
@@ -1968,6 +1980,7 @@ SELECT pp.chain_id,
        pp.nft_address,
        pp.core_address,
        pp.positions_address,
+       pp.owner,
        pp.token_id,
        pp.token0,
        pp.token1,

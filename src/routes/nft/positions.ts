@@ -86,6 +86,7 @@ const PositionSummaryType = z.object({
   id: HexStringType,
   chain_id: HexStringType,
   positions_address: HexStringType,
+  owner: HexStringType.nullable(),
   pool_key: PoolKeySummaryType,
   bounds: z.object({
     lower: z.number(),
@@ -341,6 +342,11 @@ export class ListPositionsByAddress extends EkuboAPIRoute {
       address: Path(AddressType, {
         description: "The address for which to list positions",
       }),
+      additionalAddress: Query(AddressType, {
+        required: false,
+        description:
+          "If provided, merge positions owned by this second address into the same result set",
+      }),
       state: Query(PositionStateQueryType, {
         required: false,
         description:
@@ -374,6 +380,10 @@ export class ListPositionsByAddress extends EkuboAPIRoute {
     { env }: RequestContext,
   ) {
     const address = BigInt(addressStr);
+    const additionalAddress =
+      typeof query?.additionalAddress === "string"
+        ? BigInt(query.additionalAddress)
+        : null;
 
     const stateParam =
       typeof query?.state === "string" ? query.state.toLowerCase() : null;
@@ -404,6 +414,7 @@ export class ListPositionsByAddress extends EkuboAPIRoute {
         page,
         pageSize,
       },
+      additionalAddress,
     );
 
     const origin = new URL(url).origin;
@@ -424,6 +435,7 @@ export class ListPositionsByAddress extends EkuboAPIRoute {
           id: toHex(BigInt(row.token_id)),
           chain_id: toHex(row.chain_id),
           positions_address: toHex(row.positions_address),
+          owner: row.owner ? toHex(row.owner) : null,
           pool_key: {
             token0: toHex(row.token0),
             token1: toHex(row.token1),
