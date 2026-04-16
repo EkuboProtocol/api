@@ -112,6 +112,107 @@ const ListPositionsResponseType = z.object({
 });
 
 const PositionStateQueryType = z.enum(["opened", "closed"]);
+const AddressListRequestSchema = z.object({
+  addresses: z.array(AddressType).min(1).max(1000),
+});
+
+function getQueryParamAsArray(value: unknown): string[] | undefined {
+  if (typeof value === "string") {
+    return [value];
+  }
+
+  if (Array.isArray(value)) {
+    return value.filter((entry): entry is string => typeof entry === "string");
+  }
+
+  return undefined;
+}
+
+function parseListPositionsFilters(query: IRequest["query"]) {
+  const stateParam =
+    typeof query?.state === "string" ? query.state.toLowerCase() : null;
+  const state: StateFilter | null =
+    stateParam === "opened" || stateParam === "closed"
+      ? (stateParam as StateFilter)
+      : null;
+
+  return {
+    state,
+    chainId: typeof query?.chainId === "string" ? BigInt(query.chainId) : null,
+    pageSize: z.coerce
+      .number()
+      .int()
+      .min(1)
+      .max(200)
+      .parse(query?.pageSize ?? 50),
+    page: z.coerce
+      .number()
+      .int()
+      .min(1)
+      .parse(query?.page ?? 1),
+  };
+}
+
+function buildListPositionsResponse(
+  rows: Awaited<
+    ReturnType<
+      Awaited<ReturnType<typeof createQueries>>["getPositionsByAddress"]
+    >
+  >["rows"],
+  totalCount: number,
+  page: number,
+  pageSize: number,
+  origin: string,
+) {
+  const totalPages = totalCount === 0 ? 0 : Math.ceil(totalCount / pageSize);
+
+  return {
+    data: rows.map((row) => {
+      const stableswap_params =
+        row.stableswap_amplification !== null &&
+        row.stableswap_center_tick !== null
+          ? {
+              center_tick: Number(row.stableswap_center_tick),
+              amplification: Number(row.stableswap_amplification),
+            }
+          : null;
+
+      return {
+        id: toHex(BigInt(row.token_id)),
+        chain_id: toHex(row.chain_id),
+        positions_address: toHex(row.positions_address),
+        owner: row.owner ? toHex(row.owner) : null,
+        pool_key: {
+          token0: toHex(row.token0),
+          token1: toHex(row.token1),
+          fee: toHex(row.fee),
+          tick_spacing: row.tick_spacing ? toHex(row.tick_spacing) : null,
+          extension: toHex(row.extension),
+          stableswap_params,
+        },
+        bounds: {
+          lower: Number(row.lower_bound),
+          upper: Number(row.upper_bound),
+        },
+        metadata_url: `${origin}/positions/${row.chain_id}/${row.nft_address}/${row.token_id}`,
+        image: `${origin}/positions/${row.chain_id}/${row.nft_address}/${row.token_id}/image.svg`,
+        liquidity: row.liquidity,
+        pool_state: {
+          sqrt_ratio: row.pool_state_sqrt_ratio,
+          tick: Number(row.pool_state_tick),
+          liquidity: row.pool_state_liquidity,
+        },
+        rewards: row.rewards ?? {},
+      };
+    }),
+    pagination: {
+      page,
+      pageSize,
+      totalPages,
+      totalItems: totalCount,
+    },
+  } satisfies z.infer<typeof ListPositionsResponseType>;
+}
 
 export class GetPositionNftMetadata extends EkuboAPIRoute {
   static route = "/positions/:chainId/:nftAddress/:id";
@@ -342,11 +443,6 @@ export class ListPositionsByAddress extends EkuboAPIRoute {
       address: Path(AddressType, {
         description: "The address for which to list positions",
       }),
-      additionalAddress: Query(AddressType, {
-        required: false,
-        description:
-          "If provided, merge positions owned by this second address into the same result set",
-      }),
       state: Query(PositionStateQueryType, {
         required: false,
         description:
@@ -379,93 +475,109 @@ export class ListPositionsByAddress extends EkuboAPIRoute {
     { params: { address: addressStr }, query, url }: IRequest,
     { env }: RequestContext,
   ) {
-    const address = BigInt(addressStr);
-    const additionalAddress =
-      typeof query?.additionalAddress === "string"
-        ? BigInt(query.additionalAddress)
-        : null;
-
-    const stateParam =
-      typeof query?.state === "string" ? query.state.toLowerCase() : null;
-    const state: StateFilter | null =
-      stateParam === "opened" || stateParam === "closed"
-        ? (stateParam as StateFilter)
-        : null;
-    const chainId =
-      typeof query?.chainId === "string" ? BigInt(query.chainId) : null;
-    const pageSize = z.coerce
-      .number()
-      .int()
-      .min(1)
-      .max(200)
-      .parse(query?.pageSize ?? 50);
-    const page = z.coerce
-      .number()
-      .int()
-      .min(1)
-      .parse(query?.page ?? 1);
+    const { state, chainId, page, pageSize } = parseListPositionsFilters(query);
 
     const queries = await createQueries(env);
     const { rows, totalCount } = await queries.getPositionsByAddress(
-      address,
+      [BigInt(addressStr)],
       state,
       chainId,
       {
         page,
         pageSize,
       },
-      additionalAddress,
     );
 
     const origin = new URL(url).origin;
-    const totalPages = totalCount === 0 ? 0 : Math.ceil(totalCount / pageSize);
+    const response = buildListPositionsResponse(
+      rows,
+      totalCount,
+      page,
+      pageSize,
+      origin,
+    );
 
-    const response = {
-      data: rows.map((row) => {
-        const stableswap_params =
-          row.stableswap_amplification !== null &&
-          row.stableswap_center_tick !== null
-            ? {
-                center_tick: Number(row.stableswap_center_tick),
-                amplification: Number(row.stableswap_amplification),
-              }
-            : null;
+    return json(response, {
+      headers: {
+        "cache-control": "no-cache",
+      },
+    });
+  }
+}
 
-        return {
-          id: toHex(BigInt(row.token_id)),
-          chain_id: toHex(row.chain_id),
-          positions_address: toHex(row.positions_address),
-          owner: row.owner ? toHex(row.owner) : null,
-          pool_key: {
-            token0: toHex(row.token0),
-            token1: toHex(row.token1),
-            fee: toHex(row.fee),
-            tick_spacing: row.tick_spacing ? toHex(row.tick_spacing) : null,
-            extension: toHex(row.extension),
-            stableswap_params,
-          },
-          bounds: {
-            lower: Number(row.lower_bound),
-            upper: Number(row.upper_bound),
-          },
-          metadata_url: `${origin}/positions/${row.chain_id}/${row.nft_address}/${row.token_id}`,
-          image: `${origin}/positions/${row.chain_id}/${row.nft_address}/${row.token_id}/image.svg`,
-          liquidity: row.liquidity,
-          pool_state: {
-            sqrt_ratio: row.pool_state_sqrt_ratio,
-            tick: Number(row.pool_state_tick),
-            liquidity: row.pool_state_liquidity,
-          },
-          rewards: row.rewards ?? {},
-        };
+export class BatchListPositionsByAddress extends EkuboAPIRoute {
+  static route = "/positions/batch";
+
+  static schema: OpenAPIRouteSchema = {
+    tags: ["Positions"],
+    summary: "Batch list positions",
+    description:
+      "Returns the list of position NFTs and their keys for multiple addresses",
+    parameters: {
+      address: Query([AddressType], {
+        required: true,
+        description:
+          "Repeat the address parameter to merge positions from multiple addresses (e.g. ?address=0x...&address=0x...)",
+        example: "0x1234",
       }),
-      pagination: {
+      state: Query(PositionStateQueryType, {
+        required: false,
+        description:
+          "Filter positions by state; defaults to returning all positions",
+      }),
+      chainId: Query(ChainIdType, {
+        required: false,
+        description: "Restrict results to a specific chain ID",
+      }),
+      pageSize: Query(z.coerce.number().int().min(1).max(200), {
+        required: false,
+        description: "Maximum number of positions to return per page",
+        default: 50,
+      }),
+      page: Query(z.coerce.number().int().min(1), {
+        required: false,
+        description: "Page number to fetch (1-indexed)",
+        default: 1,
+      }),
+    },
+    responses: {
+      "200": {
+        description:
+          "The position NFTs owned by the provided addresses and keys",
+        schema: ListPositionsResponseType,
+      },
+    },
+  };
+
+  async handle({ query, url }: IRequest, { env }: RequestContext) {
+    const addresses = getQueryParamAsArray(query.address);
+
+    if (!addresses || addresses.length === 0) {
+      throw new StatusError(400, "At least one address parameter is required");
+    }
+
+    const payload = AddressListRequestSchema.parse({ addresses });
+    const { state, chainId, page, pageSize } = parseListPositionsFilters(query);
+
+    const queries = await createQueries(env);
+    const { rows, totalCount } = await queries.getPositionsByAddress(
+      payload.addresses.map((address) => BigInt(address)),
+      state,
+      chainId,
+      {
         page,
         pageSize,
-        totalPages,
-        totalItems: totalCount,
       },
-    } satisfies z.infer<typeof ListPositionsResponseType>;
+    );
+
+    const origin = new URL(url).origin;
+    const response = buildListPositionsResponse(
+      rows,
+      totalCount,
+      page,
+      pageSize,
+      origin,
+    );
 
     return json(response, {
       headers: {
