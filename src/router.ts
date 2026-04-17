@@ -21,6 +21,7 @@ import { GetPoolKey, GetPoolLiquidity } from "./routes/state";
 import { error } from "itty-router";
 import { GetPairPriceHistory, GetPoolPriceHistory } from "./routes/prices";
 import {
+  BatchListPositionsByAddress,
   GetPositionNftImage,
   GetPositionNftMetadata,
   ListPositionNftEvents,
@@ -31,7 +32,7 @@ import {
   GetTwammPairState,
   GetTwammPoolState,
 } from "./routes/twamm/getTwammPoolState";
-import { ListTwapOrders } from "./routes/twamm/orders";
+import { BatchListTwapOrders, ListTwapOrders } from "./routes/twamm/orders";
 import { ListCampaigns } from "./routes/incentives/campaigns";
 import { ListRewardsForLocker } from "./routes/incentives/rewards";
 import { ListClaimsForAddress } from "./routes/incentives/claims";
@@ -91,6 +92,7 @@ export const router = OpenAPIRouter({
   .get(GetPairLiquidity.route, GetPairLiquidity)
   .get(GetPairTopPositions.route, GetPairTopPositions)
   .get(ListPairEvents.route, ListPairEvents)
+  .get(BatchListPositionsByAddress.route, BatchListPositionsByAddress)
   .get(ListPositionsByAddress.route, ListPositionsByAddress)
   .get(ListPositionNftEvents.route, ListPositionNftEvents)
   .get(GetPositionNftMetadata.route, GetPositionNftMetadata)
@@ -98,6 +100,7 @@ export const router = OpenAPIRouter({
   .get(GetOrderNftMetadata.route, GetOrderNftMetadata)
   .get(GetTwammPoolState.route, GetTwammPoolState)
   .get(GetTwammPairState.route, GetTwammPairState)
+  .get(BatchListTwapOrders.route, BatchListTwapOrders)
   .get(ListTwapOrders.route, ListTwapOrders)
   .get(ListLimitOrders.route, ListLimitOrders)
   .get(GetPositionNftImage.route, GetPositionNftImage)

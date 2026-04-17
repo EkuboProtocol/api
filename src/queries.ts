@@ -1096,13 +1096,19 @@ ORDER BY event_id DESC
   }
 
   public async getTwammOrdersByAddress(
-    address: bigint,
+    addresses: bigint[],
     state: StateFilter | null,
     chainId: bigint | null,
     pagination: { page: number; pageSize: number },
   ) {
     const includeOpened = state === "opened" || state === null;
     const includeClosed = state === "closed" || state === null;
+    const uniqueAddresses = Array.from(
+      new Set(addresses.map((address) => address.toString())),
+    );
+    if (uniqueAddresses.length === 0) {
+      return { rows: [], totalCount: 0 };
+    }
     const offset = (pagination.page - 1) * pagination.pageSize;
 
     const rows = await this.sql<
@@ -1127,8 +1133,8 @@ ORDER BY event_id DESC
 WITH owned_tokens AS (
        SELECT *
        FROM nonfungible_token_orders_view
-       WHERE current_owner = ${address.toString()}
-          OR (${includeClosed} AND current_owner = 0 AND previous_owner = ${address.toString()})
+       WHERE current_owner IN ${this.sql(uniqueAddresses)}
+          OR (${includeClosed} AND current_owner = 0 AND previous_owner IN ${this.sql(uniqueAddresses)})
      ),
      token_orders AS (
        SELECT ot.chain_id,
@@ -1898,23 +1904,24 @@ HAVING SUM(tvl0_total / POWER(10::NUMERIC, t0.token_decimals) * COALESCE(t0p.val
   }
 
   public async getPositionsByAddress(
-    address: bigint,
+    addresses: bigint[],
     state: StateFilter | null = null,
     chainId: bigint | null = null,
     pagination: { page: number; pageSize: number },
-    additionalAddress: bigint | null = null,
   ) {
-    const addressStr = address.toString();
-    const additionalAddressStr = additionalAddress?.toString() ?? null;
+    const uniqueAddresses = Array.from(
+      new Set(addresses.map((address) => address.toString())),
+    );
+    if (uniqueAddresses.length === 0) {
+      return { rows: [], totalCount: 0 };
+    }
     const offset = (pagination.page - 1) * pagination.pageSize;
-    const currentOwnerCondition = additionalAddressStr
-      ? this
-          .sql`(current_owner = ${addressStr} OR current_owner = ${additionalAddressStr})`
-      : this.sql`current_owner = ${addressStr}`;
-    const previousOwnerCondition = additionalAddressStr
-      ? this
-          .sql`(previous_owner = ${addressStr} OR previous_owner = ${additionalAddressStr})`
-      : this.sql`previous_owner = ${addressStr}`;
+    const currentOwnerCondition = this.sql`current_owner IN ${this.sql(
+      uniqueAddresses,
+    )}`;
+    const previousOwnerCondition = this.sql`previous_owner IN ${this.sql(
+      uniqueAddresses,
+    )}`;
 
     const rows = await this.sql<
       (PositionMetadata & {
