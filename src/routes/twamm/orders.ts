@@ -66,7 +66,7 @@ const ListTwapOrdersResponseType = z.object({
 
 const OrderStateQueryType = z.enum(["opened", "closed"]);
 const AddressListRequestSchema = z.object({
-  addresses: z.array(AddressType).min(1).max(1000),
+  addresses: z.array(AddressType).min(1).max(25),
 });
 
 function getQueryParamAsArray(value: unknown): string[] | undefined {
