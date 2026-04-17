@@ -113,7 +113,7 @@ const ListPositionsResponseType = z.object({
 
 const PositionStateQueryType = z.enum(["opened", "closed"]);
 const AddressListRequestSchema = z.object({
-  addresses: z.array(AddressType).min(1).max(1000),
+  addresses: z.array(AddressType).min(1).max(50),
 });
 
 function getQueryParamAsArray(value: unknown): string[] | undefined {
