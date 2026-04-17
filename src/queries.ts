@@ -1912,6 +1912,9 @@ HAVING SUM(tvl0_total / POWER(10::NUMERIC, t0.token_decimals) * COALESCE(t0p.val
     const uniqueAddresses = Array.from(
       new Set(addresses.map((address) => address.toString())),
     );
+    if (uniqueAddresses.length === 0) {
+      return { rows: [], totalCount: 0 };
+    }
     const offset = (pagination.page - 1) * pagination.pageSize;
     const currentOwnerCondition = this.sql`current_owner IN ${this.sql(
       uniqueAddresses,
