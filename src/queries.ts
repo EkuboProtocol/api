@@ -2121,6 +2121,85 @@ ORDER BY pp.last_transfer_event_id DESC;
     `;
   }
 
+  public async getTopPositionsByPool({
+    chainId,
+    coreAddress,
+    poolId,
+    limit = 10,
+  }: {
+    chainId: bigint;
+    coreAddress: bigint;
+    poolId: bigint;
+    limit?: number;
+  }) {
+    return this.sql<
+      {
+        chain_id: bigint;
+        nft_address: string;
+        core_address: string;
+        positions_address: string;
+        owner: string;
+        token_id: string;
+        token0: string;
+        token1: string;
+        fee: string;
+        tick_spacing: string | null;
+        extension: string;
+        lower_bound: string;
+        upper_bound: string;
+        liquidity: string;
+        minted_timestamp: Date;
+        pool_state_sqrt_ratio: string | null;
+        pool_state_tick: number | null;
+        pool_state_liquidity: string | null;
+        stableswap_center_tick: number | null;
+        stableswap_amplification: string | null;
+      }[]
+    >`
+      SELECT nfp.chain_id,
+             nfp.nft_address,
+             pk.core_address,
+             COALESCE(nlm.locker, nfp.nft_address) AS positions_address,
+             nfp.current_owner AS owner,
+             nfp.token_id,
+             pk.token0,
+             pk.token1,
+             pk.fee,
+             pk.tick_spacing,
+             pk.pool_extension                      AS "extension",
+             nfp.lower_bound,
+             nfp.upper_bound,
+             nfp.liquidity,
+             mint.minted_timestamp,
+             ps.sqrt_ratio AS pool_state_sqrt_ratio,
+             ps.tick       AS pool_state_tick,
+             ps.liquidity  AS pool_state_liquidity,
+             pk.stableswap_center_tick,
+             pk.stableswap_amplification
+      FROM nonfungible_token_positions_view AS nfp
+               LEFT JOIN nft_locker_mappings nlm USING (chain_id, nft_address)
+               JOIN pool_keys pk USING (pool_key_id)
+               LEFT JOIN LATERAL (
+        SELECT b.block_time AS minted_timestamp
+        FROM nonfungible_token_transfers nft
+                 JOIN blocks b USING (chain_id, block_number)
+        WHERE nft.chain_id = nfp.chain_id
+          AND nft.emitter = nfp.nft_address
+          AND nft.token_id = nfp.token_id
+          AND nft.from_address = 0
+        ORDER BY nft.event_id
+        LIMIT 1
+      ) mint ON TRUE
+               LEFT JOIN pool_states ps ON pk.pool_key_id = ps.pool_key_id
+      WHERE nfp.chain_id = ${chainId}
+        AND pk.core_address = ${coreAddress.toString()}
+        AND pk.pool_id = ${poolId.toString()}
+        AND nfp.liquidity != 0
+      ORDER BY nfp.liquidity DESC
+      LIMIT ${limit};
+    `;
+  }
+
   async listCampaigns(chainId: bigint | null = null) {
     return this.sql<
       {
