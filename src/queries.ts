@@ -2031,25 +2031,34 @@ ORDER BY pp.last_transfer_event_id DESC;
     };
   }
 
-  public async getTopPositionsByPair({
+  private async getTopPositions({
     chainId,
+    limit,
     pair,
-    poolKeyFilters,
-    limit = 10,
+    coreAddress,
+    poolId,
   }: {
     chainId: bigint;
-    pair: { token0: bigint; token1: bigint };
-    poolKeyFilters?: PoolKeyFilters;
-    limit?: number;
+    limit: number;
+    pair?: { token0: bigint; token1: bigint };
+    coreAddress?: bigint;
+    poolId?: bigint;
   }) {
-    const coreAddressParam = poolKeyFilters?.coreAddress?.toString() ?? null;
-    const coreAddressCondition = coreAddressParam
-      ? this.sql`pk.core_address = ${coreAddressParam}`
+    if (pair === undefined && coreAddress === undefined && poolId === undefined) {
+      throw new Error("Top positions query requires at least one filter");
+    }
+
+    const pairCondition = pair
+      ? this.sql`pk.token0 = ${pair.token0.toString()} AND pk.token1 = ${pair.token1.toString()}`
       : this.sql`TRUE`;
-    const poolIdParam = poolKeyFilters?.poolId?.toString() ?? null;
-    const poolIdCondition = poolIdParam
-      ? this.sql`pk.pool_id = ${poolIdParam}`
-      : this.sql`TRUE`;
+    const coreAddressCondition =
+      coreAddress !== undefined
+        ? this.sql`pk.core_address = ${coreAddress.toString()}`
+        : this.sql`TRUE`;
+    const poolIdCondition =
+      poolId !== undefined
+        ? this.sql`pk.pool_id = ${poolId.toString()}`
+        : this.sql`TRUE`;
 
     return this.sql<
       {
@@ -2111,14 +2120,52 @@ ORDER BY pp.last_transfer_event_id DESC;
       ) mint ON TRUE
                LEFT JOIN pool_states ps ON pk.pool_key_id = ps.pool_key_id
       WHERE nfp.chain_id = ${chainId}
-        AND pk.token0 = ${pair.token0.toString()}
-        AND pk.token1 = ${pair.token1.toString()}
+        AND ${pairCondition}
         AND nfp.liquidity != 0
         AND ${coreAddressCondition}
         AND ${poolIdCondition}
       ORDER BY nfp.liquidity DESC
       LIMIT ${limit};
     `;
+  }
+
+  public async getTopPositionsByPair({
+    chainId,
+    pair,
+    poolKeyFilters,
+    limit = 10,
+  }: {
+    chainId: bigint;
+    pair: { token0: bigint; token1: bigint };
+    poolKeyFilters?: PoolKeyFilters;
+    limit?: number;
+  }) {
+    return this.getTopPositions({
+      chainId,
+      pair,
+      coreAddress: poolKeyFilters?.coreAddress,
+      poolId: poolKeyFilters?.poolId,
+      limit,
+    });
+  }
+
+  public async getTopPositionsByPool({
+    chainId,
+    coreAddress,
+    poolId,
+    limit = 10,
+  }: {
+    chainId: bigint;
+    coreAddress: bigint;
+    poolId: bigint;
+    limit?: number;
+  }) {
+    return this.getTopPositions({
+      chainId,
+      coreAddress,
+      poolId,
+      limit,
+    });
   }
 
   async listCampaigns(chainId: bigint | null = null) {

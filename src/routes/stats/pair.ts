@@ -12,6 +12,7 @@ import {
   Path,
   Query,
 } from "@cloudflare/itty-router-openapi";
+import { createQueries } from "../../queries";
 import { parseOutTokens } from "../../shared/parseOutTokens";
 import { z } from "zod";
 import toHex from "../../shared/toHex";
@@ -181,6 +182,72 @@ const PoolFilterQueryParameters = {
 type PoolKeyFilters = {
   coreAddress?: bigint;
   poolId?: bigint;
+};
+
+type PairTopPositionRow = {
+  chain_id: bigint;
+  nft_address: string;
+  core_address: string;
+  positions_address: string;
+  owner: string;
+  token_id: string;
+  token0: string;
+  token1: string;
+  fee: string;
+  tick_spacing: string | null;
+  extension: string;
+  lower_bound: string;
+  upper_bound: string;
+  liquidity: string;
+  minted_timestamp: Date;
+  pool_state_sqrt_ratio: string | null;
+  pool_state_tick: number | null;
+  pool_state_liquidity: string | null;
+  stableswap_center_tick: number | null;
+  stableswap_amplification: string | null;
+};
+
+const formatTopPositionRow = (row: PairTopPositionRow) => {
+  const stableswap_params =
+    row.stableswap_amplification !== null &&
+    row.stableswap_center_tick !== null
+      ? {
+          center_tick: Number(row.stableswap_center_tick),
+          amplification: Number(row.stableswap_amplification),
+        }
+      : null;
+  return {
+    id: toHex(BigInt(row.token_id)),
+    chain_id: toHex(row.chain_id),
+    nft_address: toHex(row.nft_address),
+    core_address: toHex(row.core_address),
+    positions_address: toHex(row.positions_address),
+    owner: toHex(row.owner),
+    minted_timestamp: row.minted_timestamp,
+    pool_key: {
+      token0: toHex(row.token0),
+      token1: toHex(row.token1),
+      fee: toHex(row.fee),
+      tick_spacing: row.tick_spacing ? toHex(row.tick_spacing) : null,
+      extension: toHex(row.extension),
+      stableswap_params,
+    },
+    bounds: {
+      lower: Number(row.lower_bound),
+      upper: Number(row.upper_bound),
+    },
+    liquidity: row.liquidity,
+    pool_state:
+      row.pool_state_sqrt_ratio === null ||
+      row.pool_state_tick === null ||
+      row.pool_state_liquidity === null
+        ? null
+        : {
+            sqrt_ratio: row.pool_state_sqrt_ratio,
+            tick: Number(row.pool_state_tick),
+            liquidity: row.pool_state_liquidity,
+          },
+  };
 };
 
 const parsePoolKeyFilters = (request: IRequest): PoolKeyFilters => {
@@ -555,52 +622,59 @@ export class GetPairTopPositions extends EkuboAPIRoute {
     });
 
     const response = {
-      data: rows.map((row) => {
-        const stableswap_params =
-          row.stableswap_amplification !== null &&
-          row.stableswap_center_tick !== null
-            ? {
-                center_tick: Number(row.stableswap_center_tick),
-                amplification: Number(row.stableswap_amplification),
-              }
-            : null;
-        return {
-          id: toHex(BigInt(row.token_id)),
-          chain_id: toHex(row.chain_id),
-          nft_address: toHex(row.nft_address),
-          core_address: toHex(row.core_address),
-          positions_address: toHex(row.positions_address),
-          owner: toHex(row.owner),
-          minted_timestamp: row.minted_timestamp,
-          pool_key: {
-            token0: toHex(row.token0),
-            token1: toHex(row.token1),
-            fee: toHex(row.fee),
-            tick_spacing: row.tick_spacing ? toHex(row.tick_spacing) : null,
-            extension: toHex(row.extension),
-            stableswap_params,
-          },
-          bounds: {
-            lower: Number(row.lower_bound),
-            upper: Number(row.upper_bound),
-          },
-          liquidity: row.liquidity,
-          pool_state:
-            row.pool_state_sqrt_ratio === null ||
-            row.pool_state_tick === null ||
-            row.pool_state_liquidity === null
-              ? null
-              : {
-                  sqrt_ratio: row.pool_state_sqrt_ratio,
-                  tick: Number(row.pool_state_tick),
-                  liquidity: row.pool_state_liquidity,
-                },
-        };
-      }),
+      data: rows.map(formatTopPositionRow),
     } satisfies z.infer<typeof PairTopPositionsResponseType>;
 
     return json(response, {
-      headers: {},
+      headers: {
+        "cache-control": "public, max-age=180, must-revalidate",
+      },
+    });
+  }
+}
+
+export class GetPoolTopPositions extends EkuboAPIRoute {
+  static route = "/pools/:chainId/:coreAddress/:poolId/positions";
+
+  static schema: OpenAPIRouteSchema = {
+    tags: ["Stats"],
+    summary: "Get top positions for pool",
+    description:
+      "Returns the top positions (by liquidity) for the given core address and pool id",
+    parameters: {
+      chainId: Path(ChainIdType, { required: true }),
+      coreAddress: Path(AddressType),
+      poolId: Path(NumericStringType),
+    },
+    responses: {
+      "200": {
+        description: "Top positions for the given pool",
+        schema: PairTopPositionsResponseType,
+      },
+    },
+  };
+
+  async handle(
+    { params: { chainId, coreAddress, poolId } }: IRequest,
+    { env }: RequestContext,
+  ) {
+    const queries = await createQueries(env);
+
+    const rows = await queries.getTopPositionsByPool({
+      chainId: BigInt(chainId),
+      coreAddress: BigInt(coreAddress),
+      poolId: BigInt(poolId),
+      limit: 10,
+    });
+
+    const response = {
+      data: rows.map(formatTopPositionRow),
+    } satisfies z.infer<typeof PairTopPositionsResponseType>;
+
+    return json(response, {
+      headers: {
+        "cache-control": "public, max-age=180, must-revalidate",
+      },
     });
   }
 }

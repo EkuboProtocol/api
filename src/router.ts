@@ -14,6 +14,7 @@ import {
   GetPairInfoTvl,
   GetPairInfoVolume,
   GetPairLiquidity,
+  GetPoolTopPositions,
   GetPairTopPositions,
   ListPairEvents,
 } from "./routes/stats/pair";
@@ -91,6 +92,7 @@ export const router = OpenAPIRouter({
   .get(GetPoolKey.route, GetPoolKey)
   .get(GetPairLiquidity.route, GetPairLiquidity)
   .get(GetPairTopPositions.route, GetPairTopPositions)
+  .get(GetPoolTopPositions.route, GetPoolTopPositions)
   .get(ListPairEvents.route, ListPairEvents)
   .get(BatchListPositionsByAddress.route, BatchListPositionsByAddress)
   .get(ListPositionsByAddress.route, ListPositionsByAddress)
