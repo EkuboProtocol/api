@@ -1227,19 +1227,33 @@ ORDER BY po.token_id DESC
     token0,
     token1,
     fee,
+    poolId,
   }: {
     chainId: bigint;
     coreAddress?: bigint;
-    token0: bigint;
-    token1: bigint;
+    poolId?: bigint;
+    token0?: bigint;
+    token1?: bigint;
     fee?: bigint;
   }) {
-    const coreAddressCondition =
-      coreAddress !== undefined
-        ? this.sql`pk.core_address = ${coreAddress.toString()}`
-        : this.sql`TRUE`;
+    const coreAddressParam = coreAddress?.toString() ?? null;
+    const coreAddressCondition = coreAddressParam
+      ? this.sql`pk.core_address = ${coreAddressParam}`
+      : this.sql`TRUE`;
+    const poolIdParam = poolId?.toString() ?? null;
+    const poolIdCondition = poolIdParam
+      ? this.sql`pk.pool_id = ${poolIdParam}`
+      : this.sql`TRUE`;
 
     const feeParam = fee?.toString() ?? null;
+    const token0Condition =
+      token0 !== undefined
+        ? this.sql`pk.token0 = ${token0.toString()}`
+        : this.sql`TRUE`;
+    const token1Condition =
+      token1 !== undefined
+        ? this.sql`pk.token1 = ${token1.toString()}`
+        : this.sql`TRUE`;
     return this.sql<
       Pick<
         TwammPoolStateQueryResult,
@@ -1253,9 +1267,10 @@ ORDER BY po.token_id DESC
                JOIN pool_states psm ON psm.pool_key_id = tpsm.pool_key_id
                JOIN pool_keys pk ON tpsm.pool_key_id = pk.pool_key_id
       WHERE pk.chain_id = ${chainId}
-        AND pk.token0 = ${token0.toString()}
-        AND pk.token1 = ${token1.toString()}
+        AND ${token0Condition}
+        AND ${token1Condition}
         AND ${coreAddressCondition}
+        AND ${poolIdCondition}
         AND ${feeParam ? this.sql`pk.fee = ${feeParam}` : this.sql`true`}
     `;
   }
@@ -1266,19 +1281,33 @@ ORDER BY po.token_id DESC
     fee,
     chainId,
     coreAddress,
+    poolId,
   }: {
     chainId: bigint;
     coreAddress?: bigint;
-    token0: bigint;
-    token1: bigint;
+    poolId?: bigint;
+    token0?: bigint;
+    token1?: bigint;
     fee?: bigint;
   }) {
-    const coreAddressCondition =
-      coreAddress !== undefined
-        ? this.sql`pk.core_address = ${coreAddress.toString()}`
-        : this.sql`TRUE`;
+    const coreAddressParam = coreAddress?.toString() ?? null;
+    const coreAddressCondition = coreAddressParam
+      ? this.sql`pk.core_address = ${coreAddressParam}`
+      : this.sql`TRUE`;
+    const poolIdParam = poolId?.toString() ?? null;
+    const poolIdCondition = poolIdParam
+      ? this.sql`pk.pool_id = ${poolIdParam}`
+      : this.sql`TRUE`;
 
     const feeParam = fee?.toString() ?? null;
+    const token0Condition =
+      token0 !== undefined
+        ? this.sql`pk.token0 = ${token0.toString()}`
+        : this.sql`TRUE`;
+    const token1Condition =
+      token1 !== undefined
+        ? this.sql`pk.token1 = ${token1.toString()}`
+        : this.sql`TRUE`;
     return this.sql<
       {
         time: Date;
@@ -1291,9 +1320,10 @@ ORDER BY po.token_id DESC
                JOIN pool_keys pk USING (pool_key_id)
                JOIN twamm_pool_states tps USING (pool_key_id)
       WHERE pk.chain_id = ${chainId}
-        AND pk.token0 = ${token0.toString()}
-        AND pk.token1 = ${token1.toString()}
+        AND ${token0Condition}
+        AND ${token1Condition}
         AND ${coreAddressCondition}
+        AND ${poolIdCondition}
         AND ${feeParam ? this.sql`pk.fee = ${feeParam}` : this.sql`true`}
         AND time > tps.last_virtual_execution_time
       GROUP BY time

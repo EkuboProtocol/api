@@ -32,6 +32,7 @@ import { GetOrderNftImage, GetOrderNftMetadata } from "./routes/nft/orders";
 import {
   GetTwammPairState,
   GetTwammPoolState,
+  GetTwammPoolStateByPoolId,
 } from "./routes/twamm/getTwammPoolState";
 import { BatchListTwapOrders, ListTwapOrders } from "./routes/twamm/orders";
 import { ListCampaigns } from "./routes/incentives/campaigns";
@@ -101,6 +102,7 @@ export const router = OpenAPIRouter({
   .get(GetOrderNftImage.route, GetOrderNftImage)
   .get(GetOrderNftMetadata.route, GetOrderNftMetadata)
   .get(GetTwammPoolState.route, GetTwammPoolState)
+  .get(GetTwammPoolStateByPoolId.route, GetTwammPoolStateByPoolId)
   .get(GetTwammPairState.route, GetTwammPairState)
   .get(BatchListTwapOrders.route, BatchListTwapOrders)
   .get(ListTwapOrders.route, ListTwapOrders)

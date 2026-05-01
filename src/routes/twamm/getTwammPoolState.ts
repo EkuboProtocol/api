@@ -11,6 +11,7 @@ import {
 import { z } from "zod";
 import { MAX_U128 } from "@ekubo/sdk";
 import { parseOutTokens } from "../../shared/parseOutTokens";
+import { createQueries } from "../../queries";
 
 const SaleRateDelta = z.object({
   time: z.number().int().min(0),
@@ -88,6 +89,76 @@ export class GetTwammPoolState extends EkuboAPIRoute {
         token0,
         token1,
         fee,
+      }),
+    ]);
+
+    if (stateResults.length !== 1) {
+      throw new StatusError(404, "Pool not found");
+    }
+
+    const state = stateResults[0];
+
+    const response = {
+      saleRateDeltas: [
+        {
+          time: state.last_execution_time.getTime() / 1000,
+          token0SaleRateDelta: state.token0_sale_rate.toString(),
+          token1SaleRateDelta: state.token1_sale_rate.toString(),
+        },
+      ].concat(
+        saleRateDeltas.map((srd) => ({
+          time: srd.time.getTime() / 1000,
+          token0SaleRateDelta: srd.net_sale_rate_delta0.toString(),
+          token1SaleRateDelta: srd.net_sale_rate_delta1.toString(),
+        })),
+      ),
+    } satisfies TwammStateResponseType;
+
+    return json(response, {
+      headers: {
+        "cache-control": "public, max-age=600, must-revalidate",
+      },
+    });
+  }
+}
+
+export class GetTwammPoolStateByPoolId extends EkuboAPIRoute {
+  static route = "/twap/pools/:chainId/:coreAddress/:poolId";
+
+  static schema: OpenAPIRouteSchema = {
+    tags: ["TWAP"],
+    summary: "Get TWAP pool by pool id",
+    description:
+      "Returns the current state of the given TWAMM pool, including the future order expirations",
+    parameters: {
+      chainId: Path(ChainIdType, { required: true }),
+      coreAddress: Path(AddressType, { required: true, example: "0xabcd" }),
+      poolId: Path(NumericStringType, { required: true, example: "1234" }),
+    },
+    responses: {
+      "200": {
+        description: "The current state of the given TWAMM pool",
+        schema: GetTwammStateResponseType,
+      },
+    },
+  };
+
+  async handle(request: IRequest, { env }: RequestContext) {
+    const chainId = BigInt(request.params.chainId);
+    const coreAddress = BigInt(request.params.coreAddress);
+    const poolId = BigInt(request.params.poolId);
+    const queries = await createQueries(env);
+
+    const [stateResults, saleRateDeltas] = await Promise.all([
+      queries.getTwammPoolStateByKey({
+        chainId,
+        coreAddress,
+        poolId,
+      }),
+      queries.getSaleRateDeltasByKey({
+        chainId,
+        coreAddress,
+        poolId,
       }),
     ]);
 
