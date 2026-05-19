@@ -1,4 +1,4 @@
-import { createCors, error, IRequest, json, StatusError } from "itty-router";
+import { cors, error, IRequest, json, StatusError } from "itty-router";
 import { Env } from "./env";
 import { RequestContext } from "./shared/context";
 import { router } from "./router";
@@ -60,10 +60,10 @@ function getCacheKey(request: IRequest): URL | null {
 
 const cache = caches.default;
 
-const { preflight, corsify } = createCors({
+const { preflight, corsify } = cors({
   maxAge: 86400,
-  origins: ["*"],
-  methods: ["GET", "OPTIONS"],
+  origin: ["*"],
+  allowMethods: ["GET", "OPTIONS"],
 });
 
 export default {
