@@ -168,6 +168,13 @@ const PairTopPositionsResponseType = z.object({
   data: z.array(PairTopPositionsEntryType),
 });
 
+const TopPositionsLimitQueryParameter = z.coerce
+  .number()
+  .int()
+  .min(1)
+  .max(50)
+  .default(10);
+
 const PoolFilterQueryParameters = {
   coreAddress: Query(AddressType, {
     required: false,
@@ -209,8 +216,7 @@ type PairTopPositionRow = {
 
 const formatTopPositionRow = (row: PairTopPositionRow) => {
   const stableswap_params =
-    row.stableswap_amplification !== null &&
-    row.stableswap_center_tick !== null
+    row.stableswap_amplification !== null && row.stableswap_center_tick !== null
       ? {
           center_tick: Number(row.stableswap_center_tick),
           amplification: Number(row.stableswap_amplification),
@@ -596,6 +602,10 @@ export class GetPairTopPositions extends EkuboAPIRoute {
       tokenA: Path(TokenIdentifierType),
       tokenB: Path(TokenIdentifierType),
       ...PoolFilterQueryParameters,
+      limit: Query(TopPositionsLimitQueryParameter, {
+        required: false,
+        description: "Maximum number of positions to return",
+      }),
     },
     responses: {
       "200": {
@@ -613,12 +623,13 @@ export class GetPairTopPositions extends EkuboAPIRoute {
       chainId,
     );
     const poolKeyFilters = parsePoolKeyFilters(request);
+    const limit = TopPositionsLimitQueryParameter.parse(request.query?.limit);
 
     const rows = await queries.getTopPositionsByPair({
       chainId,
       pair,
       poolKeyFilters,
-      limit: 10,
+      limit,
     });
 
     const response = {
@@ -645,6 +656,10 @@ export class GetPoolTopPositions extends EkuboAPIRoute {
       chainId: Path(ChainIdType, { required: true }),
       coreAddress: Path(AddressType),
       poolId: Path(NumericStringType),
+      limit: Query(TopPositionsLimitQueryParameter, {
+        required: false,
+        description: "Maximum number of positions to return",
+      }),
     },
     responses: {
       "200": {
@@ -655,16 +670,17 @@ export class GetPoolTopPositions extends EkuboAPIRoute {
   };
 
   async handle(
-    { params: { chainId, coreAddress, poolId } }: IRequest,
+    { params: { chainId, coreAddress, poolId }, query }: IRequest,
     { env }: RequestContext,
   ) {
     const queries = await createQueries(env);
+    const limit = TopPositionsLimitQueryParameter.parse(query?.limit);
 
     const rows = await queries.getTopPositionsByPool({
       chainId: BigInt(chainId),
       coreAddress: BigInt(coreAddress),
       poolId: BigInt(poolId),
-      limit: 10,
+      limit,
     });
 
     const response = {
