@@ -651,7 +651,7 @@ export class GetPoolTopPositions extends EkuboAPIRoute {
     tags: ["Stats"],
     summary: "Get top positions for pool",
     description:
-      "Returns the top positions (by liquidity) for the given core address and pool id",
+      "Returns the top positions (by USD value) for the given core address and pool id",
     parameters: {
       chainId: Path(ChainIdType, { required: true }),
       coreAddress: Path(AddressType),

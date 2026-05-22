@@ -2067,19 +2067,26 @@ ORDER BY pp.last_transfer_event_id DESC;
     pair,
     coreAddress,
     poolId,
+    sortByUsdValue = false,
   }: {
     chainId: bigint;
     limit: number;
     pair?: { token0: bigint; token1: bigint };
     coreAddress?: bigint;
     poolId?: bigint;
+    sortByUsdValue?: boolean;
   }) {
-    if (pair === undefined && coreAddress === undefined && poolId === undefined) {
+    if (
+      pair === undefined &&
+      coreAddress === undefined &&
+      poolId === undefined
+    ) {
       throw new Error("Top positions query requires at least one filter");
     }
 
     const pairCondition = pair
-      ? this.sql`pk.token0 = ${pair.token0.toString()} AND pk.token1 = ${pair.token1.toString()}`
+      ? this
+          .sql`pk.token0 = ${pair.token0.toString()} AND pk.token1 = ${pair.token1.toString()}`
       : this.sql`TRUE`;
     const coreAddressCondition =
       coreAddress !== undefined
@@ -2089,6 +2096,44 @@ ORDER BY pp.last_transfer_event_id DESC;
       poolId !== undefined
         ? this.sql`pk.pool_id = ${poolId.toString()}`
         : this.sql`TRUE`;
+    const usdValueJoins = sortByUsdValue
+      ? this.sql`
+               LEFT JOIN erc20_tokens t0 ON t0.chain_id = pk.chain_id AND t0.token_address = pk.token0
+               LEFT JOIN erc20_tokens_latest_price t0p ON t0p.chain_id = pk.chain_id AND t0p.token_address = pk.token0
+               LEFT JOIN erc20_tokens t1 ON t1.chain_id = pk.chain_id AND t1.token_address = pk.token1
+               LEFT JOIN erc20_tokens_latest_price t1p ON t1p.chain_id = pk.chain_id AND t1p.token_address = pk.token1
+               LEFT JOIN LATERAL (
+        WITH sqrt_ratios AS (
+          SELECT ps.sqrt_ratio / POWER(2::NUMERIC, 128) AS current_sqrt_ratio,
+                 POWER(1.000001::NUMERIC, nfp.lower_bound / 2::NUMERIC) AS lower,
+                 POWER(1.000001::NUMERIC, nfp.upper_bound / 2::NUMERIC) AS upper
+        ),
+        principal AS (
+          SELECT CASE
+                   WHEN ps.sqrt_ratio IS NULL THEN NULL
+                   WHEN current_sqrt_ratio <= lower THEN nfp.liquidity * (upper - lower) / (lower * upper)
+                   WHEN current_sqrt_ratio < upper THEN nfp.liquidity * (upper - current_sqrt_ratio) / (current_sqrt_ratio * upper)
+                   ELSE 0::NUMERIC
+                 END AS amount0,
+                 CASE
+                   WHEN ps.sqrt_ratio IS NULL THEN NULL
+                   WHEN current_sqrt_ratio <= lower THEN 0::NUMERIC
+                   WHEN current_sqrt_ratio < upper THEN nfp.liquidity * (current_sqrt_ratio - lower)
+                   ELSE nfp.liquidity * (upper - lower)
+                 END AS amount1
+          FROM sqrt_ratios
+        )
+        SELECT CASE
+                 WHEN t0p.value IS NULL OR t1p.value IS NULL THEN NULL
+                 ELSE amount0 / POWER(10::NUMERIC, COALESCE(t0.token_decimals, 0)) * t0p.value +
+                      amount1 / POWER(10::NUMERIC, COALESCE(t1.token_decimals, 0)) * t1p.value
+               END AS usd_value
+        FROM principal
+      ) position_value ON TRUE`
+      : this.sql``;
+    const orderBy = sortByUsdValue
+      ? this.sql`position_value.usd_value DESC NULLS LAST, nfp.liquidity DESC`
+      : this.sql`nfp.liquidity DESC`;
 
     return this.sql<
       {
@@ -2149,12 +2194,13 @@ ORDER BY pp.last_transfer_event_id DESC;
         LIMIT 1
       ) mint ON TRUE
                LEFT JOIN pool_states ps ON pk.pool_key_id = ps.pool_key_id
+               ${usdValueJoins}
       WHERE nfp.chain_id = ${chainId}
         AND ${pairCondition}
         AND nfp.liquidity != 0
         AND ${coreAddressCondition}
         AND ${poolIdCondition}
-      ORDER BY nfp.liquidity DESC
+      ORDER BY ${orderBy}
       LIMIT ${limit};
     `;
   }
@@ -2195,6 +2241,7 @@ ORDER BY pp.last_transfer_event_id DESC;
       coreAddress,
       poolId,
       limit,
+      sortByUsdValue: true,
     });
   }
 
