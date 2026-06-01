@@ -1148,7 +1148,12 @@ WITH owned_tokens AS (
               last_collect_proceeds,
               amount_sold,
               total_proceeds_withdrawn,
-              sale_rate
+              sale_rate,
+              tpw.last_collect_proceeds IS NOT NULL
+                AND (
+                  ot.sale_rate = 0
+                  OR tpw.last_collect_proceeds >= ot.end_time
+                ) AS is_closed
        FROM owned_tokens AS ot
                 JOIN pool_keys pk USING (pool_key_id)
                 LEFT JOIN LATERAL (
@@ -1170,8 +1175,7 @@ WITH owned_tokens AS (
        SELECT chain_id,
               nft_address,
               token_id,
-              MAX(end_time)                      AS max_end_time,
-              MAX(last_collect_proceeds)         AS token_last_collect_proceeds,
+              BOOL_OR(NOT is_closed)             AS has_open_order,
               JSONB_AGG(
                 JSONB_BUILD_OBJECT(
                   'sell_token', sell_token::TEXT,
@@ -1192,9 +1196,8 @@ WITH owned_tokens AS (
        SELECT *
        FROM grouped_orders
        WHERE (
-               (${includeOpened} AND (token_last_collect_proceeds IS NULL
-                 OR token_last_collect_proceeds < max_end_time))
-               OR (${includeClosed} AND token_last_collect_proceeds IS NOT NULL AND token_last_collect_proceeds >= max_end_time)
+               (${includeOpened} AND has_open_order)
+               OR (${includeClosed} AND NOT has_open_order)
              )
      ),
      total_count AS (SELECT COUNT(*)::INT AS total_count FROM filtered_orders),
@@ -2074,12 +2077,17 @@ ORDER BY pp.last_transfer_event_id DESC;
     coreAddress?: bigint;
     poolId?: bigint;
   }) {
-    if (pair === undefined && coreAddress === undefined && poolId === undefined) {
+    if (
+      pair === undefined &&
+      coreAddress === undefined &&
+      poolId === undefined
+    ) {
       throw new Error("Top positions query requires at least one filter");
     }
 
     const pairCondition = pair
-      ? this.sql`pk.token0 = ${pair.token0.toString()} AND pk.token1 = ${pair.token1.toString()}`
+      ? this
+          .sql`pk.token0 = ${pair.token0.toString()} AND pk.token1 = ${pair.token1.toString()}`
       : this.sql`TRUE`;
     const coreAddressCondition =
       coreAddress !== undefined
