@@ -1,4 +1,4 @@
-name = "ekubo-api-v2"
+name = "ekubo-api"
 main = "src/index.ts"
 compatibility_flags = ["nodejs_compat"]
 compatibility_date = "2024-09-23"
