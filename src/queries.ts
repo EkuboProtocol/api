@@ -2064,6 +2064,150 @@ ORDER BY pp.last_transfer_event_id DESC;
     };
   }
 
+  public async getVe33TokensByAddress(
+    address: bigint,
+    chainId: bigint | null,
+    pagination: { page: number; pageSize: number },
+  ) {
+    const offset = (pagination.page - 1) * pagination.pageSize;
+    const chainIdCondition = chainId
+      ? this.sql`ot.chain_id = ${chainId}`
+      : this.sql`TRUE`;
+
+    const rows = await this.sql<
+      {
+        chain_id: bigint;
+        owner: string;
+        ve_token_address: string;
+        ve33_address: string;
+        token_id: string;
+        stake_id: string;
+        amount: string;
+        end_time: Date;
+        current_voting_power: string;
+        voted_pool_id: string | null;
+        pool_key_id: string | null;
+        applied_vote_weight: string | null;
+        pool_total_vote_weight: string | null;
+        minted_at: Date | null;
+        mint_transaction_hash: string | null;
+        last_stake_changed_event_id: string;
+        last_transfer_event_id: string;
+        total_count: number;
+      }[]
+    >`
+WITH owned_tokens AS (
+       SELECT chain_id,
+              nft_address AS ve_token_address,
+              token_id,
+              current_owner AS owner,
+              last_transfer_event_id
+       FROM nonfungible_token_owners ot
+       WHERE current_owner = ${address.toString()}
+         AND ${chainIdCondition}
+     ),
+     stake_states AS (
+       SELECT vsc.chain_id,
+              vsc.emitter AS ve33_address,
+              vsc.owner AS ve_token_address,
+              vsc.stake_id,
+              vsc.stake_salt,
+              vsc.stake_end_time,
+              SUM(vsc.delta) AS amount,
+              MAX(vsc.event_id) AS last_stake_changed_event_id
+       FROM ve33_stake_changed vsc
+                JOIN owned_tokens ot
+                  ON ot.chain_id = vsc.chain_id
+                 AND ot.ve_token_address = vsc.owner
+                 AND ot.token_id = vsc.stake_salt
+       GROUP BY vsc.chain_id,
+                vsc.emitter,
+                vsc.owner,
+                vsc.stake_id,
+                vsc.stake_salt,
+                vsc.stake_end_time
+       HAVING SUM(vsc.delta) > 0
+     ),
+     ve33_tokens AS (
+       SELECT ot.chain_id,
+              ot.owner,
+              ot.ve_token_address,
+              st.ve33_address,
+              ot.token_id,
+              st.stake_id,
+              st.amount::TEXT AS amount,
+              st.stake_end_time AS end_time,
+              CASE
+                WHEN EXTRACT(EPOCH FROM st.stake_end_time) <= EXTRACT(EPOCH FROM NOW()) THEN '0'
+                WHEN EXTRACT(EPOCH FROM st.stake_end_time) - EXTRACT(EPOCH FROM NOW()) > 126144000 THEN '0'
+                ELSE FLOOR(
+                  st.amount * (
+                    EXTRACT(EPOCH FROM st.stake_end_time) - EXTRACT(EPOCH FROM NOW())
+                  ) / 126144000
+                )::TEXT
+              END AS current_voting_power,
+              vote.pool_id AS voted_pool_id,
+              vote.pool_key_id::TEXT AS pool_key_id,
+              vote.weight::TEXT AS applied_vote_weight,
+              vps.pool_total_vote_weight::TEXT AS pool_total_vote_weight,
+              mint.minted_at,
+              mint.mint_transaction_hash::TEXT AS mint_transaction_hash,
+              st.last_stake_changed_event_id::TEXT AS last_stake_changed_event_id,
+              ot.last_transfer_event_id::TEXT AS last_transfer_event_id
+       FROM owned_tokens ot
+                JOIN stake_states st
+                  ON st.chain_id = ot.chain_id
+                 AND st.ve_token_address = ot.ve_token_address
+                 AND st.stake_salt = ot.token_id
+                LEFT JOIN LATERAL (
+                  SELECT vpvs.pool_key_id,
+                         vpvs.pool_id,
+                         vpvs.weight
+                  FROM ve33_pool_vote_states vpvs
+                  WHERE vpvs.chain_id = st.chain_id
+                    AND vpvs.emitter = st.ve33_address
+                    AND vpvs.owner = st.ve_token_address
+                    AND vpvs.stake_id = st.stake_id
+                    AND vpvs.weight > 0
+                  ORDER BY vpvs.event_id DESC
+                  LIMIT 1
+                ) vote ON TRUE
+                LEFT JOIN ve33_pool_states vps
+                  ON vps.pool_key_id = vote.pool_key_id
+                LEFT JOIN LATERAL (
+                  SELECT b.block_time AS minted_at,
+                         nft.transaction_hash AS mint_transaction_hash
+                  FROM nonfungible_token_transfers nft
+                           JOIN blocks b USING (chain_id, block_number)
+                  WHERE nft.chain_id = ot.chain_id
+                    AND nft.emitter = ot.ve_token_address
+                    AND nft.token_id = ot.token_id
+                    AND nft.from_address = 0
+                  ORDER BY nft.event_id
+                  LIMIT 1
+                ) mint ON TRUE
+     ),
+     total_count AS (SELECT COUNT(*)::INT AS total_count FROM ve33_tokens),
+     paged_tokens AS (
+       SELECT *
+       FROM ve33_tokens
+       ORDER BY last_transfer_event_id DESC
+       LIMIT ${pagination.pageSize} OFFSET ${offset}
+     )
+SELECT pt.*,
+       total_count.total_count
+FROM paged_tokens pt
+         CROSS JOIN total_count
+ORDER BY pt.last_transfer_event_id DESC
+    `;
+
+    const totalCount = rows[0]?.total_count ?? 0;
+    return {
+      rows,
+      totalCount,
+    };
+  }
+
   private async getTopPositions({
     chainId,
     limit,
