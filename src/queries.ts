@@ -2066,6 +2066,7 @@ ORDER BY pp.last_transfer_event_id DESC;
 
   public async getVe33TokensByAddress(
     address: bigint,
+    veTokenAddress: bigint,
     chainId: bigint | null,
     pagination: { page: number; pageSize: number },
   ) {
@@ -2104,6 +2105,7 @@ WITH owned_tokens AS (
               last_transfer_event_id
        FROM nonfungible_token_owners ot
        WHERE current_owner = ${address.toString()}
+         AND nft_address = ${veTokenAddress.toString()}
          AND ${chainIdCondition}
      ),
      stake_states AS (

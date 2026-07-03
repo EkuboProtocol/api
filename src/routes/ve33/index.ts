@@ -110,13 +110,16 @@ function buildListVe33TokensResponse(
 }
 
 export class ListVe33TokensByAddress extends EkuboAPIRoute {
-  static route = "/ve33/:address";
+  static route = "/ve33/:veTokenAddress/:address";
 
   static schema: OpenAPIRouteSchema = {
     tags: ["ve33"],
     summary: "List ve33 tokens",
     description: "Returns the list of ve33 tokens owned by the address",
     parameters: {
+      veTokenAddress: Path(AddressType, {
+        description: "The veNFT contract address",
+      }),
       address: Path(AddressType, {
         description: "The address for which to list ve33 tokens",
       }),
@@ -144,13 +147,14 @@ export class ListVe33TokensByAddress extends EkuboAPIRoute {
   };
 
   async handle(
-    { params: { address: addressStr }, query }: IRequest,
+    { params: { address: addressStr, veTokenAddress }, query }: IRequest,
     { env }: RequestContext,
   ) {
     const { chainId, page, pageSize } = parseListVe33TokensFilters(query);
     const queries = await createQueries(env);
     const { rows, totalCount } = await queries.getVe33TokensByAddress(
       BigInt(addressStr),
+      BigInt(veTokenAddress),
       chainId,
       {
         page,
