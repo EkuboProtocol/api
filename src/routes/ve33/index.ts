@@ -51,7 +51,7 @@ const ListVe33TokensResponseType = z.object({
 
 function parseListVe33TokensFilters(query: IRequest["query"]) {
   return {
-    chainId: typeof query?.chainId === "string" ? BigInt(query.chainId) : null,
+    chainId: ChainIdType.optional().parse(query?.chainId) ?? null,
     pageSize: z.coerce
       .number()
       .int()
