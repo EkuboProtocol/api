@@ -2083,7 +2083,6 @@ ORDER BY pp.last_transfer_event_id DESC;
       stake_id: string;
       amount: string;
       end_time: Date;
-      current_voting_power: string;
       voted_pool_id: string | null;
       pool_key_id: string | null;
       applied_vote_weight: string | null;
@@ -2132,13 +2131,6 @@ WITH owned_tokens AS (
                 vsc.stake_end_time
        HAVING SUM(vsc.delta) > 0
      ),
-     lock_duration AS (SELECT 126144000 AS seconds),
-     query_time AS (
-       SELECT NOW() AS current_time,
-              ld.seconds::NUMERIC AS max_lock_duration_seconds,
-              MAKE_INTERVAL(secs => ld.seconds) AS max_lock_duration
-       FROM lock_duration ld
-     ),
      ve33_tokens AS (
        SELECT ot.chain_id,
               ot.owner,
@@ -2148,15 +2140,6 @@ WITH owned_tokens AS (
               st.stake_id,
               st.amount::TEXT AS amount,
               st.stake_end_time AS end_time,
-              CASE
-                WHEN st.stake_end_time <= qt.current_time THEN '0'
-                WHEN st.stake_end_time > qt.current_time + qt.max_lock_duration THEN '0'
-                ELSE FLOOR(
-                  st.amount::NUMERIC
-                  * EXTRACT(EPOCH FROM (st.stake_end_time - qt.current_time))::NUMERIC
-                  / qt.max_lock_duration_seconds
-                )::TEXT
-              END AS current_voting_power,
               vote.pool_id AS voted_pool_id,
               vote.pool_key_id::TEXT AS pool_key_id,
               vote.weight::TEXT AS applied_vote_weight,
@@ -2166,7 +2149,6 @@ WITH owned_tokens AS (
               st.last_stake_changed_event_id::TEXT AS last_stake_changed_event_id,
               ot.last_transfer_event_id::TEXT AS last_transfer_event_id
        FROM owned_tokens ot
-                CROSS JOIN query_time qt
                 JOIN stake_states st
                   ON st.chain_id = ot.chain_id
                  AND st.ve_token_address = ot.ve_token_address
@@ -2215,6 +2197,129 @@ ORDER BY pt.last_transfer_event_id DESC NULLS LAST
     const totalCount = rows[0]?.total_count ?? 0;
     return {
       rows: rows.filter((row): row is Ve33TokenRow => row.chain_id !== null),
+      totalCount,
+    };
+  }
+
+  public async getVe33Pools(
+    veTokenAddress: bigint,
+    chainId: bigint,
+    pagination: { page: number; pageSize: number },
+  ) {
+    const offset = (pagination.page - 1) * pagination.pageSize;
+    type Ve33PoolRow = {
+      chain_id: bigint;
+      pool_key_id: string;
+      pool_id: string;
+      token0: string;
+      token1: string;
+      fee: string;
+      tick_spacing: number | null;
+      core_address: string;
+      extension: string;
+      stableswap_center_tick: string | null;
+      stableswap_amplification: string | null;
+      pool_state_sqrt_ratio: string | null;
+      pool_state_tick: number | null;
+      pool_state_liquidity: string | null;
+      pool_total_vote_weight: string;
+      volume0_24h: string;
+      volume1_24h: string;
+      fees0_24h: string;
+      fees1_24h: string;
+      tvl0_total: string;
+      tvl1_total: string;
+      tvl0_delta_24h: string;
+      tvl1_delta_24h: string;
+      depth0: string;
+      depth1: string;
+      depth_percent: number | null;
+      last_event_id: string;
+      total_count: number;
+    };
+    type NullableVe33PoolRow = {
+      [K in keyof Omit<Ve33PoolRow, "total_count">]: Ve33PoolRow[K] | null;
+    } & Pick<Ve33PoolRow, "total_count">;
+
+    const rows = await this.sql<NullableVe33PoolRow[]>`
+WITH ve33_deployments AS (
+       SELECT DISTINCT chain_id,
+              emitter
+       FROM ve33_stake_changed
+       WHERE owner = ${veTokenAddress.toString()}
+         AND chain_id = ${chainId}
+       UNION
+       SELECT DISTINCT chain_id,
+              emitter
+       FROM ve33_pool_vote_states
+       WHERE owner = ${veTokenAddress.toString()}
+         AND chain_id = ${chainId}
+     ),
+     ve33_pools AS (
+       SELECT pk.chain_id,
+              pk.pool_key_id::TEXT AS pool_key_id,
+              pk.pool_id,
+              pk.token0,
+              pk.token1,
+              pk.fee,
+              pk.tick_spacing,
+              pk.core_address,
+              pk.pool_extension AS extension,
+              pk.stableswap_center_tick,
+              pk.stableswap_amplification,
+              ps.sqrt_ratio AS pool_state_sqrt_ratio,
+              ps.tick AS pool_state_tick,
+              ps.liquidity AS pool_state_liquidity,
+              COALESCE(vps.pool_total_vote_weight, 0)::TEXT AS pool_total_vote_weight,
+              COALESCE(l24.volume0_24h, 0::NUMERIC)::TEXT AS volume0_24h,
+              COALESCE(l24.volume1_24h, 0::NUMERIC)::TEXT AS volume1_24h,
+              COALESCE(l24.fees0_24h, 0::NUMERIC)::TEXT AS fees0_24h,
+              COALESCE(l24.fees1_24h, 0::NUMERIC)::TEXT AS fees1_24h,
+              COALESCE(l24.tvl0_total, 0::NUMERIC)::TEXT AS tvl0_total,
+              COALESCE(l24.tvl1_total, 0::NUMERIC)::TEXT AS tvl1_total,
+              COALESCE(l24.tvl0_delta_24h, 0::NUMERIC)::TEXT AS tvl0_delta_24h,
+              COALESCE(l24.tvl1_delta_24h, 0::NUMERIC)::TEXT AS tvl1_delta_24h,
+              COALESCE(pmd.depth0, 0::NUMERIC)::TEXT AS depth0,
+              COALESCE(pmd.depth1, 0::NUMERIC)::TEXT AS depth1,
+              pmd.depth_percent,
+              COALESCE(vps.last_event_id, 0)::TEXT AS last_event_id
+       FROM pool_keys pk
+                JOIN ve33_deployments vd
+                  ON vd.chain_id = pk.chain_id
+                 AND vd.emitter = pk.pool_extension
+                LEFT JOIN ve33_pool_states vps USING (pool_key_id)
+                LEFT JOIN pool_states ps USING (pool_key_id)
+                LEFT JOIN last_24h_pool_stats_materialized l24 USING (pool_key_id)
+                LEFT JOIN token_pair_realized_volatility_materialized tprv
+                  ON pk.chain_id = tprv.chain_id
+                 AND pk.token0 = tprv.token0
+                 AND pk.token1 = tprv.token1
+                LEFT JOIN LATERAL (
+                  SELECT *
+                  FROM pool_market_depth_materialized pmd
+                  WHERE pk.pool_key_id = pmd.pool_key_id
+                    AND GREATEST(COALESCE(tprv.realized_volatility, 0.001), 0.001) >= pmd.depth_percent
+                  ORDER BY depth_percent DESC
+                  LIMIT 1
+                ) AS pmd ON TRUE
+       WHERE pk.chain_id = ${chainId}
+     ),
+     total_count AS (SELECT COUNT(*)::INT AS total_count FROM ve33_pools)
+SELECT vp.*,
+       tc.total_count
+FROM total_count tc
+         LEFT JOIN LATERAL (
+           SELECT *
+           FROM ve33_pools
+           ORDER BY pool_total_vote_weight::NUMERIC DESC, last_event_id::NUMERIC DESC
+           LIMIT ${pagination.pageSize} OFFSET ${offset}
+         ) vp ON TRUE
+ORDER BY vp.pool_total_vote_weight::NUMERIC DESC NULLS LAST, vp.last_event_id::NUMERIC DESC NULLS LAST
+    `;
+
+    const totalCount = rows[0]?.total_count ?? 0;
+    return {
+      rows: rows.filter((row): row is Ve33PoolRow => row.chain_id !== null),
       totalCount,
     };
   }
