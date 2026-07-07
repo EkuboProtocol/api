@@ -2311,10 +2311,10 @@ FROM total_count tc
          LEFT JOIN LATERAL (
            SELECT *
            FROM ve33_pools
-           ORDER BY pool_total_vote_weight::NUMERIC DESC, last_event_id DESC
+           ORDER BY pool_total_vote_weight::NUMERIC DESC, last_event_id::NUMERIC DESC
            LIMIT ${pagination.pageSize} OFFSET ${offset}
          ) vp ON TRUE
-ORDER BY vp.pool_total_vote_weight::NUMERIC DESC NULLS LAST, vp.last_event_id DESC NULLS LAST
+ORDER BY vp.pool_total_vote_weight::NUMERIC DESC NULLS LAST, vp.last_event_id::NUMERIC DESC NULLS LAST
     `;
 
     const totalCount = rows[0]?.total_count ?? 0;
