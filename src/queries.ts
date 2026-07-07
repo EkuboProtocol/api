@@ -2132,11 +2132,11 @@ WITH owned_tokens AS (
                 vsc.stake_end_time
        HAVING SUM(vsc.delta) > 0
      ),
-     lock_duration AS (SELECT 126144000::NUMERIC AS seconds),
+     lock_duration AS (SELECT 126144000 AS seconds),
      query_time AS (
        SELECT NOW() AS current_time,
-              ld.seconds AS max_lock_duration_seconds,
-              (ld.seconds::TEXT || ' seconds')::INTERVAL AS max_lock_duration
+              ld.seconds::NUMERIC AS max_lock_duration_seconds,
+              MAKE_INTERVAL(secs => ld.seconds) AS max_lock_duration
        FROM lock_duration ld
      ),
      ve33_tokens AS (
