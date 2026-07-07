@@ -2132,6 +2132,7 @@ WITH owned_tokens AS (
                 vsc.stake_end_time
        HAVING SUM(vsc.delta) > 0
      ),
+     query_time AS (SELECT NOW() AS current_time),
      ve33_tokens AS (
        SELECT ot.chain_id,
               ot.owner,
@@ -2142,12 +2143,12 @@ WITH owned_tokens AS (
               st.amount::TEXT AS amount,
               st.stake_end_time AS end_time,
               CASE
-                WHEN EXTRACT(EPOCH FROM st.stake_end_time) <= EXTRACT(EPOCH FROM NOW()) THEN '0'
-                WHEN EXTRACT(EPOCH FROM st.stake_end_time) - EXTRACT(EPOCH FROM NOW()) > 126144000 THEN '0'
+                WHEN st.stake_end_time <= qt.current_time THEN '0'
+                WHEN st.stake_end_time > qt.current_time + INTERVAL '126144000 seconds' THEN '0'
                 ELSE FLOOR(
-                  st.amount * (
-                    EXTRACT(EPOCH FROM st.stake_end_time) - EXTRACT(EPOCH FROM NOW())
-                  ) / 126144000
+                  st.amount::NUMERIC
+                  * EXTRACT(EPOCH FROM (st.stake_end_time - qt.current_time))::NUMERIC
+                  / 126144000::NUMERIC
                 )::TEXT
               END AS current_voting_power,
               vote.pool_id AS voted_pool_id,
@@ -2159,6 +2160,7 @@ WITH owned_tokens AS (
               st.last_stake_changed_event_id::TEXT AS last_stake_changed_event_id,
               ot.last_transfer_event_id::TEXT AS last_transfer_event_id
        FROM owned_tokens ot
+                CROSS JOIN query_time qt
                 JOIN stake_states st
                   ON st.chain_id = ot.chain_id
                  AND st.ve_token_address = ot.ve_token_address
