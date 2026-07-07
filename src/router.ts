@@ -54,6 +54,7 @@ import {
   GetAuctionNftState,
   ListAuctions,
 } from "./routes/auctions";
+import { ListVe33TokensByAddress } from "./routes/ve33";
 
 export const router = OpenAPIRouter({
   schema: {
@@ -121,6 +122,7 @@ export const router = OpenAPIRouter({
   .get(ListVotesOnProposal.route, ListVotesOnProposal)
   .get(ListProposalVoters.route, ListProposalVoters)
   .get(GetStakerInfo.route, GetStakerInfo)
+  .get(ListVe33TokensByAddress.route, ListVe33TokensByAddress)
   .get(ListCampaigns.route, ListCampaigns)
   .get(ListRewardsForLocker.route, ListRewardsForLocker)
   .get(ListClaimsForAddress.route, ListClaimsForAddress)
