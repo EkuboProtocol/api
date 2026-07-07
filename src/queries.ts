@@ -2074,29 +2074,31 @@ ORDER BY pp.last_transfer_event_id DESC;
     const chainIdCondition = chainId
       ? this.sql`ot.chain_id = ${chainId}`
       : this.sql`TRUE`;
+    type Ve33TokenRow = {
+      chain_id: bigint;
+      owner: string;
+      ve_token_address: string;
+      ve33_address: string;
+      token_id: string;
+      stake_id: string;
+      amount: string;
+      end_time: Date;
+      current_voting_power: string;
+      voted_pool_id: string | null;
+      pool_key_id: string | null;
+      applied_vote_weight: string | null;
+      pool_total_vote_weight: string | null;
+      minted_at: Date | null;
+      mint_transaction_hash: string | null;
+      last_stake_changed_event_id: string;
+      last_transfer_event_id: string;
+      total_count: number;
+    };
+    type NullableVe33TokenRow = {
+      [K in keyof Omit<Ve33TokenRow, "total_count">]: Ve33TokenRow[K] | null;
+    } & Pick<Ve33TokenRow, "total_count">;
 
-    const rows = await this.sql<
-      {
-        chain_id: bigint;
-        owner: string;
-        ve_token_address: string;
-        ve33_address: string;
-        token_id: string;
-        stake_id: string;
-        amount: string;
-        end_time: Date;
-        current_voting_power: string;
-        voted_pool_id: string | null;
-        pool_key_id: string | null;
-        applied_vote_weight: string | null;
-        pool_total_vote_weight: string | null;
-        minted_at: Date | null;
-        mint_transaction_hash: string | null;
-        last_stake_changed_event_id: string;
-        last_transfer_event_id: string;
-        total_count: number;
-      }[]
-    >`
+    const rows = await this.sql<NullableVe33TokenRow[]>`
 WITH owned_tokens AS (
        SELECT chain_id,
               nft_address AS ve_token_address,
@@ -2189,23 +2191,22 @@ WITH owned_tokens AS (
                   LIMIT 1
                 ) mint ON TRUE
      ),
-     total_count AS (SELECT COUNT(*)::INT AS total_count FROM ve33_tokens),
-     paged_tokens AS (
-       SELECT *
-       FROM ve33_tokens
-       ORDER BY last_transfer_event_id DESC
-       LIMIT ${pagination.pageSize} OFFSET ${offset}
-     )
+     total_count AS (SELECT COUNT(*)::INT AS total_count FROM ve33_tokens)
 SELECT pt.*,
-       total_count.total_count
-FROM paged_tokens pt
-         CROSS JOIN total_count
-ORDER BY pt.last_transfer_event_id DESC
+       tc.total_count
+FROM total_count tc
+         LEFT JOIN LATERAL (
+           SELECT *
+           FROM ve33_tokens
+           ORDER BY last_transfer_event_id DESC
+           LIMIT ${pagination.pageSize} OFFSET ${offset}
+         ) pt ON TRUE
+ORDER BY pt.last_transfer_event_id DESC NULLS LAST
     `;
 
     const totalCount = rows[0]?.total_count ?? 0;
     return {
-      rows,
+      rows: rows.filter((row): row is Ve33TokenRow => row.chain_id !== null),
       totalCount,
     };
   }
