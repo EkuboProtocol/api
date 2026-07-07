@@ -2223,6 +2223,7 @@ ORDER BY pt.last_transfer_event_id DESC NULLS LAST
       pool_state_tick: number | null;
       pool_state_liquidity: string | null;
       pool_total_vote_weight: string;
+      swap_fee: string;
       volume0_24h: string;
       volume1_24h: string;
       fees0_24h: string;
@@ -2271,6 +2272,7 @@ WITH ve33_deployments AS (
               ps.tick AS pool_state_tick,
               ps.liquidity AS pool_state_liquidity,
               COALESCE(vps.pool_total_vote_weight, 0)::TEXT AS pool_total_vote_weight,
+              COALESCE(vps.swap_fee, 0::NUMERIC)::TEXT AS swap_fee,
               COALESCE(l24.volume0_24h, 0::NUMERIC)::TEXT AS volume0_24h,
               COALESCE(l24.volume1_24h, 0::NUMERIC)::TEXT AS volume1_24h,
               COALESCE(l24.fees0_24h, 0::NUMERIC)::TEXT AS fees0_24h,
