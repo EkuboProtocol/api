@@ -2223,6 +2223,17 @@ ORDER BY pt.last_transfer_event_id DESC NULLS LAST
       pool_state_tick: number | null;
       pool_state_liquidity: string | null;
       pool_total_vote_weight: string;
+      volume0_24h: string;
+      volume1_24h: string;
+      fees0_24h: string;
+      fees1_24h: string;
+      tvl0_total: string;
+      tvl1_total: string;
+      tvl0_delta_24h: string;
+      tvl1_delta_24h: string;
+      depth0: string;
+      depth1: string;
+      depth_percent: number | null;
       last_event_id: string;
       total_count: number;
     };
@@ -2260,6 +2271,17 @@ WITH ve33_deployments AS (
               ps.tick AS pool_state_tick,
               ps.liquidity AS pool_state_liquidity,
               COALESCE(vps.pool_total_vote_weight, 0)::TEXT AS pool_total_vote_weight,
+              COALESCE(l24.volume0_24h, 0::NUMERIC)::TEXT AS volume0_24h,
+              COALESCE(l24.volume1_24h, 0::NUMERIC)::TEXT AS volume1_24h,
+              COALESCE(l24.fees0_24h, 0::NUMERIC)::TEXT AS fees0_24h,
+              COALESCE(l24.fees1_24h, 0::NUMERIC)::TEXT AS fees1_24h,
+              COALESCE(l24.tvl0_total, 0::NUMERIC)::TEXT AS tvl0_total,
+              COALESCE(l24.tvl1_total, 0::NUMERIC)::TEXT AS tvl1_total,
+              COALESCE(l24.tvl0_delta_24h, 0::NUMERIC)::TEXT AS tvl0_delta_24h,
+              COALESCE(l24.tvl1_delta_24h, 0::NUMERIC)::TEXT AS tvl1_delta_24h,
+              COALESCE(pmd.depth0, 0::NUMERIC)::TEXT AS depth0,
+              COALESCE(pmd.depth1, 0::NUMERIC)::TEXT AS depth1,
+              pmd.depth_percent,
               COALESCE(vps.last_event_id, 0)::TEXT AS last_event_id
        FROM pool_keys pk
                 JOIN ve33_deployments vd
@@ -2267,6 +2289,19 @@ WITH ve33_deployments AS (
                  AND vd.emitter = pk.pool_extension
                 LEFT JOIN ve33_pool_states vps USING (pool_key_id)
                 LEFT JOIN pool_states ps USING (pool_key_id)
+                LEFT JOIN last_24h_pool_stats_materialized l24 USING (pool_key_id)
+                LEFT JOIN token_pair_realized_volatility_materialized tprv
+                  ON pk.chain_id = tprv.chain_id
+                 AND pk.token0 = tprv.token0
+                 AND pk.token1 = tprv.token1
+                LEFT JOIN LATERAL (
+                  SELECT *
+                  FROM pool_market_depth_materialized pmd
+                  WHERE pk.pool_key_id = pmd.pool_key_id
+                    AND GREATEST(COALESCE(tprv.realized_volatility, 0.001), 0.001) >= pmd.depth_percent
+                  ORDER BY depth_percent DESC
+                  LIMIT 1
+                ) AS pmd ON TRUE
        WHERE pk.chain_id = ${chainId}
      ),
      total_count AS (SELECT COUNT(*)::INT AS total_count FROM ve33_pools)
