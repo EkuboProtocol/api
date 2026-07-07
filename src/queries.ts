@@ -2132,7 +2132,13 @@ WITH owned_tokens AS (
                 vsc.stake_end_time
        HAVING SUM(vsc.delta) > 0
      ),
-     query_time AS (SELECT NOW() AS current_time),
+     lock_duration AS (SELECT 126144000::NUMERIC AS seconds),
+     query_time AS (
+       SELECT NOW() AS current_time,
+              ld.seconds AS max_lock_duration_seconds,
+              (ld.seconds::TEXT || ' seconds')::INTERVAL AS max_lock_duration
+       FROM lock_duration ld
+     ),
      ve33_tokens AS (
        SELECT ot.chain_id,
               ot.owner,
@@ -2144,11 +2150,11 @@ WITH owned_tokens AS (
               st.stake_end_time AS end_time,
               CASE
                 WHEN st.stake_end_time <= qt.current_time THEN '0'
-                WHEN st.stake_end_time > qt.current_time + INTERVAL '126144000 seconds' THEN '0'
+                WHEN st.stake_end_time > qt.current_time + qt.max_lock_duration THEN '0'
                 ELSE FLOOR(
                   st.amount::NUMERIC
                   * EXTRACT(EPOCH FROM (st.stake_end_time - qt.current_time))::NUMERIC
-                  / 126144000::NUMERIC
+                  / qt.max_lock_duration_seconds
                 )::TEXT
               END AS current_voting_power,
               vote.pool_id AS voted_pool_id,
