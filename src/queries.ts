@@ -2084,6 +2084,13 @@ ORDER BY pp.last_transfer_event_id DESC;
       amount: string;
       end_time: Date;
       voted_pool_id: string | null;
+      voted_pool_token0: string | null;
+      voted_pool_token1: string | null;
+      voted_pool_fee: string | null;
+      voted_pool_tick_spacing: number | null;
+      voted_pool_extension: string | null;
+      voted_pool_stableswap_center_tick: string | null;
+      voted_pool_stableswap_amplification: string | null;
       pool_key_id: string | null;
       applied_vote_weight: string | null;
       pool_total_vote_weight: string | null;
@@ -2141,6 +2148,13 @@ WITH owned_tokens AS (
               st.amount::TEXT AS amount,
               st.stake_end_time AS end_time,
               vote.pool_id AS voted_pool_id,
+              vote.token0 AS voted_pool_token0,
+              vote.token1 AS voted_pool_token1,
+              vote.fee AS voted_pool_fee,
+              vote.tick_spacing AS voted_pool_tick_spacing,
+              vote.pool_extension AS voted_pool_extension,
+              vote.stableswap_center_tick AS voted_pool_stableswap_center_tick,
+              vote.stableswap_amplification AS voted_pool_stableswap_amplification,
               vote.pool_key_id::TEXT AS pool_key_id,
               vote.weight::TEXT AS applied_vote_weight,
               vps.pool_total_vote_weight::TEXT AS pool_total_vote_weight,
@@ -2156,8 +2170,18 @@ WITH owned_tokens AS (
                 LEFT JOIN LATERAL (
                   SELECT vpvs.pool_key_id,
                          vpvs.pool_id,
-                         vpvs.weight
+                         vpvs.weight,
+                         pk.token0,
+                         pk.token1,
+                         pk.fee,
+                         pk.tick_spacing,
+                         pk.pool_extension,
+                         pk.stableswap_center_tick,
+                         pk.stableswap_amplification
                   FROM ve33_pool_vote_states vpvs
+                           JOIN pool_keys pk
+                             ON pk.chain_id = vpvs.chain_id
+                            AND pk.pool_key_id = vpvs.pool_key_id
                   WHERE vpvs.chain_id = st.chain_id
                     AND vpvs.emitter = st.ve33_address
                     AND vpvs.owner = st.ve_token_address
