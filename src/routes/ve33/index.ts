@@ -17,6 +17,17 @@ import {
 
 const TimestampType = z.union([z.date(), z.string()]);
 
+const PoolKeyType = z.object({
+  token0: HexStringType,
+  token1: HexStringType,
+  fee: HexStringType,
+  tick_spacing: HexStringType.nullable(),
+  extension: HexStringType,
+  stableswap_params: z
+    .object({ center_tick: z.number().int(), amplification: z.number().int() })
+    .nullable(),
+});
+
 const Ve33TokenType = z.object({
   chain_id: HexStringType,
   owner: HexStringType,
@@ -27,6 +38,7 @@ const Ve33TokenType = z.object({
   amount: DecimalStringType,
   end_time: TimestampType,
   voted_pool_id: HexStringType.nullable(),
+  voted_pool_key: PoolKeyType.nullable(),
   pool_key_id: DecimalStringType.nullable(),
   applied_vote_weight: DecimalStringType.nullable(),
   pool_total_vote_weight: DecimalStringType.nullable(),
@@ -34,17 +46,6 @@ const Ve33TokenType = z.object({
   mint_transaction_hash: HexStringType.nullable(),
   last_stake_changed_event_id: DecimalStringType,
   last_transfer_event_id: DecimalStringType,
-});
-
-const PoolKeyType = z.object({
-  token0: HexStringType,
-  token1: HexStringType,
-  fee: HexStringType,
-  tick_spacing: HexStringType.nullable(),
-  extension: HexStringType,
-  stableswap_params: z
-    .object({ center_tick: z.number().int(), amplification: z.number().int() })
-    .nullable(),
 });
 
 const PoolStateType = z
@@ -157,6 +158,34 @@ function buildListVe33TokensResponse(
       amount: row.amount,
       end_time: row.end_time,
       voted_pool_id: row.voted_pool_id ? toHex(row.voted_pool_id) : null,
+      voted_pool_key:
+        row.voted_pool_token0 === null ||
+        row.voted_pool_token1 === null ||
+        row.voted_pool_fee === null ||
+        row.voted_pool_extension === null
+          ? null
+          : {
+              token0: toHex(row.voted_pool_token0),
+              token1: toHex(row.voted_pool_token1),
+              fee: toHex(row.voted_pool_fee),
+              tick_spacing:
+                row.voted_pool_tick_spacing === null
+                  ? null
+                  : toHex(row.voted_pool_tick_spacing),
+              extension: toHex(row.voted_pool_extension),
+              stableswap_params:
+                row.voted_pool_stableswap_amplification !== null &&
+                row.voted_pool_stableswap_center_tick !== null
+                  ? {
+                      center_tick: Number(
+                        row.voted_pool_stableswap_center_tick,
+                      ),
+                      amplification: Number(
+                        row.voted_pool_stableswap_amplification,
+                      ),
+                    }
+                  : null,
+            },
       pool_key_id: row.pool_key_id,
       applied_vote_weight: row.applied_vote_weight,
       pool_total_vote_weight: row.pool_total_vote_weight,
