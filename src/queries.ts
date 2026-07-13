@@ -2230,9 +2230,10 @@ ORDER BY pt.last_transfer_event_id DESC NULLS LAST
     chainId: bigint,
     pagination: { page: number; pageSize: number | undefined },
   ) {
-    const offset = pagination.pageSize
-      ? (pagination.page - 1) * pagination.pageSize
-      : 0;
+    const offset =
+      pagination.pageSize === undefined
+        ? 0
+        : (pagination.page - 1) * pagination.pageSize;
     type Ve33PoolRow = {
       chain_id: bigint;
       pool_key_id: string;

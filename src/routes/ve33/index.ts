@@ -124,18 +124,20 @@ function parseListVe33PoolsFilters(query: IRequest["query"]) {
     query?.pageSize === undefined
       ? undefined
       : z.coerce.number().int().min(1).max(200).parse(query.pageSize);
+  const page = z.coerce
+    .number()
+    .int()
+    .min(1)
+    .parse(query?.page ?? 1);
+
+  if (pageSize === undefined) {
+    z.literal(1).parse(page);
+  }
 
   return {
     chainId: ChainIdType.parse(query?.chainId),
     pageSize,
-    page:
-      pageSize === undefined
-        ? 1
-        : z.coerce
-            .number()
-            .int()
-            .min(1)
-            .parse(query?.page ?? 1),
+    page,
   };
 }
 
@@ -314,7 +316,8 @@ export class ListVe33Pools extends EkuboAPIRoute {
       }),
       page: Query(z.coerce.number().int().min(1), {
         required: false,
-        description: "Page number to fetch (1-indexed)",
+        description:
+          "Page number to fetch (1-indexed). Values above 1 require pageSize.",
         default: 1,
       }),
     },
