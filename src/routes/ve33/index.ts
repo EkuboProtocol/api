@@ -98,6 +98,7 @@ const ListVe33TokensResponseType = z.object({
 
 const ListVe33PoolsResponseType = z.object({
   data: z.array(Ve33PoolType),
+  total_vote_weight: DecimalStringType,
   pagination: PaginationMetadataType,
 });
 
@@ -119,19 +120,22 @@ function parseListVe33TokensFilters(query: IRequest["query"]) {
 }
 
 function parseListVe33PoolsFilters(query: IRequest["query"]) {
+  const pageSize =
+    query?.pageSize === undefined
+      ? undefined
+      : z.coerce.number().int().min(1).max(200).parse(query.pageSize);
+
   return {
     chainId: ChainIdType.parse(query?.chainId),
-    pageSize: z.coerce
-      .number()
-      .int()
-      .min(1)
-      .max(200)
-      .parse(query?.pageSize ?? 50),
-    page: z.coerce
-      .number()
-      .int()
-      .min(1)
-      .parse(query?.page ?? 1),
+    pageSize,
+    page:
+      pageSize === undefined
+        ? 1
+        : z.coerce
+            .number()
+            .int()
+            .min(1)
+            .parse(query?.page ?? 1),
   };
 }
 
@@ -210,10 +214,17 @@ function buildListVe33PoolsResponse(
     ReturnType<Awaited<ReturnType<typeof createQueries>>["getVe33Pools"]>
   >["rows"],
   totalCount: number,
+  totalVoteWeight: string,
   page: number,
-  pageSize: number,
+  pageSize: number | undefined,
 ) {
-  const totalPages = totalCount === 0 ? 0 : Math.ceil(totalCount / pageSize);
+  const responsePageSize = pageSize ?? Math.max(totalCount, 1);
+  const totalPages =
+    totalCount === 0
+      ? 0
+      : pageSize === undefined
+        ? 1
+        : Math.ceil(totalCount / pageSize);
 
   return {
     data: rows.map((row) => {
@@ -271,9 +282,10 @@ function buildListVe33PoolsResponse(
         last_event_id: row.last_event_id,
       };
     }),
+    total_vote_weight: totalVoteWeight,
     pagination: {
       page,
-      pageSize,
+      pageSize: responsePageSize,
       totalPages,
       totalItems: totalCount,
     },
@@ -297,8 +309,8 @@ export class ListVe33Pools extends EkuboAPIRoute {
       }),
       pageSize: Query(z.coerce.number().int().min(1).max(200), {
         required: false,
-        description: "Maximum number of ve33 pools to return per page",
-        default: 50,
+        description:
+          "Maximum number of ve33 pools to return per page. Returns all pools when omitted.",
       }),
       page: Query(z.coerce.number().int().min(1), {
         required: false,
@@ -320,7 +332,7 @@ export class ListVe33Pools extends EkuboAPIRoute {
   ) {
     const { chainId, page, pageSize } = parseListVe33PoolsFilters(query);
     const queries = await createQueries(env);
-    const { rows, totalCount } = await queries.getVe33Pools(
+    const { rows, totalCount, totalVoteWeight } = await queries.getVe33Pools(
       BigInt(veTokenAddress),
       chainId,
       {
@@ -329,11 +341,20 @@ export class ListVe33Pools extends EkuboAPIRoute {
       },
     );
 
-    return json(buildListVe33PoolsResponse(rows, totalCount, page, pageSize), {
-      headers: {
-        "cache-control": "public, max-age=30",
+    return json(
+      buildListVe33PoolsResponse(
+        rows,
+        totalCount,
+        totalVoteWeight,
+        page,
+        pageSize,
+      ),
+      {
+        headers: {
+          "cache-control": "public, max-age=30",
+        },
       },
-    });
+    );
   }
 }
 
