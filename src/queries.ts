@@ -2349,7 +2349,7 @@ FROM pool_totals pt
            SELECT *
            FROM ve33_pools
            ORDER BY pool_total_vote_weight::NUMERIC DESC, last_event_id::NUMERIC DESC
-           LIMIT ${pagination.pageSize ?? null} OFFSET ${offset}
+           LIMIT COALESCE(${pagination.pageSize ?? null}, pt.total_count) OFFSET ${offset}
          ) vp ON TRUE
 ORDER BY vp.pool_total_vote_weight::NUMERIC DESC NULLS LAST, vp.last_event_id::NUMERIC DESC NULLS LAST
     `;

@@ -131,7 +131,11 @@ function parseListVe33PoolsFilters(query: IRequest["query"]) {
     .parse(query?.page ?? 1);
 
   if (pageSize === undefined) {
-    z.literal(1).parse(page);
+    z.number()
+      .max(1, {
+        message: "pageSize is required when page is greater than 1",
+      })
+      .parse(page);
   }
 
   return {
