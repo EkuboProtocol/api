@@ -2228,9 +2228,12 @@ ORDER BY pt.last_transfer_event_id DESC NULLS LAST
   public async getVe33Pools(
     veTokenAddress: bigint,
     chainId: bigint,
-    pagination: { page: number; pageSize: number },
+    pagination: { page: number; pageSize: number | undefined },
   ) {
-    const offset = (pagination.page - 1) * pagination.pageSize;
+    const offset =
+      pagination.pageSize === undefined
+        ? 0
+        : (pagination.page - 1) * pagination.pageSize;
     type Ve33PoolRow = {
       chain_id: bigint;
       pool_key_id: string;
@@ -2261,10 +2264,13 @@ ORDER BY pt.last_transfer_event_id DESC NULLS LAST
       depth_percent: number | null;
       last_event_id: string;
       total_count: number;
+      total_vote_weight: string;
     };
     type NullableVe33PoolRow = {
-      [K in keyof Omit<Ve33PoolRow, "total_count">]: Ve33PoolRow[K] | null;
-    } & Pick<Ve33PoolRow, "total_count">;
+      [K in keyof Omit<Ve33PoolRow, "total_count" | "total_vote_weight">]:
+        | Ve33PoolRow[K]
+        | null;
+    } & Pick<Ve33PoolRow, "total_count" | "total_vote_weight">;
 
     const rows = await this.sql<NullableVe33PoolRow[]>`
 WITH ve33_deployments AS (
@@ -2330,23 +2336,30 @@ WITH ve33_deployments AS (
                 ) AS pmd ON TRUE
        WHERE pk.chain_id = ${chainId}
      ),
-     total_count AS (SELECT COUNT(*)::INT AS total_count FROM ve33_pools)
+     pool_totals AS (
+       SELECT COUNT(*)::INT AS total_count,
+              COALESCE(SUM(pool_total_vote_weight::NUMERIC), 0)::TEXT AS total_vote_weight
+       FROM ve33_pools
+     )
 SELECT vp.*,
-       tc.total_count
-FROM total_count tc
+       pt.total_count,
+       pt.total_vote_weight
+FROM pool_totals pt
          LEFT JOIN LATERAL (
            SELECT *
            FROM ve33_pools
            ORDER BY pool_total_vote_weight::NUMERIC DESC, last_event_id::NUMERIC DESC
-           LIMIT ${pagination.pageSize} OFFSET ${offset}
+           LIMIT COALESCE(${pagination.pageSize ?? null}, pt.total_count) OFFSET ${offset}
          ) vp ON TRUE
 ORDER BY vp.pool_total_vote_weight::NUMERIC DESC NULLS LAST, vp.last_event_id::NUMERIC DESC NULLS LAST
     `;
 
     const totalCount = rows[0]?.total_count ?? 0;
+    const totalVoteWeight = rows[0]?.total_vote_weight ?? "0";
     return {
       rows: rows.filter((row): row is Ve33PoolRow => row.chain_id !== null),
       totalCount,
+      totalVoteWeight,
     };
   }
 
