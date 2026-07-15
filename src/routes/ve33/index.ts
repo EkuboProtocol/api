@@ -41,6 +41,7 @@ const Ve33TokenType = z.object({
   voted_pool_key: PoolKeyType.nullable(),
   pool_key_id: DecimalStringType.nullable(),
   applied_vote_weight: DecimalStringType.nullable(),
+  applied_swap_fee: DecimalStringType.nullable(),
   pool_total_vote_weight: DecimalStringType.nullable(),
   minted_at: TimestampType.nullable(),
   mint_transaction_hash: HexStringType.nullable(),
@@ -198,6 +199,7 @@ function buildListVe33TokensResponse(
             },
       pool_key_id: row.pool_key_id,
       applied_vote_weight: row.applied_vote_weight,
+      applied_swap_fee: row.applied_swap_fee,
       pool_total_vote_weight: row.pool_total_vote_weight,
       minted_at: row.minted_at,
       mint_transaction_hash: row.mint_transaction_hash
