@@ -2093,7 +2093,7 @@ ORDER BY pp.last_transfer_event_id DESC;
       voted_pool_stableswap_amplification: string | null;
       pool_key_id: string | null;
       applied_vote_weight: string | null;
-      applied_swap_fee: string | null;
+      voted_swap_fee: string | null;
       pool_total_vote_weight: string | null;
       minted_at: Date | null;
       mint_transaction_hash: string | null;
@@ -2158,7 +2158,7 @@ WITH owned_tokens AS (
               vote.stableswap_amplification AS voted_pool_stableswap_amplification,
               vote.pool_key_id::TEXT AS pool_key_id,
               vote.weight::TEXT AS applied_vote_weight,
-              vote.swap_fee::TEXT AS applied_swap_fee,
+              vote.voted_swap_fee::TEXT AS voted_swap_fee,
               vps.pool_total_vote_weight::TEXT AS pool_total_vote_weight,
               mint.minted_at,
               mint.mint_transaction_hash::TEXT AS mint_transaction_hash,
@@ -2173,7 +2173,7 @@ WITH owned_tokens AS (
                   SELECT vpvs.pool_key_id,
                          vpvs.pool_id,
                          vpvs.weight,
-                         vpvs.swap_fee,
+                         vwa.voted_swap_fee,
                          pk.token0,
                          pk.token1,
                          pk.fee,
@@ -2182,6 +2182,9 @@ WITH owned_tokens AS (
                          pk.stableswap_center_tick,
                          pk.stableswap_amplification
                   FROM ve33_pool_vote_states vpvs
+                           JOIN ve33_vote_weight_applied vwa
+                             ON vwa.chain_id = vpvs.chain_id
+                            AND vwa.event_id = vpvs.event_id
                            JOIN pool_keys pk
                              ON pk.chain_id = vpvs.chain_id
                             AND pk.pool_key_id = vpvs.pool_key_id
