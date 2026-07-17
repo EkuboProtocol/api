@@ -564,7 +564,7 @@ FROM token_mint AS mint
         SELECT vrc.transaction_hash,
                b.block_time AS timestamp,
                vrc.block_number,
-               vrc.amount AS reward_amount
+               vrc.amount::text AS reward_amount
         FROM ve33_rewards_claimed AS vrc
                  JOIN blocks AS b ON b.block_number = vrc.block_number
                                      AND b.chain_id = vrc.chain_id
