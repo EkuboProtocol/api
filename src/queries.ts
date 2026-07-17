@@ -453,7 +453,6 @@ FROM token_mint AS mint
             liquidity_delta: null;
             delta0: null;
             delta1: null;
-            reward_amount: null;
           }
         | {
             type: 1;
@@ -465,7 +464,6 @@ FROM token_mint AS mint
             liquidity_delta: string;
             delta0: string;
             delta1: string;
-            reward_amount: null;
           }
         | {
             type: 2;
@@ -477,19 +475,6 @@ FROM token_mint AS mint
             liquidity_delta: null;
             delta0: string;
             delta1: string;
-            reward_amount: null;
-          }
-        | {
-            type: 3;
-            transaction_hash: string;
-            timestamp: string;
-            block_number: bigint;
-            from_address: null;
-            to_address: null;
-            liquidity_delta: null;
-            delta0: null;
-            delta1: null;
-            reward_amount: string;
           }
       )[]
     >`
@@ -560,27 +545,6 @@ FROM token_mint AS mint
             OR nlm.locker = ${lockerAddress.toString()}
           )
       ),
-      reward_claims AS (
-        SELECT vrc.transaction_hash,
-               b.block_time AS timestamp,
-               vrc.block_number,
-               vrc.amount AS reward_amount
-        FROM ve33_rewards_claimed AS vrc
-                 JOIN blocks AS b ON b.block_number = vrc.block_number
-                                     AND b.chain_id = vrc.chain_id
-                 JOIN nonfungible_token_transfers AS nft ON nft.token_id = ${tokenId.toString()}
-                                       AND nft.from_address = 0
-                                       AND nft.chain_id = vrc.chain_id
-                 LEFT JOIN nft_locker_mappings AS nlm ON nlm.nft_address = nft.emitter
-                                     AND nlm.chain_id = nft.chain_id
-        WHERE vrc.salt = nft_token_salt(nlm.token_id_transform, nft.token_id)
-          AND vrc.owner = COALESCE(nlm.locker, nft.emitter)
-          AND vrc.chain_id = ${chainId}
-          AND (
-            nft.emitter = ${lockerAddress.toString()}
-            OR nlm.locker = ${lockerAddress.toString()}
-          )
-      ),
       all_events AS (
         SELECT 0 AS type,
                transaction_hash,
@@ -590,8 +554,7 @@ FROM token_mint AS mint
                to_address,
                NULL AS liquidity_delta,
                NULL AS delta0,
-               NULL AS delta1,
-               NULL AS reward_amount
+               NULL AS delta1
         FROM transfers
         UNION ALL
         SELECT 1 AS type,
@@ -602,8 +565,7 @@ FROM token_mint AS mint
                NULL AS to_address,
                liquidity_delta,
                delta0,
-               delta1,
-               NULL AS reward_amount
+               delta1
         FROM updates
         UNION ALL
         SELECT 2 AS type,
@@ -614,21 +576,8 @@ FROM token_mint AS mint
                NULL AS to_address,
                NULL AS liquidity_delta,
                delta0,
-               delta1,
-               NULL AS reward_amount
+               delta1
         FROM fee_collections
-        UNION ALL
-        SELECT 3 AS type,
-               transaction_hash,
-               timestamp,
-               block_number,
-               NULL AS from_address,
-               NULL AS to_address,
-               NULL AS liquidity_delta,
-               NULL AS delta0,
-               NULL AS delta1,
-               reward_amount
-        FROM reward_claims
       )
       SELECT *
       FROM all_events

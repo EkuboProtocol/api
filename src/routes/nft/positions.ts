@@ -49,19 +49,10 @@ const PositionCollectFeesEventType = z.object({
   delta1: z.string(),
 });
 
-const PositionClaimRewardsEventType = z.object({
-  type: z.literal("claim_rewards"),
-  block_number: z.string(),
-  transaction_hash: HexStringType,
-  timestamp: PositionEventsTimestampType,
-  reward_amount: z.string(),
-});
-
 const PositionEventType = z.union([
   PositionTransferEventType,
   PositionUpdateEventType,
   PositionCollectFeesEventType,
-  PositionClaimRewardsEventType,
 ]);
 
 const PositionEventsResponseType = z.object({
@@ -345,7 +336,6 @@ export class ListPositionNftEvents extends EkuboAPIRoute {
           liquidity_delta,
           delta0,
           delta1,
-          reward_amount,
         }) =>
           type === 0
             ? {
@@ -366,22 +356,14 @@ export class ListPositionNftEvents extends EkuboAPIRoute {
                   delta0,
                   delta1,
                 }
-              : type === 2
-                ? {
-                    type: "collect_fees",
-                    block_number: block_number.toString(),
-                    transaction_hash: toHex(transaction_hash),
-                    timestamp,
-                    delta0,
-                    delta1,
-                  }
-                : {
-                    type: "claim_rewards",
-                    block_number: block_number.toString(),
-                    transaction_hash: toHex(transaction_hash),
-                    timestamp,
-                    reward_amount,
-                  },
+              : {
+                  type: "collect_fees",
+                  block_number: block_number.toString(),
+                  transaction_hash: toHex(transaction_hash),
+                  timestamp,
+                  delta0,
+                  delta1,
+                },
       ),
     } satisfies z.infer<typeof PositionEventsResponseType>;
 
