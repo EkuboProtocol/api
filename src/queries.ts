@@ -2283,7 +2283,7 @@ ORDER BY pt.last_transfer_event_id DESC NULLS LAST
   }
 
   public async getVe33Pools(
-    veTokenAddress: bigint,
+    ve33Address: bigint,
     chainId: bigint,
     pagination: { page: number; pageSize: number | undefined },
   ) {
@@ -2330,20 +2330,7 @@ ORDER BY pt.last_transfer_event_id DESC NULLS LAST
     } & Pick<Ve33PoolRow, "total_count" | "total_vote_weight">;
 
     const rows = await this.sql<NullableVe33PoolRow[]>`
-WITH ve33_deployments AS (
-       SELECT DISTINCT chain_id,
-              emitter
-       FROM ve33_stake_changed
-       WHERE owner = ${veTokenAddress.toString()}
-         AND chain_id = ${chainId}
-       UNION
-       SELECT DISTINCT chain_id,
-              emitter
-       FROM ve33_pool_vote_states
-       WHERE owner = ${veTokenAddress.toString()}
-         AND chain_id = ${chainId}
-     ),
-     ve33_pools AS (
+WITH ve33_pools AS (
        SELECT pk.chain_id,
               pk.pool_key_id::TEXT AS pool_key_id,
               pk.pool_id,
@@ -2373,9 +2360,6 @@ WITH ve33_deployments AS (
               pmd.depth_percent,
               COALESCE(vps.last_event_id, 0)::TEXT AS last_event_id
        FROM pool_keys pk
-                JOIN ve33_deployments vd
-                  ON vd.chain_id = pk.chain_id
-                 AND vd.emitter = pk.pool_extension
                 LEFT JOIN ve33_pool_states vps USING (pool_key_id)
                 LEFT JOIN pool_states ps USING (pool_key_id)
                 LEFT JOIN last_24h_pool_stats_materialized l24 USING (pool_key_id)
@@ -2392,6 +2376,7 @@ WITH ve33_deployments AS (
                   LIMIT 1
                 ) AS pmd ON TRUE
        WHERE pk.chain_id = ${chainId}
+         AND pk.pool_extension = ${ve33Address.toString()}
      ),
      pool_totals AS (
        SELECT COUNT(*)::INT AS total_count,
