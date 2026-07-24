@@ -301,15 +301,15 @@ function buildListVe33PoolsResponse(
 }
 
 export class ListVe33Pools extends EkuboAPIRoute {
-  static route = "/ve33/:veTokenAddress/pools";
+  static route = "/ve33/:ve33Address/pools";
 
   static schema: OpenAPIRouteSchema = {
     tags: ["ve33"],
     summary: "List ve33 pools",
-    description: "Returns the list of ve33 pools for a veNFT contract",
+    description: "Returns the pools for a ve33 extension",
     parameters: {
-      veTokenAddress: Path(AddressType, {
-        description: "The veNFT contract address",
+      ve33Address: Path(AddressType, {
+        description: "The ve33 extension contract address",
       }),
       chainId: Query(ChainIdType, {
         required: true,
@@ -336,13 +336,13 @@ export class ListVe33Pools extends EkuboAPIRoute {
   };
 
   async handle(
-    { params: { veTokenAddress }, query }: IRequest,
+    { params: { ve33Address }, query }: IRequest,
     { env }: RequestContext,
   ) {
     const { chainId, page, pageSize } = parseListVe33PoolsFilters(query);
     const queries = await createQueries(env);
     const { rows, totalCount, totalVoteWeight } = await queries.getVe33Pools(
-      BigInt(veTokenAddress),
+      BigInt(ve33Address),
       chainId,
       {
         page,
