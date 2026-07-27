@@ -84,6 +84,7 @@ const PoolStateSummaryType = z.object({
   sqrt_ratio: DecimalStringType,
   tick: z.number().int(),
   liquidity: DecimalStringType,
+  fee: HexStringType,
 });
 
 const PositionRewardsSummaryType = z.object({
@@ -210,6 +211,7 @@ function buildListPositionsResponse(
           sqrt_ratio: row.pool_state_sqrt_ratio,
           tick: Number(row.pool_state_tick),
           liquidity: row.pool_state_liquidity,
+          fee: toHex(row.pool_state_fee),
         },
         rewards: row.rewards ?? {},
       };

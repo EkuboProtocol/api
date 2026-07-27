@@ -2019,6 +2019,7 @@ HAVING SUM(tvl0_total / POWER(10::NUMERIC, t0.token_decimals) * COALESCE(t0p.val
         pool_state_sqrt_ratio: string;
         pool_state_tick: string;
         pool_state_liquidity: string;
+        pool_state_fee: string;
         rewards: Record<
           string,
           {
@@ -2085,12 +2086,14 @@ SELECT pp.chain_id,
        ps.sqrt_ratio AS pool_state_sqrt_ratio,
        ps.tick       AS pool_state_tick,
        ps.liquidity  AS pool_state_liquidity,
+       COALESCE(vps.swap_fee, pp.fee) AS pool_state_fee,
        pr.rewards,
        pp.stableswap_center_tick,
        pp.stableswap_amplification
 FROM pp
          CROSS JOIN total_count
          LEFT JOIN pool_states ps ON pp.pool_key_id = ps.pool_key_id
+         LEFT JOIN ve33_pool_states vps ON pp.pool_key_id = vps.pool_key_id
          LEFT JOIN LATERAL (
     SELECT JSONB_OBJECT_AGG(
                    c.slug,
