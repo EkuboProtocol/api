@@ -825,6 +825,7 @@ FROM token_mint AS mint
     is_oracle: boolean;
     is_mev_capture: boolean;
     is_boosted_fees: boolean;
+    is_ve33: boolean;
   } | null> {
     const tickSpacingCondition =
       tickSpacing === null
@@ -837,6 +838,7 @@ FROM token_mint AS mint
         is_oracle: boolean;
         is_mev_capture: boolean;
         is_boosted_fees: boolean;
+        is_ve33: boolean;
       }[]
     >`
       SELECT
@@ -859,7 +861,12 @@ FROM token_mint AS mint
           SELECT 1
           FROM boosted_fees_donated
           WHERE pool_key_id = pk.pool_key_id
-        ) AS is_boosted_fees
+        ) AS is_boosted_fees,
+        EXISTS (
+          SELECT 1
+          FROM ve33_pool_states
+          WHERE pool_key_id = pk.pool_key_id
+        ) AS is_ve33
       FROM pool_keys pk
       WHERE pk.chain_id = ${chainId}
         AND pk.token0 = ${token0.toString()}

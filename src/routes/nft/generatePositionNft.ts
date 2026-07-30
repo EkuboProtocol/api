@@ -47,9 +47,17 @@ export async function generatePositionNft(
     extension: extensionValue,
   });
 
-  let poolType: "dca" | "oracle" | "mev_capture" | "boosted_fees" | undefined;
+  let poolType:
+    | "dca"
+    | "oracle"
+    | "mev_capture"
+    | "boosted_fees"
+    | "ve33"
+    | undefined;
 
-  if (poolClassification?.is_twamm) {
+  if (poolClassification?.is_ve33) {
+    poolType = "ve33";
+  } else if (poolClassification?.is_twamm) {
     poolType = "dca";
   } else if (poolClassification?.is_oracle) {
     poolType = "oracle";
