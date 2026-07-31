@@ -26,6 +26,7 @@ import {
   BatchListPositionsByAddress,
   GetPositionNftImage,
   GetPositionNftMetadata,
+  ListPositionEvents,
   ListPositionNftEvents,
   ListPositionsByAddress,
 } from "./routes/nft/positions";
@@ -102,6 +103,7 @@ router.get(GetPoolTopPositions.route, GetPoolTopPositions);
 router.get(ListPairEvents.route, ListPairEvents);
 router.get(BatchListPositionsByAddress.route, BatchListPositionsByAddress);
 router.get(ListPositionsByAddress.route, ListPositionsByAddress);
+router.get(ListPositionEvents.route, ListPositionEvents);
 router.get(ListPositionNftEvents.route, ListPositionNftEvents);
 router.get(GetPositionNftMetadata.route, GetPositionNftMetadata);
 router.get(GetOrderNftImage.route, GetOrderNftImage);
