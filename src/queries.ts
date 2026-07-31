@@ -25,6 +25,80 @@ export interface PositionMetadata {
   stableswap_amplification: string | null;
 }
 
+type PositionEventBaseRow = {
+  event_id: bigint;
+  block_number: bigint;
+  transaction_index: number;
+  event_index: number;
+  transaction_hash: string;
+  timestamp: Date;
+  position_id: string;
+  nft_address: string;
+  positions_address: string;
+};
+
+type PositionEventPoolRow = {
+  core_address: string;
+  pool_id: string;
+  token0: string;
+  token1: string;
+  fee: string;
+  fee_denominator: string;
+  tick_spacing: number | null;
+  pool_extension: string;
+  stableswap_center_tick: number | null;
+  stableswap_amplification: number | null;
+  lower_bound: number;
+  upper_bound: number;
+};
+
+type PositionLifecycleEventRow<T extends 0 | 1 | 2> = PositionEventBaseRow & {
+  type: T;
+  token_id: string;
+  from_address: string;
+  to_address: string;
+  core_address: null;
+  pool_id: null;
+  token0: null;
+  token1: null;
+  fee: null;
+  fee_denominator: null;
+  tick_spacing: null;
+  pool_extension: null;
+  stableswap_center_tick: null;
+  stableswap_amplification: null;
+  lower_bound: null;
+  upper_bound: null;
+  liquidity_delta: null;
+  delta0: null;
+  delta1: null;
+};
+
+export type PositionEventRow =
+  | PositionLifecycleEventRow<0>
+  | PositionLifecycleEventRow<1>
+  | PositionLifecycleEventRow<2>
+  | (PositionEventBaseRow &
+      PositionEventPoolRow & {
+        type: 3;
+        token_id: null;
+        from_address: null;
+        to_address: null;
+        liquidity_delta: string;
+        delta0: string;
+        delta1: string;
+      })
+  | (PositionEventBaseRow &
+      PositionEventPoolRow & {
+        type: 4;
+        token_id: null;
+        from_address: null;
+        to_address: null;
+        liquidity_delta: null;
+        delta0: string;
+        delta1: string;
+      });
+
 export interface TwammOrderMetadata {
   minted_tx_hash: string;
   minted_timestamp: Date;
@@ -635,6 +709,191 @@ FROM token_mint AS mint
       ORDER BY timestamp DESC
     `;
     return rows;
+  }
+
+  public async listPositionEvents({
+    chainId,
+    minEventIdExclusive,
+    maxEventIdInclusive,
+    limit,
+  }: {
+    chainId: bigint;
+    minEventIdExclusive: bigint;
+    maxEventIdInclusive: bigint;
+    limit: number;
+  }) {
+    return this.sql<PositionEventRow[]>`
+      WITH transfers AS (
+        SELECT CASE
+                 WHEN nft.from_address = 0 THEN 0
+                 WHEN nft.to_address = 0 THEN 2
+                 ELSE 1
+               END AS type,
+               nft.chain_id,
+               nft.event_id,
+               nft.block_number,
+               nft.transaction_index,
+               nft.event_index,
+               nft.transaction_hash,
+               nft_token_salt(nlm.token_id_transform, nft.token_id) AS position_id,
+               nft.emitter AS nft_address,
+               COALESCE(nlm.locker, nft.emitter) AS positions_address,
+               nft.token_id,
+               nft.from_address,
+               nft.to_address,
+               NULL::BIGINT AS pool_key_id,
+               NULL::INT AS lower_bound,
+               NULL::INT AS upper_bound,
+               NULL::NUMERIC AS liquidity_delta,
+               NULL::NUMERIC AS delta0,
+               NULL::NUMERIC AS delta1
+        FROM nonfungible_token_transfers AS nft
+                 LEFT JOIN nft_locker_mappings AS nlm
+                           ON nlm.chain_id = nft.chain_id
+                             AND nlm.nft_address = nft.emitter
+        WHERE nft.chain_id = ${chainId}
+          AND nft.event_id > ${minEventIdExclusive}
+          AND nft.event_id <= ${maxEventIdInclusive}
+          AND (
+            nlm.nft_address IS NOT NULL
+            -- Legacy Positions contracts emit their own NFTs and need no mapping.
+            OR EXISTS (
+              SELECT 1
+              FROM position_updates AS direct_position
+              WHERE direct_position.chain_id = nft.chain_id
+                AND direct_position.locker = nft.emitter
+                AND direct_position.salt = nft.token_id
+            )
+          )
+        ORDER BY nft.event_id
+        LIMIT ${limit}
+      ),
+      updates AS (
+        SELECT 3 AS type,
+               pu.chain_id,
+               pu.event_id,
+               pu.block_number,
+               pu.transaction_index,
+               pu.event_index,
+               pu.transaction_hash,
+               pu.salt AS position_id,
+               COALESCE(nlm.nft_address, pu.locker) AS nft_address,
+               pu.locker AS positions_address,
+               NULL::NUMERIC AS token_id,
+               NULL::NUMERIC AS from_address,
+               NULL::NUMERIC AS to_address,
+               pu.pool_key_id,
+               pu.lower_bound,
+               pu.upper_bound,
+               pu.liquidity_delta,
+               pu.delta0,
+               pu.delta1
+        FROM position_updates AS pu
+                 LEFT JOIN nft_locker_mappings AS nlm
+                           ON nlm.chain_id = pu.chain_id
+                             AND nlm.locker = pu.locker
+        WHERE pu.chain_id = ${chainId}
+          AND pu.event_id > ${minEventIdExclusive}
+          AND pu.event_id <= ${maxEventIdInclusive}
+          AND (
+            nlm.locker IS NOT NULL
+            OR EXISTS (
+              SELECT 1
+              FROM nonfungible_token_transfers AS direct_mint
+              WHERE direct_mint.chain_id = pu.chain_id
+                AND direct_mint.emitter = pu.locker
+                AND direct_mint.token_id = pu.salt
+                AND direct_mint.from_address = 0
+            )
+          )
+        ORDER BY pu.event_id
+        LIMIT ${limit}
+      ),
+      fee_collections AS (
+        SELECT 4 AS type,
+               pfc.chain_id,
+               pfc.event_id,
+               pfc.block_number,
+               pfc.transaction_index,
+               pfc.event_index,
+               pfc.transaction_hash,
+               pfc.salt AS position_id,
+               COALESCE(nlm.nft_address, pfc.locker) AS nft_address,
+               pfc.locker AS positions_address,
+               NULL::NUMERIC AS token_id,
+               NULL::NUMERIC AS from_address,
+               NULL::NUMERIC AS to_address,
+               pfc.pool_key_id,
+               pfc.lower_bound,
+               pfc.upper_bound,
+               NULL::NUMERIC AS liquidity_delta,
+               pfc.delta0,
+               pfc.delta1
+        FROM position_fees_collected AS pfc
+                 LEFT JOIN nft_locker_mappings AS nlm
+                           ON nlm.chain_id = pfc.chain_id
+                             AND nlm.locker = pfc.locker
+        WHERE pfc.chain_id = ${chainId}
+          AND pfc.event_id > ${minEventIdExclusive}
+          AND pfc.event_id <= ${maxEventIdInclusive}
+          AND (
+            nlm.locker IS NOT NULL
+            OR EXISTS (
+              SELECT 1
+              FROM nonfungible_token_transfers AS direct_mint
+              WHERE direct_mint.chain_id = pfc.chain_id
+                AND direct_mint.emitter = pfc.locker
+                AND direct_mint.token_id = pfc.salt
+                AND direct_mint.from_address = 0
+            )
+          )
+        ORDER BY pfc.event_id
+        LIMIT ${limit}
+      ),
+      page AS (
+        -- No source can contribute a row after its first limited rows to the
+        -- limited prefix of the globally ordered result.
+        SELECT * FROM transfers
+        UNION ALL
+        SELECT * FROM updates
+        UNION ALL
+        SELECT * FROM fee_collections
+        ORDER BY event_id
+        LIMIT ${limit}
+      )
+      SELECT page.type,
+             page.event_id,
+             page.block_number,
+             page.transaction_index,
+             page.event_index,
+             page.transaction_hash,
+             blocks.block_time AS timestamp,
+             page.position_id,
+             page.nft_address,
+             page.positions_address,
+             page.token_id,
+             page.from_address,
+             page.to_address,
+             pool_keys.core_address,
+             pool_keys.pool_id,
+             pool_keys.token0,
+             pool_keys.token1,
+             pool_keys.fee,
+             pool_keys.fee_denominator,
+             pool_keys.tick_spacing,
+             pool_keys.pool_extension,
+             pool_keys.stableswap_center_tick,
+             pool_keys.stableswap_amplification,
+             page.lower_bound,
+             page.upper_bound,
+             page.liquidity_delta,
+             page.delta0,
+             page.delta1
+      FROM page
+               JOIN blocks USING (chain_id, block_number)
+               LEFT JOIN pool_keys USING (pool_key_id)
+      ORDER BY page.event_id
+    `;
   }
 
   public async getPairLiquidityGraph({

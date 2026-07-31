@@ -22,14 +22,14 @@ describe("Chanfana router integration", () => {
       ),
     );
 
-    expect(Object.keys(schema.paths)).toHaveLength(51);
-    expect(operations).toHaveLength(51);
+    expect(Object.keys(schema.paths)).toHaveLength(52);
+    expect(operations).toHaveLength(52);
     expect(
       operations.reduce(
         (count, operation) => count + (operation.parameters?.length ?? 0),
         0,
       ),
-    ).toBe(162);
+    ).toBe(167);
 
     const getToken = operations.find(
       (operation) =>
@@ -61,6 +61,13 @@ describe("Chanfana router integration", () => {
       ],
       result: {},
     });
+
+    const positionEventsResponse = await router.fetch(
+      new Request("http://localhost/positions/1/events?limit=0"),
+      context,
+    );
+
+    expect(positionEventsResponse.status).toBe(400);
   });
 
   test("continues to serve ordinary and fallback routes", async () => {
@@ -76,5 +83,22 @@ describe("Chanfana router integration", () => {
       context,
     );
     expect(missingResponse.status).toBe(404);
+  });
+
+  test("serves an empty terminal position event page without a database", async () => {
+    const response = await router.fetch(
+      new Request(
+        "http://localhost/positions/1/events?cursor=9223372036854775807",
+      ),
+      context,
+    );
+
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({
+      chain_id: "1",
+      events: [],
+      next_cursor: "9223372036854775807",
+      has_more: false,
+    });
   });
 });
