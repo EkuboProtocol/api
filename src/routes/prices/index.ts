@@ -8,11 +8,7 @@ import {
   TokenIdentifierType,
 } from "../../shared/validation/address";
 import { createQueries } from "../../queries";
-import {
-  OpenAPIRouteSchema,
-  Path,
-  Query,
-} from "@cloudflare/itty-router-openapi";
+import { OpenAPIRouteSchema, Path, Query } from "../../shared/openapi";
 import { z } from "zod";
 import { ETH_TOKEN_ADDRESS_VALUE } from "../../shared/constants";
 import toHex from "../../shared/toHex";
@@ -80,7 +76,7 @@ export class GetPairPriceHistory extends EkuboAPIRoute {
     },
   };
 
-  async handle({ params, query }: IRequest, { env }: RequestContext) {
+  async handleRequest({ params, query }: IRequest, { env }: RequestContext) {
     const chainId = BigInt(params.chainId);
     const queries = await createQueries(env);
 
@@ -248,7 +244,7 @@ export class GetPoolPriceHistory extends EkuboAPIRoute {
     },
   };
 
-  async handle({ params, query }: IRequest, { env }: RequestContext) {
+  async handleRequest({ params, query }: IRequest, { env }: RequestContext) {
     const chainId = BigInt(params.chainId);
     const coreAddress = BigInt(params.coreAddress);
     const poolId = BigInt(params.poolId);

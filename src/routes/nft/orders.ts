@@ -1,5 +1,5 @@
 import { EkuboAPIRoute, RequestContext } from "../../shared/context";
-import { OpenAPIRouteSchema, Path } from "@cloudflare/itty-router-openapi";
+import { OpenAPIRouteSchema, Path } from "../../shared/openapi";
 import { IRequest, json, StatusError } from "itty-router";
 import { createQueries } from "../../queries";
 import { NFTMetadata, NFTMetadataSchema, TokenIdType } from "./format";
@@ -31,7 +31,7 @@ export class GetOrderNftMetadata extends EkuboAPIRoute {
     },
   };
 
-  async handle(
+  async handleRequest(
     { url, params: { id: idStr, chainId: chainIdParam, nftAddress } }: IRequest,
     { env }: RequestContext,
   ) {
@@ -88,7 +88,7 @@ export class GetOrderNftImage extends EkuboAPIRoute {
     },
   };
 
-  async handle(
+  async handleRequest(
     { params: { id: idStr, chainId: chainIdParam, nftAddress } }: IRequest,
     { env }: RequestContext,
   ) {

@@ -1,10 +1,6 @@
 import { z } from "zod";
 import { EkuboAPIRoute, RequestContext } from "../../shared/context";
-import {
-  OpenAPIRouteSchema,
-  Path,
-  Query,
-} from "@cloudflare/itty-router-openapi";
+import { OpenAPIRouteSchema, Path, Query } from "../../shared/openapi";
 import { IRequest, json } from "itty-router";
 import { createQueries } from "../../queries";
 import {
@@ -51,13 +47,11 @@ export const ClaimEntryType = z
   .required({ campaign: true, key: true, claim: true, proof: true });
 
 export const ListClaimsResponseType = z
-  .object(
-    {
-      claims: z.array(ClaimEntryType),
-    },
-    { description: "The list of claims for the given address" },
-  )
-  .required({ claims: true });
+  .object({
+    claims: z.array(ClaimEntryType),
+  })
+  .required({ claims: true })
+  .describe("The list of claims for the given address");
 
 export class ListClaimsForAddress extends EkuboAPIRoute {
   public static route = "/claims/:address";
@@ -80,7 +74,7 @@ export class ListClaimsForAddress extends EkuboAPIRoute {
     },
   };
 
-  public async handle(request: IRequest, { env }: RequestContext) {
+  public async handleRequest(request: IRequest, { env }: RequestContext) {
     const chainId =
       typeof request.query.chainId === "string"
         ? BigInt(request.query.chainId)

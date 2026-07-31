@@ -1,17 +1,17 @@
-import "@cloudflare/itty-router-openapi";
+import "chanfana";
 import { z } from "zod";
 
 const HEX_STRING_REGEX = /^0x[a-fA-F0-9]+$/;
 const DECIMAL_STRING_REGEX = /^\d+e?\d*$/;
 
 export const DecimalStringType = z
-  .string({ description: "A decimal number" })
+  .string()
+  .describe("A decimal number")
   .regex(DECIMAL_STRING_REGEX);
 
 export const HexStringType = z
-  .string({
-    description: "A hexadecimal number",
-  })
+  .string()
+  .describe("A hexadecimal number")
   .regex(HEX_STRING_REGEX);
 
 export const NumericStringType = HexStringType.or(DecimalStringType).openapi({
@@ -33,9 +33,17 @@ export const ChainIdType = z.coerce
   .openapi({
     title: "Chain ID",
     description: "The ID of the network that is being fetched",
+    type: "integer",
+    format: "int64",
+    minimum: 1,
+    maximum: Number(1n << 63n),
   });
 
-export const VisibilityPriorityType = z.coerce.number().int().min(-100).max(100)
+export const VisibilityPriorityType = z.coerce
+  .number()
+  .int()
+  .min(-100)
+  .max(100)
   .openapi({
     title: "Visibility Priority",
     description: "Token visibility priority threshold",

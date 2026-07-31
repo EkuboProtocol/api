@@ -1,9 +1,5 @@
 import { EkuboAPIRoute, RequestContext } from "../../shared/context";
-import {
-  OpenAPIRouteSchema,
-  Path,
-  Query,
-} from "@cloudflare/itty-router-openapi";
+import { OpenAPIRouteSchema, Path, Query } from "../../shared/openapi";
 import {
   AddressType,
   ChainIdType,
@@ -109,7 +105,7 @@ export class ListLimitOrders extends EkuboAPIRoute {
     },
   };
 
-  async handle({ params, query }: IRequest, { env }: RequestContext) {
+  async handleRequest({ params, query }: IRequest, { env }: RequestContext) {
     const address = BigInt(params.address);
     const stateParam =
       typeof query?.state === "string" ? query.state.toLowerCase() : null;

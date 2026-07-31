@@ -1,8 +1,4 @@
-import {
-  OpenAPIRouteSchema,
-  Path,
-  Query,
-} from "@cloudflare/itty-router-openapi";
+import { OpenAPIRouteSchema, Path, Query } from "../../shared/openapi";
 import { IRequest, json, StatusError } from "itty-router";
 import { z } from "zod";
 import { EkuboAPIRoute, RequestContext } from "../../shared/context";
@@ -18,40 +14,28 @@ import toHex from "../../shared/toHex";
 export const TokenType = z
   .object({
     chain_id: z.string(),
-    name: z
-      .string({
-        description: "Name of the token",
-      })
-      .min(1)
-      .max(100),
-    symbol: z
-      .string({
-        description: "Symbol for the token",
-      })
-      .min(1)
-      .max(32),
+    name: z.string().describe("Name of the token").min(1).max(100),
+    symbol: z.string().describe("Symbol for the token").min(1).max(32),
     decimals: z
-      .number({
-        description:
-          "The number of decimals used for display of token balances",
-      })
+      .number()
+      .describe("The number of decimals used for display of token balances")
       .min(0)
       .max(78)
       .int(),
-    address: z.string({
-      description: "The address of the token for the specified chain",
-    }),
+    address: z
+      .string()
+      .describe("The address of the token for the specified chain"),
     visibility_priority: z
-      .number({
-        description:
-          "How much this token should be surfaced relative to other tokens (higher is better)",
-      })
+      .number()
+      .describe(
+        "How much this token should be surfaced relative to other tokens (higher is better)",
+      )
       .int(),
     sort_order: z
-      .number({
-        description:
-          "How much the token should prefer to be the numerator when displayed in prices (higher is more numerator-like)",
-      })
+      .number()
+      .describe(
+        "How much the token should prefer to be the numerator when displayed in prices (higher is more numerator-like)",
+      )
       .int(),
     total_supply: z.nullable(
       z
@@ -62,21 +46,17 @@ export const TokenType = z
         .int()
         .gte(0),
     ),
-    logo_url: z.optional(z.string().url()),
+    logo_url: z.optional(z.url()),
     usd_price: z.nullable(
-      z
-        .number({
-          description: "The USD price for one unit of the token",
-        })
-        .gte(0),
+      z.number().describe("The USD price for one unit of the token").gte(0),
     ),
     bridgeInfos: z.nullable(
       z.record(
-        z.string({ description: "Destination chain ID" }),
+        z.string().describe("Destination chain ID"),
         z.object({
-          bridge_address: z.string({
-            description: "Token address for the destination chain",
-          }),
+          bridge_address: z
+            .string()
+            .describe("Token address for the destination chain"),
         }),
       ),
     ),
@@ -217,10 +197,10 @@ const TokenIdListRequestSchema = z
     ids: z
       .array(
         z
-          .string({
-            description:
-              "Token identifier formatted as chain_id:token_address where chain_id may be decimal or 0x-prefixed hexadecimal",
-          })
+          .string()
+          .describe(
+            "Token identifier formatted as chain_id:token_address where chain_id may be decimal or 0x-prefixed hexadecimal",
+          )
           .regex(TOKEN_ID_PARAM_REGEX, {
             message:
               "Token identifiers must use chain_id:token_address with a decimal or 0x-prefixed chain ID and 0x-prefixed token address",
@@ -248,10 +228,9 @@ export class ListTokens extends EkuboAPIRoute {
     description: "Get a list of tokens for the given chain ID",
     parameters: {
       chainId: Query(ChainIdType, { required: false }),
-      search: Query(
-        z.string({ description: "Token symbol search" }).min(1).max(32),
-        { required: false },
-      ),
+      search: Query(z.string().describe("Token symbol search").min(1).max(32), {
+        required: false,
+      }),
       pageSize: Query(z.coerce.number().int().min(1).max(10_000), {
         default: 1000,
       }),
@@ -273,7 +252,7 @@ export class ListTokens extends EkuboAPIRoute {
     },
   };
 
-  async handle({ query }: IRequest, { env }: RequestContext) {
+  async handleRequest({ query }: IRequest, { env }: RequestContext) {
     const chainId = ChainIdType.optional().parse(query.chainId);
     const minVisibilityPriority = VisibilityPriorityType.parse(
       query.minVisibilityPriority ?? 0,
@@ -335,10 +314,10 @@ export class BatchGetTokens extends EkuboAPIRoute {
       id: Query(
         [
           z
-            .string({
-              description:
-                "Token identifier formatted as chain_id:token_address where chain_id may be decimal or 0x-prefixed hexadecimal",
-            })
+            .string()
+            .describe(
+              "Token identifier formatted as chain_id:token_address where chain_id may be decimal or 0x-prefixed hexadecimal",
+            )
             .regex(TOKEN_ID_PARAM_REGEX, {
               message:
                 "Token identifiers must use chain_id:token_address with a decimal or 0x-prefixed chain ID and 0x-prefixed token address",
@@ -360,7 +339,7 @@ export class BatchGetTokens extends EkuboAPIRoute {
     },
   };
 
-  async handle({ query }: IRequest, { env }: RequestContext) {
+  async handleRequest({ query }: IRequest, { env }: RequestContext) {
     const ids = getQueryParamAsArray(query.id);
 
     if (!ids || ids.length === 0) {
@@ -430,7 +409,7 @@ export class GetToken extends EkuboAPIRoute {
     },
   };
 
-  async handle(request: IRequest, { env }: RequestContext) {
+  async handleRequest(request: IRequest, { env }: RequestContext) {
     const chainId = BigInt(request.params.chainId);
     const tokenAddress = request.params.tokenAddress;
     const queries = await createQueries(env);

@@ -1,21 +1,14 @@
 import { z } from "zod";
 
 export const ErrorResponseType = z
-  .object({
-    status: z
-      .number({
-        description: "HTTP status code for the error",
-      })
-      .int(),
-    error: z.string({
-      description: "Human-readable description of the error",
-    }),
+  .looseObject({
+    status: z.number().describe("HTTP status code for the error").int(),
+    error: z.string().describe("Human-readable description of the error"),
   })
   .required({
     status: true,
     error: true,
   })
-  .passthrough()
   .openapi({
     description: "Standard error response payload",
     example: {

@@ -3,7 +3,7 @@ import { generateDcaOrderNft } from "./generateDcaOrderNft";
 import { generateLimitOrderNft } from "./generateLimitOrderNft";
 import { generatePositionNft } from "./generatePositionNft";
 import { EkuboAPIRoute, RequestContext } from "../../shared/context";
-import { OpenAPIRouteSchema, Path } from "@cloudflare/itty-router-openapi";
+import { OpenAPIRouteSchema, Path } from "../../shared/openapi";
 import { NFTMetadata, TokenIdType } from "./format";
 import { createQueries } from "../../queries";
 import { generatePositionNftMetadata } from "../../shared/metadatas/positions";
@@ -38,7 +38,7 @@ export class GetNftMetadata extends EkuboAPIRoute {
     },
   };
 
-  async handle(
+  async handleRequest(
     { url, params: { id: idStr, chainId: chainIdParam, nftAddress } }: IRequest,
     { env }: RequestContext,
   ) {
@@ -116,7 +116,7 @@ export class GetNftImage extends EkuboAPIRoute {
     },
   };
 
-  async handle(
+  async handleRequest(
     { params: { id: idStr, chainId: chainIdParam, nftAddress } }: IRequest,
     { env }: RequestContext,
   ) {

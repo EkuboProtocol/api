@@ -1,8 +1,4 @@
-import {
-  OpenAPIRouteSchema,
-  Path,
-  Query,
-} from "@cloudflare/itty-router-openapi";
+import { OpenAPIRouteSchema, Path, Query } from "../../shared/openapi";
 import { IRequest, json } from "itty-router";
 import { z } from "zod";
 import { createQueries } from "../../queries";
@@ -335,7 +331,7 @@ export class ListVe33Pools extends EkuboAPIRoute {
     },
   };
 
-  async handle(
+  async handleRequest(
     { params: { ve33Address }, query }: IRequest,
     { env }: RequestContext,
   ) {
@@ -404,7 +400,7 @@ export class ListVe33TokensByAddress extends EkuboAPIRoute {
     },
   };
 
-  async handle(
+  async handleRequest(
     { params: { address: addressStr, veTokenAddress }, query }: IRequest,
     { env }: RequestContext,
   ) {
