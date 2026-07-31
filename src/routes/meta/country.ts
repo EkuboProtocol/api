@@ -1,4 +1,4 @@
-import { OpenAPIRouteSchema } from "@cloudflare/itty-router-openapi";
+import { OpenAPIRouteSchema } from "../../shared/openapi";
 import { IRequest, json } from "itty-router";
 import { z } from "zod";
 import { EkuboAPIRoute } from "../../shared/context";
@@ -24,7 +24,7 @@ export class GetCountry extends EkuboAPIRoute {
     },
   };
 
-  public handle(request: IRequest) {
+  public handleRequest(request: IRequest) {
     const country =
       typeof request.cf?.country === "string" ? request.cf.country : null;
 

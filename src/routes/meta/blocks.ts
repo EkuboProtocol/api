@@ -1,10 +1,6 @@
 import { IRequest, json, StatusError } from "itty-router";
 import { EkuboAPIRoute, RequestContext } from "../../shared/context";
-import {
-  OpenAPIRouteSchema,
-  Path,
-  Query,
-} from "@cloudflare/itty-router-openapi";
+import { OpenAPIRouteSchema, Path, Query } from "../../shared/openapi";
 import { z } from "zod";
 import { createQueries } from "../../queries";
 import { ChainIdType } from "../../shared/validation/address";
@@ -40,7 +36,7 @@ export class GetBlock extends EkuboAPIRoute {
     },
   };
 
-  public async handle(request: IRequest, { env }: RequestContext) {
+  public async handleRequest(request: IRequest, { env }: RequestContext) {
     const chainId = BigInt(request.params.chainId);
     const queries = await createQueries(env);
 
@@ -81,7 +77,7 @@ export class GetClosestBlock extends EkuboAPIRoute {
       "Returns the block whose timestamp is nearest to the provided timestamp",
     parameters: {
       chainId: Path(ChainIdType, { required: true }),
-      timestamp: Query(z.string().datetime({ precision: 0 }), {
+      timestamp: Query(z.iso.datetime({ precision: 0 }), {
         required: true,
         example: "2025-11-10T00:00:00Z",
         description:
@@ -96,7 +92,7 @@ export class GetClosestBlock extends EkuboAPIRoute {
     },
   };
 
-  public async handle(request: IRequest, { env }: RequestContext) {
+  public async handleRequest(request: IRequest, { env }: RequestContext) {
     const chainId = BigInt(request.params.chainId);
     const queries = await createQueries(env);
 

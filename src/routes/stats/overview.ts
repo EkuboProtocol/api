@@ -1,7 +1,7 @@
 import { IRequest, json } from "itty-router";
 import { EkuboAPIRoute, RequestContext } from "../../shared/context";
 import { createQueries } from "../../queries";
-import { OpenAPIRouteSchema, Query } from "@cloudflare/itty-router-openapi";
+import { OpenAPIRouteSchema, Query } from "../../shared/openapi";
 import { ChainIdType, HexStringType } from "../../shared/validation/address";
 import { z } from "zod";
 import toHex from "../../shared/toHex";
@@ -185,7 +185,7 @@ export class GetOverviewPairs extends EkuboAPIRoute {
     },
   };
 
-  async handle(request: IRequest, { env }: RequestContext) {
+  async handleRequest(request: IRequest, { env }: RequestContext) {
     const chainIdParam = request.query?.chainId;
     const chainId =
       chainIdParam !== undefined ? ChainIdType.parse(chainIdParam) : null;
@@ -229,7 +229,7 @@ export class GetOverviewBoostedFeesPools extends EkuboAPIRoute {
     },
   };
 
-  async handle(request: IRequest, { env }: RequestContext) {
+  async handleRequest(request: IRequest, { env }: RequestContext) {
     const chainIdParam = request.query?.chainId;
     const chainId =
       chainIdParam !== undefined ? ChainIdType.parse(chainIdParam) : null;
@@ -311,7 +311,7 @@ export class GetOverviewRevenue extends EkuboAPIRoute {
     },
   };
 
-  async handle(request: IRequest, { env }: RequestContext) {
+  async handleRequest(request: IRequest, { env }: RequestContext) {
     const timestamp = Date.now();
     const twentyFourHoursAgo = new Date(timestamp - 1000 * 60 * 60 * 24);
     const thirtyDaysAgo = new Date(timestamp - 1000 * 60 * 60 * 24 * 30);
@@ -365,7 +365,7 @@ export class GetOverviewVolume extends EkuboAPIRoute {
     },
   };
 
-  async handle(request: IRequest, { env }: RequestContext) {
+  async handleRequest(request: IRequest, { env }: RequestContext) {
     const timestamp = Date.now();
     const twentyFourHoursAgo = new Date(timestamp - 1000 * 60 * 60 * 24);
     const thirtyDaysAgo = new Date(timestamp - 1000 * 60 * 60 * 24 * 30);
@@ -426,7 +426,7 @@ export class GetOverviewTvl extends EkuboAPIRoute {
     },
   };
 
-  async handle(request: IRequest, { env }: RequestContext) {
+  async handleRequest(request: IRequest, { env }: RequestContext) {
     const timestamp = Date.now();
     const thirtyDaysAgo = new Date(timestamp - 1000 * 60 * 60 * 24 * 30);
 

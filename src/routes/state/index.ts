@@ -1,4 +1,4 @@
-import { OpenAPIRouteSchema, Path } from "@cloudflare/itty-router-openapi";
+import { OpenAPIRouteSchema, Path } from "../../shared/openapi";
 import { IRequest, json, StatusError } from "itty-router";
 import { EkuboAPIRoute, RequestContext } from "../../shared/context";
 import { createQueries } from "../../queries";
@@ -56,7 +56,7 @@ export class GetPoolLiquidity extends EkuboAPIRoute {
     },
   };
 
-  async handle(
+  async handleRequest(
     { params: { chainId, coreAddress, poolId } }: IRequest,
     { env }: RequestContext,
   ) {
@@ -100,7 +100,7 @@ export class GetPoolKey extends EkuboAPIRoute {
     },
   };
 
-  async handle(
+  async handleRequest(
     { params: { chainId, coreAddress, poolId } }: IRequest,
     { env }: RequestContext,
   ) {

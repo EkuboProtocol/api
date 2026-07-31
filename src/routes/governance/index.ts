@@ -1,9 +1,5 @@
 import { EkuboAPIRoute, RequestContext } from "../../shared/context";
-import {
-  OpenAPIRouteSchema,
-  Path,
-  Query,
-} from "@cloudflare/itty-router-openapi";
+import { OpenAPIRouteSchema, Path, Query } from "../../shared/openapi";
 import {
   AddressType,
   DecimalStringType,
@@ -67,7 +63,7 @@ export class ListProposals extends EkuboAPIRoute {
     },
   };
 
-  async handle(
+  async handleRequest(
     { params: { chainId: chainIdParam } }: IRequest,
     { env }: RequestContext,
   ) {
@@ -147,7 +143,7 @@ export class ListVotesOnProposal extends EkuboAPIRoute {
     },
   };
 
-  async handle(
+  async handleRequest(
     { params: { chainId, proposalId } }: IRequest,
     { env }: RequestContext,
   ) {
@@ -228,7 +224,7 @@ export class ListProposalVoters extends EkuboAPIRoute {
     },
   };
 
-  async handle(
+  async handleRequest(
     { params: { chainId, proposalId } }: IRequest,
     { env }: RequestContext,
   ) {
@@ -310,7 +306,7 @@ export class ListTopDelegates extends EkuboAPIRoute {
     },
   };
 
-  async handle(
+  async handleRequest(
     { query, params: { chainId } }: IRequest,
     { env }: RequestContext,
   ) {
@@ -377,7 +373,7 @@ export class GetStakerInfo extends EkuboAPIRoute {
     },
   };
 
-  async handle({ params }: IRequest, { env }: RequestContext) {
+  async handleRequest({ params }: IRequest, { env }: RequestContext) {
     const queries = await createQueries(env);
 
     const address = BigInt(params.address);

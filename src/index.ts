@@ -87,7 +87,7 @@ export default {
     let response: Response;
     try {
       response = json(
-        await router.handle(request, { env } satisfies RequestContext),
+        await router.fetch(request, { env } satisfies RequestContext),
       );
     } catch (e) {
       if (e instanceof StatusError) {

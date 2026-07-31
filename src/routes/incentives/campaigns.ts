@@ -1,6 +1,6 @@
 import { IRequest, json } from "itty-router";
 import { EkuboAPIRoute, RequestContext } from "../../shared/context";
-import { OpenAPIRouteSchema, Query } from "@cloudflare/itty-router-openapi";
+import { OpenAPIRouteSchema, Query } from "../../shared/openapi";
 import { z } from "zod";
 import { createQueries } from "../../queries";
 import toHex from "../../shared/toHex";
@@ -65,13 +65,11 @@ export const CampaignType = z
   });
 
 export const ListCampaignsResponseType = z
-  .object(
-    {
-      campaigns: z.array(CampaignType),
-    },
-    { description: "Response for list campaigns endpoint" },
-  )
-  .required({ campaigns: true });
+  .object({
+    campaigns: z.array(CampaignType),
+  })
+  .required({ campaigns: true })
+  .describe("Response for list campaigns endpoint");
 
 type Campaign = z.infer<typeof CampaignType>;
 
@@ -95,7 +93,7 @@ export class ListCampaigns extends EkuboAPIRoute {
     },
   };
 
-  public async handle(request: IRequest, { env }: RequestContext) {
+  public async handleRequest(request: IRequest, { env }: RequestContext) {
     const chainId =
       typeof request.query.chainId === "string"
         ? BigInt(request.query.chainId)

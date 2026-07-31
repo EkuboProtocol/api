@@ -7,11 +7,7 @@ import {
   NumericStringType,
   TokenIdentifierType,
 } from "../../shared/validation/address";
-import {
-  OpenAPIRouteSchema,
-  Path,
-  Query,
-} from "@cloudflare/itty-router-openapi";
+import { OpenAPIRouteSchema, Path, Query } from "../../shared/openapi";
 import { createQueries } from "../../queries";
 import { parseOutTokens } from "../../shared/parseOutTokens";
 import { z } from "zod";
@@ -291,7 +287,7 @@ export class GetPairInfoTvl extends EkuboAPIRoute {
     },
   };
 
-  async handle(request: IRequest, { env }: RequestContext) {
+  async handleRequest(request: IRequest, { env }: RequestContext) {
     const chainId = BigInt(request.params.chainId);
     const { queries, pair } = await parseOutTokens(
       env,
@@ -357,7 +353,7 @@ export class GetPairInfoVolume extends EkuboAPIRoute {
     },
   };
 
-  async handle(request: IRequest, { env }: RequestContext) {
+  async handleRequest(request: IRequest, { env }: RequestContext) {
     const chainId = BigInt(request.params.chainId);
     const { queries, pair } = await parseOutTokens(
       env,
@@ -434,7 +430,7 @@ export class GetPairInfoPools extends EkuboAPIRoute {
     },
   };
 
-  async handle(request: IRequest, { env }: RequestContext) {
+  async handleRequest(request: IRequest, { env }: RequestContext) {
     const chainId = BigInt(request.params.chainId);
     const { queries, pair } = await parseOutTokens(
       env,
@@ -516,7 +512,7 @@ export class GetPairLiquidity extends EkuboAPIRoute {
     },
   };
 
-  async handle(request: IRequest, { env }: RequestContext) {
+  async handleRequest(request: IRequest, { env }: RequestContext) {
     const chainId = BigInt(request.params.chainId);
     const { queries, pair } = await parseOutTokens(
       env,
@@ -561,7 +557,7 @@ export class ListPairEvents extends EkuboAPIRoute {
     },
   };
 
-  async handle(request: IRequest, { env }: RequestContext) {
+  async handleRequest(request: IRequest, { env }: RequestContext) {
     const chainId = BigInt(request.params.chainId);
     const { queries, pair } = await parseOutTokens(
       env,
@@ -615,7 +611,7 @@ export class GetPairTopPositions extends EkuboAPIRoute {
     },
   };
 
-  async handle(request: IRequest, { env }: RequestContext) {
+  async handleRequest(request: IRequest, { env }: RequestContext) {
     const chainId = BigInt(request.params.chainId);
     const { queries, pair } = await parseOutTokens(
       env,
@@ -669,7 +665,7 @@ export class GetPoolTopPositions extends EkuboAPIRoute {
     },
   };
 
-  async handle(
+  async handleRequest(
     { params: { chainId, coreAddress, poolId }, query }: IRequest,
     { env }: RequestContext,
   ) {

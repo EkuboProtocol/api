@@ -1,4 +1,4 @@
-import { OpenAPIRouteSchema, Path } from "@cloudflare/itty-router-openapi";
+import { OpenAPIRouteSchema, Path } from "../../shared/openapi";
 import { IRequest, json, StatusError } from "itty-router";
 import { EkuboAPIRoute, RequestContext } from "../../shared/context";
 import {
@@ -55,7 +55,7 @@ export class GetTwammPoolState extends EkuboAPIRoute {
     },
   };
 
-  async handle(request: IRequest, { env }: RequestContext) {
+  async handleRequest(request: IRequest, { env }: RequestContext) {
     const {
       queries,
       pair: { token0, token1 },
@@ -143,7 +143,7 @@ export class GetTwammPoolStateByPoolId extends EkuboAPIRoute {
     },
   };
 
-  async handle(request: IRequest, { env }: RequestContext) {
+  async handleRequest(request: IRequest, { env }: RequestContext) {
     const chainId = BigInt(request.params.chainId);
     const coreAddress = BigInt(request.params.coreAddress);
     const poolId = BigInt(request.params.poolId);
@@ -209,7 +209,7 @@ export class GetTwammPairState extends EkuboAPIRoute {
     },
   };
 
-  async handle(request: IRequest, { env }: RequestContext) {
+  async handleRequest(request: IRequest, { env }: RequestContext) {
     const {
       queries,
       pair: { token0, token1 },

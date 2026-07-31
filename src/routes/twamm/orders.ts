@@ -1,9 +1,5 @@
 import { EkuboAPIRoute, RequestContext } from "../../shared/context";
-import {
-  OpenAPIRouteSchema,
-  Path,
-  Query,
-} from "@cloudflare/itty-router-openapi";
+import { OpenAPIRouteSchema, Path, Query } from "../../shared/openapi";
 import {
   AddressType,
   ChainIdType,
@@ -191,7 +187,7 @@ export class ListTwapOrders extends EkuboAPIRoute {
     },
   };
 
-  async handle({ params, query }: IRequest, { env }: RequestContext) {
+  async handleRequest({ params, query }: IRequest, { env }: RequestContext) {
     const { state, chainId, page, pageSize } =
       parseListTwapOrdersFilters(query);
     const queries = await createQueries(env);
@@ -262,7 +258,7 @@ export class BatchListTwapOrders extends EkuboAPIRoute {
     },
   };
 
-  async handle({ query }: IRequest, { env }: RequestContext) {
+  async handleRequest({ query }: IRequest, { env }: RequestContext) {
     const addresses = getQueryParamAsArray(query.address);
 
     if (!addresses || addresses.length === 0) {

@@ -1,10 +1,6 @@
 import { z } from "zod";
 import { EkuboAPIRoute, RequestContext } from "../../shared/context";
-import {
-  OpenAPIRouteSchema,
-  Path,
-  Query,
-} from "@cloudflare/itty-router-openapi";
+import { OpenAPIRouteSchema, Path, Query } from "../../shared/openapi";
 import { IRequest, json } from "itty-router";
 import { createQueries } from "../../queries";
 import {
@@ -29,13 +25,11 @@ export const RewardType = z
 export type Reward = z.infer<typeof RewardType>;
 
 export const GetRewardsForPositionResponseType = z
-  .object(
-    {
-      rewards: z.array(RewardType),
-    },
-    { description: "The list of rewards for a specified position" },
-  )
-  .required({ rewards: true });
+  .object({
+    rewards: z.array(RewardType),
+  })
+  .required({ rewards: true })
+  .describe("The list of rewards for a specified position");
 
 export class ListRewardsForLocker extends EkuboAPIRoute {
   public static route = "/rewards/:chainId/:locker/:salt";
@@ -47,12 +41,12 @@ export class ListRewardsForLocker extends EkuboAPIRoute {
       chainId: Path(ChainIdType),
       locker: Path(AddressType),
       salt: Path(NumericStringType),
-      startTime: Query(z.string().datetime({ precision: 0 }), {
+      startTime: Query(z.iso.datetime({ precision: 0 }), {
         required: false,
         description:
           "Filter to rewards in periods that started at or after this time",
       }),
-      endTime: Query(z.string().datetime({ precision: 0 }), {
+      endTime: Query(z.iso.datetime({ precision: 0 }), {
         required: false,
         description:
           "Filter to rewards in periods that ended at or before this time",
@@ -67,7 +61,7 @@ export class ListRewardsForLocker extends EkuboAPIRoute {
     },
   };
 
-  public async handle(request: IRequest, { env }: RequestContext) {
+  public async handleRequest(request: IRequest, { env }: RequestContext) {
     const chainId = ChainIdType.parse(request.params.chainId);
     const queries = await createQueries(env);
 

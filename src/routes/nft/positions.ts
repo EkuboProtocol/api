@@ -1,9 +1,5 @@
 import { EkuboAPIRoute, RequestContext } from "../../shared/context";
-import {
-  OpenAPIRouteSchema,
-  Path,
-  Query,
-} from "@cloudflare/itty-router-openapi";
+import { OpenAPIRouteSchema, Path, Query } from "../../shared/openapi";
 import {
   AddressType,
   ChainIdType,
@@ -248,7 +244,7 @@ export class GetPositionNftMetadata extends EkuboAPIRoute {
     },
   };
 
-  async handle(
+  async handleRequest(
     { url, params: { id: idStr, chainId: chainIdParam, nftAddress } }: IRequest,
     { env }: RequestContext,
   ) {
@@ -315,7 +311,7 @@ export class ListPositionNftEvents extends EkuboAPIRoute {
     },
   };
 
-  async handle(
+  async handleRequest(
     { params: { id: idStr, chainId: chainIdParam, lockerAddress } }: IRequest,
     { env }: RequestContext,
   ) {
@@ -416,7 +412,7 @@ export class GetPositionNftImage extends EkuboAPIRoute {
     },
   };
 
-  async handle(
+  async handleRequest(
     { params: { id: idStr, chainId: chainIdParam, nftAddress } }: IRequest,
     { env }: RequestContext,
   ) {
@@ -491,7 +487,7 @@ export class ListPositionsByAddress extends EkuboAPIRoute {
     },
   };
 
-  async handle(
+  async handleRequest(
     { params: { address: addressStr }, query, url }: IRequest,
     { env }: RequestContext,
   ) {
@@ -569,7 +565,7 @@ export class BatchListPositionsByAddress extends EkuboAPIRoute {
     },
   };
 
-  async handle({ query, url }: IRequest, { env }: RequestContext) {
+  async handleRequest({ query, url }: IRequest, { env }: RequestContext) {
     const addresses = getQueryParamAsArray(query.address);
 
     if (!addresses || addresses.length === 0) {

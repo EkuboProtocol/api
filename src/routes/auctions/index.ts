@@ -1,9 +1,5 @@
 import { EkuboAPIRoute, RequestContext } from "../../shared/context";
-import {
-  OpenAPIRouteSchema,
-  Path,
-  Query,
-} from "@cloudflare/itty-router-openapi";
+import { OpenAPIRouteSchema, Path, Query } from "../../shared/openapi";
 import {
   AddressType,
   ChainIdType,
@@ -96,7 +92,7 @@ export class ListAuctions extends EkuboAPIRoute {
     },
   };
 
-  async handle({ query }: IRequest, { env }: RequestContext) {
+  async handleRequest({ query }: IRequest, { env }: RequestContext) {
     const chainId = ChainIdType.optional().parse(query.chainId) ?? null;
     const minVisibilityPriority = VisibilityPriorityType.parse(
       query.minVisibilityPriority ?? 0,
@@ -164,7 +160,7 @@ export class GetAuctionNftMetadata extends EkuboAPIRoute {
     },
   };
 
-  async handle(
+  async handleRequest(
     { url, params: { id: idStr, chainId: chainIdParam, nftAddress } }: IRequest,
     { env }: RequestContext,
   ) {
@@ -325,7 +321,7 @@ export class GetAuctionNftState extends EkuboAPIRoute {
     },
   };
 
-  async handle(
+  async handleRequest(
     { params: { id: idStr, chainId: chainIdParam, nftAddress } }: IRequest,
     { env }: RequestContext,
   ) {
@@ -395,7 +391,7 @@ export class GetAuctionNftImage extends EkuboAPIRoute {
     },
   };
 
-  async handle(
+  async handleRequest(
     { params: { id: idStr, chainId: chainIdParam, nftAddress } }: IRequest,
     { env }: RequestContext,
   ) {

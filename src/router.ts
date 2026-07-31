@@ -1,4 +1,4 @@
-import { OpenAPIRouter } from "@cloudflare/itty-router-openapi";
+import { fromIttyRouter } from "chanfana";
 import { version } from "../package.json";
 import { ListTokens, GetToken, BatchGetTokens } from "./routes/meta/tokens";
 import { GetBlock, GetClosestBlock } from "./routes/meta/blocks";
@@ -20,7 +20,7 @@ import {
   ListPairEvents,
 } from "./routes/stats/pair";
 import { GetPoolKey, GetPoolLiquidity } from "./routes/state";
-import { error } from "itty-router";
+import { error, Router } from "itty-router";
 import { GetPairPriceHistory, GetPoolPriceHistory } from "./routes/prices";
 import {
   BatchListPositionsByAddress,
@@ -56,7 +56,9 @@ import {
 } from "./routes/auctions";
 import { ListVe33Pools, ListVe33TokensByAddress } from "./routes/ve33";
 
-export const router = OpenAPIRouter({
+const ittyRouter = Router();
+
+export const router = fromIttyRouter(ittyRouter, {
   schema: {
     info: {
       title: "Ekubo API",
@@ -75,57 +77,57 @@ export const router = OpenAPIRouter({
   // removes the redoc and docs urls because they might increase the bundle size/js load time
   redoc_url: null as unknown as undefined,
   docs_url: null as unknown as undefined,
-})
-  .get(ListTokens.route, ListTokens)
-  .get(BatchGetTokens.route, BatchGetTokens)
-  .get(GetToken.route, GetToken)
-  .get(GetClosestBlock.route, GetClosestBlock)
-  .get(GetBlock.route, GetBlock)
-  .get(GetCountry.route, GetCountry)
-  .get(GetOverviewPairs.route, GetOverviewPairs)
-  .get(GetOverviewBoostedFeesPools.route, GetOverviewBoostedFeesPools)
-  .get(GetOverviewRevenue.route, GetOverviewRevenue)
-  .get(GetOverviewTvl.route, GetOverviewTvl)
-  .get(GetOverviewVolume.route, GetOverviewVolume)
-  .get(GetPairInfoTvl.route, GetPairInfoTvl)
-  .get(GetPairInfoVolume.route, GetPairInfoVolume)
-  .get(GetPairInfoPools.route, GetPairInfoPools)
-  .get(GetPairPriceHistory.route, GetPairPriceHistory)
-  .get(GetPoolPriceHistory.route, GetPoolPriceHistory)
-  .get(GetPoolLiquidity.route, GetPoolLiquidity)
-  .get(GetPoolKey.route, GetPoolKey)
-  .get(GetPairLiquidity.route, GetPairLiquidity)
-  .get(GetPairTopPositions.route, GetPairTopPositions)
-  .get(GetPoolTopPositions.route, GetPoolTopPositions)
-  .get(ListPairEvents.route, ListPairEvents)
-  .get(BatchListPositionsByAddress.route, BatchListPositionsByAddress)
-  .get(ListPositionsByAddress.route, ListPositionsByAddress)
-  .get(ListPositionNftEvents.route, ListPositionNftEvents)
-  .get(GetPositionNftMetadata.route, GetPositionNftMetadata)
-  .get(GetOrderNftImage.route, GetOrderNftImage)
-  .get(GetOrderNftMetadata.route, GetOrderNftMetadata)
-  .get(GetTwammPoolState.route, GetTwammPoolState)
-  .get(GetTwammPoolStateByPoolId.route, GetTwammPoolStateByPoolId)
-  .get(GetTwammPairState.route, GetTwammPairState)
-  .get(BatchListTwapOrders.route, BatchListTwapOrders)
-  .get(ListTwapOrders.route, ListTwapOrders)
-  .get(ListLimitOrders.route, ListLimitOrders)
-  .get(GetPositionNftImage.route, GetPositionNftImage)
-  .get(GetNftMetadata.route, GetNftMetadata)
-  .get(GetNftImage.route, GetNftImage)
-  .get(ListAuctions.route, ListAuctions)
-  .get(GetAuctionNftMetadata.route, GetAuctionNftMetadata)
-  .get(GetAuctionNftState.route, GetAuctionNftState)
-  .get(GetAuctionNftImage.route, GetAuctionNftImage)
-  .get(ListProposals.route, ListProposals)
-  .get(ListTopDelegates.route, ListTopDelegates)
-  .get(ListVotesOnProposal.route, ListVotesOnProposal)
-  .get(ListProposalVoters.route, ListProposalVoters)
-  .get(GetStakerInfo.route, GetStakerInfo)
-  .get(ListVe33Pools.route, ListVe33Pools)
-  .get(ListVe33TokensByAddress.route, ListVe33TokensByAddress)
-  .get(ListCampaigns.route, ListCampaigns)
-  .get(ListRewardsForLocker.route, ListRewardsForLocker)
-  .get(ListClaimsForAddress.route, ListClaimsForAddress)
-  // catch missed routes
-  .all("*", () => error(404));
+});
+router.get(ListTokens.route, ListTokens);
+router.get(BatchGetTokens.route, BatchGetTokens);
+router.get(GetToken.route, GetToken);
+router.get(GetClosestBlock.route, GetClosestBlock);
+router.get(GetBlock.route, GetBlock);
+router.get(GetCountry.route, GetCountry);
+router.get(GetOverviewPairs.route, GetOverviewPairs);
+router.get(GetOverviewBoostedFeesPools.route, GetOverviewBoostedFeesPools);
+router.get(GetOverviewRevenue.route, GetOverviewRevenue);
+router.get(GetOverviewTvl.route, GetOverviewTvl);
+router.get(GetOverviewVolume.route, GetOverviewVolume);
+router.get(GetPairInfoTvl.route, GetPairInfoTvl);
+router.get(GetPairInfoVolume.route, GetPairInfoVolume);
+router.get(GetPairInfoPools.route, GetPairInfoPools);
+router.get(GetPairPriceHistory.route, GetPairPriceHistory);
+router.get(GetPoolPriceHistory.route, GetPoolPriceHistory);
+router.get(GetPoolLiquidity.route, GetPoolLiquidity);
+router.get(GetPoolKey.route, GetPoolKey);
+router.get(GetPairLiquidity.route, GetPairLiquidity);
+router.get(GetPairTopPositions.route, GetPairTopPositions);
+router.get(GetPoolTopPositions.route, GetPoolTopPositions);
+router.get(ListPairEvents.route, ListPairEvents);
+router.get(BatchListPositionsByAddress.route, BatchListPositionsByAddress);
+router.get(ListPositionsByAddress.route, ListPositionsByAddress);
+router.get(ListPositionNftEvents.route, ListPositionNftEvents);
+router.get(GetPositionNftMetadata.route, GetPositionNftMetadata);
+router.get(GetOrderNftImage.route, GetOrderNftImage);
+router.get(GetOrderNftMetadata.route, GetOrderNftMetadata);
+router.get(GetTwammPoolState.route, GetTwammPoolState);
+router.get(GetTwammPoolStateByPoolId.route, GetTwammPoolStateByPoolId);
+router.get(GetTwammPairState.route, GetTwammPairState);
+router.get(BatchListTwapOrders.route, BatchListTwapOrders);
+router.get(ListTwapOrders.route, ListTwapOrders);
+router.get(ListLimitOrders.route, ListLimitOrders);
+router.get(GetPositionNftImage.route, GetPositionNftImage);
+router.get(GetNftMetadata.route, GetNftMetadata);
+router.get(GetNftImage.route, GetNftImage);
+router.get(ListAuctions.route, ListAuctions);
+router.get(GetAuctionNftMetadata.route, GetAuctionNftMetadata);
+router.get(GetAuctionNftState.route, GetAuctionNftState);
+router.get(GetAuctionNftImage.route, GetAuctionNftImage);
+router.get(ListProposals.route, ListProposals);
+router.get(ListTopDelegates.route, ListTopDelegates);
+router.get(ListVotesOnProposal.route, ListVotesOnProposal);
+router.get(ListProposalVoters.route, ListProposalVoters);
+router.get(GetStakerInfo.route, GetStakerInfo);
+router.get(ListVe33Pools.route, ListVe33Pools);
+router.get(ListVe33TokensByAddress.route, ListVe33TokensByAddress);
+router.get(ListCampaigns.route, ListCampaigns);
+router.get(ListRewardsForLocker.route, ListRewardsForLocker);
+router.get(ListClaimsForAddress.route, ListClaimsForAddress);
+// catch missed routes
+router.all("*", () => error(404));
