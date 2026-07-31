@@ -43,6 +43,59 @@ describe("Chanfana router integration", () => {
     ).toBeDefined();
   });
 
+  test("documents total and ve33 component fees in stats responses", () => {
+    type JsonSchema = {
+      properties?: Record<string, JsonSchema>;
+      items?: JsonSchema;
+      required?: string[];
+    };
+    type GetOperation = {
+      responses: Record<
+        string,
+        { content?: Record<string, { schema?: JsonSchema }> }
+      >;
+    };
+
+    const paths = router.schema.paths as Record<string, { get?: GetOperation }>;
+    const responseSchema = (path: string) =>
+      paths[path]?.get?.responses["200"].content?.["application/json"].schema;
+    const requiredEntryFields = (path: string, property: string) =>
+      responseSchema(path)?.properties?.[property].items?.required;
+
+    const volumeFields = ["fees", "ve33_fees"];
+    expect(
+      requiredEntryFields("/overview/volume", "volumeByToken_24h"),
+    ).toEqual(expect.arrayContaining(volumeFields));
+    expect(
+      requiredEntryFields(
+        "/pair/{chainId}/{tokenA}/{tokenB}/volume",
+        "volumeByTokenByDate",
+      ),
+    ).toEqual(expect.arrayContaining(volumeFields));
+
+    const poolFeeFields = [
+      "fees0_24h",
+      "fees1_24h",
+      "ve33_fees0_24h",
+      "ve33_fees1_24h",
+    ];
+    expect(requiredEntryFields("/overview/pairs", "topPairs")).toEqual(
+      expect.arrayContaining(poolFeeFields),
+    );
+    expect(
+      requiredEntryFields("/overview/boosted-fees-pools", "pools"),
+    ).toEqual(expect.arrayContaining(poolFeeFields));
+    expect(
+      requiredEntryFields(
+        "/pair/{chainId}/{tokenA}/{tokenB}/pools",
+        "topPools",
+      ),
+    ).toEqual(expect.arrayContaining(poolFeeFields));
+    expect(requiredEntryFields("/ve33/{ve33Address}/pools", "data")).toEqual(
+      expect.arrayContaining(poolFeeFields),
+    );
+  });
+
   test("validates requests before invoking route handlers", async () => {
     const response = await router.fetch(
       new Request("http://localhost/tokens?pageSize=0"),

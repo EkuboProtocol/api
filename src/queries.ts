@@ -1882,11 +1882,20 @@ ORDER BY po.token_id DESC
       ? this.sql`pk.pool_id = ${poolIdParam}`
       : this.sql`TRUE`;
 
-    return this.sql<{ token: string; chain_id: bigint; volume: string }[]>`
+    return this.sql<
+      {
+        token: string;
+        chain_id: bigint;
+        volume: string;
+        fees: string;
+        ve33_fees: string;
+      }[]
+    >`
       SELECT pk.chain_id,
              hvbt.token,
-             SUM(volume) AS volume,
-             SUM(fees)   AS fees
+             SUM(volume)                  AS volume,
+             SUM(fees)                    AS fees,
+             SUM(ve33_fees)               AS ve33_fees
       FROM hourly_volume_by_token hvbt
             JOIN pool_keys pk USING (pool_key_id)
             JOIN erc20_tokens t ON t.chain_id = pk.chain_id AND t.token_address = hvbt.token
@@ -1929,13 +1938,15 @@ ORDER BY po.token_id DESC
         date: string;
         volume: string;
         fees: string;
+        ve33_fees: string;
       }[]
     >`
       SELECT pk.chain_id,
              hvbt.token,
              DATE_TRUNC('day', hour, 'UTC') AS date,
              SUM(volume)                    AS volume,
-             SUM(fees)                      AS fees
+             SUM(fees)                      AS fees,
+             SUM(ve33_fees)                 AS ve33_fees
       FROM hourly_volume_by_token hvbt
             JOIN pool_keys pk USING (pool_key_id)
             JOIN erc20_tokens t ON pk.chain_id = t.chain_id AND hvbt.token = t.token_address
@@ -2002,6 +2013,8 @@ ORDER BY po.token_id DESC
         volume1_24h: string;
         fees0_24h: string;
         fees1_24h: string;
+        ve33_fees0_24h: string;
+        ve33_fees1_24h: string;
         tvl0_total: string;
         tvl1_total: string;
         tvl0_delta_24h: string;
@@ -2019,6 +2032,8 @@ SELECT
        SUM(volume1_24h)                  AS volume1_24h,
        SUM(fees0_24h)                    AS fees0_24h,
        SUM(fees1_24h)                    AS fees1_24h,
+       SUM(ve33_fees0_24h)               AS ve33_fees0_24h,
+       SUM(ve33_fees1_24h)               AS ve33_fees1_24h,
        SUM(tvl0_total)                   AS tvl0_total,
        SUM(tvl1_total)                   AS tvl1_total,
        SUM(tvl0_delta_24h)               AS tvl0_delta_24h,
@@ -2068,6 +2083,8 @@ HAVING SUM(tvl0_total / POWER(10::NUMERIC, t0.token_decimals) * COALESCE(t0p.val
         volume1_24h: string;
         fees0_24h: string;
         fees1_24h: string;
+        ve33_fees0_24h: string;
+        ve33_fees1_24h: string;
         tvl0_total: string;
         tvl1_total: string;
         tvl0_delta_24h: string;
@@ -2101,6 +2118,8 @@ HAVING SUM(tvl0_total / POWER(10::NUMERIC, t0.token_decimals) * COALESCE(t0p.val
         volume1_24h,
         fees0_24h,
         fees1_24h,
+        ve33_fees0_24h,
+        ve33_fees1_24h,
         tvl0_total,
         tvl1_total,
         tvl0_delta_24h,
@@ -2183,6 +2202,8 @@ HAVING SUM(tvl0_total / POWER(10::NUMERIC, t0.token_decimals) * COALESCE(t0p.val
         volume1_24h: string;
         fees0_24h: string;
         fees1_24h: string;
+        ve33_fees0_24h: string;
+        ve33_fees1_24h: string;
         tvl0_total: string;
         tvl1_total: string;
         tvl0_delta_24h: string;
@@ -2219,6 +2240,8 @@ HAVING SUM(tvl0_total / POWER(10::NUMERIC, t0.token_decimals) * COALESCE(t0p.val
         volume1_24h,
         fees0_24h,
         fees1_24h,
+        ve33_fees0_24h,
+        ve33_fees1_24h,
         tvl0_total,
         tvl1_total,
         tvl0_delta_24h,
@@ -2614,6 +2637,8 @@ ORDER BY pt.last_transfer_event_id DESC NULLS LAST
       volume1_24h: string;
       fees0_24h: string;
       fees1_24h: string;
+      ve33_fees0_24h: string;
+      ve33_fees1_24h: string;
       tvl0_total: string;
       tvl1_total: string;
       tvl0_delta_24h: string;
@@ -2653,6 +2678,8 @@ WITH ve33_pools AS (
               COALESCE(l24.volume1_24h, 0::NUMERIC)::TEXT AS volume1_24h,
               COALESCE(l24.fees0_24h, 0::NUMERIC)::TEXT AS fees0_24h,
               COALESCE(l24.fees1_24h, 0::NUMERIC)::TEXT AS fees1_24h,
+              COALESCE(l24.ve33_fees0_24h, 0::NUMERIC)::TEXT AS ve33_fees0_24h,
+              COALESCE(l24.ve33_fees1_24h, 0::NUMERIC)::TEXT AS ve33_fees1_24h,
               COALESCE(l24.tvl0_total, 0::NUMERIC)::TEXT AS tvl0_total,
               COALESCE(l24.tvl1_total, 0::NUMERIC)::TEXT AS tvl1_total,
               COALESCE(l24.tvl0_delta_24h, 0::NUMERIC)::TEXT AS tvl0_delta_24h,
