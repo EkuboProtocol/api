@@ -13,6 +13,8 @@ import { z } from "zod";
 import { ETH_TOKEN_ADDRESS_VALUE } from "../../shared/constants";
 import toHex from "../../shared/toHex";
 import { projectTwammPoolStateAtTime } from "./twammProjection";
+import { ErrorResponseType } from "../../shared/errors";
+import { getTokenByAddress } from "../meta/tokens";
 
 const PriceHistoryPointType = z.object({
   start: z.union([z.string(), z.date()]),
@@ -48,9 +50,111 @@ const GetPoolPriceHistoryResponseType = z.object({
   data: z.array(PoolPriceHistoryPointType),
 });
 
+const TokenUsdPriceHistoryPointType = z.object({
+  start: z.union([z.string(), z.date()]),
+  price: z.number().positive(),
+});
+
+const GetTokenUsdPriceHistoryResponseType = z.object({
+  timestamp: z.number().int(),
+  start: z.number().int(),
+  end: z.number().int(),
+  interval: z.number().int(),
+  data: z.array(TokenUsdPriceHistoryPointType),
+});
+
+const DEFAULT_TOKEN_PRICE_HISTORY_INTERVAL_SECONDS = 15 * 60;
+const DEFAULT_TOKEN_PRICE_HISTORY_DURATION_SECONDS = 24 * 60 * 60;
+const MAX_TOKEN_PRICE_HISTORY_POINTS = 120;
+
 function sqrtRatioX128ToPrice(sqrtRatio: bigint | string): number {
   const ratio = Number(sqrtRatio) / 2 ** 128;
   return ratio * ratio;
+}
+
+export class GetTokenUsdPriceHistory extends EkuboAPIRoute {
+  static route = "/tokens/:chainId/:tokenAddress/price-history";
+
+  static schema: OpenAPIRouteSchema = {
+    tags: ["Prices"],
+    summary: "Get token USD price history",
+    description:
+      "Returns bounded USD price history for a token, sampled from the latest price in each interval",
+    parameters: {
+      chainId: Path(ChainIdType, { required: true }),
+      tokenAddress: Path(AddressType, { required: true }),
+      interval: Query(z.coerce.number().int().min(60).max(86_400), {
+        required: false,
+        default: DEFAULT_TOKEN_PRICE_HISTORY_INTERVAL_SECONDS,
+        description: "Bucket size in seconds",
+      }),
+      duration: Query(z.coerce.number().int().min(3_600).max(86_400), {
+        required: false,
+        default: DEFAULT_TOKEN_PRICE_HISTORY_DURATION_SECONDS,
+        description: "History duration in seconds, up to 24 hours",
+      }),
+    },
+    responses: {
+      "200": {
+        description: "The token's USD price history",
+        schema: GetTokenUsdPriceHistoryResponseType,
+      },
+      "404": {
+        description: "Token not found",
+        schema: ErrorResponseType,
+      },
+    },
+  };
+
+  async handleRequest({ params, query }: IRequest, { env }: RequestContext) {
+    const chainId = BigInt(params.chainId);
+    const tokenAddress = BigInt(params.tokenAddress);
+    const intervalSeconds = Number(
+      query.interval ?? DEFAULT_TOKEN_PRICE_HISTORY_INTERVAL_SECONDS,
+    );
+    const durationSeconds = Number(
+      query.duration ?? DEFAULT_TOKEN_PRICE_HISTORY_DURATION_SECONDS,
+    );
+
+    if (durationSeconds / intervalSeconds > MAX_TOKEN_PRICE_HISTORY_POINTS) {
+      throw new StatusError(
+        400,
+        `Interval must produce at most ${MAX_TOKEN_PRICE_HISTORY_POINTS} data points`,
+      );
+    }
+
+    const end = new Date();
+    const start = new Date(end.getTime() - durationSeconds * 1_000);
+    const queries = await createQueries(env);
+    const [token, queryData] = await Promise.all([
+      getTokenByAddress(queries, chainId, tokenAddress),
+      queries.getTokenUsdPriceHistory({
+        chainId,
+        tokenAddress,
+        start,
+        end,
+        intervalSeconds,
+      }),
+    ]);
+
+    if (!token) {
+      throw new StatusError(404, "Token not found");
+    }
+
+    const response = {
+      timestamp: Date.now(),
+      start: start.getTime(),
+      end: end.getTime(),
+      interval: intervalSeconds,
+      data: queryData,
+    } satisfies z.infer<typeof GetTokenUsdPriceHistoryResponseType>;
+
+    return json(response, {
+      headers: {
+        "cache-control": `public, max-age=${Math.ceil(intervalSeconds / 4)}, must-revalidate`,
+      },
+    });
+  }
 }
 
 export class GetPairPriceHistory extends EkuboAPIRoute {

@@ -22,14 +22,14 @@ describe("Chanfana router integration", () => {
       ),
     );
 
-    expect(Object.keys(schema.paths)).toHaveLength(52);
-    expect(operations).toHaveLength(52);
+    expect(Object.keys(schema.paths)).toHaveLength(53);
+    expect(operations).toHaveLength(53);
     expect(
       operations.reduce(
         (count, operation) => count + (operation.parameters?.length ?? 0),
         0,
       ),
-    ).toBe(167);
+    ).toBe(171);
 
     const getToken = operations.find(
       (operation) =>
@@ -40,6 +40,15 @@ describe("Chanfana router integration", () => {
     ).toBeDefined();
     expect(
       getToken?.responses["404"].content?.["application/json"],
+    ).toBeDefined();
+
+    const getTokenPriceHistory = operations.find(
+      (operation) =>
+        operation ===
+        paths["/tokens/{chainId}/{tokenAddress}/price-history"]?.get,
+    );
+    expect(
+      getTokenPriceHistory?.responses["200"].content?.["application/json"],
     ).toBeDefined();
   });
 
@@ -68,6 +77,22 @@ describe("Chanfana router integration", () => {
     );
 
     expect(positionEventsResponse.status).toBe(400);
+
+    const tokenPriceHistoryResponse = await router.fetch(
+      new Request("http://localhost/tokens/1/0x1/price-history?interval=59"),
+      context,
+    );
+
+    expect(tokenPriceHistoryResponse.status).toBe(400);
+
+    await expect(
+      router.fetch(
+        new Request(
+          "http://localhost/tokens/1/0x1/price-history?interval=60&duration=86400",
+        ),
+        context,
+      ),
+    ).rejects.toMatchObject({ status: 400 });
   });
 
   test("continues to serve ordinary and fallback routes", async () => {
