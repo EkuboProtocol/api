@@ -12,7 +12,7 @@
         "@types/bun": "^1.3.11",
         "chanfana": "^3.3.0",
         "hono": "^4.12.2",
-        "itty-router": "^5.0.23",
+        "itty-router": "^5.0.24",
         "postgres": "^3.4.8",
         "prettier": "^3.8.1",
         "wrangler": "^4.75.0",
@@ -355,7 +355,7 @@
 
     "isomorphic-fetch": ["isomorphic-fetch@3.0.0", "", { "dependencies": { "node-fetch": "^2.6.1", "whatwg-fetch": "^3.4.1" } }, "sha512-qvUtwJ3j6qwsF3jLxkZ72qCgjMysPzDfeV240JHiGZsANBYd+EEuu35v7dfrJ9Up0Ak07D7GGSkGhCHTqg/5wA=="],
 
-    "itty-router": ["itty-router@5.0.23", "", {}, "sha512-i49WU+SNPrwOZA4Z61En1RYd5h2Lcqa+5IvCpMrNi4dxymzJK15ozUUnRrWIUAv95Zamd4eJPAot2UvHRrQg7w=="],
+    "itty-router": ["itty-router@5.0.24", "", {}, "sha512-PXij1qGKtE6jg3dLgrTRdh/Frovl5Wc4Av67sD2xfhDPrgNt4u79++/il8/c/OfZGkhD/8uYJub8tjo+H165rA=="],
 
     "js-sha3": ["js-sha3@0.7.0", "", {}, "sha512-Wpks3yBDm0UcL5qlVhwW9Jr9n9i4FfeWBFOOXP5puDS/SiudJGhw7DPyBqn3487qD4F0lsC0q3zxink37f7zeA=="],
 
