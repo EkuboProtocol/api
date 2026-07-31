@@ -11,11 +11,13 @@ const TokenIdentifierSchema = z.union([z.string(), z.number()]);
 
 type VolumeRow = { token: string; volume: string; chain_id: bigint } & Partial<{
   fees: string;
+  ve33_fees: string;
 }>;
 const normalizeVolumeRow = (row: VolumeRow) => ({
   token: toHex(row.token),
   volume: row.volume,
   fees: row.fees ?? "0",
+  ve33_fees: row.ve33_fees ?? "0",
   chain_id: toHex(row.chain_id),
 });
 
@@ -52,6 +54,8 @@ const OverviewPairEntryType = z.object({
   volume1_24h: z.string(),
   fees0_24h: z.string(),
   fees1_24h: z.string(),
+  ve33_fees0_24h: z.string(),
+  ve33_fees1_24h: z.string(),
   tvl0_total: z.string(),
   tvl1_total: z.string(),
   tvl0_delta_24h: z.string(),
@@ -93,6 +97,8 @@ const BoostedFeesPoolEntryType = z.object({
   volume1_24h: z.string(),
   fees0_24h: z.string(),
   fees1_24h: z.string(),
+  ve33_fees0_24h: z.string(),
+  ve33_fees1_24h: z.string(),
   tvl0_total: z.string(),
   tvl1_total: z.string(),
   tvl0_delta_24h: z.string(),
@@ -132,6 +138,7 @@ const VolumeEntryType = z.object({
   token: z.string(),
   volume: z.string(),
   fees: z.string(),
+  ve33_fees: z.string(),
   chain_id: HexStringType,
 });
 
