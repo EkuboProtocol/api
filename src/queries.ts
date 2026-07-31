@@ -275,6 +275,48 @@ export class Queries {
     return rows.length > 0 ? rows[0] : null;
   }
 
+  public async getTokenUsdPriceHistory({
+    chainId,
+    tokenAddress,
+    start,
+    end,
+    intervalSeconds,
+  }: {
+    chainId: bigint;
+    tokenAddress: bigint;
+    start: Date;
+    end: Date;
+    intervalSeconds: number;
+  }) {
+    return this.sql<
+      {
+        start: Date;
+        price: number;
+      }[]
+    >`
+      SELECT DISTINCT ON (bucket_start)
+        bucket_start AS start,
+        value AS price
+      FROM (
+        SELECT
+          date_bin(
+            ${intervalSeconds} * INTERVAL '1 second',
+            "timestamp",
+            TIMESTAMPTZ '2000-01-01 00:00:00+00'
+          ) AS bucket_start,
+          "timestamp",
+          source,
+          value
+        FROM erc20_tokens_usd_prices
+        WHERE chain_id = ${chainId}
+          AND token_address = ${tokenAddress.toString()}
+          AND "timestamp" >= ${start}
+          AND "timestamp" <= ${end}
+      ) AS bucketed_prices
+      ORDER BY bucket_start, "timestamp" DESC, source DESC
+    `;
+  }
+
   public async getErc20TokensByIds(
     ids: { chainId: bigint; tokenAddress: bigint }[],
   ) {
