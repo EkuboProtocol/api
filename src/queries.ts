@@ -966,50 +966,84 @@ WITH last_block AS (SELECT block_time
                                                 LIMIT 1),
                                                0, 0
                                        ) AS min_event_id),
-     relevant_pool_keys AS (SELECT pool_key_id
-                            FROM pool_keys pk
-                            WHERE chain_id = ${chainId}
-                              AND token0 = ${token0.toString()}
-                              AND token1 = ${token1.toString()}
-                              AND ${tickSpacingCondition}
-                              AND ${feeCondition}
-                              AND ${extensionCondition}
-                              AND ${coreAddressCondition}
-                              AND ${poolIdCondition}
-                              AND ${amplificationCondition}
-                              AND ${centerTickCondition}),
-     last_day_events AS (SELECT pbc.chain_id,
-                                pbc.event_id,
-                                rpk.pool_key_id
-                         FROM pool_balance_change pbc
-                                  JOIN relevant_pool_keys rpk USING (pool_key_id),
-                              minimum_event_from_day
-                         WHERE chain_id = ${chainId}
-                           AND event_id >= min_event_id
-                         ORDER BY event_id DESC
-                         LIMIT ${limit}),
-     all_events AS (SELECT lde.*,
-                           COALESCE(s.block_number, pu.block_number)         AS block_number,
-                           COALESCE(s.transaction_hash, pu.transaction_hash) AS transaction_hash,
-                           COALESCE(s.delta0, pu.delta0)                     AS delta0,
-                           COALESCE(s.delta1, pu.delta1)                     AS delta1,
-                           COALESCE(s.locker, pu.locker)                     AS locker,
-                           CASE
-                               WHEN EXISTS (SELECT 1
-                                            FROM swaps s
-                                            WHERE s.chain_id = lde.chain_id
-                                              AND s.event_id = lde.event_id) THEN 0
-                               WHEN EXISTS (SELECT 1
-                                            FROM position_updates pu
-                                            WHERE pu.chain_id = lde.chain_id
-                                              AND pu.event_id = lde.event_id) THEN 1
-                               END                                           AS event_type
-                    FROM last_day_events lde
-                             LEFT JOIN swaps s USING (chain_id, event_id)
-                             LEFT JOIN position_updates pu USING (chain_id, event_id)
-                    WHERE lde.chain_id = ${chainId}
-                      AND (s.event_id IS NOT NULL OR pu.event_id IS NOT NULL)
-                    LIMIT ${limit})
+     relevant_pool_keys AS MATERIALIZED (SELECT pool_key_id,
+                                                core_address,
+                                                pool_extension,
+                                                fee,
+                                                tick_spacing
+                                         FROM pool_keys pk
+                                         WHERE chain_id = ${chainId}
+                                           AND token0 = ${token0.toString()}
+                                           AND token1 = ${token1.toString()}
+                                           AND ${tickSpacingCondition}
+                                           AND ${feeCondition}
+                                           AND ${extensionCondition}
+                                           AND ${coreAddressCondition}
+                                           AND ${poolIdCondition}
+                                           AND ${amplificationCondition}
+                                           AND ${centerTickCondition}),
+     -- A row outside a pool/type partition's newest N cannot be in the global newest N.
+     recent_events AS (SELECT rpk.core_address,
+                              rpk.pool_extension,
+                              rpk.fee,
+                              rpk.tick_spacing,
+                              s.chain_id,
+                              s.event_id,
+                              s.block_number,
+                              s.transaction_hash,
+                              s.delta0,
+                              s.delta1,
+                              s.locker,
+                              0 AS event_type
+                       FROM relevant_pool_keys rpk
+                                CROSS JOIN LATERAL (
+                           SELECT chain_id,
+                                  event_id,
+                                  block_number,
+                                  transaction_hash,
+                                  delta0,
+                                  delta1,
+                                  locker
+                           FROM swaps s
+                           WHERE s.chain_id = ${chainId}
+                             AND s.pool_key_id = rpk.pool_key_id
+                             AND s.event_id >= (SELECT min_event_id FROM minimum_event_from_day)
+                           ORDER BY s.event_id DESC
+                           LIMIT ${limit}
+                           ) s
+
+                       UNION ALL
+
+                       SELECT rpk.core_address,
+                              rpk.pool_extension,
+                              rpk.fee,
+                              rpk.tick_spacing,
+                              pu.chain_id,
+                              pu.event_id,
+                              pu.block_number,
+                              pu.transaction_hash,
+                              pu.delta0,
+                              pu.delta1,
+                              pu.locker,
+                              1 AS event_type
+                       FROM relevant_pool_keys rpk
+                                CROSS JOIN LATERAL (
+                           SELECT chain_id,
+                                  event_id,
+                                  block_number,
+                                  transaction_hash,
+                                  delta0,
+                                  delta1,
+                                  locker
+                           FROM position_updates pu
+                           WHERE pu.chain_id = ${chainId}
+                             AND pu.pool_key_id = rpk.pool_key_id
+                             AND pu.event_id >= (SELECT min_event_id FROM minimum_event_from_day)
+                           ORDER BY pu.event_id DESC
+                           LIMIT ${limit}
+                           ) pu
+                       ORDER BY event_id DESC
+                       LIMIT ${limit})
 SELECT core_address,
        delta0,
        delta1,
@@ -1020,9 +1054,8 @@ SELECT core_address,
        block_time     AS timestamp,
        transaction_hash,
        event_type     AS type
-FROM all_events
+FROM recent_events
          JOIN blocks USING (chain_id, block_number)
-         JOIN pool_keys USING (pool_key_id)
 ORDER BY event_id DESC
     `;
   }
