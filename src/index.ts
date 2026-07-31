@@ -62,7 +62,7 @@ const cache = caches.default;
 
 const { preflight, corsify } = cors({
   maxAge: 86400,
-  origin: ["*"],
+  origin: "*",
   allowMethods: ["GET", "OPTIONS"],
 });
 
