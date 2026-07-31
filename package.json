@@ -11,7 +11,7 @@
     "hono": "^4.12.2",
     "itty-router": "^5.0.23",
     "postgres": "^3.4.8",
-    "prettier": "^3.8.1",
+    "prettier": "^3.9.6",
     "wrangler": "^4.75.0",
     "zod": "^4.3.6"
   },
