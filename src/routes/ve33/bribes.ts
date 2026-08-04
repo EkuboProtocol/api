@@ -37,6 +37,7 @@ const Ve33BribeType = z.object({
   bribe_id: HexStringType,
   pool_id: HexStringType,
   reward_token: HexStringType,
+  owner: HexStringType,
   voting_fee: DecimalStringType,
   pool_key_id: DecimalStringType.nullable(),
   core_address: HexStringType.nullable(),
@@ -120,6 +121,7 @@ function buildListVe33BribesResponse(
         bribe_id: toHex(row.bribe_id),
         pool_id: toHex(row.pool_id),
         reward_token: toHex(row.reward_token),
+        owner: toHex(row.owner),
         voting_fee: row.voting_fee,
         pool_key_id: row.pool_key_id,
         core_address:
@@ -170,8 +172,8 @@ export class ListVe33Bribes extends EkuboAPIRoute {
     summary: "List VeToken bribes",
     description:
       "Returns the bribes managed by a VeTokenBribes singleton contract, " +
-      "including the incentivized pool, reward token, directed voting fee, " +
-      "reward schedules, and currently staked vote weight",
+      "including the incentivized pool, reward token, owner, current directed " +
+      "voting fee, reward schedules, and currently staked vote weight",
     parameters: {
       bribesAddress: Path(AddressType, {
         description: "The VeTokenBribes singleton contract address",

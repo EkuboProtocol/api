@@ -2764,6 +2764,7 @@ ORDER BY vp.pool_total_vote_weight::NUMERIC DESC NULLS LAST, vp.last_event_id::N
       bribe_id: string;
       pool_id: string;
       reward_token: string;
+      owner: string;
       voting_fee: string;
       pool_key_id: string | null;
       core_address: string | null;
@@ -2835,12 +2836,21 @@ WITH schedules AS (
        ) deltas
        GROUP BY bribe_id
      ),
+     current_fees AS (
+       SELECT DISTINCT ON (u.bribe_id) u.bribe_id,
+              u.voting_fee
+       FROM ve_token_bribes_voting_fee_updated u
+       WHERE u.chain_id = ${chainId}
+         AND u.emitter = ${bribesAddress.toString()}
+       ORDER BY u.bribe_id, u.event_id DESC
+     ),
      bribes AS (
        SELECT c.chain_id,
               c.bribe_id,
               c.pool_id,
               c.reward_token,
-              c.voting_fee,
+              c.owner,
+              COALESCE(f.voting_fee, c.voting_fee) AS voting_fee,
               pk.pool_key_id::TEXT AS pool_key_id,
               pk.core_address,
               pk.token0,
@@ -2858,6 +2868,7 @@ WITH schedules AS (
               COALESCE(s.schedules, '[]'::JSON) AS schedules
        FROM ve_token_bribes_created c
                 LEFT JOIN pool_keys pk USING (pool_key_id)
+                LEFT JOIN current_fees f ON f.bribe_id = c.bribe_id
                 LEFT JOIN schedules s ON s.bribe_id = c.bribe_id
                 LEFT JOIN weights w ON w.bribe_id = c.bribe_id
        WHERE c.chain_id = ${chainId}
