@@ -78,6 +78,12 @@ export const router = fromIttyRouter(ittyRouter, {
       url: "https://docs.ekubo.org",
       description: "Official documentation",
     },
+    servers: [
+      {
+        url: "https://prod-api.ekubo.org",
+        description: "Production",
+      },
+    ],
   },
   // removes the redoc and docs urls because they might increase the bundle size/js load time
   redoc_url: null as unknown as undefined,
