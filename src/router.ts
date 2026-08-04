@@ -60,6 +60,7 @@ import {
   ListAuctions,
 } from "./routes/auctions";
 import { ListVe33Pools, ListVe33TokensByAddress } from "./routes/ve33";
+import { ListVe33Bribes } from "./routes/ve33/bribes";
 
 const ittyRouter = Router();
 
@@ -132,6 +133,7 @@ router.get(ListVotesOnProposal.route, ListVotesOnProposal);
 router.get(ListProposalVoters.route, ListProposalVoters);
 router.get(GetStakerInfo.route, GetStakerInfo);
 router.get(ListVe33Pools.route, ListVe33Pools);
+router.get(ListVe33Bribes.route, ListVe33Bribes);
 router.get(ListVe33TokensByAddress.route, ListVe33TokensByAddress);
 router.get(ListCampaigns.route, ListCampaigns);
 router.get(ListRewardsForLocker.route, ListRewardsForLocker);
