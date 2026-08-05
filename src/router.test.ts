@@ -29,7 +29,7 @@ describe("Chanfana router integration", () => {
         (count, operation) => count + (operation.parameters?.length ?? 0),
         0,
       ),
-    ).toBe(186);
+    ).toBe(185);
 
     const getToken = operations.find(
       (operation) =>
@@ -189,12 +189,6 @@ describe("Chanfana router integration", () => {
       context,
     );
     expect(badLimit.status).toBe(400);
-
-    const badBoolean = await router.fetch(
-      new Request("http://localhost/poolKeys/1/0x1?includeState=1"),
-      context,
-    );
-    expect(badBoolean.status).toBe(400);
 
     const badCursor = await router.fetch(
       new Request("http://localhost/poolKeys/1/0x1?after=not-a-number"),

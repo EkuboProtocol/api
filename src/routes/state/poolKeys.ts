@@ -36,10 +36,12 @@ const PoolStateType = z
   })
   .nullable();
 
+// Every field is always serialized; nullable means present-but-null, never
+// omitted, so consumers can rely on the shape.
 const PoolKeyListEntryType = z.object({
   pool_id: z.string(),
   pool_key: PoolKeyType,
-  state: PoolStateType.optional(),
+  state: PoolStateType,
 });
 
 const PoolKeysResponseType = z.object({
@@ -53,10 +55,6 @@ const PoolKeyByIdResponseType = z.object({
   pool_key: PoolKeyType,
   state: PoolStateType,
 });
-
-// z.coerce.boolean() would coerce the string "false" to true, so booleans
-// arrive as an explicit enum.
-const BooleanStringType = z.enum(["true", "false"]);
 
 interface PoolKeyRow {
   token0: string;
@@ -149,12 +147,6 @@ export class ListPoolKeys extends EkuboAPIRoute {
         description: "Maximum number of pools to return",
         default: 100,
       }),
-      includeState: Query(BooleanStringType, {
-        required: false,
-        description:
-          "Include each pool's latest indexed sqrt_ratio/tick/liquidity",
-        default: "false",
-      }),
     },
     responses: {
       "200": {
@@ -200,8 +192,6 @@ export class ListPoolKeys extends EkuboAPIRoute {
       .min(1)
       .max(200)
       .parse(query?.limit ?? 100);
-    const includeState =
-      BooleanStringType.parse(query?.includeState ?? "false") === "true";
 
     const [token0, token1] =
       tokenA !== undefined && tokenB !== undefined
@@ -230,7 +220,7 @@ export class ListPoolKeys extends EkuboAPIRoute {
       pools: page.map((row) => ({
         pool_id: toHex(row.pool_id, 32),
         pool_key: formatPoolKey(row),
-        ...(includeState ? { state: formatPoolState(row) } : {}),
+        state: formatPoolState(row),
       })),
       next_cursor: lastPoolId === undefined ? null : toHex(lastPoolId, 32),
       has_more: hasMore,
