@@ -1005,22 +1005,110 @@ FROM token_mint AS mint
         extension: string;
         stableswap_center_tick: string | null;
         stableswap_amplification: string | null;
+        pool_config: string | null;
+        state_sqrt_ratio: string | null;
+        state_tick: number | null;
+        state_liquidity: string | null;
       }[]
     >`
       SELECT
-        pool_key_id,
-        token0,
-        token1,
-        fee,
-        tick_spacing,
-        pool_extension AS extension,
-        stableswap_center_tick,
-        stableswap_amplification
-      FROM pool_keys
-      WHERE chain_id = ${chainId}
-        AND core_address = ${coreAddress.toString()}
-        AND pool_id = ${poolId.toString()}
+        pk.pool_key_id,
+        pk.token0,
+        pk.token1,
+        pk.fee,
+        pk.tick_spacing,
+        pk.pool_extension AS extension,
+        pk.stableswap_center_tick,
+        pk.stableswap_amplification,
+        pk.pool_config,
+        ps.sqrt_ratio AS state_sqrt_ratio,
+        ps.tick AS state_tick,
+        ps.liquidity AS state_liquidity
+      FROM pool_keys pk
+      LEFT JOIN pool_states ps USING (pool_key_id)
+      WHERE pk.chain_id = ${chainId}
+        AND pk.core_address = ${coreAddress.toString()}
+        AND pk.pool_id = ${poolId.toString()}
       LIMIT 1
+    `;
+  }
+
+  public async listPoolKeys({
+    chainId,
+    coreAddress,
+    token0,
+    token1,
+    tokenEither,
+    extension,
+    afterPoolId,
+    limit,
+  }: {
+    chainId: bigint;
+    coreAddress: bigint;
+    token0?: bigint;
+    token1?: bigint;
+    tokenEither?: bigint;
+    extension?: bigint;
+    afterPoolId?: bigint;
+    limit: number;
+  }) {
+    const pairCondition =
+      token0 !== undefined && token1 !== undefined
+        ? this
+            .sql`pk.token0 = ${token0.toString()} AND pk.token1 = ${token1.toString()}`
+        : tokenEither !== undefined
+          ? this
+              .sql`(pk.token0 = ${tokenEither.toString()} OR pk.token1 = ${tokenEither.toString()})`
+          : this.sql`TRUE`;
+    const extensionCondition =
+      extension !== undefined
+        ? this.sql`pk.pool_extension = ${extension.toString()}`
+        : this.sql`TRUE`;
+    const cursorCondition =
+      afterPoolId !== undefined
+        ? this.sql`pk.pool_id > ${afterPoolId.toString()}`
+        : this.sql`TRUE`;
+
+    // The state join is a primary-key lookup per returned row (limit-bounded),
+    // so it is unconditional; callers decide whether to expose it.
+    return this.sql<
+      {
+        pool_id: string;
+        token0: string;
+        token1: string;
+        fee: string;
+        tick_spacing: number | null;
+        extension: string;
+        stableswap_center_tick: string | null;
+        stableswap_amplification: string | null;
+        pool_config: string | null;
+        state_sqrt_ratio: string | null;
+        state_tick: number | null;
+        state_liquidity: string | null;
+      }[]
+    >`
+      SELECT
+        pk.pool_id,
+        pk.token0,
+        pk.token1,
+        pk.fee,
+        pk.tick_spacing,
+        pk.pool_extension AS extension,
+        pk.stableswap_center_tick,
+        pk.stableswap_amplification,
+        pk.pool_config,
+        ps.sqrt_ratio AS state_sqrt_ratio,
+        ps.tick AS state_tick,
+        ps.liquidity AS state_liquidity
+      FROM pool_keys pk
+      LEFT JOIN pool_states ps USING (pool_key_id)
+      WHERE pk.chain_id = ${chainId}
+        AND pk.core_address = ${coreAddress.toString()}
+        AND ${pairCondition}
+        AND ${extensionCondition}
+        AND ${cursorCondition}
+      ORDER BY pk.pool_id ASC
+      LIMIT ${limit}
     `;
   }
 
@@ -1924,11 +2012,20 @@ ORDER BY po.token_id DESC
       ? this.sql`pk.pool_id = ${poolIdParam}`
       : this.sql`TRUE`;
 
-    return this.sql<{ token: string; chain_id: bigint; volume: string }[]>`
+    return this.sql<
+      {
+        token: string;
+        chain_id: bigint;
+        volume: string;
+        fees: string;
+        ve33_fees: string;
+      }[]
+    >`
       SELECT pk.chain_id,
              hvbt.token,
-             SUM(volume) AS volume,
-             SUM(fees)   AS fees
+             SUM(volume)                  AS volume,
+             SUM(fees)                    AS fees,
+             SUM(ve33_fees)               AS ve33_fees
       FROM hourly_volume_by_token hvbt
             JOIN pool_keys pk USING (pool_key_id)
             JOIN erc20_tokens t ON t.chain_id = pk.chain_id AND t.token_address = hvbt.token
@@ -1971,13 +2068,15 @@ ORDER BY po.token_id DESC
         date: string;
         volume: string;
         fees: string;
+        ve33_fees: string;
       }[]
     >`
       SELECT pk.chain_id,
              hvbt.token,
              DATE_TRUNC('day', hour, 'UTC') AS date,
              SUM(volume)                    AS volume,
-             SUM(fees)                      AS fees
+             SUM(fees)                      AS fees,
+             SUM(ve33_fees)                 AS ve33_fees
       FROM hourly_volume_by_token hvbt
             JOIN pool_keys pk USING (pool_key_id)
             JOIN erc20_tokens t ON pk.chain_id = t.chain_id AND hvbt.token = t.token_address
@@ -2044,6 +2143,8 @@ ORDER BY po.token_id DESC
         volume1_24h: string;
         fees0_24h: string;
         fees1_24h: string;
+        ve33_fees0_24h: string;
+        ve33_fees1_24h: string;
         tvl0_total: string;
         tvl1_total: string;
         tvl0_delta_24h: string;
@@ -2061,6 +2162,8 @@ SELECT
        SUM(volume1_24h)                  AS volume1_24h,
        SUM(fees0_24h)                    AS fees0_24h,
        SUM(fees1_24h)                    AS fees1_24h,
+       SUM(ve33_fees0_24h)               AS ve33_fees0_24h,
+       SUM(ve33_fees1_24h)               AS ve33_fees1_24h,
        SUM(tvl0_total)                   AS tvl0_total,
        SUM(tvl1_total)                   AS tvl1_total,
        SUM(tvl0_delta_24h)               AS tvl0_delta_24h,
@@ -2110,6 +2213,8 @@ HAVING SUM(tvl0_total / POWER(10::NUMERIC, t0.token_decimals) * COALESCE(t0p.val
         volume1_24h: string;
         fees0_24h: string;
         fees1_24h: string;
+        ve33_fees0_24h: string;
+        ve33_fees1_24h: string;
         tvl0_total: string;
         tvl1_total: string;
         tvl0_delta_24h: string;
@@ -2143,6 +2248,8 @@ HAVING SUM(tvl0_total / POWER(10::NUMERIC, t0.token_decimals) * COALESCE(t0p.val
         volume1_24h,
         fees0_24h,
         fees1_24h,
+        ve33_fees0_24h,
+        ve33_fees1_24h,
         tvl0_total,
         tvl1_total,
         tvl0_delta_24h,
@@ -2225,6 +2332,8 @@ HAVING SUM(tvl0_total / POWER(10::NUMERIC, t0.token_decimals) * COALESCE(t0p.val
         volume1_24h: string;
         fees0_24h: string;
         fees1_24h: string;
+        ve33_fees0_24h: string;
+        ve33_fees1_24h: string;
         tvl0_total: string;
         tvl1_total: string;
         tvl0_delta_24h: string;
@@ -2261,6 +2370,8 @@ HAVING SUM(tvl0_total / POWER(10::NUMERIC, t0.token_decimals) * COALESCE(t0p.val
         volume1_24h,
         fees0_24h,
         fees1_24h,
+        ve33_fees0_24h,
+        ve33_fees1_24h,
         tvl0_total,
         tvl1_total,
         tvl0_delta_24h,
@@ -2656,6 +2767,8 @@ ORDER BY pt.last_transfer_event_id DESC NULLS LAST
       volume1_24h: string;
       fees0_24h: string;
       fees1_24h: string;
+      ve33_fees0_24h: string;
+      ve33_fees1_24h: string;
       tvl0_total: string;
       tvl1_total: string;
       tvl0_delta_24h: string;
@@ -2669,8 +2782,7 @@ ORDER BY pt.last_transfer_event_id DESC NULLS LAST
     };
     type NullableVe33PoolRow = {
       [K in keyof Omit<Ve33PoolRow, "total_count" | "total_vote_weight">]:
-        | Ve33PoolRow[K]
-        | null;
+        Ve33PoolRow[K] | null;
     } & Pick<Ve33PoolRow, "total_count" | "total_vote_weight">;
 
     const rows = await this.sql<NullableVe33PoolRow[]>`
@@ -2695,6 +2807,8 @@ WITH ve33_pools AS (
               COALESCE(l24.volume1_24h, 0::NUMERIC)::TEXT AS volume1_24h,
               COALESCE(l24.fees0_24h, 0::NUMERIC)::TEXT AS fees0_24h,
               COALESCE(l24.fees1_24h, 0::NUMERIC)::TEXT AS fees1_24h,
+              COALESCE(l24.ve33_fees0_24h, 0::NUMERIC)::TEXT AS ve33_fees0_24h,
+              COALESCE(l24.ve33_fees1_24h, 0::NUMERIC)::TEXT AS ve33_fees1_24h,
               COALESCE(l24.tvl0_total, 0::NUMERIC)::TEXT AS tvl0_total,
               COALESCE(l24.tvl1_total, 0::NUMERIC)::TEXT AS tvl1_total,
               COALESCE(l24.tvl0_delta_24h, 0::NUMERIC)::TEXT AS tvl0_delta_24h,
@@ -2894,6 +3008,72 @@ ORDER BY b.current_reward_rate::NUMERIC DESC NULLS LAST, b.total_scheduled_amoun
     return {
       rows: rows.filter((row): row is Ve33BribeRow => row.chain_id !== null),
       totalCount,
+    };
+  }
+
+  public async getVe33Voters(
+    ve33Address: bigint,
+    chainId: bigint,
+    pagination: { page: number; pageSize: number | undefined },
+  ) {
+    const offset =
+      pagination.pageSize === undefined
+        ? 0
+        : (pagination.page - 1) * pagination.pageSize;
+    type Ve33VoterRow = {
+      voter: string;
+      vote_weight: string;
+      total_count: number;
+      total_vote_weight: string;
+    };
+    type NullableVe33VoterRow = {
+      voter: string | null;
+      vote_weight: string | null;
+      total_count: number;
+      total_vote_weight: string;
+    };
+
+    const rows = await this.sql<NullableVe33VoterRow[]>`
+WITH ve33_voters AS (
+       SELECT nft.current_owner AS voter,
+              SUM(vpvs.weight)::TEXT AS vote_weight
+       FROM ve33_pool_vote_states vpvs
+                JOIN ve33_vote_weight_applied vwa
+                  ON vwa.chain_id = vpvs.chain_id
+                 AND vwa.event_id = vpvs.event_id
+                JOIN nonfungible_token_owners nft
+                  ON nft.chain_id = vpvs.chain_id
+                 AND nft.nft_address = vpvs.owner
+                 AND nft.token_id = vwa.stake_salt
+       WHERE vpvs.chain_id = ${chainId}
+         AND vpvs.emitter = ${ve33Address.toString()}
+         AND vpvs.weight > 0
+       GROUP BY nft.current_owner
+     ),
+     voter_totals AS (
+       SELECT COUNT(*)::INT AS total_count,
+              COALESCE(SUM(vote_weight::NUMERIC), 0)::TEXT AS total_vote_weight
+       FROM ve33_voters
+     )
+SELECT vv.*,
+       vt.total_count,
+       vt.total_vote_weight
+FROM voter_totals vt
+         LEFT JOIN LATERAL (
+           SELECT *
+           FROM ve33_voters
+           ORDER BY vote_weight::NUMERIC DESC, voter
+           LIMIT COALESCE(${pagination.pageSize ?? null}, vt.total_count) OFFSET ${offset}
+         ) vv ON TRUE
+ORDER BY vv.vote_weight::NUMERIC DESC NULLS LAST, vv.voter NULLS LAST
+    `;
+
+    const totalCount = rows[0]?.total_count ?? 0;
+    const totalVoteWeight = rows[0]?.total_vote_weight ?? "0";
+    return {
+      rows: rows.filter((row): row is Ve33VoterRow => row.voter !== null),
+      totalCount,
+      totalVoteWeight,
     };
   }
 

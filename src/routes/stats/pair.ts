@@ -35,18 +35,20 @@ const PairTvlResponseType = z.object({
 type PairVolumeRow = {
   token: string;
   volume: string;
-} & Partial<{ fees: string }>;
+} & Partial<{ fees: string; ve33_fees: string }>;
 
 const normalizePairVolumeRow = (row: PairVolumeRow) => ({
   token: row.token,
   volume: row.volume,
   fees: row.fees ?? "0",
+  ve33_fees: row.ve33_fees ?? "0",
 });
 
 const VolumeEntryType = z.object({
   token: z.string(),
   volume: z.string(),
   fees: z.string(),
+  ve33_fees: z.string(),
 });
 
 const VolumeByDateEntryType = VolumeEntryType.extend({
@@ -69,6 +71,8 @@ const PoolStatsType = z.object({
   volume1_24h: z.string(),
   fees0_24h: z.string(),
   fees1_24h: z.string(),
+  ve33_fees0_24h: z.string(),
+  ve33_fees1_24h: z.string(),
   tvl0_total: z.string(),
   tvl1_total: z.string(),
   tvl0_delta_24h: z.string(),

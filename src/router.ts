@@ -20,6 +20,7 @@ import {
   ListPairEvents,
 } from "./routes/stats/pair";
 import { GetPoolKey, GetPoolLiquidity } from "./routes/state";
+import { GetPoolKeyById, ListPoolKeys } from "./routes/state/poolKeys";
 import { error, Router } from "itty-router";
 import {
   GetPairPriceHistory,
@@ -59,7 +60,11 @@ import {
   GetAuctionNftState,
   ListAuctions,
 } from "./routes/auctions";
-import { ListVe33Pools, ListVe33TokensByAddress } from "./routes/ve33";
+import {
+  ListVe33Pools,
+  ListVe33TokensByAddress,
+  ListVe33Voters,
+} from "./routes/ve33";
 import { ListVe33Bribes } from "./routes/ve33/bribes";
 
 const ittyRouter = Router();
@@ -79,6 +84,12 @@ export const router = fromIttyRouter(ittyRouter, {
       url: "https://docs.ekubo.org",
       description: "Official documentation",
     },
+    servers: [
+      {
+        url: "https://prod-api.ekubo.org",
+        description: "Production",
+      },
+    ],
   },
   // removes the redoc and docs urls because they might increase the bundle size/js load time
   redoc_url: null as unknown as undefined,
@@ -103,6 +114,8 @@ router.get(GetPairPriceHistory.route, GetPairPriceHistory);
 router.get(GetPoolPriceHistory.route, GetPoolPriceHistory);
 router.get(GetPoolLiquidity.route, GetPoolLiquidity);
 router.get(GetPoolKey.route, GetPoolKey);
+router.get(GetPoolKeyById.route, GetPoolKeyById);
+router.get(ListPoolKeys.route, ListPoolKeys);
 router.get(GetPairLiquidity.route, GetPairLiquidity);
 router.get(GetPairTopPositions.route, GetPairTopPositions);
 router.get(GetPoolTopPositions.route, GetPoolTopPositions);
@@ -134,6 +147,7 @@ router.get(ListProposalVoters.route, ListProposalVoters);
 router.get(GetStakerInfo.route, GetStakerInfo);
 router.get(ListVe33Pools.route, ListVe33Pools);
 router.get(ListVe33Bribes.route, ListVe33Bribes);
+router.get(ListVe33Voters.route, ListVe33Voters);
 router.get(ListVe33TokensByAddress.route, ListVe33TokensByAddress);
 router.get(ListCampaigns.route, ListCampaigns);
 router.get(ListRewardsForLocker.route, ListRewardsForLocker);
