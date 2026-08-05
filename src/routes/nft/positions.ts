@@ -9,7 +9,11 @@ import {
 } from "../../shared/validation/address";
 import { z } from "zod";
 import { IRequest, json, StatusError } from "itty-router";
-import { createQueries, type StateFilter } from "../../queries";
+import {
+  createQueries,
+  type PositionEventRow,
+  type StateFilter,
+} from "../../queries";
 import toHex from "../../shared/toHex";
 import { NFTMetadata, NFTMetadataSchema, TokenIdType } from "./format";
 import { generatePositionNft } from "./generatePositionNft";
@@ -64,6 +68,129 @@ const PositionEventsResponseType = z.object({
   chain_id: NumericStringType,
   events: z.array(PositionEventType),
 });
+
+const SignedDecimalStringType = z.string().regex(/^-?\d+$/);
+
+const GlobalPositionEventBaseShape = {
+  event_id: SignedDecimalStringType.describe(
+    "Signed event cursor encoding block, transaction, and event order",
+  ),
+  block_number: z.string(),
+  transaction_index: z.number().int().nonnegative(),
+  event_index: z.number().int().nonnegative(),
+  transaction_hash: HexStringType,
+  timestamp: PositionEventsTimestampType,
+  position_id: HexStringType.describe(
+    "Stable core position identifier shared by NFT and pool events",
+  ),
+  nft_address: HexStringType,
+  positions_address: HexStringType,
+};
+
+const GlobalPositionLifecycleEventType = z.object({
+  ...GlobalPositionEventBaseShape,
+  type: z.enum(["mint", "transfer", "burn"]),
+  token_id: HexStringType.describe("Position NFT token ID"),
+  from_address: HexStringType,
+  to_address: HexStringType,
+});
+
+const GlobalPositionEventPoolKeyType = z.object({
+  core_address: HexStringType,
+  pool_id: HexStringType,
+  token0: HexStringType,
+  token1: HexStringType,
+  fee: HexStringType,
+  fee_denominator: HexStringType,
+  tick_spacing: HexStringType.nullable(),
+  extension: HexStringType,
+  stableswap_params: z
+    .object({ center_tick: z.number(), amplification: z.number() })
+    .nullable(),
+});
+
+const GlobalPositionUpdateEventType = z.object({
+  ...GlobalPositionEventBaseShape,
+  type: z.literal("update"),
+  pool_key: GlobalPositionEventPoolKeyType,
+  bounds: z.object({ lower: z.number(), upper: z.number() }),
+  liquidity_delta: z.string(),
+  delta0: z.string(),
+  delta1: z.string(),
+});
+
+const GlobalPositionCollectFeesEventType = z.object({
+  ...GlobalPositionEventBaseShape,
+  type: z.literal("collect_fees"),
+  pool_key: GlobalPositionEventPoolKeyType,
+  bounds: z.object({ lower: z.number(), upper: z.number() }),
+  delta0: z.string(),
+  delta1: z.string(),
+});
+
+const GlobalPositionEventType = z.union([
+  GlobalPositionLifecycleEventType,
+  GlobalPositionUpdateEventType,
+  GlobalPositionCollectFeesEventType,
+]);
+
+const GlobalPositionEventsResponseType = z.object({
+  chain_id: NumericStringType,
+  events: z.array(GlobalPositionEventType),
+  next_cursor: SignedDecimalStringType.nullable(),
+  has_more: z.boolean(),
+});
+
+const MAX_POSITION_EVENT_BLOCK = (1n << 32n) - 1n;
+const MIN_EVENT_ID = -(1n << 63n);
+const MAX_EVENT_ID = (1n << 63n) - 1n;
+const EVENT_ID_OFFSET = MIN_EVENT_ID + 1n;
+const EVENTS_PER_BLOCK = 1n << 32n;
+
+const PositionEventBlockNumberType = z.coerce
+  .bigint()
+  .min(0n)
+  .max(MAX_POSITION_EVENT_BLOCK)
+  .openapi({
+    type: "integer",
+    format: "int64",
+    minimum: 0,
+    maximum: Number(MAX_POSITION_EVENT_BLOCK),
+  });
+
+const PositionEventCursorType = z.coerce
+  .bigint()
+  .min(MIN_EVENT_ID)
+  .max(MAX_EVENT_ID)
+  .openapi({
+    type: "integer",
+    format: "int64",
+  });
+
+export function getPositionEventIdRange({
+  cursor,
+  fromBlock,
+  toBlock,
+}: {
+  cursor: bigint | null;
+  fromBlock: bigint | null;
+  toBlock: bigint | null;
+}) {
+  const fromBlockMinimum =
+    fromBlock === null
+      ? MIN_EVENT_ID
+      : EVENT_ID_OFFSET + fromBlock * EVENTS_PER_BLOCK - 1n;
+  const minEventIdExclusive =
+    cursor === null || fromBlockMinimum > cursor ? fromBlockMinimum : cursor;
+  const requestedMaximum =
+    toBlock === null
+      ? MAX_EVENT_ID
+      : EVENT_ID_OFFSET + toBlock * EVENTS_PER_BLOCK + EVENTS_PER_BLOCK - 1n;
+  const maxEventIdInclusive =
+    requestedMaximum > MAX_EVENT_ID ? MAX_EVENT_ID : requestedMaximum;
+
+  return { minEventIdExclusive, maxEventIdInclusive };
+}
 
 const PoolKeySummaryType = z.object({
   token0: HexStringType,
@@ -219,6 +346,71 @@ function buildListPositionsResponse(
       totalItems: totalCount,
     },
   } satisfies z.infer<typeof ListPositionsResponseType>;
+}
+
+function formatGlobalPositionEvent(
+  row: PositionEventRow,
+): z.infer<typeof GlobalPositionEventType> {
+  const base = {
+    event_id: row.event_id.toString(),
+    block_number: row.block_number.toString(),
+    transaction_index: row.transaction_index,
+    event_index: row.event_index,
+    transaction_hash: toHex(row.transaction_hash),
+    timestamp: row.timestamp,
+    position_id: toHex(row.position_id),
+    nft_address: toHex(row.nft_address),
+    positions_address: toHex(row.positions_address),
+  };
+
+  if (row.type === 0 || row.type === 1 || row.type === 2) {
+    return {
+      ...base,
+      type: row.type === 0 ? "mint" : row.type === 1 ? "transfer" : "burn",
+      token_id: toHex(row.token_id),
+      from_address: toHex(row.from_address),
+      to_address: toHex(row.to_address),
+    };
+  }
+
+  const pool_key = {
+    core_address: toHex(row.core_address),
+    pool_id: toHex(row.pool_id),
+    token0: toHex(row.token0),
+    token1: toHex(row.token1),
+    fee: toHex(row.fee),
+    fee_denominator: toHex(row.fee_denominator),
+    tick_spacing: row.tick_spacing === null ? null : toHex(row.tick_spacing),
+    extension: toHex(row.pool_extension),
+    stableswap_params:
+      row.stableswap_center_tick === null ||
+      row.stableswap_amplification === null
+        ? null
+        : {
+            center_tick: row.stableswap_center_tick,
+            amplification: row.stableswap_amplification,
+          },
+  };
+  const bounds = { lower: row.lower_bound, upper: row.upper_bound };
+
+  return row.type === 3
+    ? {
+        ...base,
+        type: "update",
+        pool_key,
+        bounds,
+        liquidity_delta: row.liquidity_delta,
+        delta0: row.delta0,
+        delta1: row.delta1,
+      }
+    : {
+        ...base,
+        type: "collect_fees",
+        pool_key,
+        bounds,
+        delta0: row.delta0,
+        delta1: row.delta1,
+      };
 }
 
 export class GetPositionNftMetadata extends EkuboAPIRoute {
@@ -386,6 +578,107 @@ export class ListPositionNftEvents extends EkuboAPIRoute {
     return json(response, {
       headers: {
         "cache-control": "public, max-age=60, must-revalidate",
+      },
+    });
+  }
+}
+
+export class ListPositionEvents extends EkuboAPIRoute {
+  static route = "/positions/:chainId/events";
+  static schema: OpenAPIRouteSchema = {
+    tags: ["Positions"],
+    summary: "List position events",
+    description:
+      "Returns position NFT lifecycle, liquidity update, and fee collection events in ascending event order",
+    parameters: {
+      chainId: Path(ChainIdType, {
+        description: "Chain ID for which to list events",
+      }),
+      fromBlock: Query(PositionEventBlockNumberType, {
+        required: false,
+        description: "Inclusive first block number",
+      }),
+      toBlock: Query(PositionEventBlockNumberType, {
+        required: false,
+        description: "Inclusive last block number",
+      }),
+      cursor: Query(PositionEventCursorType, {
+        required: false,
+        description:
+          "Return events strictly after this event_id; use next_cursor to continue",
+      }),
+      limit: Query(z.coerce.number().int().min(1).max(1000), {
+        required: false,
+        description: "Maximum number of events to return",
+        default: 100,
+      }),
+    },
+    responses: {
+      "200": {
+        description: "A globally ordered page of position events",
+        schema: GlobalPositionEventsResponseType,
+      },
+    },
+  };
+
+  async handleRequest(
+    { params: { chainId: chainIdParam }, query }: IRequest,
+    { env }: RequestContext,
+  ) {
+    const chainId = BigInt(chainIdParam);
+    const cursor =
+      query?.cursor === undefined
+        ? null
+        : PositionEventCursorType.parse(query.cursor);
+    const fromBlock =
+      query?.fromBlock === undefined
+        ? null
+        : PositionEventBlockNumberType.parse(query.fromBlock);
+    const toBlock =
+      query?.toBlock === undefined
+        ? null
+        : PositionEventBlockNumberType.parse(query.toBlock);
+    const limit = z.coerce
+      .number()
+      .int()
+      .min(1)
+      .max(1000)
+      .parse(query?.limit ?? 100);
+
+    if (fromBlock !== null && toBlock !== null && fromBlock > toBlock) {
+      throw new StatusError(
+        400,
+        "fromBlock must be less than or equal to toBlock",
+      );
+    }
+
+    const { minEventIdExclusive, maxEventIdInclusive } =
+      getPositionEventIdRange({ cursor, fromBlock, toBlock });
+    let rows: PositionEventRow[] = [];
+    if (minEventIdExclusive < maxEventIdInclusive) {
+      const queries = await createQueries(env);
+      rows = await queries.listPositionEvents({
+        chainId,
+        minEventIdExclusive,
+        maxEventIdInclusive,
+        limit: limit + 1,
+      });
+    }
+    const hasMore = rows.length > limit;
+    const page = rows.slice(0, limit);
+    const nextCursor =
+      page.at(-1)?.event_id.toString() ?? cursor?.toString() ?? null;
+
+    const response = {
+      chain_id: chainId.toString(),
+      events: page.map(formatGlobalPositionEvent),
+      next_cursor: nextCursor,
+      has_more: hasMore,
+    } satisfies z.infer<typeof GlobalPositionEventsResponseType>;
+
+    return json(response, {
+      headers: {
+        "cache-control": "no-cache",
       },
     });
   }
