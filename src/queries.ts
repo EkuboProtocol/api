@@ -2776,6 +2776,72 @@ ORDER BY vp.pool_total_vote_weight::NUMERIC DESC NULLS LAST, vp.last_event_id::N
     };
   }
 
+  public async getVe33Voters(
+    ve33Address: bigint,
+    chainId: bigint,
+    pagination: { page: number; pageSize: number | undefined },
+  ) {
+    const offset =
+      pagination.pageSize === undefined
+        ? 0
+        : (pagination.page - 1) * pagination.pageSize;
+    type Ve33VoterRow = {
+      voter: string;
+      vote_weight: string;
+      total_count: number;
+      total_vote_weight: string;
+    };
+    type NullableVe33VoterRow = {
+      voter: string | null;
+      vote_weight: string | null;
+      total_count: number;
+      total_vote_weight: string;
+    };
+
+    const rows = await this.sql<NullableVe33VoterRow[]>`
+WITH ve33_voters AS (
+       SELECT nft.current_owner AS voter,
+              SUM(vpvs.weight)::TEXT AS vote_weight
+       FROM ve33_pool_vote_states vpvs
+                JOIN ve33_vote_weight_applied vwa
+                  ON vwa.chain_id = vpvs.chain_id
+                 AND vwa.event_id = vpvs.event_id
+                JOIN nonfungible_token_owners nft
+                  ON nft.chain_id = vpvs.chain_id
+                 AND nft.nft_address = vpvs.owner
+                 AND nft.token_id = vwa.stake_salt
+       WHERE vpvs.chain_id = ${chainId}
+         AND vpvs.emitter = ${ve33Address.toString()}
+         AND vpvs.weight > 0
+       GROUP BY nft.current_owner
+     ),
+     voter_totals AS (
+       SELECT COUNT(*)::INT AS total_count,
+              COALESCE(SUM(vote_weight::NUMERIC), 0)::TEXT AS total_vote_weight
+       FROM ve33_voters
+     )
+SELECT vv.*,
+       vt.total_count,
+       vt.total_vote_weight
+FROM voter_totals vt
+         LEFT JOIN LATERAL (
+           SELECT *
+           FROM ve33_voters
+           ORDER BY vote_weight::NUMERIC DESC, voter
+           LIMIT COALESCE(${pagination.pageSize ?? null}, vt.total_count) OFFSET ${offset}
+         ) vv ON TRUE
+ORDER BY vv.vote_weight::NUMERIC DESC NULLS LAST, vv.voter NULLS LAST
+    `;
+
+    const totalCount = rows[0]?.total_count ?? 0;
+    const totalVoteWeight = rows[0]?.total_vote_weight ?? "0";
+    return {
+      rows: rows.filter((row): row is Ve33VoterRow => row.voter !== null),
+      totalCount,
+      totalVoteWeight,
+    };
+  }
+
   private async getTopPositions({
     chainId,
     limit,

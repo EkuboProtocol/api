@@ -22,14 +22,14 @@ describe("Chanfana router integration", () => {
       ),
     );
 
-    expect(Object.keys(schema.paths)).toHaveLength(53);
-    expect(operations).toHaveLength(53);
+    expect(Object.keys(schema.paths)).toHaveLength(54);
+    expect(operations).toHaveLength(54);
     expect(
       operations.reduce(
         (count, operation) => count + (operation.parameters?.length ?? 0),
         0,
       ),
-    ).toBe(171);
+    ).toBe(175);
 
     const getToken = operations.find(
       (operation) =>
@@ -103,6 +103,13 @@ describe("Chanfana router integration", () => {
     expect(requiredEntryFields("/ve33/{ve33Address}/pools", "data")).toEqual(
       expect.arrayContaining(poolFeeFields),
     );
+
+    expect(requiredEntryFields("/ve33/{ve33Address}/voters", "data")).toEqual(
+      expect.arrayContaining(["voter", "total_vote_weight"]),
+    );
+    expect(responseSchema("/ve33/{ve33Address}/voters")?.required).toEqual(
+      expect.arrayContaining(["data", "total_vote_weight", "pagination"]),
+    );
   });
 
   test("validates requests before invoking route handlers", async () => {
@@ -137,6 +144,13 @@ describe("Chanfana router integration", () => {
     );
 
     expect(tokenPriceHistoryResponse.status).toBe(400);
+
+    const invalidVotersPageResponse = await router.fetch(
+      new Request("http://localhost/ve33/0x1/voters?chainId=1&page=2"),
+      context,
+    );
+
+    expect(invalidVotersPageResponse.status).toBe(400);
 
     await expect(
       router.fetch(
