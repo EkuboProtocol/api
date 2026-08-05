@@ -20,6 +20,7 @@ import {
   ListPairEvents,
 } from "./routes/stats/pair";
 import { GetPoolKey, GetPoolLiquidity } from "./routes/state";
+import { GetPoolKeyById, ListPoolKeys } from "./routes/state/poolKeys";
 import { error, Router } from "itty-router";
 import {
   GetPairPriceHistory,
@@ -112,6 +113,8 @@ router.get(GetPairPriceHistory.route, GetPairPriceHistory);
 router.get(GetPoolPriceHistory.route, GetPoolPriceHistory);
 router.get(GetPoolLiquidity.route, GetPoolLiquidity);
 router.get(GetPoolKey.route, GetPoolKey);
+router.get(GetPoolKeyById.route, GetPoolKeyById);
+router.get(ListPoolKeys.route, ListPoolKeys);
 router.get(GetPairLiquidity.route, GetPairLiquidity);
 router.get(GetPairTopPositions.route, GetPairTopPositions);
 router.get(GetPoolTopPositions.route, GetPoolTopPositions);
