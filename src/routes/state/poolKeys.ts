@@ -23,6 +23,9 @@ const PoolKeyType = z.object({
   stableswap_params: z
     .object({ center_tick: z.number().int(), amplification: z.number().int() })
     .nullable(),
+  // The packed bytes32 PoolConfig as emitted on chain; null for legacy
+  // v2-core pools whose events carried no packed config.
+  config: z.string().nullable(),
 });
 
 const PoolStateType = z
@@ -63,6 +66,7 @@ interface PoolKeyRow {
   extension: string;
   stableswap_center_tick: string | null;
   stableswap_amplification: string | null;
+  pool_config: string | null;
 }
 
 interface PoolStateRow {
@@ -86,6 +90,7 @@ function formatPoolKey(row: PoolKeyRow): z.infer<typeof PoolKeyType> {
     tick_spacing: row.tick_spacing ? toHex(row.tick_spacing) : null,
     extension: toHex(row.extension),
     stableswap_params,
+    config: row.pool_config === null ? null : toHex(row.pool_config, 32),
   };
 }
 

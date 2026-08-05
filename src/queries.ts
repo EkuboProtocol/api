@@ -1005,6 +1005,7 @@ FROM token_mint AS mint
         extension: string;
         stableswap_center_tick: string | null;
         stableswap_amplification: string | null;
+        pool_config: string | null;
         state_sqrt_ratio: string | null;
         state_tick: number | null;
         state_liquidity: string | null;
@@ -1019,6 +1020,7 @@ FROM token_mint AS mint
         pk.pool_extension AS extension,
         pk.stableswap_center_tick,
         pk.stableswap_amplification,
+        pk.pool_config,
         ps.sqrt_ratio AS state_sqrt_ratio,
         ps.tick AS state_tick,
         ps.liquidity AS state_liquidity
@@ -1079,6 +1081,7 @@ FROM token_mint AS mint
         extension: string;
         stableswap_center_tick: string | null;
         stableswap_amplification: string | null;
+        pool_config: string | null;
         state_sqrt_ratio: string | null;
         state_tick: number | null;
         state_liquidity: string | null;
@@ -1093,6 +1096,7 @@ FROM token_mint AS mint
         pk.pool_extension AS extension,
         pk.stableswap_center_tick,
         pk.stableswap_amplification,
+        pk.pool_config,
         ps.sqrt_ratio AS state_sqrt_ratio,
         ps.tick AS state_tick,
         ps.liquidity AS state_liquidity
