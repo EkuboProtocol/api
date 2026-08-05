@@ -22,14 +22,14 @@ describe("Chanfana router integration", () => {
       ),
     );
 
-    expect(Object.keys(schema.paths)).toHaveLength(51);
-    expect(operations).toHaveLength(51);
+    expect(Object.keys(schema.paths)).toHaveLength(56);
+    expect(operations).toHaveLength(56);
     expect(
       operations.reduce(
         (count, operation) => count + (operation.parameters?.length ?? 0),
         0,
       ),
-    ).toBe(162);
+    ).toBe(185);
 
     const getToken = operations.find(
       (operation) =>
@@ -41,6 +41,75 @@ describe("Chanfana router integration", () => {
     expect(
       getToken?.responses["404"].content?.["application/json"],
     ).toBeDefined();
+
+    const getTokenPriceHistory = operations.find(
+      (operation) =>
+        operation ===
+        paths["/tokens/{chainId}/{tokenAddress}/price-history"]?.get,
+    );
+    expect(
+      getTokenPriceHistory?.responses["200"].content?.["application/json"],
+    ).toBeDefined();
+  });
+
+  test("documents total and ve33 component fees in stats responses", () => {
+    type JsonSchema = {
+      properties?: Record<string, JsonSchema>;
+      items?: JsonSchema;
+      required?: string[];
+    };
+    type GetOperation = {
+      responses: Record<
+        string,
+        { content?: Record<string, { schema?: JsonSchema }> }
+      >;
+    };
+
+    const paths = router.schema.paths as Record<string, { get?: GetOperation }>;
+    const responseSchema = (path: string) =>
+      paths[path]?.get?.responses["200"].content?.["application/json"].schema;
+    const requiredEntryFields = (path: string, property: string) =>
+      responseSchema(path)?.properties?.[property].items?.required;
+
+    const volumeFields = ["fees", "ve33_fees"];
+    expect(
+      requiredEntryFields("/overview/volume", "volumeByToken_24h"),
+    ).toEqual(expect.arrayContaining(volumeFields));
+    expect(
+      requiredEntryFields(
+        "/pair/{chainId}/{tokenA}/{tokenB}/volume",
+        "volumeByTokenByDate",
+      ),
+    ).toEqual(expect.arrayContaining(volumeFields));
+
+    const poolFeeFields = [
+      "fees0_24h",
+      "fees1_24h",
+      "ve33_fees0_24h",
+      "ve33_fees1_24h",
+    ];
+    expect(requiredEntryFields("/overview/pairs", "topPairs")).toEqual(
+      expect.arrayContaining(poolFeeFields),
+    );
+    expect(
+      requiredEntryFields("/overview/boosted-fees-pools", "pools"),
+    ).toEqual(expect.arrayContaining(poolFeeFields));
+    expect(
+      requiredEntryFields(
+        "/pair/{chainId}/{tokenA}/{tokenB}/pools",
+        "topPools",
+      ),
+    ).toEqual(expect.arrayContaining(poolFeeFields));
+    expect(requiredEntryFields("/ve33/{ve33Address}/pools", "data")).toEqual(
+      expect.arrayContaining(poolFeeFields),
+    );
+
+    expect(requiredEntryFields("/ve33/{ve33Address}/voters", "data")).toEqual(
+      expect.arrayContaining(["voter", "total_vote_weight"]),
+    );
+    expect(responseSchema("/ve33/{ve33Address}/voters")?.required).toEqual(
+      expect.arrayContaining(["data", "total_vote_weight", "pagination"]),
+    );
   });
 
   test("validates requests before invoking route handlers", async () => {
@@ -61,6 +130,80 @@ describe("Chanfana router integration", () => {
       ],
       result: {},
     });
+
+    const positionEventsResponse = await router.fetch(
+      new Request("http://localhost/positions/1/events?limit=0"),
+      context,
+    );
+
+    expect(positionEventsResponse.status).toBe(400);
+
+    const tokenPriceHistoryResponse = await router.fetch(
+      new Request("http://localhost/tokens/1/0x1/price-history?interval=59"),
+      context,
+    );
+
+    expect(tokenPriceHistoryResponse.status).toBe(400);
+
+    const invalidVotersPageResponse = await router.fetch(
+      new Request("http://localhost/ve33/0x1/voters?chainId=1&page=2"),
+      context,
+    );
+
+    expect(invalidVotersPageResponse.status).toBe(400);
+
+    await expect(
+      router.fetch(
+        new Request(
+          "http://localhost/tokens/1/0x1/price-history?interval=60&duration=86400",
+        ),
+        context,
+      ),
+    ).rejects.toMatchObject({ status: 400 });
+  });
+
+  test("validates pool key discovery requests without a database", async () => {
+    await expect(
+      router.fetch(
+        new Request("http://localhost/poolKeys/1/0x1?tokenA=0x2&tokenB=0x2"),
+        context,
+      ),
+    ).rejects.toMatchObject({ status: 400 });
+
+    await expect(
+      router.fetch(
+        new Request("http://localhost/poolKeys/1/0x1?tokenB=0x2"),
+        context,
+      ),
+    ).rejects.toMatchObject({ status: 400 });
+
+    await expect(
+      router.fetch(
+        new Request(`http://localhost/poolKeys/1/0x1?tokenA=0x${"f".repeat(42)}`),
+        context,
+      ),
+    ).rejects.toMatchObject({ status: 400 });
+
+    for (const path of [
+      `/poolKeys/1/0x${"f".repeat(42)}`,
+      `/poolKeys/1/0x${"f".repeat(42)}/0x1`,
+    ]) {
+      await expect(
+        router.fetch(new Request(`http://localhost${path}`), context),
+      ).rejects.toMatchObject({ status: 400 });
+    }
+
+    const badLimit = await router.fetch(
+      new Request("http://localhost/poolKeys/1/0x1?limit=201"),
+      context,
+    );
+    expect(badLimit.status).toBe(400);
+
+    const badCursor = await router.fetch(
+      new Request("http://localhost/poolKeys/1/0x1?after=not-a-number"),
+      context,
+    );
+    expect(badCursor.status).toBe(400);
   });
 
   test("continues to serve ordinary and fallback routes", async () => {
@@ -76,5 +219,22 @@ describe("Chanfana router integration", () => {
       context,
     );
     expect(missingResponse.status).toBe(404);
+  });
+
+  test("serves an empty terminal position event page without a database", async () => {
+    const response = await router.fetch(
+      new Request(
+        "http://localhost/positions/1/events?cursor=9223372036854775807",
+      ),
+      context,
+    );
+
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({
+      chain_id: "1",
+      events: [],
+      next_cursor: "9223372036854775807",
+      has_more: false,
+    });
   });
 });
