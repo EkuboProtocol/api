@@ -20,12 +20,18 @@ import {
   ListPairEvents,
 } from "./routes/stats/pair";
 import { GetPoolKey, GetPoolLiquidity } from "./routes/state";
+import { GetPoolKeyById, ListPoolKeys } from "./routes/state/poolKeys";
 import { error, Router } from "itty-router";
-import { GetPairPriceHistory, GetPoolPriceHistory } from "./routes/prices";
+import {
+  GetPairPriceHistory,
+  GetPoolPriceHistory,
+  GetTokenUsdPriceHistory,
+} from "./routes/prices";
 import {
   BatchListPositionsByAddress,
   GetPositionNftImage,
   GetPositionNftMetadata,
+  ListPositionEvents,
   ListPositionNftEvents,
   ListPositionsByAddress,
 } from "./routes/nft/positions";
@@ -54,7 +60,11 @@ import {
   GetAuctionNftState,
   ListAuctions,
 } from "./routes/auctions";
-import { ListVe33Pools, ListVe33TokensByAddress } from "./routes/ve33";
+import {
+  ListVe33Pools,
+  ListVe33TokensByAddress,
+  ListVe33Voters,
+} from "./routes/ve33";
 
 const ittyRouter = Router();
 
@@ -73,6 +83,12 @@ export const router = fromIttyRouter(ittyRouter, {
       url: "https://docs.ekubo.org",
       description: "Official documentation",
     },
+    servers: [
+      {
+        url: "https://prod-api.ekubo.org",
+        description: "Production",
+      },
+    ],
   },
   // removes the redoc and docs urls because they might increase the bundle size/js load time
   redoc_url: null as unknown as undefined,
@@ -92,16 +108,20 @@ router.get(GetOverviewVolume.route, GetOverviewVolume);
 router.get(GetPairInfoTvl.route, GetPairInfoTvl);
 router.get(GetPairInfoVolume.route, GetPairInfoVolume);
 router.get(GetPairInfoPools.route, GetPairInfoPools);
+router.get(GetTokenUsdPriceHistory.route, GetTokenUsdPriceHistory);
 router.get(GetPairPriceHistory.route, GetPairPriceHistory);
 router.get(GetPoolPriceHistory.route, GetPoolPriceHistory);
 router.get(GetPoolLiquidity.route, GetPoolLiquidity);
 router.get(GetPoolKey.route, GetPoolKey);
+router.get(GetPoolKeyById.route, GetPoolKeyById);
+router.get(ListPoolKeys.route, ListPoolKeys);
 router.get(GetPairLiquidity.route, GetPairLiquidity);
 router.get(GetPairTopPositions.route, GetPairTopPositions);
 router.get(GetPoolTopPositions.route, GetPoolTopPositions);
 router.get(ListPairEvents.route, ListPairEvents);
 router.get(BatchListPositionsByAddress.route, BatchListPositionsByAddress);
 router.get(ListPositionsByAddress.route, ListPositionsByAddress);
+router.get(ListPositionEvents.route, ListPositionEvents);
 router.get(ListPositionNftEvents.route, ListPositionNftEvents);
 router.get(GetPositionNftMetadata.route, GetPositionNftMetadata);
 router.get(GetOrderNftImage.route, GetOrderNftImage);
@@ -125,6 +145,7 @@ router.get(ListVotesOnProposal.route, ListVotesOnProposal);
 router.get(ListProposalVoters.route, ListProposalVoters);
 router.get(GetStakerInfo.route, GetStakerInfo);
 router.get(ListVe33Pools.route, ListVe33Pools);
+router.get(ListVe33Voters.route, ListVe33Voters);
 router.get(ListVe33TokensByAddress.route, ListVe33TokensByAddress);
 router.get(ListCampaigns.route, ListCampaigns);
 router.get(ListRewardsForLocker.route, ListRewardsForLocker);
