@@ -1005,22 +1005,106 @@ FROM token_mint AS mint
         extension: string;
         stableswap_center_tick: string | null;
         stableswap_amplification: string | null;
+        state_sqrt_ratio: string | null;
+        state_tick: number | null;
+        state_liquidity: string | null;
       }[]
     >`
       SELECT
-        pool_key_id,
-        token0,
-        token1,
-        fee,
-        tick_spacing,
-        pool_extension AS extension,
-        stableswap_center_tick,
-        stableswap_amplification
-      FROM pool_keys
-      WHERE chain_id = ${chainId}
-        AND core_address = ${coreAddress.toString()}
-        AND pool_id = ${poolId.toString()}
+        pk.pool_key_id,
+        pk.token0,
+        pk.token1,
+        pk.fee,
+        pk.tick_spacing,
+        pk.pool_extension AS extension,
+        pk.stableswap_center_tick,
+        pk.stableswap_amplification,
+        ps.sqrt_ratio AS state_sqrt_ratio,
+        ps.tick AS state_tick,
+        ps.liquidity AS state_liquidity
+      FROM pool_keys pk
+      LEFT JOIN pool_states ps USING (pool_key_id)
+      WHERE pk.chain_id = ${chainId}
+        AND pk.core_address = ${coreAddress.toString()}
+        AND pk.pool_id = ${poolId.toString()}
       LIMIT 1
+    `;
+  }
+
+  public async listPoolKeys({
+    chainId,
+    coreAddress,
+    token0,
+    token1,
+    tokenEither,
+    extension,
+    afterPoolId,
+    limit,
+  }: {
+    chainId: bigint;
+    coreAddress: bigint;
+    token0?: bigint;
+    token1?: bigint;
+    tokenEither?: bigint;
+    extension?: bigint;
+    afterPoolId?: bigint;
+    limit: number;
+  }) {
+    const pairCondition =
+      token0 !== undefined && token1 !== undefined
+        ? this
+            .sql`pk.token0 = ${token0.toString()} AND pk.token1 = ${token1.toString()}`
+        : tokenEither !== undefined
+          ? this
+              .sql`(pk.token0 = ${tokenEither.toString()} OR pk.token1 = ${tokenEither.toString()})`
+          : this.sql`TRUE`;
+    const extensionCondition =
+      extension !== undefined
+        ? this.sql`pk.pool_extension = ${extension.toString()}`
+        : this.sql`TRUE`;
+    const cursorCondition =
+      afterPoolId !== undefined
+        ? this.sql`pk.pool_id > ${afterPoolId.toString()}`
+        : this.sql`TRUE`;
+
+    // The state join is a primary-key lookup per returned row (limit-bounded),
+    // so it is unconditional; callers decide whether to expose it.
+    return this.sql<
+      {
+        pool_id: string;
+        token0: string;
+        token1: string;
+        fee: string;
+        tick_spacing: number | null;
+        extension: string;
+        stableswap_center_tick: string | null;
+        stableswap_amplification: string | null;
+        state_sqrt_ratio: string | null;
+        state_tick: number | null;
+        state_liquidity: string | null;
+      }[]
+    >`
+      SELECT
+        pk.pool_id,
+        pk.token0,
+        pk.token1,
+        pk.fee,
+        pk.tick_spacing,
+        pk.pool_extension AS extension,
+        pk.stableswap_center_tick,
+        pk.stableswap_amplification,
+        ps.sqrt_ratio AS state_sqrt_ratio,
+        ps.tick AS state_tick,
+        ps.liquidity AS state_liquidity
+      FROM pool_keys pk
+      LEFT JOIN pool_states ps USING (pool_key_id)
+      WHERE pk.chain_id = ${chainId}
+        AND pk.core_address = ${coreAddress.toString()}
+        AND ${pairCondition}
+        AND ${extensionCondition}
+        AND ${cursorCondition}
+      ORDER BY pk.pool_id ASC
+      LIMIT ${limit}
     `;
   }
 

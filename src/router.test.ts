@@ -22,14 +22,14 @@ describe("Chanfana router integration", () => {
       ),
     );
 
-    expect(Object.keys(schema.paths)).toHaveLength(54);
-    expect(operations).toHaveLength(54);
+    expect(Object.keys(schema.paths)).toHaveLength(56);
+    expect(operations).toHaveLength(56);
     expect(
       operations.reduce(
         (count, operation) => count + (operation.parameters?.length ?? 0),
         0,
       ),
-    ).toBe(175);
+    ).toBe(186);
 
     const getToken = operations.find(
       (operation) =>
@@ -160,6 +160,47 @@ describe("Chanfana router integration", () => {
         context,
       ),
     ).rejects.toMatchObject({ status: 400 });
+  });
+
+  test("validates pool key discovery requests without a database", async () => {
+    await expect(
+      router.fetch(
+        new Request("http://localhost/poolKeys/1/0x1?tokenA=0x2&tokenB=0x2"),
+        context,
+      ),
+    ).rejects.toMatchObject({ status: 400 });
+
+    await expect(
+      router.fetch(
+        new Request("http://localhost/poolKeys/1/0x1?tokenB=0x2"),
+        context,
+      ),
+    ).rejects.toMatchObject({ status: 400 });
+
+    await expect(
+      router.fetch(
+        new Request(`http://localhost/poolKeys/1/0x1?tokenA=0x${"f".repeat(42)}`),
+        context,
+      ),
+    ).rejects.toMatchObject({ status: 400 });
+
+    const badLimit = await router.fetch(
+      new Request("http://localhost/poolKeys/1/0x1?limit=201"),
+      context,
+    );
+    expect(badLimit.status).toBe(400);
+
+    const badBoolean = await router.fetch(
+      new Request("http://localhost/poolKeys/1/0x1?includeState=1"),
+      context,
+    );
+    expect(badBoolean.status).toBe(400);
+
+    const badCursor = await router.fetch(
+      new Request("http://localhost/poolKeys/1/0x1?after=not-a-number"),
+      context,
+    );
+    expect(badCursor.status).toBe(400);
   });
 
   test("continues to serve ordinary and fallback routes", async () => {
