@@ -2782,8 +2782,7 @@ ORDER BY pt.last_transfer_event_id DESC NULLS LAST
     };
     type NullableVe33PoolRow = {
       [K in keyof Omit<Ve33PoolRow, "total_count" | "total_vote_weight">]:
-        | Ve33PoolRow[K]
-        | null;
+        Ve33PoolRow[K] | null;
     } & Pick<Ve33PoolRow, "total_count" | "total_vote_weight">;
 
     const rows = await this.sql<NullableVe33PoolRow[]>`
