@@ -161,6 +161,7 @@ export class ListPoolKeys extends EkuboAPIRoute {
     { params: { chainId, coreAddress }, query }: IRequest,
     { env }: RequestContext,
   ) {
+    const core = parseAddressParam("coreAddress", coreAddress);
     const tokenA =
       query?.tokenA === undefined
         ? undefined
@@ -203,7 +204,7 @@ export class ListPoolKeys extends EkuboAPIRoute {
     const queries = await createQueries(env);
     const rows = await queries.listPoolKeys({
       chainId: BigInt(chainId),
-      coreAddress: BigInt(coreAddress),
+      coreAddress: core,
       token0,
       token1,
       tokenEither: token0 === undefined ? tokenA : undefined,
@@ -259,11 +260,12 @@ export class GetPoolKeyById extends EkuboAPIRoute {
     { params: { chainId, coreAddress, poolId } }: IRequest,
     { env }: RequestContext,
   ) {
+    const core = parseAddressParam("coreAddress", coreAddress);
     const queries = await createQueries(env);
 
     const rows = await queries.getPoolKeyByCoreAndId(
       BigInt(chainId),
-      BigInt(coreAddress),
+      core,
       BigInt(poolId),
     );
 

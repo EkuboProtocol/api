@@ -184,6 +184,15 @@ describe("Chanfana router integration", () => {
       ),
     ).rejects.toMatchObject({ status: 400 });
 
+    for (const path of [
+      `/poolKeys/1/0x${"f".repeat(42)}`,
+      `/poolKeys/1/0x${"f".repeat(42)}/0x1`,
+    ]) {
+      await expect(
+        router.fetch(new Request(`http://localhost${path}`), context),
+      ).rejects.toMatchObject({ status: 400 });
+    }
+
     const badLimit = await router.fetch(
       new Request("http://localhost/poolKeys/1/0x1?limit=201"),
       context,
