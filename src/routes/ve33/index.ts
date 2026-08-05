@@ -83,6 +83,11 @@ const Ve33PoolType = z.object({
   last_event_id: DecimalStringType,
 });
 
+const Ve33VoterType = z.object({
+  voter: AddressType,
+  total_vote_weight: DecimalStringType,
+});
+
 const PaginationMetadataType = z.object({
   page: z.number().int().min(1),
   pageSize: z.number().int().min(1),
@@ -97,6 +102,12 @@ const ListVe33TokensResponseType = z.object({
 
 const ListVe33PoolsResponseType = z.object({
   data: z.array(Ve33PoolType),
+  total_vote_weight: DecimalStringType,
+  pagination: PaginationMetadataType,
+});
+
+const ListVe33VotersResponseType = z.object({
+  data: z.array(Ve33VoterType),
   total_vote_weight: DecimalStringType,
   pagination: PaginationMetadataType,
 });
@@ -142,6 +153,10 @@ function parseListVe33PoolsFilters(query: IRequest["query"]) {
     pageSize,
     page,
   };
+}
+
+function parseListVe33VotersFilters(query: IRequest["query"]) {
+  return parseListVe33PoolsFilters(query);
 }
 
 function buildListVe33TokensResponse(
@@ -300,6 +315,38 @@ function buildListVe33PoolsResponse(
   } satisfies z.infer<typeof ListVe33PoolsResponseType>;
 }
 
+function buildListVe33VotersResponse(
+  rows: Awaited<
+    ReturnType<Awaited<ReturnType<typeof createQueries>>["getVe33Voters"]>
+  >["rows"],
+  totalCount: number,
+  totalVoteWeight: string,
+  page: number,
+  pageSize: number | undefined,
+) {
+  const responsePageSize = pageSize ?? Math.max(totalCount, 1);
+  const totalPages =
+    totalCount === 0
+      ? 0
+      : pageSize === undefined
+        ? 1
+        : Math.ceil(totalCount / pageSize);
+
+  return {
+    data: rows.map((row) => ({
+      voter: toHex(row.voter),
+      total_vote_weight: row.vote_weight,
+    })),
+    total_vote_weight: totalVoteWeight,
+    pagination: {
+      page,
+      pageSize: responsePageSize,
+      totalPages,
+      totalItems: totalCount,
+    },
+  } satisfies z.infer<typeof ListVe33VotersResponseType>;
+}
+
 export class ListVe33Pools extends EkuboAPIRoute {
   static route = "/ve33/:ve33Address/pools";
 
@@ -352,6 +399,71 @@ export class ListVe33Pools extends EkuboAPIRoute {
 
     return json(
       buildListVe33PoolsResponse(
+        rows,
+        totalCount,
+        totalVoteWeight,
+        page,
+        pageSize,
+      ),
+      {
+        headers: {
+          "cache-control": "public, max-age=30",
+        },
+      },
+    );
+  }
+}
+
+export class ListVe33Voters extends EkuboAPIRoute {
+  static route = "/ve33/:ve33Address/voters";
+
+  static schema: OpenAPIRouteSchema = {
+    tags: ["ve33"],
+    summary: "List ve33 voters",
+    description:
+      "Returns active voters and their total applied voting weight for a ve33 extension",
+    parameters: {
+      ve33Address: Path(AddressType, {
+        description: "The ve33 extension contract address",
+      }),
+      chainId: Query(ChainIdType, {
+        required: true,
+        description: "Restrict results to a specific chain ID",
+      }),
+      pageSize: Query(z.coerce.number().int().min(1).max(200), {
+        required: false,
+        description:
+          "Maximum number of ve33 voters to return per page. Returns all voters when omitted.",
+      }),
+      page: Query(z.coerce.number().int().min(1), {
+        required: false,
+        description:
+          "Page number to fetch (1-indexed). Values above 1 require pageSize.",
+        default: 1,
+      }),
+    },
+    responses: {
+      "200": {
+        description: "The active ve33 voters",
+        schema: ListVe33VotersResponseType,
+      },
+    },
+  };
+
+  async handleRequest(
+    { params: { ve33Address }, query }: IRequest,
+    { env }: RequestContext,
+  ) {
+    const { chainId, page, pageSize } = parseListVe33VotersFilters(query);
+    const queries = await createQueries(env);
+    const { rows, totalCount, totalVoteWeight } = await queries.getVe33Voters(
+      BigInt(ve33Address),
+      chainId,
+      { page, pageSize },
+    );
+
+    return json(
+      buildListVe33VotersResponse(
         rows,
         totalCount,
         totalVoteWeight,
