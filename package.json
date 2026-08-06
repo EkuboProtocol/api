@@ -10,7 +10,7 @@
     "chanfana": "^3.3.0",
     "hono": "^4.12.2",
     "itty-router": "^5.0.24",
-    "postgres": "^3.4.8",
+    "postgres": "^3.4.9",
     "prettier": "^3.9.6",
     "wrangler": "^4.114.0",
     "zod": "^4.4.3"
