@@ -2769,6 +2769,11 @@ ORDER BY pt.last_transfer_event_id DESC NULLS LAST
       fees1_24h: string;
       ve33_fees0_24h: string;
       ve33_fees1_24h: string;
+      ve33_fees0_7d: string;
+      ve33_fees1_7d: string;
+      ve33_fees0_all: string;
+      ve33_fees1_all: string;
+      ve33_fees_since: Date | string | null;
       tvl0_total: string;
       tvl1_total: string;
       tvl0_delta_24h: string;
@@ -2786,7 +2791,24 @@ ORDER BY pt.last_transfer_event_id DESC NULLS LAST
     } & Pick<Ve33PoolRow, "total_count" | "total_vote_weight">;
 
     const rows = await this.sql<NullableVe33PoolRow[]>`
-WITH ve33_pools AS (
+WITH ve33_pool_keys AS (
+       SELECT pool_key_id, token0, token1
+       FROM pool_keys
+       WHERE chain_id = ${chainId}
+         AND pool_extension = ${ve33Address.toString()}
+     ),
+     ve33_fee_windows AS (
+       SELECT vpk.pool_key_id,
+              COALESCE(SUM(hvt.ve33_fees) FILTER (WHERE hvt.token = vpk.token0 AND hvt.hour >= NOW() - INTERVAL '7 days'), 0) AS ve33_fees0_7d,
+              COALESCE(SUM(hvt.ve33_fees) FILTER (WHERE hvt.token = vpk.token1 AND hvt.hour >= NOW() - INTERVAL '7 days'), 0) AS ve33_fees1_7d,
+              COALESCE(SUM(hvt.ve33_fees) FILTER (WHERE hvt.token = vpk.token0), 0) AS ve33_fees0_all,
+              COALESCE(SUM(hvt.ve33_fees) FILTER (WHERE hvt.token = vpk.token1), 0) AS ve33_fees1_all,
+              MIN(hvt.hour) FILTER (WHERE hvt.ve33_fees <> 0) AS ve33_fees_since
+       FROM ve33_pool_keys vpk
+                JOIN hourly_volume_by_token hvt USING (pool_key_id)
+       GROUP BY vpk.pool_key_id
+     ),
+     ve33_pools AS (
        SELECT pk.chain_id,
               pk.pool_key_id::TEXT AS pool_key_id,
               pk.pool_id,
@@ -2809,6 +2831,11 @@ WITH ve33_pools AS (
               COALESCE(l24.fees1_24h, 0::NUMERIC)::TEXT AS fees1_24h,
               COALESCE(l24.ve33_fees0_24h, 0::NUMERIC)::TEXT AS ve33_fees0_24h,
               COALESCE(l24.ve33_fees1_24h, 0::NUMERIC)::TEXT AS ve33_fees1_24h,
+              COALESCE(vfw.ve33_fees0_7d, 0::NUMERIC)::TEXT AS ve33_fees0_7d,
+              COALESCE(vfw.ve33_fees1_7d, 0::NUMERIC)::TEXT AS ve33_fees1_7d,
+              COALESCE(vfw.ve33_fees0_all, 0::NUMERIC)::TEXT AS ve33_fees0_all,
+              COALESCE(vfw.ve33_fees1_all, 0::NUMERIC)::TEXT AS ve33_fees1_all,
+              vfw.ve33_fees_since,
               COALESCE(l24.tvl0_total, 0::NUMERIC)::TEXT AS tvl0_total,
               COALESCE(l24.tvl1_total, 0::NUMERIC)::TEXT AS tvl1_total,
               COALESCE(l24.tvl0_delta_24h, 0::NUMERIC)::TEXT AS tvl0_delta_24h,
@@ -2821,6 +2848,7 @@ WITH ve33_pools AS (
                 LEFT JOIN ve33_pool_states vps USING (pool_key_id)
                 LEFT JOIN pool_states ps USING (pool_key_id)
                 LEFT JOIN last_24h_pool_stats_materialized l24 USING (pool_key_id)
+                LEFT JOIN ve33_fee_windows vfw USING (pool_key_id)
                 LEFT JOIN token_pair_realized_volatility_materialized tprv
                   ON pk.chain_id = tprv.chain_id
                  AND pk.token0 = tprv.token0

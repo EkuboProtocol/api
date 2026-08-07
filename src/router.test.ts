@@ -103,6 +103,15 @@ describe("Chanfana router integration", () => {
     expect(requiredEntryFields("/ve33/{ve33Address}/pools", "data")).toEqual(
       expect.arrayContaining(poolFeeFields),
     );
+    expect(requiredEntryFields("/ve33/{ve33Address}/pools", "data")).toEqual(
+      expect.arrayContaining([
+        "ve33_fees0_7d",
+        "ve33_fees1_7d",
+        "ve33_fees0_all",
+        "ve33_fees1_all",
+        "ve33_fees_since",
+      ]),
+    );
 
     expect(requiredEntryFields("/ve33/{ve33Address}/voters", "data")).toEqual(
       expect.arrayContaining(["voter", "total_vote_weight"]),
