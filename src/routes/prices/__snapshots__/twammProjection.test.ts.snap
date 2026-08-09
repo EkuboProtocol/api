@@ -27,7 +27,7 @@ exports[`projectTwammPoolStateAtTime regression evm one-sided sale rates from to
   "activeTickIndex": 0,
   "lastExecutionTime": 32,
   "liquidity": "1000000",
-  "sqrtRatio": "340271818494565131944284334617395072209",
+  "sqrtRatio": "340271648363887399231535645065957672124",
   "token0SaleRate": "4294967296",
   "token1SaleRate": "0",
 }
@@ -192,7 +192,7 @@ exports[`projectTwammPoolStateAtTime regression starknet one-sided sale rates fr
   "activeTickIndex": 0,
   "lastExecutionTime": 32,
   "liquidity": "1000000",
-  "sqrtRatio": "340271818494565131944284334617395072209",
+  "sqrtRatio": "340271648363887399248496619084318570602",
   "token0SaleRate": "4294967296",
   "token1SaleRate": "0",
 }
