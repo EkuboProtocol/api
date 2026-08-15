@@ -2724,10 +2724,18 @@ FROM total_count tc
          LEFT JOIN LATERAL (
            SELECT *
            FROM ve33_tokens
-           ORDER BY last_transfer_event_id DESC
+           ORDER BY (
+             amount::NUMERIC *
+             GREATEST(EXTRACT(EPOCH FROM (end_time - NOW())), 0)
+           ) DESC,
+           last_transfer_event_id DESC
            LIMIT ${pagination.pageSize} OFFSET ${offset}
          ) pt ON TRUE
-ORDER BY pt.last_transfer_event_id DESC NULLS LAST
+ORDER BY (
+  pt.amount::NUMERIC *
+  GREATEST(EXTRACT(EPOCH FROM (pt.end_time - NOW())), 0)
+) DESC NULLS LAST,
+pt.last_transfer_event_id DESC NULLS LAST
     `;
 
     const totalCount = rows[0]?.total_count ?? 0;
