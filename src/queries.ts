@@ -2899,6 +2899,154 @@ ORDER BY vp.pool_total_vote_weight::NUMERIC DESC NULLS LAST, vp.last_event_id::N
     };
   }
 
+  public async getVe33Bribes(
+    bribesAddress: bigint,
+    chainId: bigint,
+    filters: { activeOnly: boolean },
+    pagination: { page: number; pageSize: number | undefined },
+  ) {
+    const offset =
+      pagination.pageSize === undefined
+        ? 0
+        : (pagination.page - 1) * pagination.pageSize;
+    type Ve33BribeRow = {
+      chain_id: bigint;
+      bribe_id: string;
+      pool_id: string;
+      reward_token: string;
+      owner: string;
+      voting_fee: string;
+      pool_key_id: string | null;
+      core_address: string | null;
+      token0: string | null;
+      token1: string | null;
+      fee: string | null;
+      tick_spacing: number | null;
+      extension: string | null;
+      stableswap_center_tick: string | null;
+      stableswap_amplification: string | null;
+      total_weight: string;
+      total_scheduled_amount: string;
+      current_reward_rate: string;
+      first_start_time: Date | string | null;
+      last_end_time: Date | string | null;
+      schedules: {
+        funder: string;
+        start_time: string;
+        end_time: string;
+        reward_rate: string;
+        amount: string;
+      }[];
+      total_count: number;
+    };
+    type NullableVe33BribeRow = {
+      [K in keyof Omit<Ve33BribeRow, "total_count">]: Ve33BribeRow[K] | null;
+    } & Pick<Ve33BribeRow, "total_count">;
+
+    const rows = await this.sql<NullableVe33BribeRow[]>`
+WITH schedules AS (
+       SELECT r.bribe_id,
+              json_agg(
+                json_build_object(
+                  'funder', r.funder::TEXT,
+                  'start_time', r.start_time,
+                  'end_time', r.end_time,
+                  'reward_rate', r.reward_rate::TEXT,
+                  'amount', r.amount::TEXT
+                )
+                ORDER BY r.start_time, r.event_id
+              ) AS schedules,
+              SUM(r.amount)::TEXT AS total_scheduled_amount,
+              COALESCE(
+                SUM(r.reward_rate) FILTER (WHERE r.start_time <= now() AND r.end_time > now()),
+                0
+              )::TEXT AS current_reward_rate,
+              MIN(r.start_time) AS first_start_time,
+              MAX(r.end_time) AS last_end_time
+       FROM ve_token_bribes_rewards_scheduled r
+       WHERE r.chain_id = ${chainId}
+         AND r.emitter = ${bribesAddress.toString()}
+       GROUP BY r.bribe_id
+     ),
+     weights AS (
+       SELECT bribe_id,
+              SUM(delta)::TEXT AS total_weight
+       FROM (
+         SELECT s.bribe_id, s.weight AS delta
+         FROM ve_token_bribes_staked s
+         WHERE s.chain_id = ${chainId} AND s.emitter = ${bribesAddress.toString()}
+         UNION ALL
+         SELECT u.bribe_id, -u.weight
+         FROM ve_token_bribes_unstaked u
+         WHERE u.chain_id = ${chainId} AND u.emitter = ${bribesAddress.toString()}
+         UNION ALL
+         SELECT v.bribe_id, v.weight - v.previous_weight
+         FROM ve_token_bribes_vote_refreshed v
+         WHERE v.chain_id = ${chainId} AND v.emitter = ${bribesAddress.toString()}
+       ) deltas
+       GROUP BY bribe_id
+     ),
+     current_fees AS (
+       SELECT DISTINCT ON (u.bribe_id) u.bribe_id,
+              u.voting_fee
+       FROM ve_token_bribes_voting_fee_updated u
+       WHERE u.chain_id = ${chainId}
+         AND u.emitter = ${bribesAddress.toString()}
+       ORDER BY u.bribe_id, u.event_id DESC
+     ),
+     bribes AS (
+       SELECT c.chain_id,
+              c.bribe_id,
+              c.pool_id,
+              c.reward_token,
+              c.owner,
+              COALESCE(f.voting_fee, c.voting_fee) AS voting_fee,
+              pk.pool_key_id::TEXT AS pool_key_id,
+              pk.core_address,
+              pk.token0,
+              pk.token1,
+              pk.fee,
+              pk.tick_spacing,
+              pk.pool_extension AS extension,
+              pk.stableswap_center_tick,
+              pk.stableswap_amplification,
+              COALESCE(w.total_weight, '0') AS total_weight,
+              COALESCE(s.total_scheduled_amount, '0') AS total_scheduled_amount,
+              COALESCE(s.current_reward_rate, '0') AS current_reward_rate,
+              s.first_start_time,
+              s.last_end_time,
+              COALESCE(s.schedules, '[]'::JSON) AS schedules
+       FROM ve_token_bribes_created c
+                LEFT JOIN pool_keys pk USING (pool_key_id)
+                LEFT JOIN current_fees f ON f.bribe_id = c.bribe_id
+                LEFT JOIN schedules s ON s.bribe_id = c.bribe_id
+                LEFT JOIN weights w ON w.bribe_id = c.bribe_id
+       WHERE c.chain_id = ${chainId}
+         AND c.emitter = ${bribesAddress.toString()}
+         AND (${!filters.activeOnly} OR s.last_end_time > now())
+     ),
+     bribe_totals AS (
+       SELECT COUNT(*)::INT AS total_count FROM bribes
+     )
+SELECT b.*,
+       bt.total_count
+FROM bribe_totals bt
+         LEFT JOIN LATERAL (
+           SELECT *
+           FROM bribes
+           ORDER BY current_reward_rate::NUMERIC DESC, total_scheduled_amount::NUMERIC DESC, bribe_id
+           LIMIT COALESCE(${pagination.pageSize ?? null}, bt.total_count) OFFSET ${offset}
+         ) b ON TRUE
+ORDER BY b.current_reward_rate::NUMERIC DESC NULLS LAST, b.total_scheduled_amount::NUMERIC DESC NULLS LAST, b.bribe_id NULLS LAST
+    `;
+
+    const totalCount = rows[0]?.total_count ?? 0;
+    return {
+      rows: rows.filter((row): row is Ve33BribeRow => row.chain_id !== null),
+      totalCount,
+    };
+  }
+
   public async getVe33Voters(
     ve33Address: bigint,
     chainId: bigint,

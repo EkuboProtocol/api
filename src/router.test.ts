@@ -22,14 +22,14 @@ describe("Chanfana router integration", () => {
       ),
     );
 
-    expect(Object.keys(schema.paths)).toHaveLength(56);
-    expect(operations).toHaveLength(56);
+    expect(Object.keys(schema.paths)).toHaveLength(57);
+    expect(operations).toHaveLength(57);
     expect(
       operations.reduce(
         (count, operation) => count + (operation.parameters?.length ?? 0),
         0,
       ),
-    ).toBe(185);
+    ).toBe(190);
 
     const getToken = operations.find(
       (operation) =>
