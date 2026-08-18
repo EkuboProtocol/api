@@ -63,6 +63,7 @@ const OverviewPairEntryType = z.object({
   depth0: z.string(),
   depth1: z.string(),
   min_depth_percent: z.number().nullable(),
+  initialized_at: TimestampType.nullable(),
 });
 
 const OverviewPairsResponseType = z.object({

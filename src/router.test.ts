@@ -89,7 +89,7 @@ describe("Chanfana router integration", () => {
       "ve33_fees1_24h",
     ];
     expect(requiredEntryFields("/overview/pairs", "topPairs")).toEqual(
-      expect.arrayContaining(poolFeeFields),
+      expect.arrayContaining([...poolFeeFields, "initialized_at"]),
     );
     expect(
       requiredEntryFields("/overview/boosted-fees-pools", "pools"),
@@ -99,7 +99,7 @@ describe("Chanfana router integration", () => {
         "/pair/{chainId}/{tokenA}/{tokenB}/pools",
         "topPools",
       ),
-    ).toEqual(expect.arrayContaining(poolFeeFields));
+    ).toEqual(expect.arrayContaining([...poolFeeFields, "initialized_at"]));
     expect(requiredEntryFields("/ve33/{ve33Address}/pools", "data")).toEqual(
       expect.arrayContaining(poolFeeFields),
     );
@@ -188,7 +188,9 @@ describe("Chanfana router integration", () => {
 
     await expect(
       router.fetch(
-        new Request(`http://localhost/poolKeys/1/0x1?tokenA=0x${"f".repeat(42)}`),
+        new Request(
+          `http://localhost/poolKeys/1/0x1?tokenA=0x${"f".repeat(42)}`,
+        ),
         context,
       ),
     ).rejects.toMatchObject({ status: 400 });
