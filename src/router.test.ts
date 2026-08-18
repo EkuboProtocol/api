@@ -22,14 +22,14 @@ describe("Chanfana router integration", () => {
       ),
     );
 
-    expect(Object.keys(schema.paths)).toHaveLength(56);
-    expect(operations).toHaveLength(56);
+    expect(Object.keys(schema.paths)).toHaveLength(57);
+    expect(operations).toHaveLength(57);
     expect(
       operations.reduce(
         (count, operation) => count + (operation.parameters?.length ?? 0),
         0,
       ),
-    ).toBe(185);
+    ).toBe(191);
 
     const getToken = operations.find(
       (operation) =>
@@ -188,7 +188,9 @@ describe("Chanfana router integration", () => {
 
     await expect(
       router.fetch(
-        new Request(`http://localhost/poolKeys/1/0x1?tokenA=0x${"f".repeat(42)}`),
+        new Request(
+          `http://localhost/poolKeys/1/0x1?tokenA=0x${"f".repeat(42)}`,
+        ),
         context,
       ),
     ).rejects.toMatchObject({ status: 400 });

@@ -23,6 +23,7 @@ import { GetPoolKey, GetPoolLiquidity } from "./routes/state";
 import { GetPoolKeyById, ListPoolKeys } from "./routes/state/poolKeys";
 import { error, Router } from "itty-router";
 import {
+  GetPairOhlcHistory,
   GetPairPriceHistory,
   GetPoolPriceHistory,
   GetTokenUsdPriceHistory,
@@ -110,6 +111,7 @@ router.get(GetPairInfoVolume.route, GetPairInfoVolume);
 router.get(GetPairInfoPools.route, GetPairInfoPools);
 router.get(GetTokenUsdPriceHistory.route, GetTokenUsdPriceHistory);
 router.get(GetPairPriceHistory.route, GetPairPriceHistory);
+router.get(GetPairOhlcHistory.route, GetPairOhlcHistory);
 router.get(GetPoolPriceHistory.route, GetPoolPriceHistory);
 router.get(GetPoolLiquidity.route, GetPoolLiquidity);
 router.get(GetPoolKey.route, GetPoolKey);

@@ -1990,6 +1990,90 @@ ORDER BY po.token_id DESC
     return rows;
   }
 
+  /**
+   * Open, high, low and close of the execution price across every pool of a
+   * pair, bucketed by interval.
+   *
+   * Unlike getPriceHistory this reports the price a swap actually executed at
+   * rather than a volume weighted average, so the four values carry their
+   * traditional meaning. The dust thresholds are applied before aggregating
+   * rather than only to the extremes, because a single tiny swap against a
+   * stale pool otherwise sets an open or a close that no one could trade on.
+   * Buckets without a qualifying swap are absent from the result rather than
+   * carried forward, so every candle returned describes real trading.
+   */
+  public async getPairOhlcHistory({
+    token0,
+    token1,
+    start,
+    end,
+    intervalSeconds,
+    delta0Threshold = 0n,
+    delta1Threshold = 0n,
+    chainId = null,
+  }: {
+    token0: bigint;
+    token1: bigint;
+    start: Date;
+    end: Date;
+    intervalSeconds: number;
+    delta0Threshold?: bigint;
+    delta1Threshold?: bigint;
+    chainId?: bigint | null;
+  }) {
+    if (token0 >= token1) throw new Error("invalid token0 and token1");
+
+    const rows = await this.sql<
+      {
+        start: Date;
+        open: string;
+        high: string;
+        low: string;
+        close: string;
+        volume0: string;
+        volume1: string;
+        swap_count: string;
+      }[]
+    >`
+      WITH qualifying_swaps AS (
+        SELECT date_bin(
+                 ${intervalSeconds} * INTERVAL '1 sec',
+                 swaps.block_time,
+                 '2000-01-01 00:00:00'::TIMESTAMP WITHOUT TIME ZONE
+               ) AS start,
+               swaps.block_time,
+               swaps.event_id,
+               ABS(swaps.delta1 / swaps.delta0) AS price,
+               ABS(swaps.delta0)                AS volume0,
+               ABS(swaps.delta1)                AS volume1
+        FROM swaps
+                 JOIN pool_keys ON swaps.pool_key_id = pool_keys.pool_key_id
+        WHERE pool_keys.token0 = ${token0.toString()}
+          AND pool_keys.token1 = ${token1.toString()}
+          AND swaps.block_time BETWEEN ${start} AND ${end}
+          AND swaps.delta0 != 0
+          AND swaps.delta1 != 0
+          AND ABS(swaps.delta0) > ${delta0Threshold.toString()}
+          AND ABS(swaps.delta1) > ${delta1Threshold.toString()}
+          AND pool_keys.chain_id = COALESCE(${chainId ?? null}, pool_keys.chain_id)
+          AND swaps.chain_id = COALESCE(${chainId ?? null}, swaps.chain_id)
+      )
+      SELECT start,
+             (ARRAY_AGG(price ORDER BY block_time ASC, event_id ASC))[1]   AS open,
+             MAX(price)                                                    AS high,
+             MIN(price)                                                    AS low,
+             (ARRAY_AGG(price ORDER BY block_time DESC, event_id DESC))[1] AS close,
+             SUM(volume0)                                                  AS volume0,
+             SUM(volume1)                                                  AS volume1,
+             COUNT(*)                                                      AS swap_count
+      FROM qualifying_swaps
+      GROUP BY start
+      ORDER BY start
+    `;
+
+    return rows;
+  }
+
   public getTotalVolume({
     chainId,
     since,
@@ -2795,7 +2879,8 @@ pt.last_transfer_event_id DESC NULLS LAST
     };
     type NullableVe33PoolRow = {
       [K in keyof Omit<Ve33PoolRow, "total_count" | "total_vote_weight">]:
-        Ve33PoolRow[K] | null;
+        | Ve33PoolRow[K]
+        | null;
     } & Pick<Ve33PoolRow, "total_count" | "total_vote_weight">;
 
     const rows = await this.sql<NullableVe33PoolRow[]>`
