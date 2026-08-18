@@ -11,6 +11,7 @@ import { z } from "zod";
 import { IRequest, json, StatusError } from "itty-router";
 import {
   createQueries,
+  type PositionRangeStateFilter,
   type PositionEventRow,
   type StateFilter,
 } from "../../queries";
@@ -245,6 +246,7 @@ const ListPositionsResponseType = z.object({
 });
 
 const PositionStateQueryType = z.enum(["opened", "closed"]);
+const PositionRangeStateQueryType = z.enum(["in-range", "out-of-range"]);
 const AddressListRequestSchema = z.object({
   addresses: z.array(AddressType).min(1).max(50),
 });
@@ -261,16 +263,25 @@ function getQueryParamAsArray(value: unknown): string[] | undefined {
   return undefined;
 }
 
-function parseListPositionsFilters(query: IRequest["query"]) {
+export function parseListPositionsFilters(query: IRequest["query"]) {
   const stateParam =
     typeof query?.state === "string" ? query.state.toLowerCase() : null;
   const state: StateFilter | null =
     stateParam === "opened" || stateParam === "closed"
       ? (stateParam as StateFilter)
       : null;
+  const rangeStateParam =
+    typeof query?.rangeState === "string"
+      ? query.rangeState.toLowerCase()
+      : null;
+  const rangeState: PositionRangeStateFilter | null =
+    rangeStateParam === "in-range" || rangeStateParam === "out-of-range"
+      ? rangeStateParam
+      : null;
 
   return {
     state,
+    rangeState,
     chainId: typeof query?.chainId === "string" ? BigInt(query.chainId) : null,
     pageSize: z.coerce
       .number()
@@ -761,6 +772,11 @@ export class ListPositionsByAddress extends EkuboAPIRoute {
         required: false,
         description: "Restrict results to a specific chain ID",
       }),
+      rangeState: Query(PositionRangeStateQueryType, {
+        required: false,
+        description:
+          "Restrict results to positions whose current pool tick is inside or outside their bounds",
+      }),
       pageSize: Query(z.coerce.number().int().min(1).max(200), {
         required: false,
         description: "Maximum number of positions to return per page",
@@ -784,7 +800,8 @@ export class ListPositionsByAddress extends EkuboAPIRoute {
     { params: { address: addressStr }, query, url }: IRequest,
     { env }: RequestContext,
   ) {
-    const { state, chainId, page, pageSize } = parseListPositionsFilters(query);
+    const { state, rangeState, chainId, page, pageSize } =
+      parseListPositionsFilters(query);
 
     const queries = await createQueries(env);
     const { rows, totalCount } = await queries.getPositionsByAddress(
@@ -795,6 +812,7 @@ export class ListPositionsByAddress extends EkuboAPIRoute {
         page,
         pageSize,
       },
+      rangeState,
     );
 
     const origin = new URL(url).origin;
@@ -838,6 +856,11 @@ export class BatchListPositionsByAddress extends EkuboAPIRoute {
         required: false,
         description: "Restrict results to a specific chain ID",
       }),
+      rangeState: Query(PositionRangeStateQueryType, {
+        required: false,
+        description:
+          "Restrict results to positions whose current pool tick is inside or outside their bounds",
+      }),
       pageSize: Query(z.coerce.number().int().min(1).max(200), {
         required: false,
         description: "Maximum number of positions to return per page",
@@ -866,7 +889,8 @@ export class BatchListPositionsByAddress extends EkuboAPIRoute {
     }
 
     const payload = AddressListRequestSchema.parse({ addresses });
-    const { state, chainId, page, pageSize } = parseListPositionsFilters(query);
+    const { state, rangeState, chainId, page, pageSize } =
+      parseListPositionsFilters(query);
 
     const queries = await createQueries(env);
     const { rows, totalCount } = await queries.getPositionsByAddress(
@@ -877,6 +901,7 @@ export class BatchListPositionsByAddress extends EkuboAPIRoute {
         page,
         pageSize,
       },
+      rangeState,
     );
 
     const origin = new URL(url).origin;

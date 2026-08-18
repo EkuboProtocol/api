@@ -1,5 +1,8 @@
 import { describe, expect, test } from "bun:test";
-import { getPositionEventIdRange } from "./positions";
+import {
+  getPositionEventIdRange,
+  parseListPositionsFilters,
+} from "./positions";
 
 const MIN_EVENT_ID = -(1n << 63n);
 const MAX_EVENT_ID = (1n << 63n) - 1n;
@@ -53,5 +56,28 @@ describe("getPositionEventIdRange", () => {
         toBlock: (1n << 32n) - 1n,
       }).maxEventIdInclusive,
     ).toBe(MAX_EVENT_ID);
+  });
+});
+
+describe("parseListPositionsFilters", () => {
+  test("accepts supported position range states", () => {
+    expect(
+      parseListPositionsFilters({
+        rangeState: "in-range",
+      }).rangeState,
+    ).toBe("in-range");
+    expect(
+      parseListPositionsFilters({
+        rangeState: "out-of-range",
+      }).rangeState,
+    ).toBe("out-of-range");
+  });
+
+  test("ignores an unsupported position range state", () => {
+    expect(
+      parseListPositionsFilters({
+        rangeState: "unknown",
+      }).rangeState,
+    ).toBeNull();
   });
 });
