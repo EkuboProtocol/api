@@ -29,7 +29,7 @@ describe("Chanfana router integration", () => {
         (count, operation) => count + (operation.parameters?.length ?? 0),
         0,
       ),
-    ).toBe(185);
+    ).toBe(187);
 
     const getToken = operations.find(
       (operation) =>
@@ -188,7 +188,9 @@ describe("Chanfana router integration", () => {
 
     await expect(
       router.fetch(
-        new Request(`http://localhost/poolKeys/1/0x1?tokenA=0x${"f".repeat(42)}`),
+        new Request(
+          `http://localhost/poolKeys/1/0x1?tokenA=0x${"f".repeat(42)}`,
+        ),
         context,
       ),
     ).rejects.toMatchObject({ status: 400 });

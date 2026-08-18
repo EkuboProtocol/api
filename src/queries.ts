@@ -2,6 +2,7 @@ import postgres, { type Sql } from "postgres";
 import { Env } from "./env";
 
 export type StateFilter = "opened" | "closed";
+export type PositionRangeStateFilter = "in-range" | "out-of-range";
 
 type PoolKeyFilters = {
   coreAddress?: bigint;
@@ -2444,6 +2445,7 @@ HAVING SUM(tvl0_total / POWER(10::NUMERIC, t0.token_decimals) * COALESCE(t0p.val
     state: StateFilter | null = null,
     chainId: bigint | null = null,
     pagination: { page: number; pageSize: number },
+    rangeState: PositionRangeStateFilter | null = null,
   ) {
     const uniqueAddresses = Array.from(
       new Set(addresses.map((address) => address.toString())),
@@ -2458,6 +2460,23 @@ HAVING SUM(tvl0_total / POWER(10::NUMERIC, t0.token_decimals) * COALESCE(t0p.val
     const previousOwnerCondition = this.sql`previous_owner IN ${this.sql(
       uniqueAddresses,
     )}`;
+    const rangeStateCondition =
+      rangeState === "in-range"
+        ? this.sql`EXISTS (
+            SELECT 1
+            FROM pool_states ps_range
+            WHERE ps_range.pool_key_id = nfp.pool_key_id
+              AND ps_range.tick >= nfp.lower_bound
+              AND ps_range.tick < nfp.upper_bound
+          )`
+        : rangeState === "out-of-range"
+          ? this.sql`EXISTS (
+              SELECT 1
+              FROM pool_states ps_range
+              WHERE ps_range.pool_key_id = nfp.pool_key_id
+                AND (ps_range.tick < nfp.lower_bound OR ps_range.tick >= nfp.upper_bound)
+            )`
+          : this.sql`TRUE`;
 
     const rows = await this.sql<
       (PositionMetadata & {
@@ -2503,7 +2522,8 @@ WITH base_positions AS (SELECT nfp.chain_id,
                         FROM nonfungible_token_positions_view AS nfp
                                  LEFT JOIN nft_locker_mappings nlm USING (chain_id, nft_address)
                                  JOIN pool_keys USING (pool_key_id)
-                        WHERE ${chainId ? this.sql`nfp.chain_id = ${chainId}` : this.sql`TRUE`} AND 
+                        WHERE ${chainId ? this.sql`nfp.chain_id = ${chainId}` : this.sql`TRUE`}
+                          AND ${rangeStateCondition} AND
                         ${
                           state === "opened"
                             ? this
