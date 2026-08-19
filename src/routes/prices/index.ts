@@ -315,6 +315,272 @@ export class GetPairPriceHistory extends EkuboAPIRoute {
   }
 }
 
+const PairOhlcCandleType = z.object({
+  start: z.union([z.string(), z.date()]),
+  open: z.number(),
+  high: z.number(),
+  low: z.number(),
+  close: z.number(),
+  volume_base: z.string(),
+  volume_quote: z.string(),
+  swap_count: z.number().int(),
+});
+
+const GetPairOhlcHistoryResponseType = z.object({
+  timestamp: z.number().int(),
+  start: z.number().int(),
+  end: z.number().int(),
+  interval: z.number().int(),
+  base_token: z.string(),
+  quote_token: z.string(),
+  data: z.array(PairOhlcCandleType),
+});
+
+const DEFAULT_OHLC_INTERVAL_SECONDS = 3_600;
+const DEFAULT_OHLC_CANDLE_COUNT = 60;
+const MAX_OHLC_CANDLES = 120;
+const MAX_OHLC_DURATION_SECONDS = 30 * 86_400;
+
+/**
+ * A candle as the database produces it: priced in token1 per token0, with
+ * volumes still labelled by sort order rather than by the caller's base and
+ * quote.
+ */
+export type CanonicalOhlcCandle = {
+  start: string | Date;
+  open: number;
+  high: number;
+  low: number;
+  close: number;
+  volume0: string;
+  volume1: string;
+  swap_count: number;
+};
+
+function invertPrice(price: number): number {
+  return price === 0 ? 0 : 1 / price;
+}
+
+/**
+ * Re-expresses a canonical candle in the orientation the caller asked for.
+ *
+ * Inverting a price swaps the extremes as well as the ends, because the
+ * highest price of token1 per token0 is the moment token0 was cheapest in
+ * terms of token1. Open and close keep their ends: they are anchored to a
+ * point in time, not to a magnitude.
+ */
+export function orientOhlcCandle(
+  candle: CanonicalOhlcCandle,
+  baseBeforeQuote: boolean,
+): z.infer<typeof PairOhlcCandleType> {
+  if (baseBeforeQuote) {
+    return {
+      start: candle.start,
+      open: candle.open,
+      high: candle.high,
+      low: candle.low,
+      close: candle.close,
+      volume_base: candle.volume0,
+      volume_quote: candle.volume1,
+      swap_count: candle.swap_count,
+    };
+  }
+
+  return {
+    start: candle.start,
+    open: invertPrice(candle.open),
+    high: invertPrice(candle.low),
+    low: invertPrice(candle.high),
+    close: invertPrice(candle.close),
+    volume_base: candle.volume1,
+    volume_quote: candle.volume0,
+    swap_count: candle.swap_count,
+  };
+}
+
+export class GetPairOhlcHistory extends EkuboAPIRoute {
+  static route = "/price/:chainId/:baseToken/:quoteToken/ohlc";
+
+  static schema: OpenAPIRouteSchema = {
+    tags: ["Prices"],
+    summary: "Get pair OHLC price history",
+    description:
+      "Returns open, high, low, close and volume candles for a pair, aggregated across every pool of that pair. " +
+      "Prices are the prices swaps actually executed at, so the four values carry their traditional meaning, and " +
+      "dust swaps are excluded so a negligible trade cannot set a candle's open or close. Buckets in which nothing " +
+      "traded are omitted rather than carried forward, so every candle returned describes real trading. Prices are " +
+      "expressed in the quote token's smallest unit per the base token's smallest unit, so a client holding the two " +
+      "token decimals must scale them for display.",
+    parameters: {
+      chainId: Path(NumericStringType, { example: "1" }),
+      baseToken: Path(TokenIdentifierType, { example: "0x0" }),
+      quoteToken: Path(TokenIdentifierType, {
+        example: "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48",
+      }),
+      interval: Query(z.coerce.number().int().min(60), {
+        required: false,
+        default: DEFAULT_OHLC_INTERVAL_SECONDS,
+        description: "Bucket size in seconds",
+      }),
+      start: Query(z.coerce.number().int().min(0), {
+        required: false,
+        description: "Unix timestamp (seconds) of the first bucket",
+      }),
+      end: Query(z.coerce.number().int().min(0), {
+        required: false,
+        description: "Unix timestamp (seconds) of the last bucket",
+      }),
+    },
+    responses: {
+      "200": {
+        description: "The OHLC price history of the pair",
+        schema: GetPairOhlcHistoryResponseType,
+      },
+      "400": {
+        description: "Invalid tokens or range",
+        schema: ErrorResponseType,
+      },
+    },
+  };
+
+  async handleRequest({ params, query }: IRequest, { env }: RequestContext) {
+    const chainId = BigInt(params.chainId);
+    const queries = await createQueries(env);
+
+    const [baseToken, quoteToken] = await Promise.all([
+      getTokenByUserSpecifiedIdentifier(queries, chainId, params.baseToken),
+      getTokenByUserSpecifiedIdentifier(queries, chainId, params.quoteToken),
+    ]);
+
+    if (!baseToken || !quoteToken) {
+      throw new StatusError(400, "Base token or quote token invalid");
+    }
+
+    if (baseToken.address === quoteToken.address) {
+      throw new StatusError(400, "Base token cannot be equal to quote token");
+    }
+
+    const baseTokenAddress = BigInt(baseToken.address);
+    const quoteTokenAddress = BigInt(quoteToken.address);
+
+    const baseBeforeQuote = baseTokenAddress < quoteTokenAddress;
+
+    const token0Address = baseBeforeQuote
+      ? baseTokenAddress
+      : quoteTokenAddress;
+    const token1Address = baseBeforeQuote
+      ? quoteTokenAddress
+      : baseTokenAddress;
+
+    const intervalSeconds =
+      typeof query.interval === "string"
+        ? Number.parseInt(query.interval, 10)
+        : DEFAULT_OHLC_INTERVAL_SECONDS;
+
+    if (!Number.isInteger(intervalSeconds) || intervalSeconds <= 0) {
+      throw new StatusError(400, "Interval must be a positive integer");
+    }
+
+    const end =
+      typeof query.end === "string"
+        ? new Date(Number.parseInt(query.end, 10) * 1_000)
+        : new Date(Date.now());
+    const start =
+      typeof query.start === "string"
+        ? new Date(Number.parseInt(query.start, 10) * 1_000)
+        : new Date(
+            end.getTime() - intervalSeconds * DEFAULT_OHLC_CANDLE_COUNT * 1_000,
+          );
+
+    if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) {
+      throw new StatusError(400, "Invalid `start` or `end` parameters");
+    }
+
+    if (start.getTime() >= end.getTime()) {
+      throw new StatusError(400, "Start time must be before end time");
+    }
+
+    const durationMilliseconds = end.getTime() - start.getTime();
+
+    if (durationMilliseconds > MAX_OHLC_DURATION_SECONDS * 1_000) {
+      throw new StatusError(
+        400,
+        "Start time cannot be more than 30 days before end time",
+      );
+    }
+
+    if (durationMilliseconds / intervalSeconds / 1_000 > MAX_OHLC_CANDLES) {
+      throw new StatusError(400, "Interval too small for the range");
+    }
+
+    // Dust swaps are excluded by requiring both sides to move at least the
+    // value of 0.01 ETH, converted into each token by its price in ETH.
+    const [price0, price1] = await Promise.all([
+      queries.getVolumeWeightedPrice({
+        baseToken: ETH_TOKEN_ADDRESS_VALUE,
+        quoteToken: token0Address,
+        chainId,
+      }),
+      queries.getVolumeWeightedPrice({
+        baseToken: ETH_TOKEN_ADDRESS_VALUE,
+        quoteToken: token1Address,
+        chainId,
+      }),
+    ]);
+
+    const thresholdEth = 1e16;
+    const threshold0 = BigInt(
+      Math.max(0, Math.round(thresholdEth * (price0?.price ?? 0))),
+    );
+    const threshold1 = BigInt(
+      Math.max(0, Math.round(thresholdEth * (price1?.price ?? 0))),
+    );
+
+    const rows = await queries.getPairOhlcHistory({
+      token0: token0Address,
+      token1: token1Address,
+      start,
+      end,
+      intervalSeconds,
+      delta0Threshold: threshold0,
+      delta1Threshold: threshold1,
+      chainId,
+    });
+
+    const response = {
+      timestamp: Date.now(),
+      start: start.getTime(),
+      end: end.getTime(),
+      interval: intervalSeconds,
+      base_token: toHex(baseToken.address),
+      quote_token: toHex(quoteToken.address),
+      data: rows.map((row) =>
+        orientOhlcCandle(
+          {
+            start: row.start,
+            open: Number(row.open),
+            high: Number(row.high),
+            low: Number(row.low),
+            close: Number(row.close),
+            volume0: row.volume0,
+            volume1: row.volume1,
+            swap_count: Number(row.swap_count),
+          },
+          baseBeforeQuote,
+        ),
+      ),
+    } satisfies z.infer<typeof GetPairOhlcHistoryResponseType>;
+
+    return json(response, {
+      headers: {
+        "cache-control": `public, max-age=${Math.ceil(
+          intervalSeconds / 4,
+        )}, must-revalidate`,
+      },
+    });
+  }
+}
+
 export class GetPoolPriceHistory extends EkuboAPIRoute {
   static route = "/pools/:chainId/:coreAddress/:poolId/price/history";
 
