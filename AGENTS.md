@@ -23,3 +23,21 @@ Manage bindings through `wrangler.toml` and `src/env.ts`; store credentials with
 
 ## Database Schema Access
 When you need schema details or have any uncertainty about the PostgreSQL layout, query the Postgres MCP server directly—it exposes the canonical Ekubo indexer schema for this worker.
+
+## Complexity Policy
+- Run `bun run lint` before considering a change done. CI runs it on every push and
+  pull request, before the tests.
+- The only rule is ESLint's `complexity`, capped at 10 per function.
+- Twenty-three functions are over the limit today, recorded in
+  `eslint-suppressions.json`. That file is a ratchet, not an amnesty: ESLint stores a
+  per-file count, so a new function over the limit fails the build even in a file
+  that already has entries. Do not raise a count to make the build pass — split the
+  function.
+- If you simplify one of the recorded functions the run will report an unused
+  suppression. That is the ratchet working: run `bun run lint:prune` and commit the
+  tightened file.
+- Nearly all of the debt is route `handleRequest` methods that parse and validate
+  query parameters inline before doing the actual work — `prices/index.ts` (30, 20,
+  18), `state/poolKeys.ts` (23), `nft/positions.ts` (17). Pulling the parameter
+  parsing out into a named parser, the way `parseListPositionsFilters` already does,
+  is the obvious way to work these down when the route is next touched.

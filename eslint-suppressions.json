@@ -1,0 +1,57 @@
+{
+  "src/queries.ts": {
+    "complexity": {
+      "count": 8
+    }
+  },
+  "src/routes/limit/index.ts": {
+    "complexity": {
+      "count": 1
+    }
+  },
+  "src/routes/nft/generateDcaOrderNft.ts": {
+    "complexity": {
+      "count": 1
+    }
+  },
+  "src/routes/nft/generateLimitOrderNft.ts": {
+    "complexity": {
+      "count": 1
+    }
+  },
+  "src/routes/nft/generatePositionNft.ts": {
+    "complexity": {
+      "count": 1
+    }
+  },
+  "src/routes/nft/index.ts": {
+    "complexity": {
+      "count": 2
+    }
+  },
+  "src/routes/nft/positions.ts": {
+    "complexity": {
+      "count": 2
+    }
+  },
+  "src/routes/prices/index.ts": {
+    "complexity": {
+      "count": 3
+    }
+  },
+  "src/routes/prices/twammProjection.ts": {
+    "complexity": {
+      "count": 2
+    }
+  },
+  "src/routes/state/poolKeys.ts": {
+    "complexity": {
+      "count": 1
+    }
+  },
+  "src/shared/metadatas/positions.ts": {
+    "complexity": {
+      "count": 1
+    }
+  }
+}
