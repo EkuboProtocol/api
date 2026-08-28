@@ -14,7 +14,7 @@
     "itty-router": "^5.0.24",
     "postgres": "^3.4.9",
     "prettier": "^3.9.6",
-    "wrangler": "^4.123.0",
+    "wrangler": "^4.125.0",
     "zod": "^4.4.3"
   },
   "engines": {
