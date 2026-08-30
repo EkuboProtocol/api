@@ -1981,8 +1981,12 @@ ORDER BY po.token_id DESC
         AND swaps.block_time BETWEEN ${start} AND ${end}
         AND swaps.delta0 != 0
         AND swaps.delta1 != 0
+        -- pool_key_id is globally unique (pool_keys_pkey), so the join to a
+        -- chain-filtered pool_keys row already determines the swap's chain. A
+        -- swaps.chain_id predicate would exclude nothing, and because chain_id
+        -- is not in swaps_pool_key_id_block_time_ohlc_idx it would force the
+        -- heap fetch back and defeat the index-only scan.
         AND pool_keys.chain_id = COALESCE(${chainId ?? null}, pool_keys.chain_id)
-        AND swaps.chain_id = COALESCE(${chainId ?? null}, swaps.chain_id)
       GROUP BY start
       ORDER BY start
     `;
@@ -2062,8 +2066,9 @@ ORDER BY po.token_id DESC
           AND swaps.delta1 != 0
           AND ABS(swaps.delta0) > ${delta0Threshold.toString()}
           AND ABS(swaps.delta1) > ${delta1Threshold.toString()}
+          -- See getPriceHistory: pool_key_id is globally unique, so filtering
+          -- swaps.chain_id is redundant and would defeat the index-only scan.
           AND pool_keys.chain_id = COALESCE(${chainId ?? null}, pool_keys.chain_id)
-          AND swaps.chain_id = COALESCE(${chainId ?? null}, swaps.chain_id)
       ), bucketed AS (
         SELECT start,
                ARRAY_AGG(price ORDER BY block_time ASC, event_id ASC) AS prices,
