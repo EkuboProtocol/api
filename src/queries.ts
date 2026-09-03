@@ -1150,6 +1150,9 @@ FROM token_mint AS mint
         high_sqrt_ratio: string;
         low_sqrt_ratio: string;
         close_sqrt_ratio: string;
+        volume0: string;
+        volume1: string;
+        swap_count: string;
       }[]
     >`
       WITH bucketed_swaps AS (
@@ -1161,7 +1164,9 @@ FROM token_mint AS mint
           ) AS start,
           block_time,
           event_id,
-          sqrt_ratio_after
+          sqrt_ratio_after,
+          delta0,
+          delta1
         FROM swaps
         WHERE pool_key_id = ${poolKeyId}
           AND block_time BETWEEN ${start} AND ${end}
@@ -1171,7 +1176,15 @@ FROM token_mint AS mint
         (ARRAY_AGG(sqrt_ratio_after ORDER BY block_time ASC, event_id ASC))[1] AS open_sqrt_ratio,
         MAX(sqrt_ratio_after) AS high_sqrt_ratio,
         MIN(sqrt_ratio_after) AS low_sqrt_ratio,
-        (ARRAY_AGG(sqrt_ratio_after ORDER BY block_time DESC, event_id DESC))[1] AS close_sqrt_ratio
+        (ARRAY_AGG(sqrt_ratio_after ORDER BY block_time DESC, event_id DESC))[1] AS close_sqrt_ratio,
+        -- Each swap moves both tokens, so summing the absolute deltas counts
+        -- the amount traded once per side rather than double counting a swap.
+        -- delta0 and delta1 ride along in swaps_pool_key_id_block_time_ohlc_idx
+        -- (00118), and this query already fetches the heap for sqrt_ratio_after
+        -- which that index does not carry, so they cost nothing extra here.
+        SUM(ABS(delta0)) AS volume0,
+        SUM(ABS(delta1)) AS volume1,
+        COUNT(*) AS swap_count
       FROM bucketed_swaps
       GROUP BY start
       ORDER BY start

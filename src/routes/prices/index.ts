@@ -32,12 +32,20 @@ const GetPairPriceHistoryResponseType = z.object({
   data: z.array(PriceHistoryPointType),
 });
 
-const PoolPriceHistoryPointType = z.object({
+export const PoolPriceHistoryPointType = z.object({
   start: z.union([z.string(), z.date()]),
   open: z.number(),
   high: z.number(),
   low: z.number(),
   close: z.number(),
+  // Sums of the swap amounts in each token's smallest unit, labelled by the
+  // pool's sort order. They are optional because not every candle is built
+  // from swaps: a candle carrying the price forward over a quiet stretch, and
+  // one projected from TWAMM sale rates, describe no indexed trades and so
+  // report no volume rather than a misleading zero.
+  volume0: z.string().optional(),
+  volume1: z.string().optional(),
+  swap_count: z.number().int().optional(),
 });
 
 const GetPoolPriceHistoryResponseType = z.object({
@@ -697,13 +705,18 @@ export class GetPoolPriceHistory extends EkuboAPIRoute {
       queries.getPoolTwammState(pool.pool_key_id),
     ]);
 
-    const data = candles.map((row) => ({
-      start: row.start,
-      open: sqrtRatioX128ToPrice(row.open_sqrt_ratio),
-      high: sqrtRatioX128ToPrice(row.high_sqrt_ratio),
-      low: sqrtRatioX128ToPrice(row.low_sqrt_ratio),
-      close: sqrtRatioX128ToPrice(row.close_sqrt_ratio),
-    }));
+    const data: z.infer<typeof PoolPriceHistoryPointType>[] = candles.map(
+      (row) => ({
+        start: row.start,
+        open: sqrtRatioX128ToPrice(row.open_sqrt_ratio),
+        high: sqrtRatioX128ToPrice(row.high_sqrt_ratio),
+        low: sqrtRatioX128ToPrice(row.low_sqrt_ratio),
+        close: sqrtRatioX128ToPrice(row.close_sqrt_ratio),
+        volume0: row.volume0,
+        volume1: row.volume1,
+        swap_count: Number(row.swap_count),
+      }),
+    );
 
     if (
       priceSeed &&
@@ -902,6 +915,9 @@ export class GetPoolPriceHistory extends EkuboAPIRoute {
                   projectedLastSegment.low,
                 );
                 lastCandle.close = projectedLastSegment.close;
+                // The volume is left as the indexed swaps measured it. The
+                // projection moves the price from TWAMM sale rates, and those
+                // virtual fills are not swaps rows to count.
               }
             }
 
@@ -917,13 +933,9 @@ export class GetPoolPriceHistory extends EkuboAPIRoute {
             }
 
             if (firstProjectedBucketStartMs < end.getTime()) {
-              const projectedCandles: {
-                start: Date;
-                open: number;
-                high: number;
-                low: number;
-                close: number;
-              }[] = [];
+              const projectedCandles: z.infer<
+                typeof PoolPriceHistoryPointType
+              >[] = [];
 
               for (
                 let bucketStartMs = firstProjectedBucketStartMs;
