@@ -3,6 +3,15 @@ main = "src/index.ts"
 compatibility_flags = ["nodejs_compat"]
 compatibility_date = "2024-09-23"
 
+# prod-api.ekubo.org is the only name this API is published under. Wrangler
+# defaults an undeclared workers_dev to on, so leaving this out means any
+# deploy can silently reopen ekubo-api-prod.<subdomain>.workers.dev — the same
+# server, reached by a name no edge rule fronts. It cannot be redirected at the
+# edge either: a redirect rule is scoped to a zone, and workers.dev is
+# Cloudflare's zone rather than this account's. The subdomain is already off in
+# the dashboard; this states it so a deploy cannot undo that.
+workers_dev = false
+
 [placement]
 mode = "smart"
 
