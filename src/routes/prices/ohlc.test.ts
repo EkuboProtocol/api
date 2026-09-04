@@ -1,5 +1,9 @@
 import { describe, expect, test } from "bun:test";
-import { orientOhlcCandle, type CanonicalOhlcCandle } from "./index";
+import {
+  orientOhlcCandle,
+  PoolPriceHistoryPointType,
+  type CanonicalOhlcCandle,
+} from "./index";
 
 const candle: CanonicalOhlcCandle = {
   start: "2026-08-18T00:00:00.000Z",
@@ -80,5 +84,39 @@ describe("orientOhlcCandle", () => {
     const degenerate = orientOhlcCandle({ ...candle, low: 0 }, false);
     expect(degenerate.high).toBe(0);
     expect(Number.isFinite(degenerate.open)).toBe(true);
+  });
+});
+
+describe("PoolPriceHistoryPointType", () => {
+  const prices = {
+    start: "2026-08-18T00:00:00.000Z",
+    open: 2,
+    high: 8,
+    low: 1,
+    close: 4,
+  };
+
+  test("carries the volumes of a candle built from swaps", () => {
+    const parsed = PoolPriceHistoryPointType.parse({
+      ...prices,
+      volume0: "100",
+      volume1: "250",
+      swap_count: 7,
+    });
+
+    expect(parsed.volume0).toBe("100");
+    expect(parsed.swap_count).toBe(7);
+  });
+
+  test("accepts a candle that measures no swaps", () => {
+    // A candle carrying the price forward over a quiet stretch, and one
+    // projected from TWAMM sale rates, describe no indexed trades. Clients
+    // read the absent volume as "not measured" and draw no bar, which is why
+    // these fields must stay optional rather than default to zero.
+    const parsed = PoolPriceHistoryPointType.parse(prices);
+
+    expect(parsed.volume0).toBeUndefined();
+    expect(parsed.volume1).toBeUndefined();
+    expect(parsed.swap_count).toBeUndefined();
   });
 });
