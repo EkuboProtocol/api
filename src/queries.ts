@@ -3296,7 +3296,7 @@ WHERE c.chain_id = ${chainId}
   AND cr.locker = ${locker}
   AND cr.salt = ${salt}
   AND ${startTime ? this.sql`crp.start_time >= ${startTime}::timestamptz` : this.sql`true`}
-  AND ${endTime ? this.sql`crp.start_time >= ${endTime}::timestamptz` : this.sql`true`}
+  AND ${endTime ? this.sql`crp.end_time <= ${endTime}::timestamptz` : this.sql`true`}
 GROUP BY c.slug
     `;
   }
