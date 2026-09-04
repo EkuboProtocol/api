@@ -362,15 +362,14 @@ export class Queries {
   // The chain head comes from indexer_cursor, not from blocks.
   //
   // The indexer no longer writes a blocks row for a block with no events, and
-  // 85% of blocks have none -- 8 of the 13 chains are 100% empty. Against
-  // blocks this would still return a row, just the last one that happened to
-  // carry an event, so the staleness would be silent and unbounded on a quiet
-  // chain. indexer_cursor is updated once per block either way.
-  // See EkuboProtocol/indexer migration 00122.
+  // most blocks have none. Against blocks this would still return a row --
+  // the last one that happened to carry an event -- so the staleness would be
+  // silent, and on a quiet chain unbounded. indexer_cursor is updated once per
+  // block either way. See indexer migration 00122_indexer_cursor_head_block.
   //
-  // Lookups that genuinely want a historical block -- getBlockAtOrAfter and
-  // getBlock below -- stay on blocks. They already tolerated empty blocks
-  // being absent, since the sweep had been removing day-old ones all along.
+  // Every other "newest block" read in this file goes through
+  // public.get_chain_head_time for the same reason. Lookups by timestamp or
+  // by number are the ones that legitimately read blocks.
   public async getLatestBlock(chainId: bigint) {
     const rows = await this.sql<
       {
@@ -412,6 +411,11 @@ export class Queries {
     return rows[0];
   }
 
+  // Resolves from blocks, and otherwise from the cursor head. The head is an
+  // empty block far more often than not and empty blocks have no blocks row,
+  // so without the second arm the number that getLatestBlock just returned
+  // would 404 on this same route. Any other empty block still resolves to
+  // nothing, which is what it did for empty blocks older than a day before.
   public async getBlock(blockNumber: number, chainId: bigint) {
     const rows = await this.sql<
       {
@@ -424,6 +428,16 @@ export class Queries {
       FROM blocks
       WHERE chain_id = ${chainId}
         AND block_number = ${blockNumber}
+      UNION ALL
+      SELECT head_block_number AS number,
+             head_block_time   AS timestamp
+      FROM indexer_cursor
+      WHERE chain_id = ${chainId}
+        AND head_block_number = ${blockNumber}
+        AND NOT EXISTS (SELECT 1
+                        FROM blocks
+                        WHERE chain_id = ${chainId}
+                          AND block_number = ${blockNumber})
     `;
     if (rows.length !== 1) return null;
     return rows[0];
@@ -1365,11 +1379,10 @@ FROM token_mint AS mint
         delta1: string;
       }[]
     >`
-WITH last_block AS (SELECT block_time
-                    FROM blocks
-                    WHERE chain_id = ${chainId}
-                    ORDER BY block_number DESC
-                    LIMIT 1),
+-- The 1-day window is anchored on the chain head. blocks no longer holds empty
+-- blocks, so anchoring on its newest row would anchor on the last event instead
+-- and the window would widen without bound on a quiet chain.
+WITH last_block AS (SELECT public.get_chain_head_time(${chainId}) AS block_time),
      minimum_event_from_day AS (SELECT compute_event_id(
                                                (SELECT block_number
                                                 FROM blocks
@@ -3539,17 +3552,12 @@ AND chain_id IS NOT NULL
                 JOIN blocks b ON gp.block_number = b.block_number AND gp.chain_id = b.chain_id
               WHERE
                 gp.chain_id = ${chainId.toString()}
-                AND (b.block_time + (gr.voting_period + gr.voting_start_delay) * INTERVAL '1 seconds') < (
-                  SELECT
-                    block_time
-                  FROM
-                    blocks b
-                  WHERE chain_id = ${chainId.toString()}
-                  ORDER BY
-                    block_number DESC
-                  LIMIT
-                    1
-                )
+                -- The chain head, not the last block that carried an event:
+                -- blocks no longer holds empty blocks, so a tip read against it
+                -- would stop advancing on a quiet chain and proposals would
+                -- never register as ended.
+                AND (b.block_time + (gr.voting_period + gr.voting_start_delay) * INTERVAL '1 seconds')
+                  < public.get_chain_head_time(${chainId.toString()})
             )
           SELECT
             td.delegate,
