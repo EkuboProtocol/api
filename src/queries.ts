@@ -359,6 +359,18 @@ export class Queries {
     return rows;
   }
 
+  // The chain head comes from indexer_cursor, not from blocks.
+  //
+  // The indexer no longer writes a blocks row for a block with no events, and
+  // 85% of blocks have none -- 8 of the 13 chains are 100% empty. Against
+  // blocks this would still return a row, just the last one that happened to
+  // carry an event, so the staleness would be silent and unbounded on a quiet
+  // chain. indexer_cursor is updated once per block either way.
+  // See EkuboProtocol/indexer migration 00122.
+  //
+  // Lookups that genuinely want a historical block -- getBlockAtOrAfter and
+  // getBlock below -- stay on blocks. They already tolerated empty blocks
+  // being absent, since the sweep had been removing day-old ones all along.
   public async getLatestBlock(chainId: bigint) {
     const rows = await this.sql<
       {
@@ -367,13 +379,12 @@ export class Queries {
         timestamp: string;
       }[]
     >`
-      SELECT block_number AS number,
-             block_hash   AS hash,
-             block_time   AS timestamp
-      FROM blocks
+      SELECT head_block_number AS number,
+             head_block_hash   AS hash,
+             head_block_time   AS timestamp
+      FROM indexer_cursor
       WHERE chain_id = ${chainId}
-      ORDER BY block_number DESC
-      LIMIT 1
+        AND head_block_number IS NOT NULL
     `;
     if (rows.length !== 1) return null;
     return rows[0];
