@@ -16,6 +16,9 @@ jobs:
 
     runs-on: ubuntu-latest
     name: Deploy to Cloudflare
+    # Only the upstream repo holds the Cloudflare credentials; without this a
+    # fork's first push to main fails the job instead of simply skipping it.
+    if: github.repository == 'EkuboProtocol/api'
     steps:
       - uses: actions/checkout@v3
 
