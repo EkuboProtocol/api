@@ -10,7 +10,7 @@ The TypeScript worker entrypoint lives in `src/index.ts`, wiring requests throug
 Hit `http://127.0.0.1:8787/...` with curl when debugging and watch the console logs for worker output.
 
 ## Coding Style & Naming Conventions
-Write TypeScript using ES modules, prefer named exports, and keep domain-specific logic inside the matching `src/routes` folder. Follow Prettier defaults (2-space indentation, single quotes, trailing commas) and run `bunx prettier .` before committing formatting-heavy updates. File names stick to lower camel case for utilities (`parseOutTokens.ts`) and kebab-case directories (`src/routes/quote`). Use existing zod schemas as the source of truth for request and response validation rather than duplicating shape definitions.
+Write TypeScript using ES modules, prefer named exports, and keep domain-specific logic inside the matching `src/routes` folder. Follow Prettier defaults (2-space indentation, single quotes, trailing commas) and run `bunx prettier .` before committing formatting-heavy updates. File names stick to lower camel case for utilities (`parseOutTokens.ts`) and kebab-case directories (`src/routes/prices`). Use existing zod schemas as the source of truth for request and response validation rather than duplicating shape definitions.
 
 ## Testing Guidelines
 There is no automated test harness yet, so combine `bunx tsc --noEmit` with targeted manual verification via `wrangler dev`. Document the requests you exercised in the PR description. For complex calculations or parsing helpers, add lightweight tests under `src/shared/__tests__` using Vitest (or similar) and share the invocation command so reviewers can repeat it.
