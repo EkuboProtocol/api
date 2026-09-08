@@ -2,3 +2,9 @@ node_modules
 .wrangler
 .idea
 coverage
+
+# Local secrets — never commit these
+.dev.vars
+.dev.vars.*
+.env
+.env.*
