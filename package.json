@@ -10,7 +10,7 @@
     "@typescript-eslint/parser": "8.69.0",
     "chanfana": "^3.4.0",
     "eslint": "10.10.0",
-    "hono": "^4.13.5",
+    "hono": "^4.13.7",
     "itty-router": "^5.0.24",
     "postgres": "^3.4.9",
     "prettier": "^3.9.6",
