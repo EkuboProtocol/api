@@ -6,7 +6,7 @@
     "@cloudflare/workers-types": "^5.20260908.1",
     "@ekubo/position-svg-generator": "^0.3.0",
     "@ekubo/sdk": "^0.0.10",
-    "@types/bun": "^1.4.0",
+    "@types/bun": "^1.4.2",
     "@typescript-eslint/parser": "8.69.0",
     "chanfana": "^3.4.0",
     "eslint": "10.10.0",
