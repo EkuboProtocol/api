@@ -2294,6 +2294,7 @@ ORDER BY po.token_id DESC
         depth0: string;
         depth1: string;
         min_depth_percent: number | null;
+        initialized_at: Date | null;
       }[]
     >`
 SELECT
@@ -2312,9 +2313,14 @@ SELECT
        SUM(tvl1_delta_24h)               AS tvl1_delta_24h,
        COALESCE(SUM(depth0), 0::NUMERIC) AS depth0,
        COALESCE(SUM(depth1), 0::NUMERIC) AS depth1,
-       MIN(depth_percent)                AS min_depth_percent
+       MIN(depth_percent)                AS min_depth_percent,
+       MIN(initialization_block.block_time) AS initialized_at
 FROM last_24h_pool_stats_materialized l24
          JOIN pool_keys pk USING (pool_key_id)
+         LEFT JOIN pool_initializations pi USING (pool_key_id)
+         LEFT JOIN blocks initialization_block
+                   ON initialization_block.chain_id = pi.chain_id
+                       AND initialization_block.block_number = pi.block_number
          JOIN erc20_tokens t0 ON pk.chain_id = t0.chain_id AND pk.token0 = t0.token_address
          LEFT JOIN erc20_tokens_latest_price t0p ON t0p.chain_id = t0.chain_id AND t0p.token_address = t0.token_address
          JOIN erc20_tokens t1 ON pk.chain_id = t1.chain_id AND pk.token1 = t1.token_address
@@ -2376,6 +2382,7 @@ HAVING SUM(tvl0_total / POWER(10::NUMERIC, t0.token_decimals) * COALESCE(t0p.val
               donate_rate_delta1: string;
             }[]
           | null;
+        initialized_at: Date | null;
       }[]
     >`
       SELECT
@@ -2399,6 +2406,7 @@ HAVING SUM(tvl0_total / POWER(10::NUMERIC, t0.token_decimals) * COALESCE(t0p.val
         coalesce(depth0, 0::numeric) AS depth0,
         coalesce(depth1, 0::numeric) AS depth1,
         depth_percent,
+        initialization_block.block_time AS initialized_at,
         bps.donate_rate0 AS boosted_fees_donate_rate0,
         bps.donate_rate1 AS boosted_fees_donate_rate1,
         bps.last_donated_time AS boosted_fees_last_donated_time,
@@ -2406,6 +2414,10 @@ HAVING SUM(tvl0_total / POWER(10::NUMERIC, t0.token_decimals) * COALESCE(t0p.val
       FROM
         last_24h_pool_stats_materialized l24
         JOIN pool_keys p USING (pool_key_id)
+        LEFT JOIN pool_initializations pi USING (pool_key_id)
+        LEFT JOIN blocks initialization_block
+          ON initialization_block.chain_id = pi.chain_id
+          AND initialization_block.block_number = pi.block_number
         JOIN erc20_tokens t0 ON p.chain_id = t0.chain_id AND p.token0 = t0.token_address
         LEFT JOIN erc20_tokens_latest_price t0p ON t0p.chain_id = t0.chain_id AND t0p.token_address = t0.token_address
         JOIN erc20_tokens t1 ON p.chain_id = t1.chain_id AND p.token1 = t1.token_address

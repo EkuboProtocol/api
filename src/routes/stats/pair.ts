@@ -80,6 +80,7 @@ const PoolStatsType = z.object({
   depth0: z.string(),
   depth1: z.string(),
   depth_percent: z.number().nullable(),
+  initialized_at: TimestampType.nullable(),
   stableswap_params: z
     .object({
       center_tick: z.number().int(),
