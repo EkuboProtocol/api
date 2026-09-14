@@ -2170,8 +2170,8 @@ ORDER BY po.token_id DESC
              SUM(ve33_fees)               AS ve33_fees
       FROM hourly_volume_by_token hvbt
             JOIN pool_keys pk USING (pool_key_id)
-            JOIN erc20_tokens t ON t.chain_id = pk.chain_id AND t.token_address = hvbt.token
-            JOIN erc20_tokens_latest_price tp ON tp.chain_id = t.chain_id AND tp.token_address = t.token_address
+            LEFT JOIN erc20_tokens t ON t.chain_id = pk.chain_id AND t.token_address = hvbt.token
+            LEFT JOIN erc20_tokens_latest_price tp ON tp.chain_id = t.chain_id AND tp.token_address = t.token_address
       WHERE ${since ? this.sql`hour >= ${since}` : this.sql`true`}
         AND ${
           pair
@@ -2179,7 +2179,7 @@ ORDER BY po.token_id DESC
                 .sql`pk.chain_id = ${pair.chainId} AND pk.token0 = ${pair.token0.toString()} AND pk.token1 = ${pair.token1.toString()}`
             : this.sql`true`
         }
-        AND t.visibility_priority >= 0
+        AND (t.visibility_priority >= 0 OR ${pair ? this.sql`TRUE` : this.sql`FALSE`})
         AND ${chainId ? this.sql`pk.chain_id = ${chainId}` : this.sql`true`}
         AND ${coreAddressCondition}
         AND ${poolIdCondition}
@@ -2221,8 +2221,8 @@ ORDER BY po.token_id DESC
              SUM(ve33_fees)                 AS ve33_fees
       FROM hourly_volume_by_token hvbt
             JOIN pool_keys pk USING (pool_key_id)
-            JOIN erc20_tokens t ON pk.chain_id = t.chain_id AND hvbt.token = t.token_address
-            JOIN erc20_tokens_latest_price tp ON tp.chain_id = t.chain_id AND tp.token_address = t.token_address
+            LEFT JOIN erc20_tokens t ON pk.chain_id = t.chain_id AND hvbt.token = t.token_address
+            LEFT JOIN erc20_tokens_latest_price tp ON tp.chain_id = t.chain_id AND tp.token_address = t.token_address
       WHERE hour >= ${after}
         AND ${chainId ? this.sql`pk.chain_id = ${chainId}` : this.sql`true`}
         AND ${
@@ -2231,7 +2231,7 @@ ORDER BY po.token_id DESC
                 .sql`pk.chain_id = ${pair.chainId} AND pk.token0 = ${pair.token0.toString()} AND pk.token1 = ${pair.token1.toString()}`
             : this.sql`true`
         }
-        AND visibility_priority >= 0
+        AND (visibility_priority >= 0 OR ${pair ? this.sql`TRUE` : this.sql`FALSE`})
         AND ${coreAddressCondition}
         AND ${poolIdCondition}
       GROUP BY hvbt.token, date, pk.chain_id
@@ -2406,9 +2406,9 @@ HAVING SUM(tvl0_total / POWER(10::NUMERIC, t0.token_decimals) * COALESCE(t0p.val
       FROM
         last_24h_pool_stats_materialized l24
         JOIN pool_keys p USING (pool_key_id)
-        JOIN erc20_tokens t0 ON p.chain_id = t0.chain_id AND p.token0 = t0.token_address
+        LEFT JOIN erc20_tokens t0 ON p.chain_id = t0.chain_id AND p.token0 = t0.token_address
         LEFT JOIN erc20_tokens_latest_price t0p ON t0p.chain_id = t0.chain_id AND t0p.token_address = t0.token_address
-        JOIN erc20_tokens t1 ON p.chain_id = t1.chain_id AND p.token1 = t1.token_address
+        LEFT JOIN erc20_tokens t1 ON p.chain_id = t1.chain_id AND p.token1 = t1.token_address
          LEFT JOIN erc20_tokens_latest_price t1p ON t1p.chain_id = t1.chain_id AND t1p.token_address = t1.token_address
         LEFT JOIN token_pair_realized_volatility_materialized tprv ON p.chain_id = tprv.chain_id AND p.token0 = tprv.token0 AND p.token1 = tprv.token1
         LEFT JOIN boosted_fees_pool_states bps ON bps.pool_key_id = p.pool_key_id
@@ -2450,8 +2450,8 @@ HAVING SUM(tvl0_total / POWER(10::NUMERIC, t0.token_decimals) * COALESCE(t0p.val
         AND p.token1 = ${pair.token1.toString()}
         AND (
           (
-            (tvl0_total / POWER(10::numeric, t0.token_decimals)) * COALESCE(t0p.value, 0::numeric) +
-            (tvl1_total / POWER(10::numeric, t1.token_decimals)) * COALESCE(t1p.value, 0::numeric)
+            COALESCE((tvl0_total / POWER(10::numeric, t0.token_decimals)) * t0p.value, 0::numeric) +
+            COALESCE((tvl1_total / POWER(10::numeric, t1.token_decimals)) * t1p.value, 0::numeric)
           ) >= ${minTvlUsd}
           OR COALESCE(bps.donate_rate0, 0::numeric) <> 0
           OR COALESCE(bps.donate_rate1, 0::numeric) <> 0
