@@ -7,7 +7,7 @@
       "devDependencies": {
         "@0x/swap-ts-sdk": "^2.1.1",
         "@cloudflare/workers-types": "^5.20260908.1",
-        "@ekubo/position-svg-generator": "^0.3.0",
+        "@ekubo/position-svg-generator": "^0.3.1",
         "@ekubo/sdk": "^0.0.10",
         "@types/bun": "^1.4.2",
         "@typescript-eslint/parser": "8.70.0",
@@ -57,7 +57,7 @@
 
     "@cspotcode/source-map-support": ["@cspotcode/source-map-support@0.8.1", "", { "dependencies": { "@jridgewell/trace-mapping": "0.3.9" } }, "sha512-IchNf6dN4tHoMFIn/7OE8LWZ19Y6q/67Bmf6vnGREv8RSbBVb9LPJxEcnwrcwX6ixSvaiGoomAUvu4YSxXrVgw=="],
 
-    "@ekubo/position-svg-generator": ["@ekubo/position-svg-generator@0.3.0", "", { "dependencies": { "pure-rand": "^6.0.2" } }, "sha512-OySVOixmCJw5G8XYNAZrdYDAX/J55TQ5hyeckx6DZh60ZLJKsquzRDdTBp7OkJeCR3yKpa6Ue6zV2EEfrk7lHQ=="],
+    "@ekubo/position-svg-generator": ["@ekubo/position-svg-generator@0.3.1", "", { "dependencies": { "pure-rand": "^6.0.2" } }, "sha512-E5drUcBP2xV/AGAO9Afbo0W88B1xPL+fcrfhO9wd8uktge0o3rv8haNQm2scYQnyaCouT9groibF7GoNjTyfqA=="],
 
     "@ekubo/sdk": ["@ekubo/sdk@0.0.10", "", {}, "sha512-lH+gA6MBkvdC4xwyv6sBulHrewj6tu3lwShSoorVe6YBsCnd7QZOmNQ175JIfi2cZXruZ28A25SiyJ+3Z+2trA=="],
 
