@@ -3,6 +3,35 @@ import { IRequest, StatusError } from "itty-router";
 import { createQueries, Queries } from "../queries";
 import { getTokenByUserSpecifiedIdentifier } from "../routes/meta/tokens";
 
+const RAW_TOKEN_ADDRESS_REGEX = /^(?:0x[a-fA-F0-9]+|\d+)$/;
+
+// Resolves a user-supplied token identifier to its address. Registered
+// tokens resolve through the token table; anything else must already be a
+// raw address, so stats pages keep working for tokens the indexer has never
+// registered. All downstream queries filter on raw addresses, so an
+// unregistered token simply contributes no USD-denominated value.
+export async function parseOutTokenAddress(
+  queries: Queries,
+  chainId: bigint,
+  identifier: string,
+): Promise<bigint> {
+  const registered = await getTokenByUserSpecifiedIdentifier(
+    queries,
+    chainId,
+    identifier,
+  );
+  if (registered) {
+    return BigInt(registered.address);
+  }
+
+  const trimmed = identifier.trim();
+  if (RAW_TOKEN_ADDRESS_REGEX.test(trimmed)) {
+    return BigInt(trimmed);
+  }
+
+  throw new StatusError(400, `Invalid token identifier: "${identifier}"`);
+}
+
 export async function parseOutTokens(
   env: Env,
   params: IRequest["params"],
@@ -17,23 +46,14 @@ export async function parseOutTokens(
 }> {
   const queries = await createQueries(env);
 
-  const [tokenA, tokenB] = await Promise.all([
-    getTokenByUserSpecifiedIdentifier(queries, chainId, params.tokenA),
-    getTokenByUserSpecifiedIdentifier(queries, chainId, params.tokenB),
+  const [tokenAAddress, tokenBAddress] = await Promise.all([
+    parseOutTokenAddress(queries, chainId, params.tokenA),
+    parseOutTokenAddress(queries, chainId, params.tokenB),
   ]);
 
-  if (!tokenA) {
-    throw new StatusError(400, `Invalid token identifier: "${params.tokenA}"`);
-  }
-  if (!tokenB) {
-    throw new StatusError(400, `Invalid token identifier: "${params.tokenB}"`);
-  }
-  if (tokenA.address === tokenB.address) {
+  if (tokenAAddress === tokenBAddress) {
     throw new StatusError(400, `tokenA cannot be equal to tokenB`);
   }
-
-  const tokenAAddress = BigInt(tokenA.address);
-  const tokenBAddress = BigInt(tokenB.address);
 
   const [token0, token1] =
     tokenAAddress < tokenBAddress

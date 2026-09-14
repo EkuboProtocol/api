@@ -1,6 +1,6 @@
 import { EkuboAPIRoute, RequestContext } from "../../shared/context";
 import { IRequest, json, StatusError } from "itty-router";
-import { getTokenByUserSpecifiedIdentifier } from "../meta/tokens";
+import { parseOutTokenAddress } from "../../shared/parseOutTokens";
 import {
   AddressType,
   ChainIdType,
@@ -192,21 +192,14 @@ export class GetPairPriceHistory extends EkuboAPIRoute {
     const chainId = BigInt(params.chainId);
     const queries = await createQueries(env);
 
-    const [baseToken, quoteToken] = await Promise.all([
-      getTokenByUserSpecifiedIdentifier(queries, chainId, params.baseToken),
-      getTokenByUserSpecifiedIdentifier(queries, chainId, params.quoteToken),
+    const [baseTokenAddress, quoteTokenAddress] = await Promise.all([
+      parseOutTokenAddress(queries, chainId, params.baseToken),
+      parseOutTokenAddress(queries, chainId, params.quoteToken),
     ]);
 
-    if (!baseToken || !quoteToken) {
-      throw new StatusError(400, "Base token or quote token invalid");
-    }
-
-    if (baseToken.address === quoteToken.address) {
+    if (baseTokenAddress === quoteTokenAddress) {
       throw new StatusError(400, "Base token cannot be equal to quote token");
     }
-
-    const baseTokenAddress = BigInt(baseToken.address);
-    const quoteTokenAddress = BigInt(quoteToken.address);
 
     const baseBeforeQuote = baseTokenAddress < quoteTokenAddress;
 
@@ -455,21 +448,14 @@ export class GetPairOhlcHistory extends EkuboAPIRoute {
     const chainId = BigInt(params.chainId);
     const queries = await createQueries(env);
 
-    const [baseToken, quoteToken] = await Promise.all([
-      getTokenByUserSpecifiedIdentifier(queries, chainId, params.baseToken),
-      getTokenByUserSpecifiedIdentifier(queries, chainId, params.quoteToken),
+    const [baseTokenAddress, quoteTokenAddress] = await Promise.all([
+      parseOutTokenAddress(queries, chainId, params.baseToken),
+      parseOutTokenAddress(queries, chainId, params.quoteToken),
     ]);
 
-    if (!baseToken || !quoteToken) {
-      throw new StatusError(400, "Base token or quote token invalid");
-    }
-
-    if (baseToken.address === quoteToken.address) {
+    if (baseTokenAddress === quoteTokenAddress) {
       throw new StatusError(400, "Base token cannot be equal to quote token");
     }
-
-    const baseTokenAddress = BigInt(baseToken.address);
-    const quoteTokenAddress = BigInt(quoteToken.address);
 
     const baseBeforeQuote = baseTokenAddress < quoteTokenAddress;
 
@@ -560,8 +546,8 @@ export class GetPairOhlcHistory extends EkuboAPIRoute {
       start: start.getTime(),
       end: end.getTime(),
       interval: intervalSeconds,
-      base_token: toHex(baseToken.address),
-      quote_token: toHex(quoteToken.address),
+      base_token: toHex(baseTokenAddress),
+      quote_token: toHex(quoteTokenAddress),
       data: rows.map((row) =>
         orientOhlcCandle(
           {
