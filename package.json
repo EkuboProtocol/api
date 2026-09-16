@@ -27,5 +27,8 @@
     "start": "wrangler dev",
     "lint": "eslint .",
     "lint:prune": "eslint . --prune-suppressions"
+  },
+  "overrides": {
+    "zod": "^4.6.4"
   }
 }
