@@ -301,28 +301,12 @@ function buildListPositionsResponse(
 
   return {
     data: rows.map((row) => {
-      const stableswap_params =
-        row.stableswap_amplification !== null &&
-        row.stableswap_center_tick !== null
-          ? {
-              center_tick: Number(row.stableswap_center_tick),
-              amplification: Number(row.stableswap_amplification),
-            }
-          : null;
-
       return {
         id: toHex(BigInt(row.token_id)),
         chain_id: toHex(row.chain_id),
         positions_address: toHex(row.positions_address),
         owner: row.owner ? toHex(row.owner) : null,
-        pool_key: {
-          token0: toHex(row.token0),
-          token1: toHex(row.token1),
-          fee: toHex(row.fee),
-          tick_spacing: row.tick_spacing ? toHex(row.tick_spacing) : null,
-          extension: toHex(row.extension),
-          stableswap_params,
-        },
+        pool_key: formatPoolKeySummary(row),
         bounds: {
           lower: Number(row.lower_bound),
           upper: Number(row.upper_bound),
@@ -578,6 +562,101 @@ export class ListPositionNftEvents extends EkuboAPIRoute {
     return json(response, {
       headers: {
         "cache-control": "public, max-age=60, must-revalidate",
+      },
+    });
+  }
+}
+
+const PositionRangeType = z.object({
+  pool_key: PoolKeySummaryType,
+  bounds: z.object({ lower: z.number(), upper: z.number() }),
+  liquidity: DecimalStringType,
+});
+
+const ListPositionRangesResponseType = z.object({
+  data: z.array(PositionRangeType),
+  indexed_block: DecimalStringType.nullable().describe(
+    "Latest block the indexer has processed for this chain; ranges touched after it are missing",
+  ),
+});
+
+function formatPoolKeySummary(row: {
+  token0: string;
+  token1: string;
+  fee: string;
+  tick_spacing: string | null;
+  extension: string;
+  stableswap_center_tick: number | string | null;
+  stableswap_amplification: number | string | null;
+}): z.infer<typeof PoolKeySummaryType> {
+  return {
+    token0: toHex(row.token0),
+    token1: toHex(row.token1),
+    fee: toHex(row.fee),
+    tick_spacing: row.tick_spacing ? toHex(row.tick_spacing) : null,
+    extension: toHex(row.extension),
+    stableswap_params:
+      row.stableswap_amplification !== null &&
+      row.stableswap_center_tick !== null
+        ? {
+            center_tick: Number(row.stableswap_center_tick),
+            amplification: Number(row.stableswap_amplification),
+          }
+        : null,
+  };
+}
+
+export class ListPositionNftRanges extends EkuboAPIRoute {
+  static route = "/positions/:chainId/:positionsAddress/:id/ranges";
+  static schema: OpenAPIRouteSchema = {
+    tags: ["Positions"],
+    summary: "List position NFT ranges",
+    description:
+      "Returns every (pool key, bounds) range that has ever held liquidity under the given position NFT, including ranges now at zero liquidity. Ranges stay attached to the token ID across burn and re-mint. Liquidity is as of indexed_block; re-read it on chain before acting on it.",
+    parameters: {
+      chainId: Path(ChainIdType, {
+        description: "Chain ID for which to list ranges",
+      }),
+      positionsAddress: Path(AddressType, {
+        description:
+          "The address of the positions NFT contract, e.g. Positions or AuctionPositions",
+      }),
+      id: Path(TokenIdType),
+    },
+    responses: {
+      "200": {
+        description: "The ranges of the position NFT",
+        schema: ListPositionRangesResponseType,
+      },
+    },
+  };
+
+  async handleRequest(
+    { params: { id, chainId, positionsAddress } }: IRequest,
+    { env }: RequestContext,
+  ) {
+    const queries = await createQueries(env);
+    const [rows, latestBlock] = await Promise.all([
+      queries.listPositionRanges(
+        BigInt(chainId),
+        BigInt(positionsAddress),
+        BigInt(id),
+      ),
+      queries.getLatestBlock(BigInt(chainId)),
+    ]);
+
+    const response = {
+      data: rows.map((row) => ({
+        pool_key: formatPoolKeySummary(row),
+        bounds: { lower: row.lower_bound, upper: row.upper_bound },
+        liquidity: row.liquidity,
+      })),
+      indexed_block: latestBlock?.number.toString() ?? null,
+    } satisfies z.infer<typeof ListPositionRangesResponseType>;
+
+    return json(response, {
+      headers: {
+        "cache-control": "no-cache",
       },
     });
   }

@@ -2581,6 +2581,60 @@ HAVING SUM(tvl0_total / POWER(10::NUMERIC, t0.token_decimals) * COALESCE(t0p.val
     `;
   }
 
+  // Every range ever touched under one position NFT, including ranges now at
+  // zero liquidity, so a caller can re-read each on chain before burning the
+  // NFT. Ranges are keyed by (locker, salt) and never by owner, so they stay
+  // attached to a token id across burn and re-mint. The locker and salt come
+  // from nft_locker_mappings when the address is mapped (Positions, whose salt
+  // is the low 192 bits of the id), and otherwise are the address and id
+  // themselves (AuctionPositions, whose ids are already uint192).
+  //
+  // Pinned against the indexer schema by the indexer's
+  // tests/migrations/auction-positions-ranges.test.ts; keep the two in step.
+  public async listPositionRanges(
+    chainId: bigint,
+    positionsAddress: bigint,
+    tokenId: bigint,
+  ) {
+    return this.sql<
+      {
+        token0: string;
+        token1: string;
+        fee: string;
+        tick_spacing: string | null;
+        extension: string;
+        stableswap_center_tick: number | null;
+        stableswap_amplification: number | null;
+        lower_bound: number;
+        upper_bound: number;
+        liquidity: string;
+      }[]
+    >`
+WITH target AS (SELECT COALESCE(nlm.locker, ${positionsAddress.toString()}::NUMERIC) AS locker,
+                       nft_token_salt(nlm.token_id_transform, ${tokenId.toString()}::NUMERIC) AS salt
+                FROM (SELECT 1) AS one
+                         LEFT JOIN nft_locker_mappings nlm
+                                   ON nlm.chain_id = ${chainId}
+                                       AND nlm.nft_address = ${positionsAddress.toString()}::NUMERIC)
+SELECT pk.token0,
+       pk.token1,
+       pk.fee,
+       pk.tick_spacing,
+       pk.pool_extension AS extension,
+       pk.stableswap_center_tick,
+       pk.stableswap_amplification,
+       pcl.lower_bound,
+       pcl.upper_bound,
+       pcl.liquidity
+FROM target
+         JOIN position_current_liquidity pcl
+              ON pcl.locker = target.locker AND pcl.salt = target.salt
+         JOIN pool_keys pk ON pk.pool_key_id = pcl.pool_key_id
+WHERE pk.chain_id = ${chainId}
+ORDER BY pk.pool_key_id, pcl.lower_bound, pcl.upper_bound
+    `;
+  }
+
   public async getPositionsByAddress(
     addresses: bigint[],
     state: StateFilter | null = null,
@@ -2937,8 +2991,7 @@ pt.last_transfer_event_id DESC NULLS LAST
     };
     type NullableVe33PoolRow = {
       [K in keyof Omit<Ve33PoolRow, "total_count" | "total_vote_weight">]:
-        | Ve33PoolRow[K]
-        | null;
+        Ve33PoolRow[K] | null;
     } & Pick<Ve33PoolRow, "total_count" | "total_vote_weight">;
 
     const rows = await this.sql<NullableVe33PoolRow[]>`

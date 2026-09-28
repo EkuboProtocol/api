@@ -22,14 +22,14 @@ describe("Chanfana router integration", () => {
       ),
     );
 
-    expect(Object.keys(schema.paths)).toHaveLength(57);
-    expect(operations).toHaveLength(57);
+    expect(Object.keys(schema.paths)).toHaveLength(58);
+    expect(operations).toHaveLength(58);
     expect(
       operations.reduce(
         (count, operation) => count + (operation.parameters?.length ?? 0),
         0,
       ),
-    ).toBe(191);
+    ).toBe(194);
 
     const getToken = operations.find(
       (operation) =>
@@ -119,6 +119,41 @@ describe("Chanfana router integration", () => {
     expect(responseSchema("/ve33/{ve33Address}/voters")?.required).toEqual(
       expect.arrayContaining(["data", "total_vote_weight", "pagination"]),
     );
+  });
+
+  test("documents the position NFT ranges route", async () => {
+    type JsonSchema = {
+      properties?: Record<string, JsonSchema>;
+      items?: JsonSchema;
+      required?: string[];
+    };
+    const paths = router.schema.paths as Record<
+      string,
+      {
+        get?: {
+          responses: Record<
+            string,
+            { content?: Record<string, { schema?: JsonSchema }> }
+          >;
+        };
+      }
+    >;
+    const schema =
+      paths["/positions/{chainId}/{positionsAddress}/{id}/ranges"]?.get
+        ?.responses["200"].content?.["application/json"].schema;
+
+    expect(schema?.required).toEqual(["data", "indexed_block"]);
+    expect(schema?.properties?.data.items?.required).toEqual([
+      "pool_key",
+      "bounds",
+      "liquidity",
+    ]);
+
+    const response = await router.fetch(
+      new Request("http://localhost/positions/0/0x1/1/ranges"),
+      context,
+    );
+    expect(response.status).toBe(400);
   });
 
   test("validates requests before invoking route handlers", async () => {
