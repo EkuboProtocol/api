@@ -237,6 +237,23 @@ export class Queries {
     return rows;
   }
 
+  public async listErc20TokenUsdPrices({
+    chainId,
+    minVisibilityPriority,
+  }: {
+    chainId: bigint;
+    minVisibilityPriority: number;
+  }) {
+    return this.sql<{ token_address: string; usd_price: number }[]>`
+      SELECT token_address, p.value AS usd_price
+      FROM erc20_tokens t
+      JOIN erc20_tokens_latest_price p USING (chain_id, token_address)
+      WHERE t.chain_id = ${chainId}
+        AND t.visibility_priority >= ${minVisibilityPriority}
+      ORDER BY token_address
+    `;
+  }
+
   public async getErc20TokenByAddress({
     chainId,
     tokenAddress,

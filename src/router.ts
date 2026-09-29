@@ -1,6 +1,11 @@
 import { fromIttyRouter } from "chanfana";
 import { version } from "../package.json";
-import { ListTokens, GetToken, BatchGetTokens } from "./routes/meta/tokens";
+import {
+  ListTokens,
+  GetToken,
+  BatchGetTokens,
+  ListTokenUsdPrices,
+} from "./routes/meta/tokens";
 import { GetBlock, GetClosestBlock } from "./routes/meta/blocks";
 import { GetCountry } from "./routes/meta/country";
 import {
@@ -97,6 +102,7 @@ export const router = fromIttyRouter(ittyRouter, {
 });
 router.get(ListTokens.route, ListTokens);
 router.get(BatchGetTokens.route, BatchGetTokens);
+router.get(ListTokenUsdPrices.route, ListTokenUsdPrices);
 router.get(GetToken.route, GetToken);
 router.get(GetClosestBlock.route, GetClosestBlock);
 router.get(GetBlock.route, GetBlock);

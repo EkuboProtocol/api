@@ -292,6 +292,65 @@ export class ListTokens extends EkuboAPIRoute {
   }
 }
 
+const TokenUsdPricesResponseType = z
+  .record(
+    z.string().describe("Token address, formatted as in the token list"),
+    z.number().describe("The USD price for one unit of the token").gte(0),
+  )
+  .openapi({
+    description: "USD price by token address, for priced tokens only",
+    example: {
+      "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48": 0.9999,
+    },
+  });
+type TokenUsdPricesResponse = z.infer<typeof TokenUsdPricesResponseType>;
+
+export class ListTokenUsdPrices extends EkuboAPIRoute {
+  static route = "/tokens/prices";
+  static schema: OpenAPIRouteSchema = {
+    tags: ["Meta"],
+    summary: "List token USD prices",
+    description:
+      "The usd_price of every priced token on a chain, keyed by address. Poll this instead of the token list when only prices need to stay fresh; tokens without a price are omitted.",
+    parameters: {
+      chainId: Query(ChainIdType, { required: true }),
+      minVisibilityPriority: Query(VisibilityPriorityType, {
+        required: false,
+      }),
+    },
+    responses: {
+      "200": {
+        description: "USD prices by token address",
+        schema: TokenUsdPricesResponseType,
+      },
+    },
+  };
+
+  async handleRequest({ query }: IRequest, { env }: RequestContext) {
+    const chainId = ChainIdType.parse(query.chainId);
+    const minVisibilityPriority = VisibilityPriorityType.parse(
+      query.minVisibilityPriority ?? 0,
+    );
+
+    const queries = await createQueries(env);
+    const rows = await queries.listErc20TokenUsdPrices({
+      chainId,
+      minVisibilityPriority,
+    });
+
+    const response: TokenUsdPricesResponse = {};
+    for (const row of rows) {
+      response[toHex(BigInt(row.token_address), 20)] = Number(row.usd_price);
+    }
+
+    return json(response, {
+      headers: {
+        "cache-control": "public, max-age=30",
+      },
+    });
+  }
+}
+
 function getQueryParamAsArray(value: unknown): string[] | undefined {
   if (typeof value === "string") {
     return [value];

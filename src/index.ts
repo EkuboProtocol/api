@@ -2,6 +2,7 @@ import { cors, error, IRequest, json, StatusError } from "itty-router";
 import { Env } from "./env";
 import { RequestContext } from "./shared/context";
 import { router } from "./router";
+import { notModified, withEtag } from "./shared/etag";
 
 const NUMERICISH_REGEX = /^(?:0x[0-9a-fA-F]+|[+-]?\d+)$/;
 const MAX_NUMERICISH_LENGTH = 128;
@@ -66,6 +67,12 @@ const { preflight, corsify } = cors({
   allowMethods: ["GET", "OPTIONS"],
 });
 
+function finalize(request: IRequest, response: Response): Response {
+  const corsified = corsify(notModified(request, response) ?? response);
+  corsified.headers.set("Access-Control-Allow-Origin", "*");
+  return corsified;
+}
+
 export default {
   fetch: async (request: IRequest, env: Env) => {
     // first check the preflight before anything. it's so cheap to handle we shouldn't even bother with check the cache
@@ -78,9 +85,7 @@ export default {
     if (cacheKey) {
       const cached = await cache.match(cacheKey);
       if (cached) {
-        const corsified = corsify(cached);
-        corsified.headers.set("Access-Control-Allow-Origin", "*");
-        return corsified;
+        return finalize(request, cached);
       }
     }
 
@@ -99,11 +104,10 @@ export default {
     }
 
     if (cacheKey && response.ok) {
+      response = await withEtag(response);
       await cache.put(cacheKey, response.clone());
     }
 
-    const corsified = corsify(response);
-    corsified.headers.set("Access-Control-Allow-Origin", "*");
-    return corsified;
+    return finalize(request, response);
   },
 };
