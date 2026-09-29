@@ -23,4 +23,6 @@ jobs:
 
       - run: bun run lint
 
+      - run: bunx tsc --noEmit
+
       - run: bun test

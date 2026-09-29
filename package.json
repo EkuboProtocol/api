@@ -26,7 +26,8 @@
   "scripts": {
     "start": "wrangler dev",
     "lint": "eslint .",
-    "lint:prune": "eslint . --prune-suppressions"
+    "lint:prune": "eslint . --prune-suppressions",
+    "openapi": "bun scripts/generateOpenApi.ts"
   },
   "overrides": {
     "zod": "^4.6.4"
