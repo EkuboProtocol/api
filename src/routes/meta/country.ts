@@ -1,41 +1,35 @@
-import { OpenAPIRouteSchema } from "../../shared/openapi";
-import { IRequest, json } from "itty-router";
-import { z } from "zod";
-import { EkuboAPIRoute } from "../../shared/context";
+import { createRoute, z } from "@hono/zod-openapi";
+import { defineRoute } from "../../shared/context";
+import { errorResponses } from "../../shared/errors";
+import { jsonResponse } from "../../shared/openapi";
 
 const CountryResponseType = z.object({
   country: z.string().length(2).nullable(),
 });
 
-export class GetCountry extends EkuboAPIRoute {
-  public static route = "/country";
-
-  static schema: OpenAPIRouteSchema = {
+export const GetCountry = defineRoute(
+  createRoute({
+    method: "get",
+    path: "/country",
     tags: ["Meta"],
     summary: "Get request country",
     description:
       "Returns the Cloudflare country code inferred from the request IP",
+    operationId: "get_GetCountry",
     responses: {
-      "200": {
-        description:
-          "The request country as a two-letter Cloudflare country code",
-        schema: CountryResponseType,
-      },
+      200: jsonResponse(
+        "The request country as a two-letter Cloudflare country code",
+        CountryResponseType,
+      ),
+      ...errorResponses,
     },
-  };
+  }),
+  (c) => {
+    const cf = c.req.raw.cf;
+    const country = typeof cf?.country === "string" ? cf.country : null;
 
-  public handleRequest(request: IRequest) {
-    const country =
-      typeof request.cf?.country === "string" ? request.cf.country : null;
-
-    const response = {
-      country,
-    } satisfies z.infer<typeof CountryResponseType>;
-
-    return json(response, {
-      headers: {
-        "cache-control": "private, no-store",
-      },
+    return c.json({ country }, 200, {
+      "cache-control": "private, no-store",
     });
-  }
-}
+  },
+);

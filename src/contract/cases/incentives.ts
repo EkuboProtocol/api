@@ -73,10 +73,8 @@ export const incentivesCases: ContractCase[] = [
   },
   {
     // The view's next_drop_time CASE has no ELSE branch, so a campaign whose
-    // end_time has passed yields NULL; the schema says it is never null.
+    // end_time has passed yields NULL.
     name: "/campaigns ended campaign",
-    knownDrift:
-      "nextDropTime is null once a campaign has ended; the schema says non-null.",
     operation: "/campaigns",
     request: "/campaigns",
     stub: () =>

@@ -1,7 +1,7 @@
-import { z } from "zod";
-import { EkuboAPIRoute, RequestContext } from "../../shared/context";
-import { OpenAPIRouteSchema, Path, Query } from "../../shared/openapi";
-import { IRequest, json } from "itty-router";
+import { createRoute, z } from "@hono/zod-openapi";
+import { defineRoute } from "../../shared/context";
+import { errorResponses } from "../../shared/errors";
+import { jsonResponse } from "../../shared/openapi";
 import { createQueries } from "../../queries";
 import {
   AddressType,
@@ -53,40 +53,43 @@ export const ListClaimsResponseType = z
   .required({ claims: true })
   .describe("The list of claims for the given address");
 
-export class ListClaimsForAddress extends EkuboAPIRoute {
-  public static route = "/claims/:address";
-  static schema: OpenAPIRouteSchema = {
+export const ListClaimsForAddress = defineRoute(
+  createRoute({
+    method: "get",
+    path: "/claims/{address}",
     tags: ["Incentives"],
     summary: "List available claims",
     description: "Returns all the claims available for the address",
-    parameters: {
-      address: Path(AddressType),
-      chainId: Query(ChainIdType, {
-        required: false,
-        description: "Restrict claims to the specified chain ID",
+    operationId: "get_ListClaimsForAddress",
+    request: {
+      params: z.object({
+        address: AddressType,
+      }),
+      query: z.object({
+        chainId: ChainIdType.optional().describe(
+          "Restrict claims to the specified chain ID",
+        ),
       }),
     },
     responses: {
-      "200": {
-        description: "The list of claims for an address",
-        schema: ListClaimsResponseType,
-      },
+      200: jsonResponse(
+        "The list of claims for an address",
+        ListClaimsResponseType,
+      ),
+      ...errorResponses,
     },
-  };
-
-  public async handleRequest(request: IRequest, { env }: RequestContext) {
-    const chainId =
-      typeof request.query.chainId === "string"
-        ? BigInt(request.query.chainId)
-        : null;
-    const queries = await createQueries(env);
+  }),
+  async (c) => {
+    const { address } = c.req.valid("param");
+    const { chainId } = c.req.valid("query");
+    const queries = await createQueries(c.env);
 
     const claims = await queries.listAvailableClaimsForAddress(
-      request.params.address,
-      chainId,
+      address,
+      chainId ?? null,
     );
 
-    return json(
+    return c.json(
       {
         claims: claims.map(
           (c) =>
@@ -108,11 +111,10 @@ export class ListClaimsForAddress extends EkuboAPIRoute {
             }) satisfies z.infer<typeof ClaimEntryType>,
         ),
       } satisfies z.infer<typeof ListClaimsResponseType>,
+      200,
       {
-        headers: {
-          "cache-control": "public,max-age=300,must-revalidate",
-        },
+        "cache-control": "public,max-age=300,must-revalidate",
       },
     );
-  }
-}
+  },
+);

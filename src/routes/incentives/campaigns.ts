@@ -1,7 +1,7 @@
-import { IRequest, json } from "itty-router";
-import { EkuboAPIRoute, RequestContext } from "../../shared/context";
-import { OpenAPIRouteSchema, Query } from "../../shared/openapi";
-import { z } from "zod";
+import { createRoute, z } from "@hono/zod-openapi";
+import { defineRoute } from "../../shared/context";
+import { errorResponses } from "../../shared/errors";
+import { jsonResponse } from "../../shared/openapi";
 import { createQueries } from "../../queries";
 import toHex from "../../shared/toHex";
 import {
@@ -21,7 +21,8 @@ export const CampaignType = z
     rewardToken: AddressType,
     startTime: z.date(),
     endTime: z.date().nullable(),
-    nextDropTime: z.date(),
+    // Null once the campaign has ended.
+    nextDropTime: z.date().nullable(),
     allowedExtensions: z.array(AddressType),
     pairs: z.array(
       z
@@ -73,35 +74,32 @@ export const ListCampaignsResponseType = z
 
 type Campaign = z.infer<typeof CampaignType>;
 
-export class ListCampaigns extends EkuboAPIRoute {
-  public static route = "/campaigns";
-  static schema: OpenAPIRouteSchema = {
+export const ListCampaigns = defineRoute(
+  createRoute({
+    method: "get",
+    path: "/campaigns",
     tags: ["Incentives"],
     summary: "List campaigns",
     description: "List all the liquidity incentive campaigns",
-    parameters: {
-      chainId: Query(ChainIdType, {
-        required: false,
-        description: "Restrict campaigns to the specified chain ID",
+    operationId: "get_ListCampaigns",
+    request: {
+      query: z.object({
+        chainId: ChainIdType.optional().describe(
+          "Restrict campaigns to the specified chain ID",
+        ),
       }),
     },
     responses: {
-      "200": {
-        description: "The list of campaigns",
-        schema: ListCampaignsResponseType,
-      },
+      200: jsonResponse("The list of campaigns", ListCampaignsResponseType),
+      ...errorResponses,
     },
-  };
+  }),
+  async (c) => {
+    const { chainId } = c.req.valid("query");
+    const queries = await createQueries(c.env);
 
-  public async handleRequest(request: IRequest, { env }: RequestContext) {
-    const chainId =
-      typeof request.query.chainId === "string"
-        ? BigInt(request.query.chainId)
-        : null;
-    const queries = await createQueries(env);
-
-    const campaigns = await queries.listCampaigns(chainId);
-    return json(
+    const campaigns = await queries.listCampaigns(chainId ?? null);
+    return c.json(
       {
         campaigns: campaigns.map((c) => {
           return {
@@ -131,11 +129,10 @@ export class ListCampaigns extends EkuboAPIRoute {
           } satisfies Campaign;
         }),
       } satisfies z.infer<typeof ListCampaignsResponseType>,
+      200,
       {
-        headers: {
-          "cache-control": "public,max-age=300,must-revalidate",
-        },
+        "cache-control": "public,max-age=300,must-revalidate",
       },
     );
-  }
-}
+  },
+);

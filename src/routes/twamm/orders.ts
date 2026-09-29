@@ -1,14 +1,14 @@
-import { EkuboAPIRoute, RequestContext } from "../../shared/context";
-import { OpenAPIRouteSchema, Path, Query } from "../../shared/openapi";
+import { createRoute, z } from "@hono/zod-openapi";
+import { defineRoute } from "../../shared/context";
+import { errorResponses, StatusError } from "../../shared/errors";
+import { jsonResponse, queryArray } from "../../shared/openapi";
 import {
   AddressType,
   ChainIdType,
   DecimalStringType,
   HexStringType,
 } from "../../shared/validation/address";
-import { z } from "zod";
-import { IRequest, json, StatusError } from "itty-router";
-import { createQueries, type StateFilter } from "../../queries";
+import { createQueries } from "../../queries";
 import toHex from "../../shared/toHex";
 
 export const OrderKeyType = z
@@ -65,42 +65,27 @@ const AddressListRequestSchema = z.object({
   addresses: z.array(AddressType).min(1).max(25),
 });
 
-function getQueryParamAsArray(value: unknown): string[] | undefined {
-  if (typeof value === "string") {
-    return [value];
-  }
-
-  if (Array.isArray(value)) {
-    return value.filter((entry): entry is string => typeof entry === "string");
-  }
-
-  return undefined;
-}
-
-function parseListTwapOrdersFilters(query: IRequest["query"]) {
-  const stateParam =
-    typeof query?.state === "string" ? query.state.toLowerCase() : null;
-  const state: StateFilter | null =
-    stateParam === "opened" || stateParam === "closed"
-      ? (stateParam as StateFilter)
-      : null;
-
-  return {
-    state,
-    chainId: typeof query.chainId === "string" ? BigInt(query.chainId) : null,
-    pageSize: z.coerce
-      .number()
-      .int()
-      .min(1)
-      .max(200)
-      .parse(query?.pageSize ?? 50),
-    page: z.coerce
-      .number()
-      .int()
-      .min(1)
-      .parse(query?.page ?? 1),
-  };
-}
+const ListTwapOrdersFilterParameters = {
+  state: OrderStateQueryType.optional().describe(
+    "Filter orders by state; defaults to returning all orders",
+  ),
+  chainId: ChainIdType.optional().describe(
+    "Restrict results to a specific chain ID",
+  ),
+  pageSize: z.coerce
+    .number()
+    .int()
+    .min(1)
+    .max(200)
+    .default(50)
+    .describe("Maximum number of TWAP orders to return per page"),
+  page: z.coerce
+    .number()
+    .int()
+    .min(1)
+    .default(1)
+    .describe("Page number to fetch (1-indexed)"),
+};
 
 function buildListTwapOrdersResponse(
   rows: Awaited<
@@ -150,52 +135,38 @@ function buildListTwapOrdersResponse(
   } satisfies z.infer<typeof ListTwapOrdersResponseType>;
 }
 
-export class ListTwapOrders extends EkuboAPIRoute {
-  static route = "/twap/orders/:address";
-
-  static schema: OpenAPIRouteSchema = {
+export const ListTwapOrders = defineRoute(
+  createRoute({
+    method: "get",
+    path: "/twap/orders/{address}",
     tags: ["TWAP"],
     summary: "List TWAP orders",
     description:
       "Returns the list of TWAP orders currently held by the given address",
-    parameters: {
-      address: Path(AddressType, { example: "0x1234" }),
-      state: Query(OrderStateQueryType, {
-        required: false,
-        description: "Filter orders by state; defaults to returning all orders",
+    operationId: "get_ListTwapOrders",
+    request: {
+      params: z.object({
+        address: AddressType.openapi({ example: "0x1234" }),
       }),
-      chainId: Query(ChainIdType, {
-        required: false,
-        description: "Restrict results to a specific chain ID",
-      }),
-      pageSize: Query(z.coerce.number().int().min(1).max(200), {
-        required: false,
-        description: "Maximum number of TWAP orders to return per page",
-        default: 50,
-      }),
-      page: Query(z.coerce.number().int().min(1), {
-        required: false,
-        description: "Page number to fetch (1-indexed)",
-        default: 1,
-      }),
+      query: z.object(ListTwapOrdersFilterParameters),
     },
     responses: {
-      "200": {
-        description: "The list of TWAP orders placed by the address",
-        schema: ListTwapOrdersResponseType,
-      },
+      200: jsonResponse(
+        "The list of TWAP orders placed by the address",
+        ListTwapOrdersResponseType,
+      ),
+      ...errorResponses,
     },
-  };
-
-  async handleRequest({ params, query }: IRequest, { env }: RequestContext) {
-    const { state, chainId, page, pageSize } =
-      parseListTwapOrdersFilters(query);
-    const queries = await createQueries(env);
+  }),
+  async (c) => {
+    const { address } = c.req.valid("param");
+    const { state, chainId, page, pageSize } = c.req.valid("query");
+    const queries = await createQueries(c.env);
 
     const { rows, totalCount } = await queries.getTwammOrdersByAddress(
-      [BigInt(params.address)],
-      state,
-      chainId,
+      [BigInt(address)],
+      state ?? null,
+      chainId ?? null,
       {
         page,
         pageSize,
@@ -208,72 +179,59 @@ export class ListTwapOrders extends EkuboAPIRoute {
       pageSize,
     );
 
-    return json(response, {
-      headers: {
-        "cache-control": "public,max-age=10,must-revalidate",
-      },
+    return c.json(response, 200, {
+      "cache-control": "public,max-age=10,must-revalidate",
     });
-  }
-}
+  },
+);
 
-export class BatchListTwapOrders extends EkuboAPIRoute {
-  static route = "/twap/orders/batch";
-
-  static schema: OpenAPIRouteSchema = {
+export const BatchListTwapOrders = defineRoute(
+  createRoute({
+    method: "get",
+    path: "/twap/orders/batch",
     tags: ["TWAP"],
     summary: "Batch list TWAP orders",
     description:
       "Returns the list of TWAP orders currently held by the given addresses",
-    parameters: {
-      address: Query([AddressType], {
-        required: true,
-        description:
-          "Repeat the address parameter to merge orders from multiple addresses (e.g. ?address=0x...&address=0x...)",
-        example: "0x1234",
-      }),
-      state: Query(OrderStateQueryType, {
-        required: false,
-        description: "Filter orders by state; defaults to returning all orders",
-      }),
-      chainId: Query(ChainIdType, {
-        required: false,
-        description: "Restrict results to a specific chain ID",
-      }),
-      pageSize: Query(z.coerce.number().int().min(1).max(200), {
-        required: false,
-        description: "Maximum number of TWAP orders to return per page",
-        default: 50,
-      }),
-      page: Query(z.coerce.number().int().min(1), {
-        required: false,
-        description: "Page number to fetch (1-indexed)",
-        default: 1,
+    operationId: "get_BatchListTwapOrders",
+    request: {
+      query: z.object({
+        address: queryArray(AddressType)
+          .describe(
+            "Repeat the address parameter to merge orders from multiple addresses (e.g. ?address=0x...&address=0x...)",
+          )
+          .openapi({ example: "0x1234" }),
+        ...ListTwapOrdersFilterParameters,
       }),
     },
     responses: {
-      "200": {
-        description: "The list of TWAP orders placed by the addresses",
-        schema: ListTwapOrdersResponseType,
-      },
+      200: jsonResponse(
+        "The list of TWAP orders placed by the addresses",
+        ListTwapOrdersResponseType,
+      ),
+      ...errorResponses,
     },
-  };
+  }),
+  async (c) => {
+    const {
+      address: addresses,
+      state,
+      chainId,
+      page,
+      pageSize,
+    } = c.req.valid("query");
 
-  async handleRequest({ query }: IRequest, { env }: RequestContext) {
-    const addresses = getQueryParamAsArray(query.address);
-
-    if (!addresses || addresses.length === 0) {
+    if (addresses.length === 0) {
       throw new StatusError(400, "At least one address parameter is required");
     }
 
     const payload = AddressListRequestSchema.parse({ addresses });
-    const { state, chainId, page, pageSize } =
-      parseListTwapOrdersFilters(query);
-    const queries = await createQueries(env);
+    const queries = await createQueries(c.env);
 
     const { rows, totalCount } = await queries.getTwammOrdersByAddress(
       payload.addresses.map((address) => BigInt(address)),
-      state,
-      chainId,
+      state ?? null,
+      chainId ?? null,
       {
         page,
         pageSize,
@@ -286,10 +244,8 @@ export class BatchListTwapOrders extends EkuboAPIRoute {
       pageSize,
     );
 
-    return json(response, {
-      headers: {
-        "cache-control": "public,max-age=10,must-revalidate",
-      },
+    return c.json(response, 200, {
+      "cache-control": "public,max-age=10,must-revalidate",
     });
-  }
-}
+  },
+);

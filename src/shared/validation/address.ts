@@ -1,5 +1,4 @@
-import "chanfana";
-import { z } from "zod";
+import { z } from "@hono/zod-openapi";
 
 const HEX_STRING_REGEX = /^0x[a-fA-F0-9]+$/;
 const DECIMAL_STRING_REGEX = /^\d+e?\d*$/;

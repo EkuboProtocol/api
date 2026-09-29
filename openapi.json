@@ -20,7 +20,30 @@
     }
   ],
   "components": {
-    "schemas": {},
+    "schemas": {
+      "ErrorResponse": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "integer",
+            "description": "HTTP status code for the error"
+          },
+          "error": {
+            "type": "string",
+            "description": "Human-readable description of the error"
+          }
+        },
+        "required": [
+          "status",
+          "error"
+        ],
+        "description": "Standard error response payload",
+        "example": {
+          "status": 404,
+          "error": "Token not found"
+        }
+      }
+    },
     "parameters": {}
   },
   "paths": {
@@ -90,6 +113,7 @@
               ],
               "minimum": -100,
               "maximum": 100,
+              "default": 0,
               "title": "Visibility Priority",
               "description": "Token visibility priority threshold"
             },
@@ -120,96 +144,203 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "array",
-                  "items": {
-                    "type": "object",
-                    "properties": {
-                      "chain_id": {
-                        "type": "string"
-                      },
-                      "name": {
-                        "type": "string",
-                        "minLength": 1,
-                        "maxLength": 100,
-                        "description": "Name of the token"
-                      },
-                      "symbol": {
-                        "type": "string",
-                        "minLength": 1,
-                        "maxLength": 32,
-                        "description": "Symbol for the token"
-                      },
-                      "decimals": {
-                        "type": "integer",
-                        "minimum": 0,
-                        "maximum": 78,
-                        "description": "The number of decimals used for display of token balances"
-                      },
-                      "address": {
-                        "type": "string",
-                        "description": "The address of the token for the specified chain"
-                      },
-                      "visibility_priority": {
-                        "type": "integer",
-                        "description": "How much this token should be surfaced relative to other tokens (higher is better)"
-                      },
-                      "sort_order": {
-                        "type": "integer",
-                        "description": "How much the token should prefer to be the numerator when displayed in prices (higher is more numerator-like)"
-                      },
-                      "total_supply": {
-                        "type": [
-                          "integer",
-                          "null"
-                        ],
-                        "minimum": 0,
-                        "description": "The total supply of the token"
-                      },
-                      "logo_url": {
-                        "type": "string",
-                        "format": "uri"
-                      },
-                      "usd_price": {
-                        "type": [
-                          "number",
-                          "null"
-                        ],
-                        "minimum": 0,
-                        "description": "The USD price for one unit of the token"
-                      },
-                      "bridgeInfos": {
-                        "type": [
-                          "object",
-                          "null"
-                        ],
-                        "additionalProperties": {
-                          "type": "object",
-                          "properties": {
-                            "bridge_address": {
-                              "type": "string",
-                              "description": "Token address for the destination chain"
-                            }
+                  "anyOf": [
+                    {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "chain_id": {
+                            "type": "string"
                           },
-                          "required": [
-                            "bridge_address"
-                          ]
-                        }
-                      }
+                          "name": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 100,
+                            "description": "Name of the token"
+                          },
+                          "symbol": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 32,
+                            "description": "Symbol for the token"
+                          },
+                          "decimals": {
+                            "type": "integer",
+                            "minimum": 0,
+                            "maximum": 78,
+                            "description": "The number of decimals used for display of token balances"
+                          },
+                          "address": {
+                            "type": "string",
+                            "description": "The address of the token for the specified chain"
+                          },
+                          "visibility_priority": {
+                            "type": "integer",
+                            "description": "How much this token should be surfaced relative to other tokens (higher is better)"
+                          },
+                          "sort_order": {
+                            "type": "integer",
+                            "description": "How much the token should prefer to be the numerator when displayed in prices (higher is more numerator-like)"
+                          },
+                          "total_supply": {
+                            "type": [
+                              "integer",
+                              "null"
+                            ],
+                            "minimum": 0,
+                            "description": "The total supply of the token"
+                          },
+                          "logo_url": {
+                            "type": "string",
+                            "format": "uri"
+                          },
+                          "usd_price": {
+                            "type": [
+                              "number",
+                              "null"
+                            ],
+                            "minimum": 0,
+                            "description": "The USD price for one unit of the token"
+                          },
+                          "bridgeInfos": {
+                            "type": [
+                              "object",
+                              "null"
+                            ],
+                            "additionalProperties": {
+                              "type": "object",
+                              "properties": {
+                                "bridge_address": {
+                                  "type": "string",
+                                  "description": "Token address for the destination chain"
+                                }
+                              },
+                              "required": [
+                                "bridge_address"
+                              ]
+                            }
+                          }
+                        },
+                        "required": [
+                          "chain_id",
+                          "name",
+                          "symbol",
+                          "decimals",
+                          "address",
+                          "visibility_priority",
+                          "sort_order",
+                          "total_supply",
+                          "usd_price",
+                          "bridgeInfos"
+                        ]
+                      },
+                      "description": "Array of tokens"
                     },
-                    "required": [
-                      "chain_id",
-                      "name",
-                      "symbol",
-                      "decimals",
-                      "address",
-                      "visibility_priority",
-                      "sort_order",
-                      "total_supply",
-                      "usd_price",
-                      "bridgeInfos"
-                    ]
-                  },
+                    {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "chain_id": {
+                            "type": "string"
+                          },
+                          "name": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 100,
+                            "description": "Name of the token"
+                          },
+                          "symbol": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 32,
+                            "description": "Symbol for the token"
+                          },
+                          "decimals": {
+                            "type": "integer",
+                            "minimum": 0,
+                            "maximum": 78,
+                            "description": "The number of decimals used for display of token balances"
+                          },
+                          "address": {
+                            "type": "string",
+                            "description": "The address of the token for the specified chain"
+                          },
+                          "visibility_priority": {
+                            "type": "integer",
+                            "description": "How much this token should be surfaced relative to other tokens (higher is better)"
+                          },
+                          "sort_order": {
+                            "type": "integer",
+                            "description": "How much the token should prefer to be the numerator when displayed in prices (higher is more numerator-like)"
+                          },
+                          "total_supply": {
+                            "type": [
+                              "integer",
+                              "null"
+                            ],
+                            "minimum": 0,
+                            "description": "The total supply of the token"
+                          },
+                          "logo_url": {
+                            "type": "string",
+                            "format": "uri"
+                          },
+                          "bridgeInfos": {
+                            "type": [
+                              "object",
+                              "null"
+                            ],
+                            "additionalProperties": {
+                              "type": "object",
+                              "properties": {
+                                "bridge_address": {
+                                  "type": "string",
+                                  "description": "Token address for the destination chain"
+                                }
+                              },
+                              "required": [
+                                "bridge_address"
+                              ]
+                            }
+                          }
+                        },
+                        "required": [
+                          "chain_id",
+                          "name",
+                          "symbol",
+                          "decimals",
+                          "address",
+                          "visibility_priority",
+                          "sort_order",
+                          "total_supply",
+                          "bridgeInfos"
+                        ]
+                      }
+                    }
+                  ],
                   "description": "Array of tokens"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The request parameters are invalid",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "An unexpected server error occurred",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -342,6 +473,26 @@
                 }
               }
             }
+          },
+          "400": {
+            "description": "The request parameters are invalid",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "An unexpected server error occurred",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
           }
         }
       }
@@ -377,6 +528,7 @@
               ],
               "minimum": -100,
               "maximum": 100,
+              "default": 0,
               "title": "Visibility Priority",
               "description": "Token visibility priority threshold"
             },
@@ -402,6 +554,26 @@
                   "example": {
                     "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48": 0.9999
                   }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The request parameters are invalid",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "An unexpected server error occurred",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -551,32 +723,32 @@
               }
             }
           },
-          "404": {
-            "description": "Token not found",
+          "400": {
+            "description": "The request parameters are invalid",
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "properties": {
-                    "status": {
-                      "type": "integer",
-                      "description": "HTTP status code for the error"
-                    },
-                    "error": {
-                      "type": "string",
-                      "description": "Human-readable description of the error"
-                    }
-                  },
-                  "required": [
-                    "status",
-                    "error"
-                  ],
-                  "additionalProperties": {},
-                  "description": "Standard error response payload",
-                  "example": {
-                    "status": 404,
-                    "error": "Token not found"
-                  }
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The requested resource was not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "An unexpected server error occurred",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -640,6 +812,36 @@
                     "number",
                     "timestamp"
                   ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The request parameters are invalid",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The requested resource was not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "An unexpected server error occurred",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -715,6 +917,36 @@
                 }
               }
             }
+          },
+          "400": {
+            "description": "The request parameters are invalid",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The requested resource was not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "An unexpected server error occurred",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
           }
         }
       }
@@ -747,6 +979,26 @@
                   "required": [
                     "country"
                   ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The request parameters are invalid",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "An unexpected server error occurred",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -901,6 +1153,26 @@
                 }
               }
             }
+          },
+          "400": {
+            "description": "The request parameters are invalid",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "An unexpected server error occurred",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
           }
         }
       }
@@ -964,7 +1236,10 @@
                             "type": "string"
                           },
                           "tick_spacing": {
-                            "type": "integer"
+                            "type": [
+                              "integer",
+                              "null"
+                            ]
                           },
                           "core_address": {
                             "type": "string"
@@ -1114,6 +1389,26 @@
                 }
               }
             }
+          },
+          "400": {
+            "description": "The request parameters are invalid",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "An unexpected server error occurred",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
           }
         }
       }
@@ -1218,6 +1513,26 @@
                 }
               }
             }
+          },
+          "400": {
+            "description": "The request parameters are invalid",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "An unexpected server error occurred",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
           }
         }
       }
@@ -1319,6 +1634,26 @@
                     "tvlByToken",
                     "tvlDeltaByTokenByDate"
                   ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The request parameters are invalid",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "An unexpected server error occurred",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -1439,6 +1774,26 @@
                     "volumeByTokenByDate",
                     "volumeByToken_24h"
                   ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The request parameters are invalid",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "An unexpected server error occurred",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -1576,11 +1931,15 @@
                           },
                           "balance": {
                             "type": "string"
+                          },
+                          "chain_id": {
+                            "type": "string"
                           }
                         },
                         "required": [
                           "token",
-                          "balance"
+                          "balance",
+                          "chain_id"
                         ]
                       }
                     },
@@ -1623,6 +1982,26 @@
                     "tvlByToken",
                     "tvlDeltaByTokenByDate"
                   ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The request parameters are invalid",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "An unexpected server error occurred",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -1788,6 +2167,9 @@
                                 "type": "string"
                               }
                             ]
+                          },
+                          "chain_id": {
+                            "type": "string"
                           }
                         },
                         "required": [
@@ -1795,7 +2177,8 @@
                           "volume",
                           "fees",
                           "ve33_fees",
-                          "date"
+                          "date",
+                          "chain_id"
                         ]
                       }
                     },
@@ -1831,6 +2214,26 @@
                     "volumeByTokenByDate",
                     "volumeByToken_24h"
                   ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The request parameters are invalid",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "An unexpected server error occurred",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -1949,7 +2352,10 @@
                             "type": "string"
                           },
                           "tick_spacing": {
-                            "type": "integer"
+                            "type": [
+                              "integer",
+                              "null"
+                            ]
                           },
                           "core_address": {
                             "type": "string"
@@ -2096,6 +2502,26 @@
                 }
               }
             }
+          },
+          "400": {
+            "description": "The request parameters are invalid",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "An unexpected server error occurred",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
           }
         }
       }
@@ -2231,32 +2657,32 @@
               }
             }
           },
-          "404": {
-            "description": "Token not found",
+          "400": {
+            "description": "The request parameters are invalid",
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "properties": {
-                    "status": {
-                      "type": "integer",
-                      "description": "HTTP status code for the error"
-                    },
-                    "error": {
-                      "type": "string",
-                      "description": "Human-readable description of the error"
-                    }
-                  },
-                  "required": [
-                    "status",
-                    "error"
-                  ],
-                  "additionalProperties": {},
-                  "description": "Standard error response payload",
-                  "example": {
-                    "status": 404,
-                    "error": "Token not found"
-                  }
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The requested resource was not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "An unexpected server error occurred",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -2345,10 +2771,39 @@
           {
             "schema": {
               "type": "integer",
-              "minimum": 60
+              "minimum": 60,
+              "default": 1800
             },
             "required": false,
             "name": "interval",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": [
+                "integer",
+                "null"
+              ],
+              "minimum": 0,
+              "description": "Unix timestamp (seconds) of the start of the range; defaults to 60 intervals before end"
+            },
+            "required": false,
+            "description": "Unix timestamp (seconds) of the start of the range; defaults to 60 intervals before end",
+            "name": "start",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": [
+                "integer",
+                "null"
+              ],
+              "minimum": 0,
+              "description": "Unix timestamp (seconds) of the end of the range; defaults to now"
+            },
+            "required": false,
+            "description": "Unix timestamp (seconds) of the end of the range; defaults to now",
+            "name": "end",
             "in": "query"
           }
         ],
@@ -2392,10 +2847,16 @@
                             "type": "number"
                           },
                           "max": {
-                            "type": "number"
+                            "type": [
+                              "number",
+                              "null"
+                            ]
                           },
                           "min": {
-                            "type": "number"
+                            "type": [
+                              "number",
+                              "null"
+                            ]
                           },
                           "k_volume": {
                             "type": "string"
@@ -2418,6 +2879,26 @@
                     "interval",
                     "data"
                   ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The request parameters are invalid",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "An unexpected server error occurred",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -2522,10 +3003,10 @@
                 "null"
               ],
               "minimum": 0,
-              "description": "Unix timestamp (seconds) of the first bucket"
+              "description": "Unix timestamp (seconds) of the first bucket; defaults to 60 intervals before end"
             },
             "required": false,
-            "description": "Unix timestamp (seconds) of the first bucket",
+            "description": "Unix timestamp (seconds) of the first bucket; defaults to 60 intervals before end",
             "name": "start",
             "in": "query"
           },
@@ -2536,10 +3017,10 @@
                 "null"
               ],
               "minimum": 0,
-              "description": "Unix timestamp (seconds) of the last bucket"
+              "description": "Unix timestamp (seconds) of the last bucket; defaults to now"
             },
             "required": false,
-            "description": "Unix timestamp (seconds) of the last bucket",
+            "description": "Unix timestamp (seconds) of the last bucket; defaults to now",
             "name": "end",
             "in": "query"
           }
@@ -2635,31 +3116,21 @@
             }
           },
           "400": {
-            "description": "Invalid tokens or range",
+            "description": "The request parameters are invalid",
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "properties": {
-                    "status": {
-                      "type": "integer",
-                      "description": "HTTP status code for the error"
-                    },
-                    "error": {
-                      "type": "string",
-                      "description": "Human-readable description of the error"
-                    }
-                  },
-                  "required": [
-                    "status",
-                    "error"
-                  ],
-                  "additionalProperties": {},
-                  "description": "Standard error response payload",
-                  "example": {
-                    "status": 404,
-                    "error": "Token not found"
-                  }
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "An unexpected server error occurred",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -2740,6 +3211,7 @@
             "schema": {
               "type": "integer",
               "minimum": 1,
+              "default": 300,
               "description": "Bucket size in seconds"
             },
             "required": false,
@@ -2754,10 +3226,10 @@
                 "null"
               ],
               "minimum": 0,
-              "description": "Unix timestamp (seconds)"
+              "description": "Unix timestamp (seconds); defaults to 60 intervals before end"
             },
             "required": false,
-            "description": "Unix timestamp (seconds)",
+            "description": "Unix timestamp (seconds); defaults to 60 intervals before end",
             "name": "start",
             "in": "query"
           },
@@ -2768,10 +3240,10 @@
                 "null"
               ],
               "minimum": 0,
-              "description": "Unix timestamp (seconds)"
+              "description": "Unix timestamp (seconds); defaults to now"
             },
             "required": false,
-            "description": "Unix timestamp (seconds)",
+            "description": "Unix timestamp (seconds); defaults to now",
             "name": "end",
             "in": "query"
           }
@@ -2859,6 +3331,36 @@
                     "token1",
                     "data"
                   ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The request parameters are invalid",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The requested resource was not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "An unexpected server error occurred",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -2950,7 +3452,7 @@
                         "type": "object",
                         "properties": {
                           "tick": {
-                            "type": "string"
+                            "type": "integer"
                           },
                           "net_liquidity_delta_diff": {
                             "type": "string"
@@ -2966,6 +3468,26 @@
                   "required": [
                     "data"
                   ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The request parameters are invalid",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "An unexpected server error occurred",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -3104,6 +3626,36 @@
                   "required": [
                     "pool_key"
                   ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The request parameters are invalid",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The requested resource was not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "An unexpected server error occurred",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -3280,6 +3832,36 @@
                     "pool_key",
                     "state"
                   ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The request parameters are invalid",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The requested resource was not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "An unexpected server error occurred",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -3559,6 +4141,26 @@
                 }
               }
             }
+          },
+          "400": {
+            "description": "The request parameters are invalid",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "An unexpected server error occurred",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
           }
         }
       }
@@ -3645,7 +4247,7 @@
                         "type": "object",
                         "properties": {
                           "tick": {
-                            "type": "string"
+                            "type": "integer"
                           },
                           "net_liquidity_delta_diff": {
                             "type": "string"
@@ -3661,6 +4263,26 @@
                   "required": [
                     "data"
                   ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The request parameters are invalid",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "An unexpected server error occurred",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -3964,6 +4586,26 @@
                 }
               }
             }
+          },
+          "400": {
+            "description": "The request parameters are invalid",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "An unexpected server error occurred",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
           }
         }
       }
@@ -4220,6 +4862,26 @@
                 }
               }
             }
+          },
+          "400": {
+            "description": "The request parameters are invalid",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "An unexpected server error occurred",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
           }
         }
       }
@@ -4369,7 +5031,10 @@
                             "type": "string"
                           },
                           "tick_spacing": {
-                            "type": "integer"
+                            "type": [
+                              "integer",
+                              "null"
+                            ]
                           },
                           "extension": {
                             "type": "string"
@@ -4419,6 +5084,26 @@
                   "required": [
                     "data"
                   ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The request parameters are invalid",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "An unexpected server error occurred",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -4742,6 +5427,26 @@
                 }
               }
             }
+          },
+          "400": {
+            "description": "The request parameters are invalid",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "An unexpected server error occurred",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
           }
         }
       }
@@ -5054,6 +5759,26 @@
                     "data",
                     "pagination"
                   ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The request parameters are invalid",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "An unexpected server error occurred",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -5624,6 +6349,26 @@
                 }
               }
             }
+          },
+          "400": {
+            "description": "The request parameters are invalid",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "An unexpected server error occurred",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
           }
         }
       }
@@ -5923,6 +6668,36 @@
                 }
               }
             }
+          },
+          "400": {
+            "description": "The request parameters are invalid",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The requested resource was not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "An unexpected server error occurred",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
           }
         }
       }
@@ -6051,6 +6826,36 @@
                 }
               }
             }
+          },
+          "400": {
+            "description": "The request parameters are invalid",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The requested resource was not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "An unexpected server error occurred",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
           }
         }
       }
@@ -6134,6 +6939,36 @@
         "responses": {
           "200": {
             "description": "The order NFT image"
+          },
+          "400": {
+            "description": "The request parameters are invalid",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The requested resource was not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "An unexpected server error occurred",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
           }
         }
       }
@@ -6259,6 +7094,36 @@
                     "image",
                     "attributes"
                   ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The request parameters are invalid",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The requested resource was not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "An unexpected server error occurred",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -6401,13 +7266,13 @@
                           },
                           "token0SaleRateDelta": {
                             "type": "string",
-                            "pattern": "^\\d+e?\\d*$",
-                            "description": "A decimal number"
+                            "pattern": "^-?\\d+e?\\d*$",
+                            "description": "A signed decimal number"
                           },
                           "token1SaleRateDelta": {
                             "type": "string",
-                            "pattern": "^\\d+e?\\d*$",
-                            "description": "A decimal number"
+                            "pattern": "^-?\\d+e?\\d*$",
+                            "description": "A signed decimal number"
                           }
                         },
                         "required": [
@@ -6421,6 +7286,36 @@
                   "required": [
                     "saleRateDeltas"
                   ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The request parameters are invalid",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The requested resource was not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "An unexpected server error occurred",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -6517,13 +7412,13 @@
                           },
                           "token0SaleRateDelta": {
                             "type": "string",
-                            "pattern": "^\\d+e?\\d*$",
-                            "description": "A decimal number"
+                            "pattern": "^-?\\d+e?\\d*$",
+                            "description": "A signed decimal number"
                           },
                           "token1SaleRateDelta": {
                             "type": "string",
-                            "pattern": "^\\d+e?\\d*$",
-                            "description": "A decimal number"
+                            "pattern": "^-?\\d+e?\\d*$",
+                            "description": "A signed decimal number"
                           }
                         },
                         "required": [
@@ -6537,6 +7432,36 @@
                   "required": [
                     "saleRateDeltas"
                   ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The request parameters are invalid",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The requested resource was not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "An unexpected server error occurred",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -6633,13 +7558,13 @@
                           },
                           "token0SaleRateDelta": {
                             "type": "string",
-                            "pattern": "^\\d+e?\\d*$",
-                            "description": "A decimal number"
+                            "pattern": "^-?\\d+e?\\d*$",
+                            "description": "A signed decimal number"
                           },
                           "token1SaleRateDelta": {
                             "type": "string",
-                            "pattern": "^\\d+e?\\d*$",
-                            "description": "A decimal number"
+                            "pattern": "^-?\\d+e?\\d*$",
+                            "description": "A signed decimal number"
                           }
                         },
                         "required": [
@@ -6653,6 +7578,26 @@
                   "required": [
                     "saleRateDeltas"
                   ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The request parameters are invalid",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "An unexpected server error occurred",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -6919,6 +7864,26 @@
                 }
               }
             }
+          },
+          "400": {
+            "description": "The request parameters are invalid",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "An unexpected server error occurred",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
           }
         }
       }
@@ -7178,6 +8143,26 @@
                 }
               }
             }
+          },
+          "400": {
+            "description": "The request parameters are invalid",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "An unexpected server error occurred",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
           }
         }
       }
@@ -7424,6 +8409,26 @@
                 }
               }
             }
+          },
+          "400": {
+            "description": "The request parameters are invalid",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "An unexpected server error occurred",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
           }
         }
       }
@@ -7507,6 +8512,36 @@
         "responses": {
           "200": {
             "description": "The position NFT image"
+          },
+          "400": {
+            "description": "The request parameters are invalid",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The requested resource was not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "An unexpected server error occurred",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
           }
         }
       }
@@ -7590,6 +8625,36 @@
         "responses": {
           "200": {
             "description": "The NFT metadata for the given position ID"
+          },
+          "400": {
+            "description": "The request parameters are invalid",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The requested resource was not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "An unexpected server error occurred",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
           }
         }
       }
@@ -7673,6 +8738,36 @@
         "responses": {
           "200": {
             "description": "The position NFT image"
+          },
+          "400": {
+            "description": "The request parameters are invalid",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The requested resource was not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "An unexpected server error occurred",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
           }
         }
       }
@@ -7905,6 +9000,26 @@
                 }
               }
             }
+          },
+          "400": {
+            "description": "The request parameters are invalid",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "An unexpected server error occurred",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
           }
         }
       }
@@ -8030,6 +9145,36 @@
                     "image",
                     "attributes"
                   ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The request parameters are invalid",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The requested resource was not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "An unexpected server error occurred",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -8252,6 +9397,36 @@
                 }
               }
             }
+          },
+          "400": {
+            "description": "The request parameters are invalid",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The requested resource was not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "An unexpected server error occurred",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
           }
         }
       }
@@ -8335,6 +9510,36 @@
         "responses": {
           "200": {
             "description": "The NFT image"
+          },
+          "400": {
+            "description": "The request parameters are invalid",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The requested resource was not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "An unexpected server error occurred",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
           }
         }
       }
@@ -8475,6 +9680,26 @@
                 }
               }
             }
+          },
+          "400": {
+            "description": "The request parameters are invalid",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "An unexpected server error occurred",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
           }
         }
       }
@@ -8514,7 +9739,8 @@
             "schema": {
               "type": "integer",
               "minimum": 1,
-              "maximum": 1000
+              "maximum": 1000,
+              "default": 100
             },
             "required": false,
             "name": "pageSize",
@@ -8526,7 +9752,8 @@
                 "integer",
                 "null"
               ],
-              "minimum": 0
+              "minimum": 0,
+              "default": 0
             },
             "required": false,
             "name": "start",
@@ -8541,11 +9768,6 @@
                 "schema": {
                   "type": "object",
                   "properties": {
-                    "amountDelegatedTo": {
-                      "type": "string",
-                      "pattern": "^\\d+e?\\d*$",
-                      "description": "A decimal number"
-                    },
                     "delegates": {
                       "type": "array",
                       "items": {
@@ -8604,9 +9826,28 @@
                     }
                   },
                   "required": [
-                    "amountDelegatedTo",
                     "delegates"
                   ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The request parameters are invalid",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "An unexpected server error occurred",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -8711,6 +9952,26 @@
                   "required": [
                     "votes"
                   ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The request parameters are invalid",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "An unexpected server error occurred",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -8833,6 +10094,26 @@
                 }
               }
             }
+          },
+          "400": {
+            "description": "The request parameters are invalid",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "An unexpected server error occurred",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
           }
         }
       }
@@ -8929,34 +10210,11 @@
                             "type": "string",
                             "pattern": "^\\d+e?\\d*$",
                             "description": "A decimal number"
-                          },
-                          "votingRecord": {
-                            "type": "object",
-                            "properties": {
-                              "yea": {
-                                "type": "integer",
-                                "minimum": 0
-                              },
-                              "nay": {
-                                "type": "integer",
-                                "minimum": 0
-                              },
-                              "missed": {
-                                "type": "integer",
-                                "minimum": 0
-                              }
-                            },
-                            "required": [
-                              "yea",
-                              "nay",
-                              "missed"
-                            ]
                           }
                         },
                         "required": [
                           "delegate",
-                          "amount",
-                          "votingRecord"
+                          "amount"
                         ]
                       }
                     }
@@ -8965,6 +10223,26 @@
                     "amountDelegatedTo",
                     "delegates"
                   ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The request parameters are invalid",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "An unexpected server error occurred",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -9345,6 +10623,26 @@
                 }
               }
             }
+          },
+          "400": {
+            "description": "The request parameters are invalid",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "An unexpected server error occurred",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
           }
         }
       }
@@ -9498,6 +10796,26 @@
                     "total_vote_weight",
                     "pagination"
                   ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The request parameters are invalid",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "An unexpected server error occurred",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -9849,6 +11167,26 @@
                 }
               }
             }
+          },
+          "400": {
+            "description": "The request parameters are invalid",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "An unexpected server error occurred",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
           }
         }
       }
@@ -9949,7 +11287,10 @@
                             "format": "date-time"
                           },
                           "nextDropTime": {
-                            "type": "string",
+                            "type": [
+                              "string",
+                              "null"
+                            ],
                             "format": "date-time"
                           },
                           "allowedExtensions": {
@@ -10103,6 +11444,26 @@
                 }
               }
             }
+          },
+          "400": {
+            "description": "The request parameters are invalid",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "An unexpected server error occurred",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
           }
         }
       }
@@ -10236,6 +11597,26 @@
                     "rewards"
                   ],
                   "description": "The list of rewards for a specified position"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The request parameters are invalid",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "An unexpected server error occurred",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -10416,6 +11797,26 @@
                     "claims"
                   ],
                   "description": "The list of claims for the given address"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The request parameters are invalid",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "An unexpected server error occurred",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }

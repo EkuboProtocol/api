@@ -1,9 +1,9 @@
-import { IRequest, json } from "itty-router";
-import { EkuboAPIRoute, RequestContext } from "../../shared/context";
+import { createRoute, z } from "@hono/zod-openapi";
+import { defineRoute } from "../../shared/context";
 import { createQueries } from "../../queries";
-import { OpenAPIRouteSchema, Query } from "../../shared/openapi";
+import { errorResponses } from "../../shared/errors";
+import { jsonResponse } from "../../shared/openapi";
 import { ChainIdType, HexStringType } from "../../shared/validation/address";
-import { z } from "zod";
 import toHex from "../../shared/toHex";
 
 const TimestampType = z.union([z.date(), z.string()]);
@@ -90,7 +90,7 @@ const BoostedFeesPoolEntryType = z.object({
   token1: HexStringType,
   pool_id: z.string(),
   fee: z.string(),
-  tick_spacing: z.number().int(),
+  tick_spacing: z.number().int().nullable(),
   core_address: z.string(),
   extension: z.string(),
   volume0_24h: z.string(),
@@ -171,35 +171,37 @@ const OverviewTvlResponseType = z.object({
 
 const MinTvlQueryParameter = z.coerce.number().min(0).default(1_000);
 
-export class GetOverviewPairs extends EkuboAPIRoute {
-  static route = "/overview/pairs";
-  static schema: OpenAPIRouteSchema = {
+const ChainIdQuery = z.object({ chainId: ChainIdType.optional() });
+
+export const GetOverviewPairs = defineRoute(
+  createRoute({
+    method: "get",
+    path: "/overview/pairs",
     tags: ["Stats"],
     summary: "Get pairs",
     description: "Returns stats for the top pairs",
-    parameters: {
-      chainId: Query(ChainIdType, { required: false }),
-      minTvlUsd: Query(MinTvlQueryParameter, {
-        required: false,
-        description: "Minimum USD TVL required for a pair to be included",
+    operationId: "get_GetOverviewPairs",
+    request: {
+      query: z.object({
+        chainId: ChainIdType.optional(),
+        minTvlUsd: MinTvlQueryParameter.describe(
+          "Minimum USD TVL required for a pair to be included",
+        ),
       }),
     },
     responses: {
-      "200": {
-        description: "The stats for the protocols top pairs",
-        schema: OverviewPairsResponseType,
-      },
+      200: jsonResponse(
+        "The stats for the protocols top pairs",
+        OverviewPairsResponseType,
+      ),
+      ...errorResponses,
     },
-  };
+  }),
+  async (c) => {
+    const { chainId, minTvlUsd } = c.req.valid("query");
+    const queries = await createQueries(c.env);
 
-  async handleRequest(request: IRequest, { env }: RequestContext) {
-    const chainIdParam = request.query?.chainId;
-    const chainId =
-      chainIdParam !== undefined ? ChainIdType.parse(chainIdParam) : null;
-    const queries = await createQueries(env);
-    const minTvlUsd = MinTvlQueryParameter.parse(request.query?.minTvlUsd);
-
-    const topPairs = await queries.getTopPairs(chainId, minTvlUsd);
+    const topPairs = await queries.getTopPairs(chainId ?? null, minTvlUsd);
 
     const response = {
       topPairs: topPairs.map((tp) => ({
@@ -210,39 +212,37 @@ export class GetOverviewPairs extends EkuboAPIRoute {
       })),
     } satisfies z.infer<typeof OverviewPairsResponseType>;
 
-    return json(response, {
-      headers: {
-        "cache-control": "public, max-age=600",
-      },
+    return c.json(response, 200, {
+      "cache-control": "public, max-age=600",
     });
-  }
-}
+  },
+);
 
-export class GetOverviewBoostedFeesPools extends EkuboAPIRoute {
-  static route = "/overview/boosted-fees-pools";
-  static schema: OpenAPIRouteSchema = {
+export const GetOverviewBoostedFeesPools = defineRoute(
+  createRoute({
+    method: "get",
+    path: "/overview/boosted-fees-pools",
     tags: ["Stats"],
     summary: "Get boosted fees pools",
     description:
       "Returns pools with boosted fees state, including current and scheduled donation deltas",
-    parameters: {
-      chainId: Query(ChainIdType, { required: false }),
+    operationId: "get_GetOverviewBoostedFeesPools",
+    request: {
+      query: ChainIdQuery,
     },
     responses: {
-      "200": {
-        description: "Pools with boosted fees data",
-        schema: OverviewBoostedFeesPoolsResponseType,
-      },
+      200: jsonResponse(
+        "Pools with boosted fees data",
+        OverviewBoostedFeesPoolsResponseType,
+      ),
+      ...errorResponses,
     },
-  };
+  }),
+  async (c) => {
+    const { chainId } = c.req.valid("query");
+    const queries = await createQueries(c.env);
 
-  async handleRequest(request: IRequest, { env }: RequestContext) {
-    const chainIdParam = request.query?.chainId;
-    const chainId =
-      chainIdParam !== undefined ? ChainIdType.parse(chainIdParam) : null;
-    const queries = await createQueries(env);
-
-    const pools = await queries.getBoostedFeesPools(chainId);
+    const pools = await queries.getBoostedFeesPools(chainId ?? null);
 
     const response = {
       pools: pools.map((pool) => {
@@ -293,40 +293,38 @@ export class GetOverviewBoostedFeesPools extends EkuboAPIRoute {
       }),
     } satisfies z.infer<typeof OverviewBoostedFeesPoolsResponseType>;
 
-    return json(response, {
-      headers: {
-        "cache-control": "public, max-age=600",
-      },
+    return c.json(response, 200, {
+      "cache-control": "public, max-age=600",
     });
-  }
-}
+  },
+);
 
-export class GetOverviewRevenue extends EkuboAPIRoute {
-  static route = "/overview/revenue";
-  static schema: OpenAPIRouteSchema = {
+export const GetOverviewRevenue = defineRoute(
+  createRoute({
+    method: "get",
+    path: "/overview/revenue",
     tags: ["Stats"],
     summary: "Get revenue",
     description: "Returns the revenue stats for the protocol",
-    parameters: {
-      chainId: Query(ChainIdType, { required: false }),
+    operationId: "get_GetOverviewRevenue",
+    request: {
+      query: ChainIdQuery,
     },
     responses: {
-      "200": {
-        description: "The revenue stats for the protocol",
-        schema: OverviewRevenueResponseType,
-      },
+      200: jsonResponse(
+        "The revenue stats for the protocol",
+        OverviewRevenueResponseType,
+      ),
+      ...errorResponses,
     },
-  };
-
-  async handleRequest(request: IRequest, { env }: RequestContext) {
+  }),
+  async (c) => {
     const timestamp = Date.now();
     const twentyFourHoursAgo = new Date(timestamp - 1000 * 60 * 60 * 24);
     const thirtyDaysAgo = new Date(timestamp - 1000 * 60 * 60 * 24 * 30);
 
-    const chainIdParam = request.query?.chainId;
-    const chainId =
-      chainIdParam !== undefined ? ChainIdType.parse(chainIdParam) : null;
-    const queries = await createQueries(env);
+    const chainId = c.req.valid("query").chainId ?? null;
+    const queries = await createQueries(c.env);
 
     const [rawRevenueByTokenByDate, rawRevenueByToken_24h] = await Promise.all([
       queries.getRevenueByTokenByDate(chainId, thirtyDaysAgo),
@@ -347,40 +345,38 @@ export class GetOverviewRevenue extends EkuboAPIRoute {
       revenueByTokenByDate,
     } satisfies z.infer<typeof OverviewRevenueResponseType>;
 
-    return json(response, {
-      headers: {
-        "cache-control": "public, max-age=600",
-      },
+    return c.json(response, 200, {
+      "cache-control": "public, max-age=600",
     });
-  }
-}
+  },
+);
 
-export class GetOverviewVolume extends EkuboAPIRoute {
-  static route = "/overview/volume";
-  static schema: OpenAPIRouteSchema = {
+export const GetOverviewVolume = defineRoute(
+  createRoute({
+    method: "get",
+    path: "/overview/volume",
     tags: ["Stats"],
     summary: "Get volume",
     description: "Returns the volume portion of the overview",
-    parameters: {
-      chainId: Query(ChainIdType, { required: false }),
+    operationId: "get_GetOverviewVolume",
+    request: {
+      query: ChainIdQuery,
     },
     responses: {
-      "200": {
-        description: "The volume stats for the protocol",
-        schema: OverviewVolumeResponseType,
-      },
+      200: jsonResponse(
+        "The volume stats for the protocol",
+        OverviewVolumeResponseType,
+      ),
+      ...errorResponses,
     },
-  };
-
-  async handleRequest(request: IRequest, { env }: RequestContext) {
+  }),
+  async (c) => {
     const timestamp = Date.now();
     const twentyFourHoursAgo = new Date(timestamp - 1000 * 60 * 60 * 24);
     const thirtyDaysAgo = new Date(timestamp - 1000 * 60 * 60 * 24 * 30);
 
-    const chainIdParam = request.query?.chainId;
-    const chainId =
-      chainIdParam !== undefined ? ChainIdType.parse(chainIdParam) : null;
-    const queries = await createQueries(env);
+    const chainId = c.req.valid("query").chainId ?? null;
+    const queries = await createQueries(c.env);
 
     const [rawVolumeByToken_24h, volumeByTokenByDate] = await Promise.all([
       queries.getTotalVolume({
@@ -408,39 +404,34 @@ export class GetOverviewVolume extends EkuboAPIRoute {
       })),
     } satisfies z.infer<typeof OverviewVolumeResponseType>;
 
-    return json(response, {
-      headers: {
-        "cache-control": "public, max-age=600",
-      },
+    return c.json(response, 200, {
+      "cache-control": "public, max-age=600",
     });
-  }
-}
+  },
+);
 
-export class GetOverviewTvl extends EkuboAPIRoute {
-  static route = "/overview/tvl";
-  static schema: OpenAPIRouteSchema = {
+export const GetOverviewTvl = defineRoute(
+  createRoute({
+    method: "get",
+    path: "/overview/tvl",
     tags: ["Stats"],
     summary: "Get TVL",
     description: "Returns the TVL portion of the overview",
-    parameters: {
-      chainId: Query(ChainIdType, { required: false }),
+    operationId: "get_GetOverviewTvl",
+    request: {
+      query: ChainIdQuery,
     },
     responses: {
-      "200": {
-        description: "The TVL stats",
-        schema: OverviewTvlResponseType,
-      },
+      200: jsonResponse("The TVL stats", OverviewTvlResponseType),
+      ...errorResponses,
     },
-  };
-
-  async handleRequest(request: IRequest, { env }: RequestContext) {
+  }),
+  async (c) => {
     const timestamp = Date.now();
     const thirtyDaysAgo = new Date(timestamp - 1000 * 60 * 60 * 24 * 30);
 
-    const chainIdParam = request.query?.chainId;
-    const chainId =
-      chainIdParam !== undefined ? ChainIdType.parse(chainIdParam) : null;
-    const queries = await createQueries(env);
+    const chainId = c.req.valid("query").chainId ?? null;
+    const queries = await createQueries(c.env);
 
     const [tvlByToken, rawTvlDeltaByTokenByDate] = await Promise.all([
       queries.getTvlByToken(chainId),
@@ -460,10 +451,8 @@ export class GetOverviewTvl extends EkuboAPIRoute {
       tvlDeltaByTokenByDate,
     } satisfies z.infer<typeof OverviewTvlResponseType>;
 
-    return json(response, {
-      headers: {
-        "cache-control": "public, max-age=600",
-      },
+    return c.json(response, 200, {
+      "cache-control": "public, max-age=600",
     });
-  }
-}
+  },
+);

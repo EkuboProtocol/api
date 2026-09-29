@@ -1,7 +1,7 @@
-import { z } from "zod";
-import { EkuboAPIRoute, RequestContext } from "../../shared/context";
-import { OpenAPIRouteSchema, Path, Query } from "../../shared/openapi";
-import { IRequest, json } from "itty-router";
+import { createRoute, z } from "@hono/zod-openapi";
+import { defineRoute } from "../../shared/context";
+import { errorResponses } from "../../shared/errors";
+import { jsonResponse } from "../../shared/openapi";
 import { createQueries } from "../../queries";
 import {
   AddressType,
@@ -31,49 +31,57 @@ export const GetRewardsForPositionResponseType = z
   .required({ rewards: true })
   .describe("The list of rewards for a specified position");
 
-export class ListRewardsForLocker extends EkuboAPIRoute {
-  public static route = "/rewards/:chainId/:locker/:salt";
-  static schema: OpenAPIRouteSchema = {
+export const ListRewardsForLocker = defineRoute(
+  createRoute({
+    method: "get",
+    path: "/rewards/{chainId}/{locker}/{salt}",
     tags: ["Incentives"],
     summary: "Get position rewards",
     description: "Returns the computed rewards for a specified position",
-    parameters: {
-      chainId: Path(ChainIdType),
-      locker: Path(AddressType),
-      salt: Path(NumericStringType),
-      startTime: Query(z.iso.datetime({ precision: 0 }), {
-        required: false,
-        description:
-          "Filter to rewards in periods that started at or after this time",
+    operationId: "get_ListRewardsForLocker",
+    request: {
+      params: z.object({
+        chainId: ChainIdType,
+        locker: AddressType,
+        salt: NumericStringType,
       }),
-      endTime: Query(z.iso.datetime({ precision: 0 }), {
-        required: false,
-        description:
-          "Filter to rewards in periods that ended at or before this time",
+      query: z.object({
+        startTime: z.iso
+          .datetime({ precision: 0 })
+          .optional()
+          .describe(
+            "Filter to rewards in periods that started at or after this time",
+          ),
+        endTime: z.iso
+          .datetime({ precision: 0 })
+          .optional()
+          .describe(
+            "Filter to rewards in periods that ended at or before this time",
+          ),
       }),
     },
     responses: {
-      "200": {
-        description:
-          "The computed rewards for each campaign and the specified position",
-        schema: GetRewardsForPositionResponseType,
-      },
+      200: jsonResponse(
+        "The computed rewards for each campaign and the specified position",
+        GetRewardsForPositionResponseType,
+      ),
+      ...errorResponses,
     },
-  };
-
-  public async handleRequest(request: IRequest, { env }: RequestContext) {
-    const chainId = ChainIdType.parse(request.params.chainId);
-    const queries = await createQueries(env);
+  }),
+  async (c) => {
+    const { chainId, locker, salt } = c.req.valid("param");
+    const { startTime, endTime } = c.req.valid("query");
+    const queries = await createQueries(c.env);
 
     const computedRewards = await queries.listComputedRewardsForPosition(
       chainId,
-      request.params.locker,
-      request.params.salt,
-      request.query.startTime as string | undefined,
-      request.query.endTime as string | undefined,
+      locker,
+      salt,
+      startTime,
+      endTime,
     );
 
-    return json(
+    return c.json(
       {
         rewards: computedRewards.map(
           (cr) =>
@@ -84,11 +92,10 @@ export class ListRewardsForLocker extends EkuboAPIRoute {
             }) satisfies Reward,
         ),
       } satisfies z.infer<typeof GetRewardsForPositionResponseType>,
+      200,
       {
-        headers: {
-          "cache-control": "public,max-age=600,must-revalidate",
-        },
+        "cache-control": "public,max-age=600,must-revalidate",
       },
     );
-  }
-}
+  },
+);

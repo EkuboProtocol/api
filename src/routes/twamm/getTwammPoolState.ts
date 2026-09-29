@@ -1,22 +1,32 @@
-import { OpenAPIRouteSchema, Path } from "../../shared/openapi";
-import { IRequest, json, StatusError } from "itty-router";
-import { EkuboAPIRoute, RequestContext } from "../../shared/context";
+import { createRoute, z } from "@hono/zod-openapi";
+import { defineRoute } from "../../shared/context";
+import {
+  errorResponses,
+  notFoundResponse,
+  StatusError,
+} from "../../shared/errors";
+import { jsonResponse } from "../../shared/openapi";
 import {
   AddressType,
   ChainIdType,
-  DecimalStringType,
   NumericStringType,
   TokenIdentifierType,
 } from "../../shared/validation/address";
-import { z } from "zod";
 import { MAX_U128 } from "@ekubo/sdk";
 import { parseOutTokens } from "../../shared/parseOutTokens";
 import { createQueries } from "../../queries";
 
+// Sale rate deltas are negative where orders end, so the shared unsigned
+// DecimalStringType does not describe them.
+const SignedDecimalStringType = z
+  .string()
+  .describe("A signed decimal number")
+  .regex(/^-?\d+e?\d*$/);
+
 const SaleRateDelta = z.object({
   time: z.number().int().min(0),
-  token0SaleRateDelta: DecimalStringType,
-  token1SaleRateDelta: DecimalStringType,
+  token0SaleRateDelta: SignedDecimalStringType,
+  token1SaleRateDelta: SignedDecimalStringType,
 });
 
 const GetTwammStateResponseType = z.object({
@@ -26,46 +36,46 @@ const GetTwammStateResponseType = z.object({
 type TwammStateResponseType = z.infer<typeof GetTwammStateResponseType>;
 
 const SharedGetPairStateParameters = {
-  chainId: Path(ChainIdType, { required: true }),
-  tokenA: Path(TokenIdentifierType, { required: true, example: "0x0" }),
-  tokenB: Path(TokenIdentifierType, {
-    required: true,
+  chainId: ChainIdType,
+  tokenA: TokenIdentifierType.openapi({ example: "0x0" }),
+  tokenB: TokenIdentifierType.openapi({
     example: "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48",
   }),
 };
 
-export class GetTwammPoolState extends EkuboAPIRoute {
-  static route = "/twap/pools/:chainId/:coreAddress/:tokenA/:tokenB/:fee";
-
-  static schema: OpenAPIRouteSchema = {
+export const GetTwammPoolState = defineRoute(
+  createRoute({
+    method: "get",
+    path: "/twap/pools/{chainId}/{coreAddress}/{tokenA}/{tokenB}/{fee}",
     tags: ["TWAP"],
     summary: "Get TWAP pool",
     description:
       "Returns the current state of the given TWAMM pool, including the future order expirations",
-    parameters: {
-      ...SharedGetPairStateParameters,
-      coreAddress: Path(AddressType, { required: true, example: "0xabcd" }),
-      fee: Path(NumericStringType, { required: true, example: "" }),
+    operationId: "get_GetTwammPoolState",
+    request: {
+      params: z.object({
+        ...SharedGetPairStateParameters,
+        coreAddress: AddressType.openapi({ example: "0xabcd" }),
+        fee: NumericStringType.openapi({ example: "" }),
+      }),
     },
     responses: {
-      "200": {
-        description: "The current state of the given TWAMM pool",
-        schema: GetTwammStateResponseType,
-      },
+      200: jsonResponse(
+        "The current state of the given TWAMM pool",
+        GetTwammStateResponseType,
+      ),
+      ...notFoundResponse,
+      ...errorResponses,
     },
-  };
-
-  async handleRequest(request: IRequest, { env }: RequestContext) {
+  }),
+  async (c) => {
+    const params = c.req.valid("param");
     const {
       queries,
       pair: { token0, token1 },
-    } = await parseOutTokens(
-      env,
-      request.params,
-      BigInt(request.params.chainId),
-    );
+    } = await parseOutTokens(c.env, params, params.chainId);
 
-    const fee = BigInt(request.params.fee);
+    const fee = BigInt(params.fee);
 
     if (fee > MAX_U128) {
       throw new StatusError(400, "Invalid `fee`");
@@ -77,15 +87,15 @@ export class GetTwammPoolState extends EkuboAPIRoute {
 
     const [stateResults, saleRateDeltas] = await Promise.all([
       queries.getTwammPoolStateByKey({
-        chainId: BigInt(request.params.chainId),
-        coreAddress: BigInt(request.params.coreAddress),
+        chainId: params.chainId,
+        coreAddress: BigInt(params.coreAddress),
         token0,
         token1,
         fee,
       }),
       queries.getSaleRateDeltasByKey({
-        chainId: BigInt(request.params.chainId),
-        coreAddress: BigInt(request.params.coreAddress),
+        chainId: params.chainId,
+        coreAddress: BigInt(params.coreAddress),
         token0,
         token1,
         fee,
@@ -114,40 +124,43 @@ export class GetTwammPoolState extends EkuboAPIRoute {
       ),
     } satisfies TwammStateResponseType;
 
-    return json(response, {
-      headers: {
-        "cache-control": "public, max-age=600, must-revalidate",
-      },
+    return c.json(response, 200, {
+      "cache-control": "public, max-age=600, must-revalidate",
     });
-  }
-}
+  },
+);
 
-export class GetTwammPoolStateByPoolId extends EkuboAPIRoute {
-  static route = "/twap/pools/:chainId/:coreAddress/:poolId";
-
-  static schema: OpenAPIRouteSchema = {
+export const GetTwammPoolStateByPoolId = defineRoute(
+  createRoute({
+    method: "get",
+    path: "/twap/pools/{chainId}/{coreAddress}/{poolId}",
     tags: ["TWAP"],
     summary: "Get TWAP pool by pool id",
     description:
       "Returns the current state of the given TWAMM pool, including the future order expirations",
-    parameters: {
-      chainId: Path(ChainIdType, { required: true }),
-      coreAddress: Path(AddressType, { required: true, example: "0xabcd" }),
-      poolId: Path(NumericStringType, { required: true, example: "1234" }),
+    operationId: "get_GetTwammPoolStateByPoolId",
+    request: {
+      params: z.object({
+        chainId: ChainIdType,
+        coreAddress: AddressType.openapi({ example: "0xabcd" }),
+        poolId: NumericStringType.openapi({ example: "1234" }),
+      }),
     },
     responses: {
-      "200": {
-        description: "The current state of the given TWAMM pool",
-        schema: GetTwammStateResponseType,
-      },
+      200: jsonResponse(
+        "The current state of the given TWAMM pool",
+        GetTwammStateResponseType,
+      ),
+      ...notFoundResponse,
+      ...errorResponses,
     },
-  };
-
-  async handleRequest(request: IRequest, { env }: RequestContext) {
-    const chainId = BigInt(request.params.chainId);
-    const coreAddress = BigInt(request.params.coreAddress);
-    const poolId = BigInt(request.params.poolId);
-    const queries = await createQueries(env);
+  }),
+  async (c) => {
+    const params = c.req.valid("param");
+    const chainId = params.chainId;
+    const coreAddress = BigInt(params.coreAddress);
+    const poolId = BigInt(params.poolId);
+    const queries = await createQueries(c.env);
 
     const [stateResults, saleRateDeltas] = await Promise.all([
       queries.getTwammPoolStateByKey({
@@ -184,49 +197,47 @@ export class GetTwammPoolStateByPoolId extends EkuboAPIRoute {
       ),
     } satisfies TwammStateResponseType;
 
-    return json(response, {
-      headers: {
-        "cache-control": "public, max-age=600, must-revalidate",
-      },
+    return c.json(response, 200, {
+      "cache-control": "public, max-age=600, must-revalidate",
     });
-  }
-}
+  },
+);
 
-export class GetTwammPairState extends EkuboAPIRoute {
-  static route = "/twap/pair/:chainId/:tokenA/:tokenB";
-
-  static schema: OpenAPIRouteSchema = {
+export const GetTwammPairState = defineRoute(
+  createRoute({
+    method: "get",
+    path: "/twap/pair/{chainId}/{tokenA}/{tokenB}",
     tags: ["TWAP"],
     summary: "Get TWAP pair",
     description:
       "Returns the current state of the given TWAMM pair, including the future order expirations",
-    parameters: SharedGetPairStateParameters,
-    responses: {
-      "200": {
-        description: "The current state of the given TWAMM pair",
-        schema: GetTwammStateResponseType,
-      },
+    operationId: "get_GetTwammPairState",
+    request: {
+      params: z.object(SharedGetPairStateParameters),
     },
-  };
-
-  async handleRequest(request: IRequest, { env }: RequestContext) {
+    responses: {
+      200: jsonResponse(
+        "The current state of the given TWAMM pair",
+        GetTwammStateResponseType,
+      ),
+      ...errorResponses,
+    },
+  }),
+  async (c) => {
+    const params = c.req.valid("param");
     const {
       queries,
       pair: { token0, token1 },
-    } = await parseOutTokens(
-      env,
-      request.params,
-      BigInt(request.params.chainId),
-    );
+    } = await parseOutTokens(c.env, params, params.chainId);
 
     const [stateResults, saleRateDeltas] = await Promise.all([
       queries.getTwammPoolStateByKey({
-        chainId: BigInt(request.params.chainId),
+        chainId: params.chainId,
         token0,
         token1,
       }),
       queries.getSaleRateDeltasByKey({
-        chainId: BigInt(request.params.chainId),
+        chainId: params.chainId,
         token0,
         token1,
       }),
@@ -273,10 +284,8 @@ export class GetTwammPairState extends EkuboAPIRoute {
         }, []),
     } satisfies TwammStateResponseType;
 
-    return json(response, {
-      headers: {
-        "cache-control": "public, max-age=600, must-revalidate",
-      },
+    return c.json(response, 200, {
+      "cache-control": "public, max-age=600, must-revalidate",
     });
-  }
-}
+  },
+);

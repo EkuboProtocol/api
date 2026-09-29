@@ -1,8 +1,8 @@
-import { OpenAPIRouteSchema, Path, Query } from "../../shared/openapi";
-import { IRequest, json } from "itty-router";
-import { z } from "zod";
+import { createRoute, z } from "@hono/zod-openapi";
+import { jsonResponse } from "../../shared/openapi";
 import { createQueries } from "../../queries";
-import { EkuboAPIRoute, RequestContext } from "../../shared/context";
+import { defineRoute } from "../../shared/context";
+import { errorResponses, StatusError } from "../../shared/errors";
 import toHex from "../../shared/toHex";
 import {
   AddressType,
@@ -117,51 +117,15 @@ const ListVe33VotersResponseType = z.object({
   pagination: PaginationMetadataType,
 });
 
-function parseListVe33TokensFilters(query: IRequest["query"]) {
-  return {
-    chainId: ChainIdType.optional().parse(query?.chainId) ?? null,
-    pageSize: z.coerce
-      .number()
-      .int()
-      .min(1)
-      .max(200)
-      .parse(query?.pageSize ?? 50),
-    page: z.coerce
-      .number()
-      .int()
-      .min(1)
-      .parse(query?.page ?? 1),
-  };
-}
-
-function parseListVe33PoolsFilters(query: IRequest["query"]) {
-  const pageSize =
-    query?.pageSize === undefined
-      ? undefined
-      : z.coerce.number().int().min(1).max(200).parse(query.pageSize);
-  const page = z.coerce
-    .number()
-    .int()
-    .min(1)
-    .parse(query?.page ?? 1);
-
-  if (pageSize === undefined) {
-    z.number()
-      .max(1, {
-        message: "pageSize is required when page is greater than 1",
-      })
-      .parse(page);
+// pageSize may be omitted to return every row, which only makes sense for the
+// first page.
+function assertPageSizeForPage(page: number, pageSize: number | undefined) {
+  if (pageSize === undefined && page > 1) {
+    throw new StatusError(
+      400,
+      "pageSize is required when page is greater than 1",
+    );
   }
-
-  return {
-    chainId: ChainIdType.parse(query?.chainId),
-    pageSize,
-    page,
-  };
-}
-
-function parseListVe33VotersFilters(query: IRequest["query"]) {
-  return parseListVe33PoolsFilters(query);
 }
 
 function buildListVe33TokensResponse(
@@ -357,47 +321,53 @@ function buildListVe33VotersResponse(
   } satisfies z.infer<typeof ListVe33VotersResponseType>;
 }
 
-export class ListVe33Pools extends EkuboAPIRoute {
-  static route = "/ve33/:ve33Address/pools";
-
-  static schema: OpenAPIRouteSchema = {
+export const ListVe33Pools = defineRoute(
+  createRoute({
+    method: "get",
+    path: "/ve33/{ve33Address}/pools",
     tags: ["ve33"],
     summary: "List ve33 pools",
     description: "Returns the pools for a ve33 extension",
-    parameters: {
-      ve33Address: Path(AddressType, {
-        description: "The ve33 extension contract address",
+    operationId: "get_ListVe33Pools",
+    request: {
+      params: z.object({
+        ve33Address: AddressType.describe(
+          "The ve33 extension contract address",
+        ),
       }),
-      chainId: Query(ChainIdType, {
-        required: true,
-        description: "Restrict results to a specific chain ID",
-      }),
-      pageSize: Query(z.coerce.number().int().min(1).max(200), {
-        required: false,
-        description:
-          "Maximum number of ve33 pools to return per page. Returns all pools when omitted.",
-      }),
-      page: Query(z.coerce.number().int().min(1), {
-        required: false,
-        description:
-          "Page number to fetch (1-indexed). Values above 1 require pageSize.",
-        default: 1,
+      query: z.object({
+        chainId: ChainIdType.describe(
+          "Restrict results to a specific chain ID",
+        ),
+        pageSize: z.coerce
+          .number()
+          .int()
+          .min(1)
+          .max(200)
+          .optional()
+          .describe(
+            "Maximum number of ve33 pools to return per page. Returns all pools when omitted.",
+          ),
+        page: z.coerce
+          .number()
+          .int()
+          .min(1)
+          .default(1)
+          .describe(
+            "Page number to fetch (1-indexed). Values above 1 require pageSize.",
+          ),
       }),
     },
     responses: {
-      "200": {
-        description: "The ve33 pools",
-        schema: ListVe33PoolsResponseType,
-      },
+      200: jsonResponse("The ve33 pools", ListVe33PoolsResponseType),
+      ...errorResponses,
     },
-  };
-
-  async handleRequest(
-    { params: { ve33Address }, query }: IRequest,
-    { env }: RequestContext,
-  ) {
-    const { chainId, page, pageSize } = parseListVe33PoolsFilters(query);
-    const queries = await createQueries(env);
+  }),
+  async (c) => {
+    const { ve33Address } = c.req.valid("param");
+    const { chainId, page, pageSize } = c.req.valid("query");
+    assertPageSizeForPage(page, pageSize);
+    const queries = await createQueries(c.env);
     const { rows, totalCount, totalVoteWeight } = await queries.getVe33Pools(
       BigInt(ve33Address),
       chainId,
@@ -407,7 +377,7 @@ export class ListVe33Pools extends EkuboAPIRoute {
       },
     );
 
-    return json(
+    return c.json(
       buildListVe33PoolsResponse(
         rows,
         totalCount,
@@ -415,64 +385,69 @@ export class ListVe33Pools extends EkuboAPIRoute {
         page,
         pageSize,
       ),
+      200,
       {
-        headers: {
-          "cache-control": "public, max-age=30",
-        },
+        "cache-control": "public, max-age=30",
       },
     );
-  }
-}
+  },
+);
 
-export class ListVe33Voters extends EkuboAPIRoute {
-  static route = "/ve33/:ve33Address/voters";
-
-  static schema: OpenAPIRouteSchema = {
+export const ListVe33Voters = defineRoute(
+  createRoute({
+    method: "get",
+    path: "/ve33/{ve33Address}/voters",
     tags: ["ve33"],
     summary: "List ve33 voters",
     description:
       "Returns active voters and their total applied voting weight for a ve33 extension",
-    parameters: {
-      ve33Address: Path(AddressType, {
-        description: "The ve33 extension contract address",
+    operationId: "get_ListVe33Voters",
+    request: {
+      params: z.object({
+        ve33Address: AddressType.describe(
+          "The ve33 extension contract address",
+        ),
       }),
-      chainId: Query(ChainIdType, {
-        required: true,
-        description: "Restrict results to a specific chain ID",
-      }),
-      pageSize: Query(z.coerce.number().int().min(1).max(200), {
-        required: false,
-        description:
-          "Maximum number of ve33 voters to return per page. Returns all voters when omitted.",
-      }),
-      page: Query(z.coerce.number().int().min(1), {
-        required: false,
-        description:
-          "Page number to fetch (1-indexed). Values above 1 require pageSize.",
-        default: 1,
+      query: z.object({
+        chainId: ChainIdType.describe(
+          "Restrict results to a specific chain ID",
+        ),
+        pageSize: z.coerce
+          .number()
+          .int()
+          .min(1)
+          .max(200)
+          .optional()
+          .describe(
+            "Maximum number of ve33 voters to return per page. Returns all voters when omitted.",
+          ),
+        page: z.coerce
+          .number()
+          .int()
+          .min(1)
+          .default(1)
+          .describe(
+            "Page number to fetch (1-indexed). Values above 1 require pageSize.",
+          ),
       }),
     },
     responses: {
-      "200": {
-        description: "The active ve33 voters",
-        schema: ListVe33VotersResponseType,
-      },
+      200: jsonResponse("The active ve33 voters", ListVe33VotersResponseType),
+      ...errorResponses,
     },
-  };
-
-  async handleRequest(
-    { params: { ve33Address }, query }: IRequest,
-    { env }: RequestContext,
-  ) {
-    const { chainId, page, pageSize } = parseListVe33VotersFilters(query);
-    const queries = await createQueries(env);
+  }),
+  async (c) => {
+    const { ve33Address } = c.req.valid("param");
+    const { chainId, page, pageSize } = c.req.valid("query");
+    assertPageSizeForPage(page, pageSize);
+    const queries = await createQueries(c.env);
     const { rows, totalCount, totalVoteWeight } = await queries.getVe33Voters(
       BigInt(ve33Address),
       chainId,
       { page, pageSize },
     );
 
-    return json(
+    return c.json(
       buildListVe33VotersResponse(
         rows,
         totalCount,
@@ -480,72 +455,76 @@ export class ListVe33Voters extends EkuboAPIRoute {
         page,
         pageSize,
       ),
+      200,
       {
-        headers: {
-          "cache-control": "public, max-age=30",
-        },
+        "cache-control": "public, max-age=30",
       },
     );
-  }
-}
+  },
+);
 
-export class ListVe33TokensByAddress extends EkuboAPIRoute {
-  static route = "/ve33/:veTokenAddress/:address";
-
-  static schema: OpenAPIRouteSchema = {
+export const ListVe33TokensByAddress = defineRoute(
+  createRoute({
+    method: "get",
+    path: "/ve33/{veTokenAddress}/{address}",
     tags: ["ve33"],
     summary: "List ve33 tokens",
     description: "Returns the list of ve33 tokens owned by the address",
-    parameters: {
-      veTokenAddress: Path(AddressType, {
-        description: "The veNFT contract address",
+    operationId: "get_ListVe33TokensByAddress",
+    request: {
+      params: z.object({
+        veTokenAddress: AddressType.describe("The veNFT contract address"),
+        address: AddressType.describe(
+          "The address for which to list ve33 tokens",
+        ),
       }),
-      address: Path(AddressType, {
-        description: "The address for which to list ve33 tokens",
-      }),
-      chainId: Query(ChainIdType, {
-        required: false,
-        description: "Restrict results to a specific chain ID",
-      }),
-      pageSize: Query(z.coerce.number().int().min(1).max(200), {
-        required: false,
-        description: "Maximum number of ve33 tokens to return per page",
-        default: 50,
-      }),
-      page: Query(z.coerce.number().int().min(1), {
-        required: false,
-        description: "Page number to fetch (1-indexed)",
-        default: 1,
+      query: z.object({
+        chainId: ChainIdType.optional().describe(
+          "Restrict results to a specific chain ID",
+        ),
+        pageSize: z.coerce
+          .number()
+          .int()
+          .min(1)
+          .max(200)
+          .default(50)
+          .describe("Maximum number of ve33 tokens to return per page"),
+        page: z.coerce
+          .number()
+          .int()
+          .min(1)
+          .default(1)
+          .describe("Page number to fetch (1-indexed)"),
       }),
     },
     responses: {
-      "200": {
-        description: "The ve33 tokens owned by the address",
-        schema: ListVe33TokensResponseType,
-      },
+      200: jsonResponse(
+        "The ve33 tokens owned by the address",
+        ListVe33TokensResponseType,
+      ),
+      ...errorResponses,
     },
-  };
-
-  async handleRequest(
-    { params: { address: addressStr, veTokenAddress }, query }: IRequest,
-    { env }: RequestContext,
-  ) {
-    const { chainId, page, pageSize } = parseListVe33TokensFilters(query);
-    const queries = await createQueries(env);
+  }),
+  async (c) => {
+    const { address: addressStr, veTokenAddress } = c.req.valid("param");
+    const { chainId, page, pageSize } = c.req.valid("query");
+    const queries = await createQueries(c.env);
     const { rows, totalCount } = await queries.getVe33TokensByAddress(
       BigInt(addressStr),
       BigInt(veTokenAddress),
-      chainId,
+      chainId ?? null,
       {
         page,
         pageSize,
       },
     );
 
-    return json(buildListVe33TokensResponse(rows, totalCount, page, pageSize), {
-      headers: {
+    return c.json(
+      buildListVe33TokensResponse(rows, totalCount, page, pageSize),
+      200,
+      {
         "cache-control": "no-cache",
       },
-    });
-  }
-}
+    );
+  },
+);

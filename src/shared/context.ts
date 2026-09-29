@@ -1,36 +1,74 @@
-import { Env } from "../env";
 import {
-  OpenAPIRoute,
-  type OpenAPIRouteSchema as ChanfanaOpenAPIRouteSchema,
-} from "chanfana";
-import { IRequest } from "itty-router";
-import { OpenAPIRouteSchema, toChanfanaSchema } from "./openapi";
+  OpenAPIHono,
+  z,
+  type RouteConfig,
+  type RouteHandler,
+} from "@hono/zod-openapi";
+import type { Env } from "../env";
+import { StatusError } from "./errors";
 
-export interface RequestContext {
-  readonly env: Env;
+export interface AppEnv {
+  Bindings: Env;
 }
 
-export abstract class EkuboAPIRoute extends OpenAPIRoute<
-  [request: IRequest, context: RequestContext]
-> {
-  public static readonly route: string;
-  public static readonly schema: OpenAPIRouteSchema = {};
+export type App = OpenAPIHono<AppEnv>;
 
-  public getSchema(): ChanfanaOpenAPIRouteSchema {
-    const constructor = this.constructor as typeof EkuboAPIRoute;
-    return toChanfanaSchema(constructor.schema);
-  }
+export interface ApiRoute<R extends RouteConfig = RouteConfig> {
+  readonly route: R;
+  readonly handler: RouteHandler<R, AppEnv>;
+}
 
-  public async handle(
-    request: IRequest,
-    context: RequestContext,
-  ): Promise<Response | object> {
-    await this.getValidatedData();
-    return this.handleRequest(request, context);
-  }
+// Pairs a route with its handler so the handler is typed against the route's
+// declared parameters and responses.
+export function defineRoute<R extends RouteConfig>(
+  route: R,
+  handler: RouteHandler<R, AppEnv>,
+): ApiRoute<R> {
+  return { route, handler };
+}
 
-  abstract handleRequest(
-    request: IRequest,
-    context: RequestContext,
-  ): Response | object | Promise<Response | object>;
+function formatIssues(error: {
+  issues: readonly { path: readonly PropertyKey[]; message: string }[];
+}): string {
+  return error.issues
+    .map(({ path, message }) =>
+      path.length === 0 ? message : `${path.map(String).join(".")}: ${message}`,
+    )
+    .join("; ");
+}
+
+export function createApp(): App {
+  const app = new OpenAPIHono<AppEnv>({
+    defaultHook: (result, c) => {
+      if (!result.success) {
+        return c.json(
+          {
+            status: 400,
+            error: `Invalid ${result.target}: ${formatIssues(result.error)}`,
+          },
+          400,
+        );
+      }
+    },
+  });
+
+  app.notFound((c) => c.json({ status: 404, error: "Not Found" }, 404));
+
+  app.onError((e, c) => {
+    // Handlers that parse values beyond their declared parameters report
+    // failures as a ZodError; those are still the caller's fault.
+    if (e instanceof z.ZodError) {
+      return c.json({ status: 400, error: formatIssues(e) }, 400);
+    }
+    if (e instanceof StatusError) {
+      return c.json(
+        { status: e.status, error: e.message },
+        e.status as 400 | 404 | 500,
+      );
+    }
+    console.error(e);
+    return c.json({ status: 500, error: "Internal server error" }, 500);
+  });
+
+  return app;
 }

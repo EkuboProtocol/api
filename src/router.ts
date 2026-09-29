@@ -1,4 +1,3 @@
-import { fromIttyRouter } from "chanfana";
 import { version } from "../package.json";
 import {
   ListTokens,
@@ -26,7 +25,6 @@ import {
 } from "./routes/stats/pair";
 import { GetPoolKey, GetPoolLiquidity } from "./routes/state";
 import { GetPoolKeyById, ListPoolKeys } from "./routes/state/poolKeys";
-import { error, Router } from "itty-router";
 import {
   GetPairOhlcHistory,
   GetPairPriceHistory,
@@ -72,10 +70,81 @@ import {
   ListVe33Voters,
 } from "./routes/ve33";
 
-const ittyRouter = Router();
+import type { ApiRoute } from "./shared/context";
+import { createApp } from "./shared/context";
 
-export const router = fromIttyRouter(ittyRouter, {
-  schema: {
+// Registration order matters where paths overlap: a literal segment such as
+// /tokens/batch or /blocks/{chainId}/closest must be registered before the
+// parameterised route that would otherwise also match it.
+const routes: readonly ApiRoute[] = [
+  ListTokens,
+  BatchGetTokens,
+  ListTokenUsdPrices,
+  GetToken,
+  GetClosestBlock,
+  GetBlock,
+  GetCountry,
+  GetOverviewPairs,
+  GetOverviewBoostedFeesPools,
+  GetOverviewRevenue,
+  GetOverviewTvl,
+  GetOverviewVolume,
+  GetPairInfoTvl,
+  GetPairInfoVolume,
+  GetPairInfoPools,
+  GetTokenUsdPriceHistory,
+  GetPairPriceHistory,
+  GetPairOhlcHistory,
+  GetPoolPriceHistory,
+  GetPoolLiquidity,
+  GetPoolKey,
+  GetPoolKeyById,
+  ListPoolKeys,
+  GetPairLiquidity,
+  GetPairTopPositions,
+  GetPoolTopPositions,
+  ListPairEvents,
+  BatchListPositionsByAddress,
+  ListPositionsByAddress,
+  ListPositionEvents,
+  ListPositionNftEvents,
+  GetPositionNftMetadata,
+  GetOrderNftImage,
+  GetOrderNftMetadata,
+  GetTwammPoolState,
+  GetTwammPoolStateByPoolId,
+  GetTwammPairState,
+  BatchListTwapOrders,
+  ListTwapOrders,
+  ListLimitOrders,
+  GetPositionNftImage,
+  GetNftMetadata,
+  GetNftImage,
+  ListAuctions,
+  GetAuctionNftMetadata,
+  GetAuctionNftState,
+  GetAuctionNftImage,
+  ListProposals,
+  ListTopDelegates,
+  ListVotesOnProposal,
+  ListProposalVoters,
+  GetStakerInfo,
+  ListVe33Pools,
+  ListVe33Voters,
+  ListVe33TokensByAddress,
+  ListCampaigns,
+  ListRewardsForLocker,
+  ListClaimsForAddress,
+] as unknown as readonly ApiRoute[];
+
+export const app = createApp();
+for (const { route, handler } of routes) {
+  app.openapi(route, handler);
+}
+
+export function openApiDocument() {
+  return app.getOpenAPI31Document({
+    openapi: "3.1.0",
     info: {
       title: "Ekubo API",
       version,
@@ -95,68 +164,16 @@ export const router = fromIttyRouter(ittyRouter, {
         description: "Production",
       },
     ],
-  },
-  // removes the redoc and docs urls because they might increase the bundle size/js load time
-  redoc_url: null as unknown as undefined,
-  docs_url: null as unknown as undefined,
-});
-router.get(ListTokens.route, ListTokens);
-router.get(BatchGetTokens.route, BatchGetTokens);
-router.get(ListTokenUsdPrices.route, ListTokenUsdPrices);
-router.get(GetToken.route, GetToken);
-router.get(GetClosestBlock.route, GetClosestBlock);
-router.get(GetBlock.route, GetBlock);
-router.get(GetCountry.route, GetCountry);
-router.get(GetOverviewPairs.route, GetOverviewPairs);
-router.get(GetOverviewBoostedFeesPools.route, GetOverviewBoostedFeesPools);
-router.get(GetOverviewRevenue.route, GetOverviewRevenue);
-router.get(GetOverviewTvl.route, GetOverviewTvl);
-router.get(GetOverviewVolume.route, GetOverviewVolume);
-router.get(GetPairInfoTvl.route, GetPairInfoTvl);
-router.get(GetPairInfoVolume.route, GetPairInfoVolume);
-router.get(GetPairInfoPools.route, GetPairInfoPools);
-router.get(GetTokenUsdPriceHistory.route, GetTokenUsdPriceHistory);
-router.get(GetPairPriceHistory.route, GetPairPriceHistory);
-router.get(GetPairOhlcHistory.route, GetPairOhlcHistory);
-router.get(GetPoolPriceHistory.route, GetPoolPriceHistory);
-router.get(GetPoolLiquidity.route, GetPoolLiquidity);
-router.get(GetPoolKey.route, GetPoolKey);
-router.get(GetPoolKeyById.route, GetPoolKeyById);
-router.get(ListPoolKeys.route, ListPoolKeys);
-router.get(GetPairLiquidity.route, GetPairLiquidity);
-router.get(GetPairTopPositions.route, GetPairTopPositions);
-router.get(GetPoolTopPositions.route, GetPoolTopPositions);
-router.get(ListPairEvents.route, ListPairEvents);
-router.get(BatchListPositionsByAddress.route, BatchListPositionsByAddress);
-router.get(ListPositionsByAddress.route, ListPositionsByAddress);
-router.get(ListPositionEvents.route, ListPositionEvents);
-router.get(ListPositionNftEvents.route, ListPositionNftEvents);
-router.get(GetPositionNftMetadata.route, GetPositionNftMetadata);
-router.get(GetOrderNftImage.route, GetOrderNftImage);
-router.get(GetOrderNftMetadata.route, GetOrderNftMetadata);
-router.get(GetTwammPoolState.route, GetTwammPoolState);
-router.get(GetTwammPoolStateByPoolId.route, GetTwammPoolStateByPoolId);
-router.get(GetTwammPairState.route, GetTwammPairState);
-router.get(BatchListTwapOrders.route, BatchListTwapOrders);
-router.get(ListTwapOrders.route, ListTwapOrders);
-router.get(ListLimitOrders.route, ListLimitOrders);
-router.get(GetPositionNftImage.route, GetPositionNftImage);
-router.get(GetNftMetadata.route, GetNftMetadata);
-router.get(GetNftImage.route, GetNftImage);
-router.get(ListAuctions.route, ListAuctions);
-router.get(GetAuctionNftMetadata.route, GetAuctionNftMetadata);
-router.get(GetAuctionNftState.route, GetAuctionNftState);
-router.get(GetAuctionNftImage.route, GetAuctionNftImage);
-router.get(ListProposals.route, ListProposals);
-router.get(ListTopDelegates.route, ListTopDelegates);
-router.get(ListVotesOnProposal.route, ListVotesOnProposal);
-router.get(ListProposalVoters.route, ListProposalVoters);
-router.get(GetStakerInfo.route, GetStakerInfo);
-router.get(ListVe33Pools.route, ListVe33Pools);
-router.get(ListVe33Voters.route, ListVe33Voters);
-router.get(ListVe33TokensByAddress.route, ListVe33TokensByAddress);
-router.get(ListCampaigns.route, ListCampaigns);
-router.get(ListRewardsForLocker.route, ListRewardsForLocker);
-router.get(ListClaimsForAddress.route, ListClaimsForAddress);
-// catch missed routes
-router.all("*", () => error(404));
+  });
+}
+
+let document: ReturnType<typeof openApiDocument> | undefined;
+
+app.get("/openapi.json", (c) => c.json((document ??= openApiDocument())));
+// JSON is valid YAML, so the YAML path the previous router served keeps working
+// without a YAML serialiser in the bundle.
+app.get("/openapi.yaml", (c) =>
+  c.body(JSON.stringify((document ??= openApiDocument()), null, 2), 200, {
+    "content-type": "text/yaml;charset=UTF-8",
+  }),
+);

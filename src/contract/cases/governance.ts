@@ -76,10 +76,7 @@ export const governanceCases: ContractCase[] = [
       ]),
   },
   {
-    // The handler never sets amountDelegatedTo, which the schema requires.
     name: "/governance/1/delegates",
-    knownDrift:
-      "ListTopDelegates never sets amountDelegatedTo, which the schema requires.",
     operation: "/governance/{chainId}/delegates",
     request: "/governance/1/delegates?pageSize=10&start=0",
     stub: () =>
@@ -94,10 +91,7 @@ export const governanceCases: ContractCase[] = [
       ]),
   },
   {
-    // The schema requires votingRecord on each delegate; the handler omits it.
     name: `/governance/1/delegates/${OWNER}`,
-    knownDrift:
-      "delegates[].votingRecord is required by the shared delegate schema but getDelegatesStakedTo does not return it.",
     operation: "/governance/{chainId}/delegates/{address}",
     request: `/governance/1/delegates/${OWNER}`,
     stub: () => {
