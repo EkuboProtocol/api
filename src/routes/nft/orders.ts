@@ -63,7 +63,7 @@ export const GetOrderNftMetadata = defineRoute(
     }
 
     const origin = new URL(c.req.url).origin;
-    const image = `${origin}/orders/${chainIdParam}/nft/${id}/image.svg`;
+    const image = `${origin}/orders/${chainIdParam}/${nftAddress}/${id}/image.svg`;
 
     const metadata = generateTwapOrderNftMetadata(twammOrderMetadata, image);
 
