@@ -1,5 +1,11 @@
-import { EkuboAPIRoute, RequestContext } from "../../shared/context";
-import { OpenAPIRouteSchema, Path, Query } from "../../shared/openapi";
+import { createRoute, z } from "@hono/zod-openapi";
+import { defineRoute } from "../../shared/context";
+import {
+  errorResponses,
+  notFoundResponse,
+  StatusError,
+} from "../../shared/errors";
+import { jsonResponse } from "../../shared/openapi";
 import {
   AddressType,
   ChainIdType,
@@ -8,8 +14,6 @@ import {
   NumericStringType,
   VisibilityPriorityType,
 } from "../../shared/validation/address";
-import { z } from "zod";
-import { IRequest, json, StatusError } from "itty-router";
 import { createQueries, TwammOrderMetadata } from "../../queries";
 import toHex from "../../shared/toHex";
 import { NFTMetadata, NFTMetadataSchema, TokenIdType } from "../nft/format";
@@ -59,51 +63,45 @@ const AuctionNftStateResponseType = z.object({
   auctions: z.array(AuctionStateType),
 });
 
-export class ListAuctions extends EkuboAPIRoute {
-  static route = "/auctions";
-
-  static schema: OpenAPIRouteSchema = {
+export const ListAuctions = defineRoute(
+  createRoute({
+    method: "get",
+    path: "/auctions",
     tags: ["Auctions"],
     summary: "List auction keys",
     description:
       "Lists auction NFTs grouped by token_id + (token0, token1, config)",
-    parameters: {
-      chainId: Query(ChainIdType, {
-        required: false,
-        description: "Chain ID for which to list auctions",
-      }),
-      minVisibilityPriority: Query(VisibilityPriorityType, {
-        required: false,
-        description:
-          "Only include auction keys where both tokens meet this visibility priority threshold",
-        default: 0,
-      }),
-      owner: Query(AddressType, {
-        required: false,
-        description:
+    operationId: "get_ListAuctions",
+    request: {
+      query: z.object({
+        chainId: ChainIdType.optional().describe(
+          "Chain ID for which to list auctions",
+        ),
+        minVisibilityPriority: VisibilityPriorityType.optional()
+          .describe(
+            "Only include auction keys where both tokens meet this visibility priority threshold",
+          )
+          .default(0),
+        owner: AddressType.optional().describe(
           "If provided, only include auction keys linked to NFTs currently owned by this address",
+        ),
       }),
     },
     responses: {
-      "200": {
-        description: "List of auction keys",
-        schema: ListAuctionsResponseType,
-      },
+      200: jsonResponse("List of auction keys", ListAuctionsResponseType),
+      ...errorResponses,
     },
-  };
+  }),
+  async (c) => {
+    const {
+      chainId = null,
+      minVisibilityPriority,
+      owner: ownerParam,
+    } = c.req.valid("query");
 
-  async handleRequest({ query }: IRequest, { env }: RequestContext) {
-    const chainId = ChainIdType.optional().parse(query.chainId) ?? null;
-    const minVisibilityPriority = VisibilityPriorityType.parse(
-      query.minVisibilityPriority ?? 0,
-    );
+    const owner = ownerParam === undefined ? null : BigInt(ownerParam);
 
-    const owner =
-      typeof query.owner === "string"
-        ? BigInt(query.owner)
-        : (null as bigint | null);
-
-    const queries = await createQueries(env);
+    const queries = await createQueries(c.env);
     const rows = await queries.listAuctionsByKey({
       chainId,
       minVisibilityPriority,
@@ -127,46 +125,48 @@ export class ListAuctions extends EkuboAPIRoute {
       })),
     } satisfies z.infer<typeof ListAuctionsResponseType>;
 
-    return json(response, {
-      headers: {
-        "cache-control": "public,max-age=180,must-revalidate",
-      },
+    return c.json(response, 200, {
+      "cache-control": "public,max-age=180,must-revalidate",
     });
-  }
-}
+  },
+);
 
-export class GetAuctionNftMetadata extends EkuboAPIRoute {
-  static route = "/auctions/:chainId/:nftAddress/:id";
-
-  static schema: OpenAPIRouteSchema = {
+export const GetAuctionNftMetadata = defineRoute(
+  createRoute({
+    method: "get",
+    path: "/auctions/{chainId}/{nftAddress}/{id}",
     tags: ["Auctions"],
     summary: "Get auction NFT metadata",
     description:
       "Returns NFT metadata for auction NFTs; route shape matches positions and orders",
-    parameters: {
-      chainId: Path(NumericStringType, {
-        description: "Chain ID for which to generate metadata",
+    operationId: "get_GetAuctionNftMetadata",
+    request: {
+      params: z.object({
+        chainId: NumericStringType.describe(
+          "Chain ID for which to generate metadata",
+        ),
+        nftAddress: AddressType.describe("The NFT contract address"),
+        id: TokenIdType,
       }),
-      nftAddress: Path(AddressType, {
-        description: "The NFT contract address",
-      }),
-      id: Path(TokenIdType),
     },
     responses: {
-      "200": {
-        description: "The NFT metadata for the given token ID",
-        schema: NFTMetadataSchema,
-      },
+      200: jsonResponse(
+        "The NFT metadata for the given token ID",
+        NFTMetadataSchema,
+      ),
+      ...notFoundResponse,
+      ...errorResponses,
     },
-  };
-
-  async handleRequest(
-    { url, params: { id: idStr, chainId: chainIdParam, nftAddress } }: IRequest,
-    { env }: RequestContext,
-  ) {
+  }),
+  async (c) => {
+    const {
+      id: idStr,
+      chainId: chainIdParam,
+      nftAddress,
+    } = c.req.valid("param");
     const id = BigInt(idStr);
     const chainId = BigInt(chainIdParam);
-    const queries = await createQueries(env);
+    const queries = await createQueries(c.env);
 
     const auctionRows = await queries.getAuctionNftMetadata(
       id,
@@ -174,7 +174,7 @@ export class GetAuctionNftMetadata extends EkuboAPIRoute {
       chainId,
     );
 
-    const origin = new URL(url).origin;
+    const origin = new URL(c.req.url).origin;
     const image = `${origin}/auctions/${chainId.toString()}/${nftAddress}/${id.toString()}/image.svg`;
 
     if (!auctionRows.length) {
@@ -289,45 +289,44 @@ export class GetAuctionNftMetadata extends EkuboAPIRoute {
       attributes,
     };
 
-    return json(metadata, {
-      headers: {
-        "cache-control": "public,max-age=3600,immutable",
-      },
+    return c.json(metadata, 200, {
+      "cache-control": "public,max-age=3600,immutable",
     });
-  }
-}
+  },
+);
 
-export class GetAuctionNftState extends EkuboAPIRoute {
-  static route = "/auctions/:chainId/:nftAddress/:id/state";
-
-  static schema: OpenAPIRouteSchema = {
+export const GetAuctionNftState = defineRoute(
+  createRoute({
+    method: "get",
+    path: "/auctions/{chainId}/{nftAddress}/{id}/state",
     tags: ["Auctions"],
     summary: "Get auction NFT state",
     description: "Returns dynamic auction NFT state for UI consumption",
-    parameters: {
-      chainId: Path(NumericStringType, {
-        description: "Chain ID for which to fetch state",
+    operationId: "get_GetAuctionNftState",
+    request: {
+      params: z.object({
+        chainId: NumericStringType.describe(
+          "Chain ID for which to fetch state",
+        ),
+        nftAddress: AddressType.describe("The NFT contract address"),
+        id: TokenIdType,
       }),
-      nftAddress: Path(AddressType, {
-        description: "The NFT contract address",
-      }),
-      id: Path(TokenIdType),
     },
     responses: {
-      "200": {
-        description: "Auction NFT state data",
-        schema: AuctionNftStateResponseType,
-      },
+      200: jsonResponse("Auction NFT state data", AuctionNftStateResponseType),
+      ...notFoundResponse,
+      ...errorResponses,
     },
-  };
-
-  async handleRequest(
-    { params: { id: idStr, chainId: chainIdParam, nftAddress } }: IRequest,
-    { env }: RequestContext,
-  ) {
+  }),
+  async (c) => {
+    const {
+      id: idStr,
+      chainId: chainIdParam,
+      nftAddress,
+    } = c.req.valid("param");
     const id = BigInt(idStr);
     const chainId = BigInt(chainIdParam);
-    const queries = await createQueries(env);
+    const queries = await createQueries(c.env);
 
     const auctionRows = await queries.getAuctionNftMetadata(
       id,
@@ -359,46 +358,48 @@ export class GetAuctionNftState extends EkuboAPIRoute {
       })),
     } satisfies z.infer<typeof AuctionNftStateResponseType>;
 
-    return json(response, {
-      headers: {
-        "cache-control": "no-cache",
-      },
+    return c.json(response, 200, {
+      "cache-control": "no-cache",
     });
-  }
-}
+  },
+);
 
-export class GetAuctionNftImage extends EkuboAPIRoute {
-  static route = "/auctions/:chainId/:nftAddress/:id/image.svg";
-
-  static schema: OpenAPIRouteSchema = {
+export const GetAuctionNftImage = defineRoute(
+  createRoute({
+    method: "get",
+    path: "/auctions/{chainId}/{nftAddress}/{id}/image.svg",
     tags: ["Auctions"],
     summary: "Get auction NFT image",
     description:
       "Returns the generated NFT image for auction NFTs; route shape matches positions and orders",
-    parameters: {
-      chainId: Path(NumericStringType, {
-        description: "Chain ID for which to generate metadata",
+    operationId: "get_GetAuctionNftImage",
+    request: {
+      params: z.object({
+        chainId: NumericStringType.describe(
+          "Chain ID for which to generate metadata",
+        ),
+        nftAddress: AddressType.describe("The NFT contract address"),
+        id: TokenIdType,
       }),
-      nftAddress: Path(AddressType, {
-        description: "The NFT contract address",
-      }),
-      id: Path(TokenIdType),
     },
     responses: {
-      "200": {
+      200: {
         description: "The NFT image",
       },
+      ...notFoundResponse,
+      ...errorResponses,
     },
-  };
-
-  async handleRequest(
-    { params: { id: idStr, chainId: chainIdParam, nftAddress } }: IRequest,
-    { env }: RequestContext,
-  ) {
+  }),
+  async (c) => {
+    const {
+      id: idStr,
+      chainId: chainIdParam,
+      nftAddress,
+    } = c.req.valid("param");
     const id = BigInt(idStr);
     const chainId = BigInt(chainIdParam);
 
-    const queries = await createQueries(env);
+    const queries = await createQueries(c.env);
 
     const auctionRows = await queries.getAuctionNftMetadata(
       id,
@@ -436,12 +437,9 @@ export class GetAuctionNftImage extends EkuboAPIRoute {
       "auction",
     );
 
-    return new Response(svgString, {
-      status: 200,
-      headers: {
-        "content-type": "image/svg+xml",
-        "cache-control": "public, max-age=86400, immutable",
-      },
+    return c.body(svgString, 200, {
+      "content-type": "image/svg+xml",
+      "cache-control": "public, max-age=86400, immutable",
     });
-  }
-}
+  },
+);

@@ -1,7 +1,11 @@
-import { IRequest, json, StatusError } from "itty-router";
-import { EkuboAPIRoute, RequestContext } from "../../shared/context";
-import { OpenAPIRouteSchema, Path, Query } from "../../shared/openapi";
-import { z } from "zod";
+import { createRoute, z } from "@hono/zod-openapi";
+import { defineRoute } from "../../shared/context";
+import {
+  errorResponses,
+  notFoundResponse,
+  StatusError,
+} from "../../shared/errors";
+import { jsonResponse } from "../../shared/openapi";
 import { createQueries } from "../../queries";
 import { ChainIdType } from "../../shared/validation/address";
 
@@ -12,38 +16,40 @@ const BlockInfoType = z.object({
 
 type BlockInfo = z.infer<typeof BlockInfoType>;
 
-export class GetBlock extends EkuboAPIRoute {
-  public static route = "/blocks/:chainId/:blockTag";
-  static schema: OpenAPIRouteSchema = {
+export const GetBlock = defineRoute(
+  createRoute({
+    method: "get",
+    path: "/blocks/{chainId}/{blockTag}",
     tags: ["Meta"],
     summary: "Get block",
     description: "Get information about a particular block ingested by the API",
-    parameters: {
-      chainId: Path(ChainIdType, { required: true }),
-      blockTag: Path(
-        z.coerce.number().int().min(160_000).or(z.literal("latest")),
-        {
-          description:
+    operationId: "get_GetBlock",
+    request: {
+      params: z.object({
+        chainId: ChainIdType,
+        blockTag: z.coerce
+          .number()
+          .int()
+          .min(160_000)
+          .or(z.literal("latest"))
+          .describe(
             "The tag of the block to get or the number of a block containing events",
-        },
-      ),
+          ),
+      }),
     },
     responses: {
-      "200": {
-        description: "The timestamp of the given block number",
-        schema: BlockInfoType,
-      },
+      200: jsonResponse(
+        "The timestamp of the given block number",
+        BlockInfoType,
+      ),
+      ...notFoundResponse,
+      ...errorResponses,
     },
-  };
+  }),
+  async (c) => {
+    const { chainId, blockTag } = c.req.valid("param");
+    const queries = await createQueries(c.env);
 
-  public async handleRequest(request: IRequest, { env }: RequestContext) {
-    const chainId = BigInt(request.params.chainId);
-    const queries = await createQueries(env);
-
-    const blockTag =
-      request.params.blockTag === "latest"
-        ? "latest"
-        : Number(request.params.blockTag);
     const block = await (blockTag === "latest"
       ? queries.getLatestBlock(chainId)
       : queries.getBlock(blockTag, chainId));
@@ -57,49 +63,50 @@ export class GetBlock extends EkuboAPIRoute {
       timestamp: new Date(block.timestamp),
     } satisfies BlockInfo;
 
-    return json(response, {
-      headers: {
-        "cache-control":
-          blockTag === "latest"
-            ? "public,max-age=5,no-cache"
-            : "public,max-age=300,must-revalidate",
-      },
+    return c.json(response, 200, {
+      "cache-control":
+        blockTag === "latest"
+          ? "public,max-age=5,no-cache"
+          : "public,max-age=300,must-revalidate",
     });
-  }
-}
+  },
+);
 
-export class GetClosestBlock extends EkuboAPIRoute {
-  public static route = "/blocks/:chainId/closest";
-  static schema: OpenAPIRouteSchema = {
+export const GetClosestBlock = defineRoute(
+  createRoute({
+    method: "get",
+    path: "/blocks/{chainId}/closest",
     tags: ["Meta"],
     summary: "Get the block closest to a given timestamp",
     description:
       "Returns the block whose timestamp is nearest to the provided timestamp",
-    parameters: {
-      chainId: Path(ChainIdType, { required: true }),
-      timestamp: Query(z.iso.datetime({ precision: 0 }), {
-        required: true,
-        example: "2025-11-10T00:00:00Z",
-        description:
-          "Timestamp to find the closest block for in the ISO string format",
+    operationId: "get_GetClosestBlock",
+    request: {
+      params: z.object({ chainId: ChainIdType }),
+      query: z.object({
+        timestamp: z.iso
+          .datetime({ precision: 0 })
+          .describe(
+            "Timestamp to find the closest block for in the ISO string format",
+          )
+          .openapi({ example: "2025-11-10T00:00:00Z" }),
       }),
     },
     responses: {
-      "200": {
-        description: "The block closest to the given timestamp",
-        schema: BlockInfoType,
-      },
+      200: jsonResponse(
+        "The block closest to the given timestamp",
+        BlockInfoType,
+      ),
+      ...notFoundResponse,
+      ...errorResponses,
     },
-  };
+  }),
+  async (c) => {
+    const { chainId } = c.req.valid("param");
+    const { timestamp } = c.req.valid("query");
+    const queries = await createQueries(c.env);
 
-  public async handleRequest(request: IRequest, { env }: RequestContext) {
-    const chainId = BigInt(request.params.chainId);
-    const queries = await createQueries(env);
-
-    const block = await queries.getBlockAtOrAfter(
-      request.query.timestamp as string,
-      chainId,
-    );
+    const block = await queries.getBlockAtOrAfter(timestamp, chainId);
 
     if (block === null) {
       throw new StatusError(404, `No block found`);
@@ -110,10 +117,8 @@ export class GetClosestBlock extends EkuboAPIRoute {
       timestamp: new Date(block.timestamp),
     } satisfies BlockInfo;
 
-    return json(response, {
-      headers: {
-        "cache-control": "public,max-age=300,must-revalidate",
-      },
+    return c.json(response, 200, {
+      "cache-control": "public,max-age=300,must-revalidate",
     });
-  }
-}
+  },
+);

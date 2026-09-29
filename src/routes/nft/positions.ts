@@ -1,5 +1,11 @@
-import { EkuboAPIRoute, RequestContext } from "../../shared/context";
-import { OpenAPIRouteSchema, Path, Query } from "../../shared/openapi";
+import { createRoute, z } from "@hono/zod-openapi";
+import { defineRoute } from "../../shared/context";
+import {
+  errorResponses,
+  notFoundResponse,
+  StatusError,
+} from "../../shared/errors";
+import { jsonResponse, queryArray } from "../../shared/openapi";
 import {
   AddressType,
   ChainIdType,
@@ -7,15 +13,9 @@ import {
   HexStringType,
   NumericStringType,
 } from "../../shared/validation/address";
-import { z } from "zod";
-import { IRequest, json, StatusError } from "itty-router";
-import {
-  createQueries,
-  type PositionEventRow,
-  type StateFilter,
-} from "../../queries";
+import { createQueries, type PositionEventRow } from "../../queries";
 import toHex from "../../shared/toHex";
-import { NFTMetadata, NFTMetadataSchema, TokenIdType } from "./format";
+import { NFTMetadataSchema, TokenIdType } from "./format";
 import { generatePositionNft } from "./generatePositionNft";
 import { generatePositionNftMetadata } from "../../shared/metadatas/positions";
 
@@ -192,6 +192,15 @@ export function getPositionEventIdRange({
   return { minEventIdExclusive, maxEventIdInclusive };
 }
 
+function assertBlockRange(fromBlock: bigint | null, toBlock: bigint | null) {
+  if (fromBlock !== null && toBlock !== null && fromBlock > toBlock) {
+    throw new StatusError(
+      400,
+      "fromBlock must be less than or equal to toBlock",
+    );
+  }
+}
+
 const PoolKeySummaryType = z.object({
   token0: HexStringType,
   token1: HexStringType,
@@ -249,42 +258,29 @@ const AddressListRequestSchema = z.object({
   addresses: z.array(AddressType).min(1).max(50),
 });
 
-function getQueryParamAsArray(value: unknown): string[] | undefined {
-  if (typeof value === "string") {
-    return [value];
-  }
-
-  if (Array.isArray(value)) {
-    return value.filter((entry): entry is string => typeof entry === "string");
-  }
-
-  return undefined;
-}
-
-function parseListPositionsFilters(query: IRequest["query"]) {
-  const stateParam =
-    typeof query?.state === "string" ? query.state.toLowerCase() : null;
-  const state: StateFilter | null =
-    stateParam === "opened" || stateParam === "closed"
-      ? (stateParam as StateFilter)
-      : null;
-
-  return {
-    state,
-    chainId: typeof query?.chainId === "string" ? BigInt(query.chainId) : null,
-    pageSize: z.coerce
-      .number()
-      .int()
-      .min(1)
-      .max(200)
-      .parse(query?.pageSize ?? 50),
-    page: z.coerce
-      .number()
-      .int()
-      .min(1)
-      .parse(query?.page ?? 1),
-  };
-}
+const ListPositionsFilterShape = {
+  state: PositionStateQueryType.optional().describe(
+    "Filter positions by state; defaults to returning all positions",
+  ),
+  chainId: ChainIdType.optional().describe(
+    "Restrict results to a specific chain ID",
+  ),
+  pageSize: z.coerce
+    .number()
+    .int()
+    .min(1)
+    .max(200)
+    .optional()
+    .describe("Maximum number of positions to return per page")
+    .default(50),
+  page: z.coerce
+    .number()
+    .int()
+    .min(1)
+    .optional()
+    .describe("Page number to fetch (1-indexed)")
+    .default(1),
+};
 
 function buildListPositionsResponse(
   rows: Awaited<
@@ -413,41 +409,46 @@ function formatGlobalPositionEvent(
       };
 }
 
-export class GetPositionNftMetadata extends EkuboAPIRoute {
-  static route = "/positions/:chainId/:nftAddress/:id";
-  static schema: OpenAPIRouteSchema = {
+export const GetPositionNftMetadata = defineRoute(
+  createRoute({
+    method: "get",
+    path: "/positions/{chainId}/{nftAddress}/{id}",
     tags: ["Positions"],
     summary: "Get NFT Metadata",
     description: "Returns the ERC721 metadata for the given position token ID",
-    parameters: {
-      chainId: Path(NumericStringType, {
-        description: "Chain ID for which to generate metadata",
+    operationId: "get_GetPositionNftMetadata",
+    request: {
+      params: z.object({
+        chainId: NumericStringType.describe(
+          "Chain ID for which to generate metadata",
+        ),
+        nftAddress: AddressType.describe(
+          "The address of the Positions NFT contract",
+        ),
+        id: TokenIdType,
       }),
-      nftAddress: Path(AddressType, {
-        description: "The address of the Positions NFT contract",
-      }),
-      id: Path(TokenIdType),
     },
     responses: {
-      "200": {
-        description: "The NFT metadata for the given position ID",
-        schema: NFTMetadataSchema,
-      },
+      200: jsonResponse(
+        "The NFT metadata for the given position ID",
+        NFTMetadataSchema,
+      ),
+      ...notFoundResponse,
+      ...errorResponses,
     },
-  };
-
-  async handleRequest(
-    { url, params: { id: idStr, chainId: chainIdParam, nftAddress } }: IRequest,
-    { env }: RequestContext,
-  ) {
+  }),
+  async (c) => {
+    const {
+      id: idStr,
+      chainId: chainIdParam,
+      nftAddress,
+    } = c.req.valid("param");
     const id = BigInt(idStr);
 
     const chainId = BigInt(chainIdParam);
     const chainIdString = chainId.toString();
 
-    const queries = await createQueries(env);
-
-    let metadata: NFTMetadata;
+    const queries = await createQueries(c.env);
 
     const positionMetadata = await queries.getPositionMetadata(
       chainId,
@@ -459,10 +460,10 @@ export class GetPositionNftMetadata extends EkuboAPIRoute {
       throw new StatusError(404, `Token ID ${id} not found`);
     }
 
-    const origin = new URL(url).origin;
+    const origin = new URL(c.req.url).origin;
     const image = `${origin}/positions/${chainIdString}/${nftAddress}/${id}/image.svg`;
 
-    metadata = await generatePositionNftMetadata(
+    const metadata = await generatePositionNftMetadata(
       positionMetadata,
       id,
       queries,
@@ -472,45 +473,47 @@ export class GetPositionNftMetadata extends EkuboAPIRoute {
 
     const response = metadata satisfies z.infer<typeof NFTMetadataSchema>;
 
-    return json(response, {
-      headers: {
-        "cache-control": "public,max-age=3600,immutable",
-      },
+    return c.json(response, 200, {
+      "cache-control": "public,max-age=3600,immutable",
     });
-  }
-}
+  },
+);
 
-export class ListPositionNftEvents extends EkuboAPIRoute {
-  static route = "/positions/:chainId/:lockerAddress/:id/history";
-  static schema: OpenAPIRouteSchema = {
+export const ListPositionNftEvents = defineRoute(
+  createRoute({
+    method: "get",
+    path: "/positions/{chainId}/{lockerAddress}/{id}/history",
     tags: ["Positions"],
     summary: "List position history",
     description: "Returns the entire history of the given position ID",
-    parameters: {
-      chainId: Path(NumericStringType, {
-        description: "Chain ID for which to list events",
+    operationId: "get_ListPositionNftEvents",
+    request: {
+      params: z.object({
+        chainId: NumericStringType.describe(
+          "Chain ID for which to list events",
+        ),
+        lockerAddress: AddressType.describe(
+          "The address of the Positions contract",
+        ),
+        id: TokenIdType,
       }),
-      lockerAddress: Path(AddressType, {
-        description: "The address of the Positions contract",
-      }),
-      id: Path(TokenIdType),
     },
     responses: {
-      "200": {
-        description: "The position history",
-        schema: PositionEventsResponseType,
-      },
+      200: jsonResponse("The position history", PositionEventsResponseType),
+      ...notFoundResponse,
+      ...errorResponses,
     },
-  };
-
-  async handleRequest(
-    { params: { id: idStr, chainId: chainIdParam, lockerAddress } }: IRequest,
-    { env }: RequestContext,
-  ) {
+  }),
+  async (c) => {
+    const {
+      id: idStr,
+      chainId: chainIdParam,
+      lockerAddress,
+    } = c.req.valid("param");
     const id = BigInt(idStr);
     const chainId = BigInt(chainIdParam);
 
-    const queries = await createQueries(env);
+    const queries = await createQueries(c.env);
 
     const history = await queries.getPositionHistory(
       id,
@@ -575,88 +578,69 @@ export class ListPositionNftEvents extends EkuboAPIRoute {
       ),
     } satisfies z.infer<typeof PositionEventsResponseType>;
 
-    return json(response, {
-      headers: {
-        "cache-control": "public, max-age=60, must-revalidate",
-      },
+    return c.json(response, 200, {
+      "cache-control": "public, max-age=60, must-revalidate",
     });
-  }
-}
+  },
+);
 
-export class ListPositionEvents extends EkuboAPIRoute {
-  static route = "/positions/:chainId/events";
-  static schema: OpenAPIRouteSchema = {
+export const ListPositionEvents = defineRoute(
+  createRoute({
+    method: "get",
+    path: "/positions/{chainId}/events",
     tags: ["Positions"],
     summary: "List position events",
     description:
       "Returns position NFT lifecycle, liquidity update, and fee collection events in ascending event order",
-    parameters: {
-      chainId: Path(ChainIdType, {
-        description: "Chain ID for which to list events",
+    operationId: "get_ListPositionEvents",
+    request: {
+      params: z.object({
+        chainId: ChainIdType.describe("Chain ID for which to list events"),
       }),
-      fromBlock: Query(PositionEventBlockNumberType, {
-        required: false,
-        description: "Inclusive first block number",
-      }),
-      toBlock: Query(PositionEventBlockNumberType, {
-        required: false,
-        description: "Inclusive last block number",
-      }),
-      cursor: Query(PositionEventCursorType, {
-        required: false,
-        description:
+      query: z.object({
+        fromBlock: PositionEventBlockNumberType.optional().describe(
+          "Inclusive first block number",
+        ),
+        toBlock: PositionEventBlockNumberType.optional().describe(
+          "Inclusive last block number",
+        ),
+        cursor: PositionEventCursorType.optional().describe(
           "Return events strictly after this event_id; use next_cursor to continue",
-      }),
-      limit: Query(z.coerce.number().int().min(1).max(1000), {
-        required: false,
-        description: "Maximum number of events to return",
-        default: 100,
+        ),
+        limit: z.coerce
+          .number()
+          .int()
+          .min(1)
+          .max(1000)
+          .optional()
+          .describe("Maximum number of events to return")
+          .default(100),
       }),
     },
     responses: {
-      "200": {
-        description: "A globally ordered page of position events",
-        schema: GlobalPositionEventsResponseType,
-      },
+      200: jsonResponse(
+        "A globally ordered page of position events",
+        GlobalPositionEventsResponseType,
+      ),
+      ...errorResponses,
     },
-  };
+  }),
+  async (c) => {
+    const { chainId } = c.req.valid("param");
+    const {
+      cursor = null,
+      fromBlock = null,
+      toBlock = null,
+      limit,
+    } = c.req.valid("query");
 
-  async handleRequest(
-    { params: { chainId: chainIdParam }, query }: IRequest,
-    { env }: RequestContext,
-  ) {
-    const chainId = BigInt(chainIdParam);
-    const cursor =
-      query?.cursor === undefined
-        ? null
-        : PositionEventCursorType.parse(query.cursor);
-    const fromBlock =
-      query?.fromBlock === undefined
-        ? null
-        : PositionEventBlockNumberType.parse(query.fromBlock);
-    const toBlock =
-      query?.toBlock === undefined
-        ? null
-        : PositionEventBlockNumberType.parse(query.toBlock);
-    const limit = z.coerce
-      .number()
-      .int()
-      .min(1)
-      .max(1000)
-      .parse(query?.limit ?? 100);
-
-    if (fromBlock !== null && toBlock !== null && fromBlock > toBlock) {
-      throw new StatusError(
-        400,
-        "fromBlock must be less than or equal to toBlock",
-      );
-    }
+    assertBlockRange(fromBlock, toBlock);
 
     const { minEventIdExclusive, maxEventIdInclusive } =
       getPositionEventIdRange({ cursor, fromBlock, toBlock });
     let rows: PositionEventRow[] = [];
     if (minEventIdExclusive < maxEventIdInclusive) {
-      const queries = await createQueries(env);
+      const queries = await createQueries(c.env);
       rows = await queries.listPositionEvents({
         chainId,
         minEventIdExclusive,
@@ -676,43 +660,47 @@ export class ListPositionEvents extends EkuboAPIRoute {
       has_more: hasMore,
     } satisfies z.infer<typeof GlobalPositionEventsResponseType>;
 
-    return json(response, {
-      headers: {
-        "cache-control": "no-cache",
-      },
+    return c.json(response, 200, {
+      "cache-control": "no-cache",
     });
-  }
-}
+  },
+);
 
-export class GetPositionNftImage extends EkuboAPIRoute {
-  static route = "/positions/:chainId/:nftAddress/:id/image.svg";
-
-  static schema: OpenAPIRouteSchema = {
+export const GetPositionNftImage = defineRoute(
+  createRoute({
+    method: "get",
+    path: "/positions/{chainId}/{nftAddress}/{id}/image.svg",
     tags: ["Positions"],
     summary: "Get NFT Image",
     description: "Returns the generated art for the given position NFT ID",
-    parameters: {
-      chainId: Path(NumericStringType),
-      nftAddress: Path(AddressType, {
-        description: "The address of the Positions NFT contract",
+    operationId: "get_GetPositionNftImage",
+    request: {
+      params: z.object({
+        chainId: NumericStringType,
+        nftAddress: AddressType.describe(
+          "The address of the Positions NFT contract",
+        ),
+        id: TokenIdType,
       }),
-      id: Path(TokenIdType),
     },
     responses: {
-      "200": {
+      200: {
         description: "The position NFT image",
       },
+      ...notFoundResponse,
+      ...errorResponses,
     },
-  };
-
-  async handleRequest(
-    { params: { id: idStr, chainId: chainIdParam, nftAddress } }: IRequest,
-    { env }: RequestContext,
-  ) {
+  }),
+  async (c) => {
+    const {
+      id: idStr,
+      chainId: chainIdParam,
+      nftAddress,
+    } = c.req.valid("param");
     const id = BigInt(idStr);
     const chainId = BigInt(chainIdParam);
 
-    const queries = await createQueries(env);
+    const queries = await createQueries(c.env);
 
     const positionMetadata = await queries.getPositionMetadata(
       chainId,
@@ -731,62 +719,47 @@ export class GetPositionNftImage extends EkuboAPIRoute {
       positionMetadata,
     );
 
-    return new Response(svgString, {
-      status: 200,
-      headers: {
-        "content-type": "image/svg+xml",
-        "cache-control": "public, max-age=86400, immutable",
-      },
+    return c.body(svgString, 200, {
+      "content-type": "image/svg+xml",
+      "cache-control": "public, max-age=86400, immutable",
     });
-  }
-}
+  },
+);
 
-export class ListPositionsByAddress extends EkuboAPIRoute {
-  static route = "/positions/:address";
-
-  static schema: OpenAPIRouteSchema = {
+export const ListPositionsByAddress = defineRoute(
+  createRoute({
+    method: "get",
+    path: "/positions/{address}",
     tags: ["Positions"],
     summary: "List positions",
     description: "Returns the list of position NFTs and their keys",
-    parameters: {
-      address: Path(AddressType, {
-        description: "The address for which to list positions",
+    operationId: "get_ListPositionsByAddress",
+    request: {
+      params: z.object({
+        address: AddressType.describe(
+          "The address for which to list positions",
+        ),
       }),
-      state: Query(PositionStateQueryType, {
-        required: false,
-        description:
-          "Filter positions by state; defaults to returning all positions",
-      }),
-      chainId: Query(ChainIdType, {
-        required: false,
-        description: "Restrict results to a specific chain ID",
-      }),
-      pageSize: Query(z.coerce.number().int().min(1).max(200), {
-        required: false,
-        description: "Maximum number of positions to return per page",
-        default: 50,
-      }),
-      page: Query(z.coerce.number().int().min(1), {
-        required: false,
-        description: "Page number to fetch (1-indexed)",
-        default: 1,
-      }),
+      query: z.object(ListPositionsFilterShape),
     },
     responses: {
-      "200": {
-        description: "The position NFTs owned by the address and keys",
-        schema: ListPositionsResponseType,
-      },
+      200: jsonResponse(
+        "The position NFTs owned by the address and keys",
+        ListPositionsResponseType,
+      ),
+      ...errorResponses,
     },
-  };
+  }),
+  async (c) => {
+    const { address: addressStr } = c.req.valid("param");
+    const {
+      state = null,
+      chainId = null,
+      page,
+      pageSize,
+    } = c.req.valid("query");
 
-  async handleRequest(
-    { params: { address: addressStr }, query, url }: IRequest,
-    { env }: RequestContext,
-  ) {
-    const { state, chainId, page, pageSize } = parseListPositionsFilters(query);
-
-    const queries = await createQueries(env);
+    const queries = await createQueries(c.env);
     const { rows, totalCount } = await queries.getPositionsByAddress(
       [BigInt(addressStr)],
       state,
@@ -797,7 +770,7 @@ export class ListPositionsByAddress extends EkuboAPIRoute {
       },
     );
 
-    const origin = new URL(url).origin;
+    const origin = new URL(c.req.url).origin;
     const response = buildListPositionsResponse(
       rows,
       totalCount,
@@ -806,69 +779,55 @@ export class ListPositionsByAddress extends EkuboAPIRoute {
       origin,
     );
 
-    return json(response, {
-      headers: {
-        "cache-control": "no-cache",
-      },
+    return c.json(response, 200, {
+      "cache-control": "no-cache",
     });
-  }
-}
+  },
+);
 
-export class BatchListPositionsByAddress extends EkuboAPIRoute {
-  static route = "/positions/batch";
-
-  static schema: OpenAPIRouteSchema = {
+export const BatchListPositionsByAddress = defineRoute(
+  createRoute({
+    method: "get",
+    path: "/positions/batch",
     tags: ["Positions"],
     summary: "Batch list positions",
     description:
       "Returns the list of position NFTs and their keys for multiple addresses",
-    parameters: {
-      address: Query([AddressType], {
-        required: true,
-        description:
-          "Repeat the address parameter to merge positions from multiple addresses (e.g. ?address=0x...&address=0x...)",
-        example: "0x1234",
-      }),
-      state: Query(PositionStateQueryType, {
-        required: false,
-        description:
-          "Filter positions by state; defaults to returning all positions",
-      }),
-      chainId: Query(ChainIdType, {
-        required: false,
-        description: "Restrict results to a specific chain ID",
-      }),
-      pageSize: Query(z.coerce.number().int().min(1).max(200), {
-        required: false,
-        description: "Maximum number of positions to return per page",
-        default: 50,
-      }),
-      page: Query(z.coerce.number().int().min(1), {
-        required: false,
-        description: "Page number to fetch (1-indexed)",
-        default: 1,
+    operationId: "get_BatchListPositionsByAddress",
+    request: {
+      query: z.object({
+        address: queryArray(AddressType)
+          .describe(
+            "Repeat the address parameter to merge positions from multiple addresses (e.g. ?address=0x...&address=0x...)",
+          )
+          .openapi({ example: "0x1234" }),
+        ...ListPositionsFilterShape,
       }),
     },
     responses: {
-      "200": {
-        description:
-          "The position NFTs owned by the provided addresses and keys",
-        schema: ListPositionsResponseType,
-      },
+      200: jsonResponse(
+        "The position NFTs owned by the provided addresses and keys",
+        ListPositionsResponseType,
+      ),
+      ...errorResponses,
     },
-  };
+  }),
+  async (c) => {
+    const {
+      address: addresses,
+      state = null,
+      chainId = null,
+      page,
+      pageSize,
+    } = c.req.valid("query");
 
-  async handleRequest({ query, url }: IRequest, { env }: RequestContext) {
-    const addresses = getQueryParamAsArray(query.address);
-
-    if (!addresses || addresses.length === 0) {
+    if (addresses.length === 0) {
       throw new StatusError(400, "At least one address parameter is required");
     }
 
     const payload = AddressListRequestSchema.parse({ addresses });
-    const { state, chainId, page, pageSize } = parseListPositionsFilters(query);
 
-    const queries = await createQueries(env);
+    const queries = await createQueries(c.env);
     const { rows, totalCount } = await queries.getPositionsByAddress(
       payload.addresses.map((address) => BigInt(address)),
       state,
@@ -879,7 +838,7 @@ export class BatchListPositionsByAddress extends EkuboAPIRoute {
       },
     );
 
-    const origin = new URL(url).origin;
+    const origin = new URL(c.req.url).origin;
     const response = buildListPositionsResponse(
       rows,
       totalCount,
@@ -888,10 +847,8 @@ export class BatchListPositionsByAddress extends EkuboAPIRoute {
       origin,
     );
 
-    return json(response, {
-      headers: {
-        "cache-control": "no-cache",
-      },
+    return c.json(response, 200, {
+      "cache-control": "no-cache",
     });
-  }
-}
+  },
+);

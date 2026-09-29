@@ -1,14 +1,14 @@
-import { EkuboAPIRoute, RequestContext } from "../../shared/context";
-import { OpenAPIRouteSchema, Path, Query } from "../../shared/openapi";
+import { createRoute, z } from "@hono/zod-openapi";
+import { defineRoute } from "../../shared/context";
+import { errorResponses } from "../../shared/errors";
+import { jsonResponse } from "../../shared/openapi";
 import {
   AddressType,
   ChainIdType,
   DecimalStringType,
   HexStringType,
 } from "../../shared/validation/address";
-import { z } from "zod";
-import { IRequest, json } from "itty-router";
-import { createQueries, StateFilter } from "../../queries";
+import { createQueries } from "../../queries";
 import toHex from "../../shared/toHex";
 
 export const OrderKeyType = z
@@ -61,79 +61,63 @@ const PaginationMetadataType = z.object({
 
 const LimitOrderStateQueryType = z.enum(["opened", "closed"]);
 
-export class ListLimitOrders extends EkuboAPIRoute {
-  static route = "/limit-orders/orders/:address";
-
-  static schema: OpenAPIRouteSchema = {
+export const ListLimitOrders = defineRoute(
+  createRoute({
+    method: "get",
+    path: "/limit-orders/orders/{address}",
     tags: ["Limit Orders"],
     summary: "List limit orders",
     description:
       "Returns the list of limit orders currently held by the given address",
-    parameters: {
-      address: Path(AddressType, { example: "0x1234" }),
-      state: Query(LimitOrderStateQueryType, {
-        required: false,
-        description:
+    operationId: "get_ListLimitOrders",
+    request: {
+      params: z.object({
+        address: AddressType.openapi({ example: "0x1234" }),
+      }),
+      query: z.object({
+        state: LimitOrderStateQueryType.optional().describe(
           "Filter limit orders by state; defaults to returning all orders",
-      }),
-      chainId: Query(ChainIdType, {
-        required: false,
-        description: "Restrict results to a specific chain ID",
-      }),
-      pageSize: Query(z.coerce.number().int().min(1).max(200), {
-        required: false,
-        description: "Maximum number of limit orders to return per page",
-        default: 50,
-      }),
-      page: Query(z.coerce.number().int().min(1), {
-        required: false,
-        description: "Page number to fetch (1-indexed)",
-        default: 1,
+        ),
+        chainId: ChainIdType.optional().describe(
+          "Restrict results to a specific chain ID",
+        ),
+        pageSize: z.coerce
+          .number()
+          .int()
+          .min(1)
+          .max(200)
+          .default(50)
+          .describe("Maximum number of limit orders to return per page"),
+        page: z.coerce
+          .number()
+          .int()
+          .min(1)
+          .default(1)
+          .describe("Page number to fetch (1-indexed)"),
       }),
     },
     responses: {
-      "200": {
-        description:
-          "The list of limit orders held or previously held by the address",
-        schema: z.object({
+      200: jsonResponse(
+        "The list of limit orders held or previously held by the address",
+        z.object({
           orders: z.array(LimitOrderInfo).openapi({
             description: "The list of limit orders owned by the address",
           }),
           pagination: PaginationMetadataType,
         }),
-      },
+      ),
+      ...errorResponses,
     },
-  };
-
-  async handleRequest({ params, query }: IRequest, { env }: RequestContext) {
-    const address = BigInt(params.address);
-    const stateParam =
-      typeof query?.state === "string" ? query.state.toLowerCase() : null;
-    const state: StateFilter | null =
-      stateParam === "opened" || stateParam === "closed"
-        ? (stateParam as StateFilter)
-        : null;
-
-    const chainId =
-      typeof query.chainId === "string" ? BigInt(query.chainId) : null;
-    const queries = await createQueries(env);
-
-    const pageSize = z.coerce
-      .number()
-      .int()
-      .min(1)
-      .max(200)
-      .parse(query?.pageSize ?? 50);
-    const page = z.coerce
-      .number()
-      .int()
-      .min(1)
-      .parse(query?.page ?? 1);
+  }),
+  async (c) => {
+    const { address } = c.req.valid("param");
+    const { state, chainId, page, pageSize } = c.req.valid("query");
+    const queries = await createQueries(c.env);
 
     const { rows, totalCount } = await queries.getLimitOrdersByAddress(
-      address,
-      state,
-      chainId,
+      BigInt(address),
+      state ?? null,
+      chainId ?? null,
       {
         page,
         pageSize,
@@ -142,7 +126,7 @@ export class ListLimitOrders extends EkuboAPIRoute {
 
     const totalPages = totalCount === 0 ? 0 : Math.ceil(totalCount / pageSize);
 
-    return json(
+    return c.json(
       {
         orders: rows.reduce<LimitOrderInfoType[]>(
           (
@@ -195,11 +179,10 @@ export class ListLimitOrders extends EkuboAPIRoute {
           totalItems: totalCount,
         },
       },
+      200,
       {
-        headers: {
-          "cache-control": "public,max-age=10,must-revalidate",
-        },
+        "cache-control": "public,max-age=10,must-revalidate",
       },
     );
-  }
-}
+  },
+);

@@ -1,5 +1,5 @@
-import { EkuboAPIRoute, RequestContext } from "../../shared/context";
-import { IRequest, json } from "itty-router";
+import { createRoute, z } from "@hono/zod-openapi";
+import { defineRoute } from "../../shared/context";
 import {
   AddressType,
   ChainIdType,
@@ -7,10 +7,10 @@ import {
   NumericStringType,
   TokenIdentifierType,
 } from "../../shared/validation/address";
-import { OpenAPIRouteSchema, Path, Query } from "../../shared/openapi";
+import { jsonResponse } from "../../shared/openapi";
+import { errorResponses } from "../../shared/errors";
 import { createQueries } from "../../queries";
 import { parseOutTokens } from "../../shared/parseOutTokens";
-import { z } from "zod";
 import toHex from "../../shared/toHex";
 
 const TimestampType = z.union([z.date(), z.string()]);
@@ -18,6 +18,7 @@ const TimestampType = z.union([z.date(), z.string()]);
 const TokenBalanceEntryType = z.object({
   token: z.string(),
   balance: z.string(),
+  chain_id: z.string(),
 });
 
 const TokenDeltaEntryType = z.object({
@@ -53,6 +54,7 @@ const VolumeEntryType = z.object({
 
 const VolumeByDateEntryType = VolumeEntryType.extend({
   date: TimestampType,
+  chain_id: z.string(),
 });
 
 const PairVolumeResponseType = z.object({
@@ -64,7 +66,7 @@ const PairVolumeResponseType = z.object({
 const PoolStatsType = z.object({
   pool_id: z.string(),
   fee: z.string(),
-  tick_spacing: z.number().int(),
+  tick_spacing: z.number().int().nullable(),
   core_address: z.string(),
   extension: z.string(),
   volume0_24h: z.string(),
@@ -107,7 +109,7 @@ const PairPoolsResponseType = z.object({
 });
 
 const LiquidityPointType = z.object({
-  tick: z.string(),
+  tick: z.number().int(),
   net_liquidity_delta_diff: z.string(),
 });
 
@@ -118,7 +120,7 @@ const PairLiquidityResponseType = z.object({
 const PairEventType = z.object({
   type: z.union([z.literal(0), z.literal(1)]),
   fee: z.string(),
-  tick_spacing: z.number().int(),
+  tick_spacing: z.number().int().nullable(),
   extension: z.string(),
   core_address: z.string(),
   locker: z.string(),
@@ -176,15 +178,24 @@ const TopPositionsLimitQueryParameter = z.coerce
   .default(10);
 
 const PoolFilterQueryParameters = {
-  coreAddress: Query(AddressType, {
-    required: false,
-    description: "Restrict results to pools with the given core address.",
-  }),
-  poolId: Query(NumericStringType, {
-    required: false,
-    description: "Restrict results to pools with the given pool id.",
-  }),
+  coreAddress: AddressType.optional().describe(
+    "Restrict results to pools with the given core address.",
+  ),
+  poolId: NumericStringType.optional().describe(
+    "Restrict results to pools with the given pool id.",
+  ),
 };
+
+const PairPathParameters = z.object({
+  chainId: ChainIdType,
+  tokenA: TokenIdentifierType,
+  tokenB: TokenIdentifierType,
+});
+
+// The volume and pools routes declare the chain ID as a numeric string.
+const PairNumericChainPathParameters = PairPathParameters.extend({
+  chainId: NumericStringType,
+});
 
 type PoolKeyFilters = {
   coreAddress?: bigint;
@@ -256,49 +267,40 @@ const formatTopPositionRow = (row: PairTopPositionRow) => {
   };
 };
 
-const parsePoolKeyFilters = (request: IRequest): PoolKeyFilters => {
-  const hasCoreAddress = request.query?.coreAddress !== undefined;
-  const hasPoolId = request.query?.poolId !== undefined;
+const parsePoolKeyFilters = (query: {
+  coreAddress?: string;
+  poolId?: string;
+}): PoolKeyFilters => ({
+  coreAddress:
+    query.coreAddress !== undefined ? BigInt(query.coreAddress) : undefined,
+  poolId: query.poolId !== undefined ? BigInt(query.poolId) : undefined,
+});
 
-  return {
-    coreAddress: hasCoreAddress
-      ? BigInt(AddressType.parse(request.query?.coreAddress))
-      : undefined,
-    poolId: hasPoolId
-      ? BigInt(NumericStringType.parse(request.query?.poolId))
-      : undefined,
-  };
-};
-
-export class GetPairInfoTvl extends EkuboAPIRoute {
-  static route = "/pair/:chainId/:tokenA/:tokenB/tvl";
-
-  static schema: OpenAPIRouteSchema = {
+export const GetPairInfoTvl = defineRoute(
+  createRoute({
+    method: "get",
+    path: "/pair/{chainId}/{tokenA}/{tokenB}/tvl",
     tags: ["Stats"],
     summary: "Get pair TVL",
     description: "Returns TVL stats for the pair",
-    parameters: {
-      chainId: Path(ChainIdType, { required: true }),
-      tokenA: Path(TokenIdentifierType),
-      tokenB: Path(TokenIdentifierType),
-      ...PoolFilterQueryParameters,
+    operationId: "get_GetPairInfoTvl",
+    request: {
+      params: PairPathParameters,
+      query: z.object(PoolFilterQueryParameters),
     },
     responses: {
-      "200": {
-        description: "Information about the token pair TVL",
-        schema: PairTvlResponseType,
-      },
+      200: jsonResponse(
+        "Information about the token pair TVL",
+        PairTvlResponseType,
+      ),
+      ...errorResponses,
     },
-  };
-
-  async handleRequest(request: IRequest, { env }: RequestContext) {
-    const chainId = BigInt(request.params.chainId);
-    const { queries, pair } = await parseOutTokens(
-      env,
-      request.params,
-      chainId,
-    );
-    const poolKeyFilters = parsePoolKeyFilters(request);
+  }),
+  async (c) => {
+    const params = c.req.valid("param");
+    const { chainId } = params;
+    const { queries, pair } = await parseOutTokens(c.env, params, chainId);
+    const poolKeyFilters = parsePoolKeyFilters(c.req.valid("query"));
 
     const timestamp = Date.now();
     const thirtyDaysAgo = new Date(timestamp - 1000 * 60 * 60 * 24 * 30);
@@ -328,44 +330,38 @@ export class GetPairInfoTvl extends EkuboAPIRoute {
       tvlDeltaByTokenByDate,
     } satisfies z.infer<typeof PairTvlResponseType>;
 
-    return json(response, {
-      headers: {
-        "cache-control": "public, max-age=3600",
-      },
+    return c.json(response, 200, {
+      "cache-control": "public, max-age=3600",
     });
-  }
-}
+  },
+);
 
-export class GetPairInfoVolume extends EkuboAPIRoute {
-  static route = "/pair/:chainId/:tokenA/:tokenB/volume";
-
-  static schema: OpenAPIRouteSchema = {
+export const GetPairInfoVolume = defineRoute(
+  createRoute({
+    method: "get",
+    path: "/pair/{chainId}/{tokenA}/{tokenB}/volume",
     tags: ["Stats"],
     summary: "Get pair volume",
     description: "Returns volume stats for a given trading pair",
-    parameters: {
-      chainId: Path(NumericStringType),
-      tokenA: Path(TokenIdentifierType),
-      tokenB: Path(TokenIdentifierType),
-      ...PoolFilterQueryParameters,
+    operationId: "get_GetPairInfoVolume",
+    request: {
+      params: PairNumericChainPathParameters,
+      query: z.object(PoolFilterQueryParameters),
     },
     responses: {
-      "200": {
-        description: "Information about the token pair volume",
-        schema: PairVolumeResponseType,
-      },
+      200: jsonResponse(
+        "Information about the token pair volume",
+        PairVolumeResponseType,
+      ),
+      ...errorResponses,
     },
-  };
+  }),
+  async (c) => {
+    const params = c.req.valid("param");
+    const chainId = BigInt(params.chainId);
+    const { queries, pair } = await parseOutTokens(c.env, params, chainId);
 
-  async handleRequest(request: IRequest, { env }: RequestContext) {
-    const chainId = BigInt(request.params.chainId);
-    const { queries, pair } = await parseOutTokens(
-      env,
-      request.params,
-      chainId,
-    );
-
-    const poolKeyFilters = parsePoolKeyFilters(request);
+    const poolKeyFilters = parsePoolKeyFilters(c.req.valid("query"));
 
     const timestamp = Date.now();
     const thirtyDaysAgo = new Date(timestamp - 1000 * 60 * 60 * 24 * 30);
@@ -400,48 +396,43 @@ export class GetPairInfoVolume extends EkuboAPIRoute {
       volumeByToken_24h,
     } satisfies z.infer<typeof PairVolumeResponseType>;
 
-    return json(response, {
-      headers: {
-        "cache-control": "public, max-age=600",
-      },
+    return c.json(response, 200, {
+      "cache-control": "public, max-age=600",
     });
-  }
-}
+  },
+);
 
 const MinTvlQueryParameter = z.coerce.number().min(0).default(1_000);
 
-export class GetPairInfoPools extends EkuboAPIRoute {
-  static route = "/pair/:chainId/:tokenA/:tokenB/pools";
-
-  static schema: OpenAPIRouteSchema = {
+export const GetPairInfoPools = defineRoute(
+  createRoute({
+    method: "get",
+    path: "/pair/{chainId}/{tokenA}/{tokenB}/pools",
     tags: ["Stats"],
     summary: "Get pools of pair",
     description: "Returns pool info for a pair",
-    parameters: {
-      chainId: Path(NumericStringType),
-      tokenA: Path(TokenIdentifierType),
-      tokenB: Path(TokenIdentifierType),
-      minTvlUsd: Query(MinTvlQueryParameter, {
-        required: false,
-        description: "Minimum USD TVL required for a pool to be included",
+    operationId: "get_GetPairInfoPools",
+    request: {
+      params: PairNumericChainPathParameters,
+      query: z.object({
+        minTvlUsd: MinTvlQueryParameter.describe(
+          "Minimum USD TVL required for a pool to be included",
+        ),
       }),
     },
     responses: {
-      "200": {
-        description: "Information about the pools of a token pair",
-        schema: PairPoolsResponseType,
-      },
+      200: jsonResponse(
+        "Information about the pools of a token pair",
+        PairPoolsResponseType,
+      ),
+      ...errorResponses,
     },
-  };
-
-  async handleRequest(request: IRequest, { env }: RequestContext) {
-    const chainId = BigInt(request.params.chainId);
-    const { queries, pair } = await parseOutTokens(
-      env,
-      request.params,
-      chainId,
-    );
-    const minTvlUsd = MinTvlQueryParameter.parse(request.query?.minTvlUsd);
+  }),
+  async (c) => {
+    const params = c.req.valid("param");
+    const chainId = BigInt(params.chainId);
+    const { queries, pair } = await parseOutTokens(c.env, params, chainId);
+    const { minTvlUsd } = c.req.valid("query");
 
     const topPools = await queries.getTopPools(chainId, pair, minTvlUsd);
 
@@ -488,87 +479,84 @@ export class GetPairInfoPools extends EkuboAPIRoute {
       }),
     } satisfies z.infer<typeof PairPoolsResponseType>;
 
-    return json(response, {
-      headers: {
-        "cache-control": "public, max-age=600",
-      },
+    return c.json(response, 200, {
+      "cache-control": "public, max-age=600",
     });
-  }
-}
+  },
+);
 
-export class GetPairLiquidity extends EkuboAPIRoute {
-  static route = "/tokens/:chainId/:tokenA/:tokenB/liquidity";
-  static schema: OpenAPIRouteSchema = {
+export const GetPairLiquidity = defineRoute(
+  createRoute({
+    method: "get",
+    path: "/tokens/{chainId}/{tokenA}/{tokenB}/liquidity",
     tags: ["Stats"],
     summary: "Get pair liquidity",
-    parameters: {
-      chainId: Path(ChainIdType, { required: true }),
-      tokenA: Path(TokenIdentifierType),
-      tokenB: Path(TokenIdentifierType),
-    },
     description:
       "Returns the liquidity chart for the given token pair, aggregated across all pools",
-    responses: {
-      "200": {
-        description: "For each tick for pools of the pair, the liquidity delta",
-        schema: PairLiquidityResponseType,
-      },
+    operationId: "get_GetPairLiquidity",
+    request: {
+      params: PairPathParameters,
     },
-  };
+    responses: {
+      200: jsonResponse(
+        "For each tick for pools of the pair, the liquidity delta",
+        PairLiquidityResponseType,
+      ),
+      ...errorResponses,
+    },
+  }),
+  async (c) => {
+    const params = c.req.valid("param");
+    const { chainId } = params;
+    const { queries, pair } = await parseOutTokens(c.env, params, chainId);
 
-  async handleRequest(request: IRequest, { env }: RequestContext) {
-    const chainId = BigInt(request.params.chainId);
-    const { queries, pair } = await parseOutTokens(
-      env,
-      request.params,
-      chainId,
-    );
-
-    const data = await queries.getPairLiquidityGraph({
+    const rows = await queries.getPairLiquidityGraph({
       ...pair,
       chainId,
     });
+
+    // tick is an INT4 column, so the driver already returns a number; the
+    // query declares it as a string.
+    const data = rows.map(({ tick, net_liquidity_delta_diff }) => ({
+      tick: Number(tick),
+      net_liquidity_delta_diff,
+    }));
 
     const response = {
       data,
     } satisfies z.infer<typeof PairLiquidityResponseType>;
 
-    return json(response, {
-      headers: {
-        "cache-control": "public, max-age=600, must-revalidate",
-      },
+    return c.json(response, 200, {
+      "cache-control": "public, max-age=600, must-revalidate",
     });
-  }
-}
+  },
+);
 
-export class ListPairEvents extends EkuboAPIRoute {
-  static route = "/tokens/:chainId/:tokenA/:tokenB/events";
-  static schema: OpenAPIRouteSchema = {
+export const ListPairEvents = defineRoute(
+  createRoute({
+    method: "get",
+    path: "/tokens/{chainId}/{tokenA}/{tokenB}/events",
     tags: ["Stats"],
     summary: "Get pair events",
     description: "Returns a list of recent events for the given trading pair",
-    parameters: {
-      chainId: Path(ChainIdType, { required: true }),
-      tokenA: Path(TokenIdentifierType),
-      tokenB: Path(TokenIdentifierType),
-      ...PoolFilterQueryParameters,
+    operationId: "get_ListPairEvents",
+    request: {
+      params: PairPathParameters,
+      query: z.object(PoolFilterQueryParameters),
     },
     responses: {
-      "200": {
-        description: "A list of events for the given pair",
-        schema: PairEventsResponseType,
-      },
+      200: jsonResponse(
+        "A list of events for the given pair",
+        PairEventsResponseType,
+      ),
+      ...errorResponses,
     },
-  };
-
-  async handleRequest(request: IRequest, { env }: RequestContext) {
-    const chainId = BigInt(request.params.chainId);
-    const { queries, pair } = await parseOutTokens(
-      env,
-      request.params,
-      chainId,
-    );
-    const poolKeyFilters = parsePoolKeyFilters(request);
+  }),
+  async (c) => {
+    const params = c.req.valid("param");
+    const { chainId } = params;
+    const { queries, pair } = await parseOutTokens(c.env, params, chainId);
+    const poolKeyFilters = parsePoolKeyFilters(c.req.valid("query"));
 
     const rows = await queries.getPairEvents({
       ...pair,
@@ -581,49 +569,44 @@ export class ListPairEvents extends EkuboAPIRoute {
       data: rows,
     } satisfies z.infer<typeof PairEventsResponseType>;
 
-    return json(response, {
-      headers: {
-        "cache-control": "public, max-age=180, must-revalidate",
-      },
+    return c.json(response, 200, {
+      "cache-control": "public, max-age=180, must-revalidate",
     });
-  }
-}
+  },
+);
 
-export class GetPairTopPositions extends EkuboAPIRoute {
-  static route = "/pair/:chainId/:tokenA/:tokenB/positions";
-
-  static schema: OpenAPIRouteSchema = {
+export const GetPairTopPositions = defineRoute(
+  createRoute({
+    method: "get",
+    path: "/pair/{chainId}/{tokenA}/{tokenB}/positions",
     tags: ["Stats"],
     summary: "Get top positions for pair",
     description:
       "Returns the top positions (by liquidity) for the given trading pair",
-    parameters: {
-      chainId: Path(ChainIdType, { required: true }),
-      tokenA: Path(TokenIdentifierType),
-      tokenB: Path(TokenIdentifierType),
-      ...PoolFilterQueryParameters,
-      limit: Query(TopPositionsLimitQueryParameter, {
-        required: false,
-        description: "Maximum number of positions to return",
+    operationId: "get_GetPairTopPositions",
+    request: {
+      params: PairPathParameters,
+      query: z.object({
+        ...PoolFilterQueryParameters,
+        limit: TopPositionsLimitQueryParameter.describe(
+          "Maximum number of positions to return",
+        ),
       }),
     },
     responses: {
-      "200": {
-        description: "Top positions for the given pair",
-        schema: PairTopPositionsResponseType,
-      },
+      200: jsonResponse(
+        "Top positions for the given pair",
+        PairTopPositionsResponseType,
+      ),
+      ...errorResponses,
     },
-  };
-
-  async handleRequest(request: IRequest, { env }: RequestContext) {
-    const chainId = BigInt(request.params.chainId);
-    const { queries, pair } = await parseOutTokens(
-      env,
-      request.params,
-      chainId,
-    );
-    const poolKeyFilters = parsePoolKeyFilters(request);
-    const limit = TopPositionsLimitQueryParameter.parse(request.query?.limit);
+  }),
+  async (c) => {
+    const params = c.req.valid("param");
+    const { chainId } = params;
+    const { queries, pair } = await parseOutTokens(c.env, params, chainId);
+    const { limit, ...filters } = c.req.valid("query");
+    const poolKeyFilters = parsePoolKeyFilters(filters);
 
     const rows = await queries.getTopPositionsByPair({
       chainId,
@@ -636,48 +619,48 @@ export class GetPairTopPositions extends EkuboAPIRoute {
       data: rows.map(formatTopPositionRow),
     } satisfies z.infer<typeof PairTopPositionsResponseType>;
 
-    return json(response, {
-      headers: {
-        "cache-control": "public, max-age=180, must-revalidate",
-      },
+    return c.json(response, 200, {
+      "cache-control": "public, max-age=180, must-revalidate",
     });
-  }
-}
+  },
+);
 
-export class GetPoolTopPositions extends EkuboAPIRoute {
-  static route = "/pools/:chainId/:coreAddress/:poolId/positions";
-
-  static schema: OpenAPIRouteSchema = {
+export const GetPoolTopPositions = defineRoute(
+  createRoute({
+    method: "get",
+    path: "/pools/{chainId}/{coreAddress}/{poolId}/positions",
     tags: ["Stats"],
     summary: "Get top positions for pool",
     description:
       "Returns the top positions (by liquidity) for the given core address and pool id",
-    parameters: {
-      chainId: Path(ChainIdType, { required: true }),
-      coreAddress: Path(AddressType),
-      poolId: Path(NumericStringType),
-      limit: Query(TopPositionsLimitQueryParameter, {
-        required: false,
-        description: "Maximum number of positions to return",
+    operationId: "get_GetPoolTopPositions",
+    request: {
+      params: z.object({
+        chainId: ChainIdType,
+        coreAddress: AddressType,
+        poolId: NumericStringType,
+      }),
+      query: z.object({
+        limit: TopPositionsLimitQueryParameter.describe(
+          "Maximum number of positions to return",
+        ),
       }),
     },
     responses: {
-      "200": {
-        description: "Top positions for the given pool",
-        schema: PairTopPositionsResponseType,
-      },
+      200: jsonResponse(
+        "Top positions for the given pool",
+        PairTopPositionsResponseType,
+      ),
+      ...errorResponses,
     },
-  };
-
-  async handleRequest(
-    { params: { chainId, coreAddress, poolId }, query }: IRequest,
-    { env }: RequestContext,
-  ) {
-    const queries = await createQueries(env);
-    const limit = TopPositionsLimitQueryParameter.parse(query?.limit);
+  }),
+  async (c) => {
+    const { chainId, coreAddress, poolId } = c.req.valid("param");
+    const { limit } = c.req.valid("query");
+    const queries = await createQueries(c.env);
 
     const rows = await queries.getTopPositionsByPool({
-      chainId: BigInt(chainId),
+      chainId,
       coreAddress: BigInt(coreAddress),
       poolId: BigInt(poolId),
       limit,
@@ -687,10 +670,8 @@ export class GetPoolTopPositions extends EkuboAPIRoute {
       data: rows.map(formatTopPositionRow),
     } satisfies z.infer<typeof PairTopPositionsResponseType>;
 
-    return json(response, {
-      headers: {
-        "cache-control": "public, max-age=180, must-revalidate",
-      },
+    return c.json(response, 200, {
+      "cache-control": "public, max-age=180, must-revalidate",
     });
-  }
-}
+  },
+);

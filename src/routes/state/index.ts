@@ -1,17 +1,23 @@
-import { OpenAPIRouteSchema, Path } from "../../shared/openapi";
-import { IRequest, json, StatusError } from "itty-router";
-import { EkuboAPIRoute, RequestContext } from "../../shared/context";
+import { createRoute, z } from "@hono/zod-openapi";
+import { jsonResponse } from "../../shared/openapi";
+import { defineRoute } from "../../shared/context";
+import {
+  errorResponses,
+  notFoundResponse,
+  StatusError,
+} from "../../shared/errors";
 import { createQueries } from "../../queries";
 import {
   AddressType,
   ChainIdType,
   NumericStringType,
 } from "../../shared/validation/address";
-import { z } from "zod";
 import toHex from "../../shared/toHex";
 
 const LiquidityPointType = z.object({
-  tick: z.string(),
+  // per_pool_per_tick_liquidity.tick is an INT4, which the driver returns as
+  // a number.
+  tick: z.number().int(),
   net_liquidity_delta_diff: z.string(),
 });
 
@@ -35,79 +41,85 @@ const PoolKeyResponseType = z.object({
   pool_key: PoolKeyType,
 });
 
-export class GetPoolLiquidity extends EkuboAPIRoute {
-  static route = "/pools/:chainId/:coreAddress/:poolId/liquidity";
-
-  static schema: OpenAPIRouteSchema = {
+export const GetPoolLiquidity = defineRoute(
+  createRoute({
+    method: "get",
+    path: "/pools/{chainId}/{coreAddress}/{poolId}/liquidity",
     tags: ["Swap"],
     summary: "Get pool liquidity",
     description:
       "Returns the liquidity delta for each tick for the given pool key hash",
-    parameters: {
-      chainId: Path(ChainIdType, { required: true }),
-      coreAddress: Path(AddressType, { example: "0xabcd" }),
-      poolId: Path(NumericStringType, { example: "1" }),
+    operationId: "get_GetPoolLiquidity",
+    request: {
+      params: z.object({
+        chainId: ChainIdType,
+        coreAddress: AddressType.openapi({ example: "0xabcd" }),
+        poolId: NumericStringType.openapi({ example: "1" }),
+      }),
     },
     responses: {
-      "200": {
-        schema: LiquidityResponseType,
-        description: "The current liquidity chart for the given pool key hash",
-      },
+      200: jsonResponse(
+        "The current liquidity chart for the given pool key hash",
+        LiquidityResponseType,
+      ),
+      ...errorResponses,
     },
-  };
+  }),
+  async (c) => {
+    const { chainId, coreAddress, poolId } = c.req.valid("param");
+    const queries = await createQueries(c.env);
 
-  async handleRequest(
-    { params: { chainId, coreAddress, poolId } }: IRequest,
-    { env }: RequestContext,
-  ) {
-    const queries = await createQueries(env);
-
-    const rows = await queries.getPoolLiquidityGraph(BigInt(chainId), {
+    const rows = await queries.getPoolLiquidityGraph(chainId, {
       coreAddress: BigInt(coreAddress),
       poolId: BigInt(poolId),
     });
 
     const response = {
-      data: rows,
+      // queries.ts declares tick as a string, but the driver already returns
+      // the INT4 as a number, so Number() leaves the value unchanged.
+      data: rows.map(({ tick, net_liquidity_delta_diff }) => ({
+        tick: Number(tick),
+        net_liquidity_delta_diff,
+      })),
     } satisfies z.infer<typeof LiquidityResponseType>;
 
-    return json(response, {
-      headers: {
-        "cache-control": "public, max-age=1800, must-revalidate",
-      },
+    return c.json(response, 200, {
+      "cache-control": "public, max-age=1800, must-revalidate",
     });
-  }
-}
+  },
+);
 
-export class GetPoolKey extends EkuboAPIRoute {
-  static route = "/pools/:chainId/:coreAddress/:poolId/key";
-
-  static schema: OpenAPIRouteSchema = {
+export const GetPoolKey = defineRoute(
+  createRoute({
+    method: "get",
+    path: "/pools/{chainId}/{coreAddress}/{poolId}/key",
     tags: ["Swap"],
     summary: "Get pool key",
     description:
       "Returns the pool key details for the given core address and pool id",
-    parameters: {
-      chainId: Path(ChainIdType, { required: true }),
-      coreAddress: Path(AddressType, { example: "0xabcd" }),
-      poolId: Path(NumericStringType, { example: "1" }),
+    operationId: "get_GetPoolKey",
+    request: {
+      params: z.object({
+        chainId: ChainIdType,
+        coreAddress: AddressType.openapi({ example: "0xabcd" }),
+        poolId: NumericStringType.openapi({ example: "1" }),
+      }),
     },
     responses: {
-      "200": {
-        schema: PoolKeyResponseType,
-        description: "Pool key details for the given pool",
-      },
+      200: jsonResponse(
+        "Pool key details for the given pool",
+        PoolKeyResponseType,
+      ),
+      ...notFoundResponse,
+      ...errorResponses,
     },
-  };
-
-  async handleRequest(
-    { params: { chainId, coreAddress, poolId } }: IRequest,
-    { env }: RequestContext,
-  ) {
-    const queries = await createQueries(env);
+  }),
+  async (c) => {
+    const { chainId, coreAddress, poolId } = c.req.valid("param");
+    const queries = await createQueries(c.env);
 
     const rows = await queries.getPoolKeyByCoreAndId(
-      BigInt(chainId),
+      chainId,
       BigInt(coreAddress),
       BigInt(poolId),
     );
@@ -138,10 +150,8 @@ export class GetPoolKey extends EkuboAPIRoute {
       },
     } satisfies z.infer<typeof PoolKeyResponseType>;
 
-    return json(response, {
-      headers: {
-        "cache-control": "public, max-age=1800, must-revalidate",
-      },
+    return c.json(response, 200, {
+      "cache-control": "public, max-age=1800, must-revalidate",
     });
-  }
-}
+  },
+);

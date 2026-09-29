@@ -133,8 +133,6 @@ export const twammCases: ContractCase[] = [
     operation: POOL_BY_KEY,
     request: poolByKeyRequest,
     name: `${poolByKeyRequest} (ending orders)`,
-    knownDrift:
-      "Ending orders produce negative sale-rate deltas, which the unsigned DecimalStringType regex rejects.",
     stub: () => stubPool(endingDeltas, true),
   },
   {
@@ -147,8 +145,6 @@ export const twammCases: ContractCase[] = [
     operation: POOL_BY_ID,
     request: poolByIdRequest,
     name: `${poolByIdRequest} (ending orders)`,
-    knownDrift:
-      "Ending orders produce negative sale-rate deltas, which the unsigned DecimalStringType regex rejects.",
     stub: () => stubPool(endingDeltas, false),
   },
   {
@@ -161,8 +157,6 @@ export const twammCases: ContractCase[] = [
     operation: PAIR,
     request: pairRequest,
     name: `${pairRequest} (ending orders)`,
-    knownDrift:
-      "Ending orders produce negative sale-rate deltas, which the unsigned DecimalStringType regex rejects.",
     stub: () => stubPair(endingDeltas),
   },
   {

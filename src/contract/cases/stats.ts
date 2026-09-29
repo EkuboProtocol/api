@@ -195,8 +195,6 @@ export const statsCases: ContractCase[] = [
   {
     operation: "/overview/boosted-fees-pools",
     name: "/overview/boosted-fees-pools stableswap pool (tick_spacing null)",
-    knownDrift:
-      "Stableswap pools have a null tick_spacing; the schema says integer.",
     request: "/overview/boosted-fees-pools?chainId=1",
     stub: () =>
       stubQuery("getBoostedFeesPools", [
@@ -272,7 +270,6 @@ export const statsCases: ContractCase[] = [
   {
     operation: "/pair/{chainId}/{tokenA}/{tokenB}/tvl",
     name: "/pair/{chainId}/{tokenA}/{tokenB}/tvl (tvlByToken chain_id)",
-    knownDrift: "tvlByToken entries carry an undocumented chain_id.",
     request: `/pair/1/${WETH}/${USDC}/tvl?coreAddress=${CORE}&poolId=1`,
     stub: () => {
       stubTokens(pairTokens);
@@ -297,7 +294,6 @@ export const statsCases: ContractCase[] = [
   {
     operation: "/pair/{chainId}/{tokenA}/{tokenB}/volume",
     name: "/pair/{chainId}/{tokenA}/{tokenB}/volume (volumeByTokenByDate chain_id)",
-    knownDrift: "volumeByTokenByDate entries carry an undocumented chain_id.",
     request: `/pair/1/${USDC}/${WETH}/volume`,
     stub: () => {
       stubTokens(pairTokens);
@@ -333,8 +329,6 @@ export const statsCases: ContractCase[] = [
   {
     operation: "/pair/{chainId}/{tokenA}/{tokenB}/pools",
     name: "/pair/{chainId}/{tokenA}/{tokenB}/pools stableswap pool (tick_spacing null)",
-    knownDrift:
-      "Stableswap pools have a null tick_spacing; the schema says integer.",
     request: `/pair/1/${USDC}/${WETH}/pools`,
     stub: () => {
       stubTokens(pairTokens);
@@ -344,8 +338,6 @@ export const statsCases: ContractCase[] = [
   {
     operation: "/tokens/{chainId}/{tokenA}/{tokenB}/liquidity",
     name: "/tokens/{chainId}/{tokenA}/{tokenB}/liquidity (tick is a number)",
-    knownDrift:
-      "tick is an INT4 and is returned as a number; the schema says string.",
     request: `/tokens/1/${USDC}/${WETH}/liquidity`,
     stub: () => {
       stubTokens(pairTokens);
@@ -393,8 +385,6 @@ export const statsCases: ContractCase[] = [
   {
     operation: "/tokens/{chainId}/{tokenA}/{tokenB}/events",
     name: "/tokens/{chainId}/{tokenA}/{tokenB}/events stableswap pool (tick_spacing null)",
-    knownDrift:
-      "Stableswap pools have a null tick_spacing; the schema says integer.",
     request: `/tokens/1/${USDC}/${WETH}/events`,
     stub: () => {
       stubTokens(pairTokens);

@@ -1,7 +1,5 @@
-import { cors, error, IRequest, json, StatusError } from "itty-router";
 import { Env } from "./env";
-import { RequestContext } from "./shared/context";
-import { router } from "./router";
+import { app } from "./router";
 import { notModified, withEtag } from "./shared/etag";
 
 const NUMERICISH_REGEX = /^(?:0x[0-9a-fA-F]+|[+-]?\d+)$/;
@@ -23,7 +21,7 @@ function normalizeNumberishValue(value: string): string {
   }
 }
 
-function normalizeRequestForCache(request: IRequest): URL {
+function normalizeRequestForCache(request: Request): URL {
   const url = new URL(request.url);
   const normalizedUrl = new URL(url.toString());
 
@@ -51,7 +49,7 @@ function normalizeRequestForCache(request: IRequest): URL {
   return normalizedUrl;
 }
 
-function getCacheKey(request: IRequest): URL | null {
+function getCacheKey(request: Request): URL | null {
   if (request.method.toLowerCase() !== "get") {
     return null;
   }
@@ -61,20 +59,37 @@ function getCacheKey(request: IRequest): URL | null {
 
 const cache = caches.default;
 
-const { preflight, corsify } = cors({
-  maxAge: 86400,
-  origin: "*",
-  allowMethods: ["GET", "OPTIONS"],
-});
+function preflight(request: Request): Response | null {
+  if (request.method !== "OPTIONS") return null;
 
-function finalize(request: IRequest, response: Response): Response {
-  const corsified = corsify(notModified(request, response) ?? response);
-  corsified.headers.set("Access-Control-Allow-Origin", "*");
-  return corsified;
+  const headers = new Headers({
+    "access-control-allow-origin": "*",
+    "access-control-allow-methods": "GET,OPTIONS",
+    "access-control-max-age": "86400",
+  });
+  const requestedHeaders = request.headers.get(
+    "access-control-request-headers",
+  );
+  if (requestedHeaders) {
+    headers.set("access-control-allow-headers", requestedHeaders);
+  }
+  return new Response(null, { status: 204, headers });
+}
+
+function finalize(request: Request, response: Response): Response {
+  const final = notModified(request, response) ?? response;
+  // Cached responses have immutable headers, so copy before adding CORS.
+  const headers = new Headers(final.headers);
+  headers.set("access-control-allow-origin", "*");
+  return new Response(final.body, {
+    status: final.status,
+    statusText: final.statusText,
+    headers,
+  });
 }
 
 export default {
-  fetch: async (request: IRequest, env: Env) => {
+  fetch: async (request: Request, env: Env) => {
     // first check the preflight before anything. it's so cheap to handle we shouldn't even bother with check the cache
     const preflightResponse = preflight(request);
     if (preflightResponse) return preflightResponse;
@@ -89,19 +104,7 @@ export default {
       }
     }
 
-    let response: Response;
-    try {
-      response = json(
-        await router.fetch(request, { env } satisfies RequestContext),
-      );
-    } catch (e) {
-      if (e instanceof StatusError) {
-        response = error(e);
-      } else {
-        console.error(e);
-        response = json(error(500, "Internal server error"));
-      }
-    }
+    let response = await app.fetch(request, env);
 
     if (cacheKey && response.ok) {
       response = await withEtag(response);

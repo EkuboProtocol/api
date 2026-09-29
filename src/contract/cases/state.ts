@@ -58,8 +58,6 @@ export const stateCases: ContractCase[] = [
     // number (declared as string in queries.ts) and the handler passes it
     // through, while the schema documents tick as a string.
     name: "/pools/{chainId}/{coreAddress}/{poolId}/liquidity tick is a number",
-    knownDrift:
-      "tick is an INT4 and is returned as a number; the schema says string.",
     request: `/pools/1/${CORE}/${POOL_ID}/liquidity`,
     stub: () =>
       stubQuery("getPoolLiquidityGraph", [

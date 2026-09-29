@@ -1,6 +1,11 @@
-import { EkuboAPIRoute, RequestContext } from "../../shared/context";
-import { OpenAPIRouteSchema, Path } from "../../shared/openapi";
-import { IRequest, json, StatusError } from "itty-router";
+import { createRoute, z } from "@hono/zod-openapi";
+import { defineRoute } from "../../shared/context";
+import {
+  errorResponses,
+  notFoundResponse,
+  StatusError,
+} from "../../shared/errors";
+import { jsonResponse } from "../../shared/openapi";
 import { createQueries } from "../../queries";
 import { NFTMetadata, NFTMetadataSchema, TokenIdType } from "./format";
 import { generateDcaOrderNft } from "./generateDcaOrderNft";
@@ -10,37 +15,42 @@ import {
 } from "../../shared/validation/address";
 import { generateTwapOrderNftMetadata } from "../../shared/metadatas/twap";
 
-export class GetOrderNftMetadata extends EkuboAPIRoute {
-  static route = "/orders/:chainId/:nftAddress/:id";
-  static schema: OpenAPIRouteSchema = {
+export const GetOrderNftMetadata = defineRoute(
+  createRoute({
+    method: "get",
+    path: "/orders/{chainId}/{nftAddress}/{id}",
     tags: ["Orders"],
     summary: "Get NFT Metadata",
     description: "Returns the ERC721 metadata for the given order token ID",
-    parameters: {
-      chainId: Path(NumericStringType),
-      nftAddress: Path(AddressType, {
-        description: "The address of the Positions NFT contract",
+    operationId: "get_GetOrderNftMetadata",
+    request: {
+      params: z.object({
+        chainId: NumericStringType,
+        nftAddress: AddressType.describe(
+          "The address of the Positions NFT contract",
+        ),
+        id: TokenIdType,
       }),
-      id: Path(TokenIdType),
     },
     responses: {
-      "200": {
-        description: "The NFT metadata for the given order ID",
-        schema: NFTMetadataSchema,
-      },
+      200: jsonResponse(
+        "The NFT metadata for the given order ID",
+        NFTMetadataSchema,
+      ),
+      ...notFoundResponse,
+      ...errorResponses,
     },
-  };
-
-  async handleRequest(
-    { url, params: { id: idStr, chainId: chainIdParam, nftAddress } }: IRequest,
-    { env }: RequestContext,
-  ) {
+  }),
+  async (c) => {
+    const {
+      id: idStr,
+      chainId: chainIdParam,
+      nftAddress,
+    } = c.req.valid("param");
     const id = BigInt(idStr);
     const chainId = BigInt(chainIdParam);
 
-    const queries = await createQueries(env);
-
-    let metadata: NFTMetadata;
+    const queries = await createQueries(c.env);
 
     const twammOrderMetadata = await queries.getTwammOrderMetadata(
       id,
@@ -52,50 +62,54 @@ export class GetOrderNftMetadata extends EkuboAPIRoute {
       throw new StatusError(404, `Token ID ${id} not found`);
     }
 
-    const origin = new URL(url).origin;
+    const origin = new URL(c.req.url).origin;
     const image = `${origin}/orders/${chainIdParam}/nft/${id}/image.svg`;
 
-    metadata = generateTwapOrderNftMetadata(twammOrderMetadata, image);
+    const metadata = generateTwapOrderNftMetadata(twammOrderMetadata, image);
 
     const response = metadata satisfies NFTMetadata;
 
-    return json(response, {
-      headers: {
-        "cache-control": "public,max-age=3600,immutable",
-      },
+    return c.json(response, 200, {
+      "cache-control": "public,max-age=3600,immutable",
     });
-  }
-}
+  },
+);
 
-export class GetOrderNftImage extends EkuboAPIRoute {
-  static route = "/orders/:chainId/:nftAddress/:id/image.svg";
-
-  static schema: OpenAPIRouteSchema = {
+export const GetOrderNftImage = defineRoute(
+  createRoute({
+    method: "get",
+    path: "/orders/{chainId}/{nftAddress}/{id}/image.svg",
     tags: ["Orders"],
     summary: "Get NFT Image",
     description: "Returns the generated art for the given order NFT ID",
-    parameters: {
-      chainId: Path(NumericStringType),
-      nftAddress: Path(AddressType, {
-        description: "The address of the Positions NFT contract",
+    operationId: "get_GetOrderNftImage",
+    request: {
+      params: z.object({
+        chainId: NumericStringType,
+        nftAddress: AddressType.describe(
+          "The address of the Positions NFT contract",
+        ),
+        id: TokenIdType,
       }),
-      id: Path(TokenIdType),
     },
     responses: {
-      "200": {
+      200: {
         description: "The order NFT image",
       },
+      ...notFoundResponse,
+      ...errorResponses,
     },
-  };
-
-  async handleRequest(
-    { params: { id: idStr, chainId: chainIdParam, nftAddress } }: IRequest,
-    { env }: RequestContext,
-  ) {
+  }),
+  async (c) => {
+    const {
+      id: idStr,
+      chainId: chainIdParam,
+      nftAddress,
+    } = c.req.valid("param");
     const id = BigInt(idStr);
     const chainId = BigInt(chainIdParam);
 
-    const queries = await createQueries(env);
+    const queries = await createQueries(c.env);
 
     const twammOrderMetadata = await queries.getTwammOrderMetadata(
       id,
@@ -114,12 +128,9 @@ export class GetOrderNftImage extends EkuboAPIRoute {
       twammOrderMetadata,
     );
 
-    return new Response(svgString, {
-      status: 200,
-      headers: {
-        "content-type": "image/svg+xml",
-        "cache-control": "public, max-age=86400, immutable",
-      },
+    return c.body(svgString, 200, {
+      "content-type": "image/svg+xml",
+      "cache-control": "public, max-age=86400, immutable",
     });
-  }
-}
+  },
+);

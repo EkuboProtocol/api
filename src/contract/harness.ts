@@ -1,9 +1,8 @@
 import { spyOn } from "bun:test";
-import { json } from "itty-router";
-import { z } from "zod";
+import { z } from "@hono/zod-openapi";
 import { Env } from "../env";
 import { Queries, type RawErc20TokenRow } from "../queries";
-import { router } from "../router";
+import { app, openApiDocument } from "../router";
 
 type QueryName = {
   [K in keyof Queries]: Queries[K] extends (...args: never[]) => unknown
@@ -123,7 +122,7 @@ type Operation = {
 };
 
 export function operations(): Record<string, Operation> {
-  const paths = router.schema.paths as Record<string, { get?: Operation }>;
+  const paths = openApiDocument().paths as Record<string, { get?: Operation }>;
   return Object.fromEntries(
     Object.entries(paths).flatMap(([path, item]) =>
       item.get === undefined ? [] : [[path, item.get]],
@@ -141,9 +140,5 @@ export function responseSchema(operation: string): z.ZodType | null {
 }
 
 export async function fetchRoute(path: string): Promise<Response> {
-  const result: unknown = await router.fetch(
-    new Request(`http://localhost${path}`),
-    { env },
-  );
-  return result instanceof Response ? result : json(result);
+  return app.fetch(new Request(`http://localhost${path}`), env);
 }

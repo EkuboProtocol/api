@@ -1,5 +1,5 @@
 import { Env } from "../env";
-import { IRequest, StatusError } from "itty-router";
+import { StatusError } from "./errors";
 import { createQueries, Queries } from "../queries";
 import { getTokenByUserSpecifiedIdentifier } from "../routes/meta/tokens";
 
@@ -34,7 +34,7 @@ export async function parseOutTokenAddress(
 
 export async function parseOutTokens(
   env: Env,
-  params: IRequest["params"],
+  params: { readonly tokenA: string; readonly tokenB: string },
   chainId: bigint,
 ): Promise<{
   queries: Queries;

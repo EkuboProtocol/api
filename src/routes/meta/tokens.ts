@@ -1,8 +1,11 @@
-import { OpenAPIRouteSchema, Path, Query } from "../../shared/openapi";
-import { IRequest, json, StatusError } from "itty-router";
-import { z } from "zod";
-import { EkuboAPIRoute, RequestContext } from "../../shared/context";
-import { ErrorResponseType } from "../../shared/errors";
+import { createRoute, z } from "@hono/zod-openapi";
+import { jsonResponse, queryArray } from "../../shared/openapi";
+import { defineRoute } from "../../shared/context";
+import {
+  errorResponses,
+  notFoundResponse,
+  StatusError,
+} from "../../shared/errors";
 import {
   AddressType,
   ChainIdType,
@@ -79,6 +82,10 @@ const TokenListResponseType = z
   .array(TokenType)
   .openapi({ description: "Array of tokens" });
 type TokenListResponse = z.infer<typeof TokenListResponseType>;
+// includePrices=false drops usd_price from every row.
+const ListTokensResponseType = TokenListResponseType.or(
+  z.array(TokenType.omit({ usd_price: true })),
+).openapi({ description: "Array of tokens" });
 
 type RawBridgeInfoMap = NonNullable<RawErc20TokenRow["bridge_infos"]>;
 
@@ -231,72 +238,66 @@ const IncludePricesType = z
 const PRICE_FREE_TOKEN_LIST_CACHE_CONTROL =
   "public, max-age=300, stale-while-revalidate=3600";
 
-function parseAfterToken(afterToken: unknown) {
-  if (typeof afterToken !== "string") return null;
+function parseAfterToken(afterToken: string | undefined) {
+  if (afterToken === undefined) return null;
   const [chainId, address] = afterToken.split(":");
   return chainId && address
     ? { chainId: BigInt(chainId), address: BigInt(address) }
     : null;
 }
 
-function parseListTokensQuery(query: IRequest["query"]) {
-  const search =
-    typeof query.search === "string" ? query.search.trim() : undefined;
-
-  return {
-    chainId: ChainIdType.optional().parse(query.chainId),
-    minVisibilityPriority: VisibilityPriorityType.parse(
-      query.minVisibilityPriority ?? 0,
-    ),
-    pageSize: Number(query.pageSize ?? 1000),
-    afterToken: parseAfterToken(query.afterToken),
-    search: search === "" ? undefined : search,
-    includePrices: IncludePricesType.parse(query.includePrices),
-  };
-}
-
-export class ListTokens extends EkuboAPIRoute {
-  static route = "/tokens";
-  static schema: OpenAPIRouteSchema = {
+export const ListTokens = defineRoute(
+  createRoute({
+    method: "get",
+    path: "/tokens",
     tags: ["Meta"],
     summary: "List tokens",
     description: "Get a list of tokens for the given chain ID",
-    parameters: {
-      chainId: Query(ChainIdType, { required: false }),
-      search: Query(z.string().describe("Token symbol search").min(1).max(32), {
-        required: false,
-      }),
-      pageSize: Query(z.coerce.number().int().min(1).max(10_000), {
-        default: 1000,
-      }),
-      afterToken: Query(z.string().regex(TOKEN_ID_PARAM_REGEX), {
-        description:
-          "The :-concatenated chain ID and token address for pagination",
-        example: "1:0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48",
-        required: false,
-      }),
-      minVisibilityPriority: Query(VisibilityPriorityType, {
-        required: false,
-      }),
-      includePrices: Query(IncludePricesType, {
-        required: false,
-        description:
+    operationId: "get_ListTokens",
+    request: {
+      query: z.object({
+        chainId: ChainIdType.optional(),
+        search: z
+          .string()
+          .describe("Token symbol search")
+          .min(1)
+          .max(32)
+          .optional(),
+        pageSize: z.coerce.number().int().min(1).max(10_000).default(1000),
+        afterToken: z
+          .string()
+          .regex(TOKEN_ID_PARAM_REGEX)
+          .optional()
+          .describe(
+            "The :-concatenated chain ID and token address for pagination",
+          )
+          .openapi({ example: "1:0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48" }),
+        minVisibilityPriority: VisibilityPriorityType.default(0),
+        includePrices: IncludePricesType.optional().describe(
           "Set to false to omit usd_price from every row. The price-free list only changes when token metadata does, so it is cached for longer; pair it with /tokens/prices to keep prices fresh.",
+        ),
       }),
     },
     responses: {
-      "200": {
-        description: "List of tokens",
-        schema: TokenListResponseType,
-      },
+      200: jsonResponse("List of tokens", ListTokensResponseType),
+      ...errorResponses,
     },
-  };
+  }),
+  async (c) => {
+    const {
+      includePrices = true,
+      search,
+      afterToken,
+      ...filters
+    } = c.req.valid("query");
+    const trimmedSearch = search?.trim();
 
-  async handleRequest({ query }: IRequest, { env }: RequestContext) {
-    const { includePrices, ...filters } = parseListTokensQuery(query);
-
-    const queries = await createQueries(env);
-    const rows = await queries.listErc20Tokens(filters);
+    const queries = await createQueries(c.env);
+    const rows = await queries.listErc20Tokens({
+      ...filters,
+      afterToken: parseAfterToken(afterToken),
+      search: trimmedSearch === "" ? undefined : trimmedSearch,
+    });
 
     if (!includePrices) {
       const response = rows.map((row) => {
@@ -304,22 +305,18 @@ export class ListTokens extends EkuboAPIRoute {
         return token;
       }) satisfies Omit<TokenInfo, "usd_price">[];
 
-      return json(response, {
-        headers: {
-          "cache-control": PRICE_FREE_TOKEN_LIST_CACHE_CONTROL,
-        },
+      return c.json(response, 200, {
+        "cache-control": PRICE_FREE_TOKEN_LIST_CACHE_CONTROL,
       });
     }
 
     const response = rows.map(buildTokenInfo) satisfies TokenListResponse;
 
-    return json(response, {
-      headers: {
-        "cache-control": `public, max-age=60`,
-      },
+    return c.json(response, 200, {
+      "cache-control": `public, max-age=60`,
     });
-  }
-}
+  },
+);
 
 const TokenUsdPricesResponseType = z
   .record(
@@ -334,34 +331,33 @@ const TokenUsdPricesResponseType = z
   });
 type TokenUsdPricesResponse = z.infer<typeof TokenUsdPricesResponseType>;
 
-export class ListTokenUsdPrices extends EkuboAPIRoute {
-  static route = "/tokens/prices";
-  static schema: OpenAPIRouteSchema = {
+export const ListTokenUsdPrices = defineRoute(
+  createRoute({
+    method: "get",
+    path: "/tokens/prices",
     tags: ["Meta"],
     summary: "List token USD prices",
     description:
       "The usd_price of every priced token on a chain, keyed by address. Poll this instead of the token list when only prices need to stay fresh; tokens without a price are omitted.",
-    parameters: {
-      chainId: Query(ChainIdType, { required: true }),
-      minVisibilityPriority: Query(VisibilityPriorityType, {
-        required: false,
+    operationId: "get_ListTokenUsdPrices",
+    request: {
+      query: z.object({
+        chainId: ChainIdType,
+        minVisibilityPriority: VisibilityPriorityType.default(0),
       }),
     },
     responses: {
-      "200": {
-        description: "USD prices by token address",
-        schema: TokenUsdPricesResponseType,
-      },
+      200: jsonResponse(
+        "USD prices by token address",
+        TokenUsdPricesResponseType,
+      ),
+      ...errorResponses,
     },
-  };
+  }),
+  async (c) => {
+    const { chainId, minVisibilityPriority } = c.req.valid("query");
 
-  async handleRequest({ query }: IRequest, { env }: RequestContext) {
-    const chainId = ChainIdType.parse(query.chainId);
-    const minVisibilityPriority = VisibilityPriorityType.parse(
-      query.minVisibilityPriority ?? 0,
-    );
-
-    const queries = await createQueries(env);
+    const queries = await createQueries(c.env);
     const rows = await queries.listErc20TokenUsdPrices({
       chainId,
       minVisibilityPriority,
@@ -372,35 +368,23 @@ export class ListTokenUsdPrices extends EkuboAPIRoute {
       response[toHex(BigInt(row.token_address), 20)] = Number(row.usd_price);
     }
 
-    return json(response, {
-      headers: {
-        "cache-control": "public, max-age=30",
-      },
+    return c.json(response, 200, {
+      "cache-control": "public, max-age=30",
     });
-  }
-}
+  },
+);
 
-function getQueryParamAsArray(value: unknown): string[] | undefined {
-  if (typeof value === "string") {
-    return [value];
-  }
-
-  if (Array.isArray(value)) {
-    return value.filter((entry): entry is string => typeof entry === "string");
-  }
-
-  return undefined;
-}
-
-export class BatchGetTokens extends EkuboAPIRoute {
-  static route = "/tokens/batch";
-  static schema: OpenAPIRouteSchema = {
+export const BatchGetTokens = defineRoute(
+  createRoute({
+    method: "get",
+    path: "/tokens/batch",
     tags: ["Meta"],
     summary: "Batch tokens",
     description: "Fetch metadata for a specific set of tokens",
-    parameters: {
-      id: Query(
-        [
+    operationId: "get_BatchGetTokens",
+    request: {
+      query: z.object({
+        id: queryArray(
           z
             .string()
             .describe(
@@ -410,34 +394,29 @@ export class BatchGetTokens extends EkuboAPIRoute {
               message:
                 "Token identifiers must use chain_id:token_address with a decimal or 0x-prefixed chain ID and 0x-prefixed token address",
             }),
-        ],
-        {
-          required: true,
-          description:
+        )
+          .describe(
             "Repeat the id parameter to fetch multiple tokens (e.g. ?id=1:0x...&id=0x1:0x...)",
-          example: "1:0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48",
-        },
-      ),
+          )
+          .openapi({ example: "1:0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48" }),
+      }),
     },
     responses: {
-      "200": {
-        description: "Tokens",
-        schema: TokenListResponseType,
-      },
+      200: jsonResponse("Tokens", TokenListResponseType),
+      ...errorResponses,
     },
-  };
+  }),
+  async (c) => {
+    const { id: ids } = c.req.valid("query");
 
-  async handleRequest({ query }: IRequest, { env }: RequestContext) {
-    const ids = getQueryParamAsArray(query.id);
-
-    if (!ids || ids.length === 0) {
+    if (ids.length === 0) {
       throw new StatusError(400, "At least one id parameter is required");
     }
 
     const payload = TokenIdListRequestSchema.parse({ ids });
 
     const tokenIds = payload.ids.map(parseTokenIdParam);
-    const queries = await createQueries(env);
+    const queries = await createQueries(c.env);
 
     const uniqueTokenIds = Array.from(
       new Map(
@@ -466,41 +445,35 @@ export class BatchGetTokens extends EkuboAPIRoute {
 
     const response = tokens satisfies TokenListResponse;
 
-    return json(response, {
-      headers: {
-        "cache-control": `public, max-age=60`,
-      },
+    return c.json(response, 200, {
+      "cache-control": `public, max-age=60`,
     });
-  }
-}
+  },
+);
 
-export class GetToken extends EkuboAPIRoute {
-  static route = "/tokens/:chainId/:tokenAddress";
-
-  static schema: OpenAPIRouteSchema = {
+export const GetToken = defineRoute(
+  createRoute({
+    method: "get",
+    path: "/tokens/{chainId}/{tokenAddress}",
     tags: ["Meta"],
     summary: "Get token",
     description: "Returns metadata for a specific token on the given chain",
-    parameters: {
-      chainId: Path(ChainIdType, { required: true }),
-      tokenAddress: Path(AddressType, { required: true }),
+    operationId: "get_GetToken",
+    request: {
+      params: z.object({
+        chainId: ChainIdType,
+        tokenAddress: AddressType,
+      }),
     },
     responses: {
-      "200": {
-        description: "Token information",
-        schema: TokenType,
-      },
-      "404": {
-        description: "Token not found",
-        schema: ErrorResponseType,
-      },
+      200: jsonResponse("Token information", TokenType),
+      ...notFoundResponse,
+      ...errorResponses,
     },
-  };
-
-  async handleRequest(request: IRequest, { env }: RequestContext) {
-    const chainId = BigInt(request.params.chainId);
-    const tokenAddress = request.params.tokenAddress;
-    const queries = await createQueries(env);
+  }),
+  async (c) => {
+    const { chainId, tokenAddress } = c.req.valid("param");
+    const queries = await createQueries(c.env);
 
     const token = await getTokenByAddress(queries, chainId, tokenAddress);
 
@@ -509,10 +482,8 @@ export class GetToken extends EkuboAPIRoute {
     }
 
     const response = token satisfies TokenInfo;
-    return json(response, {
-      headers: {
-        "cache-control": "public, max-age=600",
-      },
+    return c.json(response, 200, {
+      "cache-control": "public, max-age=600",
     });
-  }
-}
+  },
+);

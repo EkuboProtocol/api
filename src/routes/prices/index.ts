@@ -1,5 +1,5 @@
-import { EkuboAPIRoute, RequestContext } from "../../shared/context";
-import { IRequest, json, StatusError } from "itty-router";
+import { createRoute, z } from "@hono/zod-openapi";
+import { defineRoute } from "../../shared/context";
 import { parseOutTokenAddress } from "../../shared/parseOutTokens";
 import {
   AddressType,
@@ -7,20 +7,25 @@ import {
   NumericStringType,
   TokenIdentifierType,
 } from "../../shared/validation/address";
-import { createQueries } from "../../queries";
-import { OpenAPIRouteSchema, Path, Query } from "../../shared/openapi";
-import { z } from "zod";
+import { createQueries, Queries } from "../../queries";
+import { jsonResponse } from "../../shared/openapi";
 import { ETH_TOKEN_ADDRESS_VALUE } from "../../shared/constants";
 import toHex from "../../shared/toHex";
 import { projectTwammPoolStateAtTime } from "./twammProjection";
-import { ErrorResponseType } from "../../shared/errors";
+import {
+  errorResponses,
+  notFoundResponse,
+  StatusError,
+} from "../../shared/errors";
 import { getTokenByAddress } from "../meta/tokens";
 
 const PriceHistoryPointType = z.object({
   start: z.union([z.string(), z.date()]),
   vwap: z.number(),
-  max: z.number(),
-  min: z.number(),
+  // A bucket whose swaps are all dust has no min or max. Inverting the pair
+  // divides by zero for those, and JSON serializes the Infinity as null.
+  max: z.number().nullable(),
+  min: z.number().nullable(),
   k_volume: z.string(),
 });
 
@@ -80,49 +85,171 @@ function sqrtRatioX128ToPrice(sqrtRatio: bigint | string): number {
   return ratio * ratio;
 }
 
-export class GetTokenUsdPriceHistory extends EkuboAPIRoute {
-  static route = "/tokens/:chainId/:tokenAddress/price-history";
+// Pair and pool histories default to this many buckets ending now.
+const DEFAULT_HISTORY_POINT_COUNT = 60;
+const MAX_HISTORY_POINTS = 120;
+const MAX_HISTORY_DURATION_SECONDS = 30 * 86_400;
 
-  static schema: OpenAPIRouteSchema = {
+const DEFAULT_PAIR_PRICE_HISTORY_INTERVAL_SECONDS = 1_800;
+const DEFAULT_POOL_PRICE_HISTORY_INTERVAL_SECONDS = 300;
+
+const DEFAULT_END_DESCRIPTION = "; defaults to now";
+const DEFAULT_START_DESCRIPTION = `; defaults to ${DEFAULT_HISTORY_POINT_COUNT} intervals before end`;
+
+// `end` defaults to now and `start` to DEFAULT_HISTORY_POINT_COUNT intervals
+// before `end`.
+function parseHistoryRange(
+  intervalSeconds: number,
+  startSeconds: number | undefined,
+  endSeconds: number | undefined,
+): { start: Date; end: Date } {
+  const end =
+    endSeconds === undefined
+      ? new Date(Date.now())
+      : new Date(endSeconds * 1_000);
+  const start =
+    startSeconds === undefined
+      ? new Date(
+          end.getTime() - intervalSeconds * DEFAULT_HISTORY_POINT_COUNT * 1_000,
+        )
+      : new Date(startSeconds * 1_000);
+  return { start, end };
+}
+
+function assertOrderedRange(start: Date, end: Date): void {
+  if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) {
+    throw new StatusError(400, "Invalid `start` or `end` parameters");
+  }
+
+  if (start.getTime() >= end.getTime()) {
+    throw new StatusError(400, "Start time must be before end time");
+  }
+}
+
+function assertRangeWithinLimits(
+  start: Date,
+  end: Date,
+  intervalSeconds: number,
+): void {
+  const durationMilliseconds = end.getTime() - start.getTime();
+
+  if (durationMilliseconds > MAX_HISTORY_DURATION_SECONDS * 1_000) {
+    throw new StatusError(
+      400,
+      "Start time cannot be more than 30 days before end time",
+    );
+  }
+
+  if (durationMilliseconds / intervalSeconds / 1_000 > MAX_HISTORY_POINTS) {
+    throw new StatusError(400, "Interval too small for the range");
+  }
+}
+
+async function resolvePair(
+  queries: Queries,
+  chainId: bigint,
+  baseToken: string,
+  quoteToken: string,
+) {
+  const [baseTokenAddress, quoteTokenAddress] = await Promise.all([
+    parseOutTokenAddress(queries, chainId, baseToken),
+    parseOutTokenAddress(queries, chainId, quoteToken),
+  ]);
+
+  if (baseTokenAddress === quoteTokenAddress) {
+    throw new StatusError(400, "Base token cannot be equal to quote token");
+  }
+
+  const baseBeforeQuote = baseTokenAddress < quoteTokenAddress;
+
+  return {
+    baseTokenAddress,
+    quoteTokenAddress,
+    baseBeforeQuote,
+    token0Address: baseBeforeQuote ? baseTokenAddress : quoteTokenAddress,
+    token1Address: baseBeforeQuote ? quoteTokenAddress : baseTokenAddress,
+  };
+}
+
+function dustThreshold(priceInEth: number | undefined): bigint {
+  const thresholdEth = 1e16;
+  return BigInt(Math.max(0, Math.round(thresholdEth * (priceInEth ?? 0))));
+}
+
+// Dust swaps are excluded by requiring both sides to move at least the
+// value of 0.01 ETH, converted into each token by its price in ETH.
+async function getDustThresholds(
+  queries: Queries,
+  chainId: bigint,
+  token0Address: bigint,
+  token1Address: bigint,
+): Promise<{ threshold0: bigint; threshold1: bigint }> {
+  const [price0, price1] = await Promise.all([
+    queries.getVolumeWeightedPrice({
+      baseToken: ETH_TOKEN_ADDRESS_VALUE,
+      quoteToken: token0Address,
+      chainId,
+    }),
+    queries.getVolumeWeightedPrice({
+      baseToken: ETH_TOKEN_ADDRESS_VALUE,
+      quoteToken: token1Address,
+      chainId,
+    }),
+  ]);
+
+  return {
+    threshold0: dustThreshold(price0?.price),
+    threshold1: dustThreshold(price1?.price),
+  };
+}
+
+export const GetTokenUsdPriceHistory = defineRoute(
+  createRoute({
+    method: "get",
+    path: "/tokens/{chainId}/{tokenAddress}/price-history",
     tags: ["Prices"],
     summary: "Get token USD price history",
     description:
       "Returns bounded USD price history for a token, sampled from the latest price in each interval",
-    parameters: {
-      chainId: Path(ChainIdType, { required: true }),
-      tokenAddress: Path(AddressType, { required: true }),
-      interval: Query(z.coerce.number().int().min(60).max(86_400), {
-        required: false,
-        default: DEFAULT_TOKEN_PRICE_HISTORY_INTERVAL_SECONDS,
-        description: "Bucket size in seconds",
+    operationId: "get_GetTokenUsdPriceHistory",
+    request: {
+      params: z.object({
+        chainId: ChainIdType,
+        tokenAddress: AddressType,
       }),
-      duration: Query(z.coerce.number().int().min(3_600).max(86_400), {
-        required: false,
-        default: DEFAULT_TOKEN_PRICE_HISTORY_DURATION_SECONDS,
-        description: "History duration in seconds, up to 24 hours",
+      query: z.object({
+        interval: z.coerce
+          .number()
+          .int()
+          .min(60)
+          .max(86_400)
+          .optional()
+          .describe("Bucket size in seconds")
+          .default(DEFAULT_TOKEN_PRICE_HISTORY_INTERVAL_SECONDS),
+        duration: z.coerce
+          .number()
+          .int()
+          .min(3_600)
+          .max(86_400)
+          .optional()
+          .describe("History duration in seconds, up to 24 hours")
+          .default(DEFAULT_TOKEN_PRICE_HISTORY_DURATION_SECONDS),
       }),
     },
     responses: {
-      "200": {
-        description: "The token's USD price history",
-        schema: GetTokenUsdPriceHistoryResponseType,
-      },
-      "404": {
-        description: "Token not found",
-        schema: ErrorResponseType,
-      },
+      200: jsonResponse(
+        "The token's USD price history",
+        GetTokenUsdPriceHistoryResponseType,
+      ),
+      ...notFoundResponse,
+      ...errorResponses,
     },
-  };
-
-  async handleRequest({ params, query }: IRequest, { env }: RequestContext) {
-    const chainId = BigInt(params.chainId);
-    const tokenAddress = BigInt(params.tokenAddress);
-    const intervalSeconds = Number(
-      query.interval ?? DEFAULT_TOKEN_PRICE_HISTORY_INTERVAL_SECONDS,
-    );
-    const durationSeconds = Number(
-      query.duration ?? DEFAULT_TOKEN_PRICE_HISTORY_DURATION_SECONDS,
-    );
+  }),
+  async (c) => {
+    const { chainId, tokenAddress: tokenAddressParam } = c.req.valid("param");
+    const { interval: intervalSeconds, duration: durationSeconds } =
+      c.req.valid("query");
+    const tokenAddress = BigInt(tokenAddressParam);
 
     if (durationSeconds / intervalSeconds > MAX_TOKEN_PRICE_HISTORY_POINTS) {
       throw new StatusError(
@@ -133,7 +260,7 @@ export class GetTokenUsdPriceHistory extends EkuboAPIRoute {
 
     const end = new Date();
     const start = new Date(end.getTime() - durationSeconds * 1_000);
-    const queries = await createQueries(env);
+    const queries = await createQueries(c.env);
     const [token, queryData] = await Promise.all([
       getTokenByAddress(queries, chainId, tokenAddress),
       queries.getTokenUsdPriceHistory({
@@ -157,120 +284,88 @@ export class GetTokenUsdPriceHistory extends EkuboAPIRoute {
       data: queryData,
     } satisfies z.infer<typeof GetTokenUsdPriceHistoryResponseType>;
 
-    return json(response, {
-      headers: {
-        "cache-control": `public, max-age=${Math.ceil(intervalSeconds / 4)}, must-revalidate`,
-      },
+    return c.json(response, 200, {
+      "cache-control": `public, max-age=${Math.ceil(intervalSeconds / 4)}, must-revalidate`,
     });
-  }
-}
+  },
+);
 
-export class GetPairPriceHistory extends EkuboAPIRoute {
-  static route = "/price/:chainId/:baseToken/:quoteToken/history";
-
-  static schema: OpenAPIRouteSchema = {
+export const GetPairPriceHistory = defineRoute(
+  createRoute({
+    method: "get",
+    path: "/price/{chainId}/{baseToken}/{quoteToken}/history",
     tags: ["Prices"],
     summary: "Get price history",
     description: "Get the VWAP-based price history for the given pair",
-    parameters: {
-      baseToken: Path(TokenIdentifierType, { example: "0x0" }),
-      quoteToken: Path(TokenIdentifierType, {
-        example: "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48",
+    operationId: "get_GetPairPriceHistory",
+    request: {
+      params: z.object({
+        baseToken: TokenIdentifierType.openapi({ example: "0x0" }),
+        quoteToken: TokenIdentifierType.openapi({
+          example: "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48",
+        }),
+        chainId: NumericStringType.openapi({ example: "1" }),
       }),
-      chainId: Path(NumericStringType, { example: "1" }),
-      interval: Query(z.coerce.number().int().min(60), { required: false }),
+      query: z.object({
+        interval: z.coerce
+          .number()
+          .int()
+          .min(60)
+          .optional()
+          .default(DEFAULT_PAIR_PRICE_HISTORY_INTERVAL_SECONDS),
+        start: z.coerce
+          .number()
+          .int()
+          .min(0)
+          .optional()
+          .describe(
+            `Unix timestamp (seconds) of the start of the range${DEFAULT_START_DESCRIPTION}`,
+          ),
+        end: z.coerce
+          .number()
+          .int()
+          .min(0)
+          .optional()
+          .describe(
+            `Unix timestamp (seconds) of the end of the range${DEFAULT_END_DESCRIPTION}`,
+          ),
+      }),
     },
     responses: {
-      "200": {
-        description: "The price history of the pair",
-        schema: GetPairPriceHistoryResponseType,
-      },
+      200: jsonResponse(
+        "The price history of the pair",
+        GetPairPriceHistoryResponseType,
+      ),
+      ...errorResponses,
     },
-  };
-
-  async handleRequest({ params, query }: IRequest, { env }: RequestContext) {
+  }),
+  async (c) => {
+    const params = c.req.valid("param");
+    const query = c.req.valid("query");
     const chainId = BigInt(params.chainId);
-    const queries = await createQueries(env);
+    const intervalSeconds = query.interval;
+    const queries = await createQueries(c.env);
 
-    const [baseTokenAddress, quoteTokenAddress] = await Promise.all([
-      parseOutTokenAddress(queries, chainId, params.baseToken),
-      parseOutTokenAddress(queries, chainId, params.quoteToken),
-    ]);
+    const { baseBeforeQuote, token0Address, token1Address } = await resolvePair(
+      queries,
+      chainId,
+      params.baseToken,
+      params.quoteToken,
+    );
 
-    if (baseTokenAddress === quoteTokenAddress) {
-      throw new StatusError(400, "Base token cannot be equal to quote token");
-    }
+    const { start, end } = parseHistoryRange(
+      intervalSeconds,
+      query.start,
+      query.end,
+    );
+    assertRangeWithinLimits(start, end, intervalSeconds);
 
-    const baseBeforeQuote = baseTokenAddress < quoteTokenAddress;
-
-    const token0Address = baseBeforeQuote
-      ? baseTokenAddress
-      : quoteTokenAddress;
-    const token1Address = baseBeforeQuote
-      ? quoteTokenAddress
-      : baseTokenAddress;
-
-    let intervalSeconds: number;
-    let start: Date;
-    let end: Date;
-
-    try {
-      intervalSeconds =
-        typeof query.interval === "string" ? parseInt(query.interval) : 1800;
-      end =
-        typeof query.end === "string"
-          ? new Date(parseInt(query.end) * 1_000)
-          : new Date(Date.now());
-      start =
-        typeof query.start === "string"
-          ? new Date(parseInt(query.start) * 1_000)
-          : new Date(end.getTime() - intervalSeconds * 60 * 1_000); // default 60 data points
-    } catch (e) {
-      throw new StatusError(
-        400,
-        "Invalid `interval`, `end` or `start` parameters",
-      );
-    }
-
-    const durationMilliseconds = end.getTime() - start.getTime();
-    if (durationMilliseconds > 30 * 86_400 * 1_000) {
-      throw new StatusError(
-        400,
-        "Start time cannot be more than 30 days before end time",
-      );
-    }
-
-    if (intervalSeconds <= 0) {
-      throw new StatusError(400, "Interval must be positive");
-    }
-
-    const numIntervals = durationMilliseconds / intervalSeconds / 1_000;
-
-    if (numIntervals > 120) {
-      throw new StatusError(400, "Interval too small for the range");
-    }
-
-    // convert 1e15 eth to the threshold for token0 by multiplying 1e15 eth by the price in per eth
-    const price0 =
-      (
-        await queries.getVolumeWeightedPrice({
-          baseToken: ETH_TOKEN_ADDRESS_VALUE,
-          quoteToken: token0Address,
-          chainId,
-        })
-      )?.price ?? 0;
-    const price1 =
-      (
-        await queries.getVolumeWeightedPrice({
-          baseToken: ETH_TOKEN_ADDRESS_VALUE,
-          quoteToken: token1Address,
-          chainId,
-        })
-      )?.price ?? 0;
-
-    const thresholdEth = 1e16;
-    const threshold0 = BigInt(Math.max(0, Math.round(thresholdEth * price0)));
-    const threshold1 = BigInt(Math.max(0, Math.round(thresholdEth * price1)));
+    const { threshold0, threshold1 } = await getDustThresholds(
+      queries,
+      chainId,
+      token0Address,
+      token1Address,
+    );
 
     const queryData = await queries.getPriceHistory({
       token0: token0Address,
@@ -306,15 +401,13 @@ export class GetPairPriceHistory extends EkuboAPIRoute {
           })),
     } satisfies z.infer<typeof GetPairPriceHistoryResponseType>;
 
-    return json(response, {
-      headers: {
-        "cache-control": `public, max-age=${Math.ceil(
-          intervalSeconds / 4,
-        )}, must-revalidate`,
-      },
+    return c.json(response, 200, {
+      "cache-control": `public, max-age=${Math.ceil(
+        intervalSeconds / 4,
+      )}, must-revalidate`,
     });
-  }
-}
+  },
+);
 
 const PairOhlcCandleType = z.object({
   start: z.union([z.string(), z.date()]),
@@ -338,9 +431,6 @@ const GetPairOhlcHistoryResponseType = z.object({
 });
 
 const DEFAULT_OHLC_INTERVAL_SECONDS = 3_600;
-const DEFAULT_OHLC_CANDLE_COUNT = 60;
-const MAX_OHLC_CANDLES = 120;
-const MAX_OHLC_DURATION_SECONDS = 30 * 86_400;
 
 /**
  * A candle as the database produces it: priced in token1 per token0, with
@@ -399,10 +489,10 @@ export function orientOhlcCandle(
   };
 }
 
-export class GetPairOhlcHistory extends EkuboAPIRoute {
-  static route = "/price/:chainId/:baseToken/:quoteToken/ohlc";
-
-  static schema: OpenAPIRouteSchema = {
+export const GetPairOhlcHistory = defineRoute(
+  createRoute({
+    method: "get",
+    path: "/price/{chainId}/{baseToken}/{quoteToken}/ohlc",
     tags: ["Prices"],
     summary: "Get pair OHLC price history",
     description:
@@ -412,122 +502,82 @@ export class GetPairOhlcHistory extends EkuboAPIRoute {
       "traded are omitted rather than carried forward, so every candle returned describes real trading. Prices are " +
       "expressed in the quote token's smallest unit per the base token's smallest unit, so a client holding the two " +
       "token decimals must scale them for display.",
-    parameters: {
-      chainId: Path(NumericStringType, { example: "1" }),
-      baseToken: Path(TokenIdentifierType, { example: "0x0" }),
-      quoteToken: Path(TokenIdentifierType, {
-        example: "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48",
+    operationId: "get_GetPairOhlcHistory",
+    request: {
+      params: z.object({
+        chainId: NumericStringType.openapi({ example: "1" }),
+        baseToken: TokenIdentifierType.openapi({ example: "0x0" }),
+        quoteToken: TokenIdentifierType.openapi({
+          example: "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48",
+        }),
       }),
-      interval: Query(z.coerce.number().int().min(60), {
-        required: false,
-        default: DEFAULT_OHLC_INTERVAL_SECONDS,
-        description: "Bucket size in seconds",
-      }),
-      start: Query(z.coerce.number().int().min(0), {
-        required: false,
-        description: "Unix timestamp (seconds) of the first bucket",
-      }),
-      end: Query(z.coerce.number().int().min(0), {
-        required: false,
-        description: "Unix timestamp (seconds) of the last bucket",
+      query: z.object({
+        interval: z.coerce
+          .number()
+          .int()
+          .min(60)
+          .optional()
+          .describe("Bucket size in seconds")
+          .default(DEFAULT_OHLC_INTERVAL_SECONDS),
+        start: z.coerce
+          .number()
+          .int()
+          .min(0)
+          .optional()
+          .describe(
+            `Unix timestamp (seconds) of the first bucket${DEFAULT_START_DESCRIPTION}`,
+          ),
+        end: z.coerce
+          .number()
+          .int()
+          .min(0)
+          .optional()
+          .describe(
+            `Unix timestamp (seconds) of the last bucket${DEFAULT_END_DESCRIPTION}`,
+          ),
       }),
     },
     responses: {
-      "200": {
-        description: "The OHLC price history of the pair",
-        schema: GetPairOhlcHistoryResponseType,
-      },
-      "400": {
-        description: "Invalid tokens or range",
-        schema: ErrorResponseType,
-      },
+      200: jsonResponse(
+        "The OHLC price history of the pair",
+        GetPairOhlcHistoryResponseType,
+      ),
+      ...errorResponses,
     },
-  };
-
-  async handleRequest({ params, query }: IRequest, { env }: RequestContext) {
+  }),
+  async (c) => {
+    const params = c.req.valid("param");
+    const query = c.req.valid("query");
     const chainId = BigInt(params.chainId);
-    const queries = await createQueries(env);
+    const intervalSeconds = query.interval;
+    const queries = await createQueries(c.env);
 
-    const [baseTokenAddress, quoteTokenAddress] = await Promise.all([
-      parseOutTokenAddress(queries, chainId, params.baseToken),
-      parseOutTokenAddress(queries, chainId, params.quoteToken),
-    ]);
-
-    if (baseTokenAddress === quoteTokenAddress) {
-      throw new StatusError(400, "Base token cannot be equal to quote token");
-    }
-
-    const baseBeforeQuote = baseTokenAddress < quoteTokenAddress;
-
-    const token0Address = baseBeforeQuote
-      ? baseTokenAddress
-      : quoteTokenAddress;
-    const token1Address = baseBeforeQuote
-      ? quoteTokenAddress
-      : baseTokenAddress;
-
-    const intervalSeconds =
-      typeof query.interval === "string"
-        ? Number.parseInt(query.interval, 10)
-        : DEFAULT_OHLC_INTERVAL_SECONDS;
-
-    if (!Number.isInteger(intervalSeconds) || intervalSeconds <= 0) {
-      throw new StatusError(400, "Interval must be a positive integer");
-    }
-
-    const end =
-      typeof query.end === "string"
-        ? new Date(Number.parseInt(query.end, 10) * 1_000)
-        : new Date(Date.now());
-    const start =
-      typeof query.start === "string"
-        ? new Date(Number.parseInt(query.start, 10) * 1_000)
-        : new Date(
-            end.getTime() - intervalSeconds * DEFAULT_OHLC_CANDLE_COUNT * 1_000,
-          );
-
-    if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) {
-      throw new StatusError(400, "Invalid `start` or `end` parameters");
-    }
-
-    if (start.getTime() >= end.getTime()) {
-      throw new StatusError(400, "Start time must be before end time");
-    }
-
-    const durationMilliseconds = end.getTime() - start.getTime();
-
-    if (durationMilliseconds > MAX_OHLC_DURATION_SECONDS * 1_000) {
-      throw new StatusError(
-        400,
-        "Start time cannot be more than 30 days before end time",
-      );
-    }
-
-    if (durationMilliseconds / intervalSeconds / 1_000 > MAX_OHLC_CANDLES) {
-      throw new StatusError(400, "Interval too small for the range");
-    }
-
-    // Dust swaps are excluded by requiring both sides to move at least the
-    // value of 0.01 ETH, converted into each token by its price in ETH.
-    const [price0, price1] = await Promise.all([
-      queries.getVolumeWeightedPrice({
-        baseToken: ETH_TOKEN_ADDRESS_VALUE,
-        quoteToken: token0Address,
-        chainId,
-      }),
-      queries.getVolumeWeightedPrice({
-        baseToken: ETH_TOKEN_ADDRESS_VALUE,
-        quoteToken: token1Address,
-        chainId,
-      }),
-    ]);
-
-    const thresholdEth = 1e16;
-    const threshold0 = BigInt(
-      Math.max(0, Math.round(thresholdEth * (price0?.price ?? 0))),
+    const {
+      baseTokenAddress,
+      quoteTokenAddress,
+      baseBeforeQuote,
+      token0Address,
+      token1Address,
+    } = await resolvePair(
+      queries,
+      chainId,
+      params.baseToken,
+      params.quoteToken,
     );
-    const threshold1 = BigInt(
-      Math.max(0, Math.round(thresholdEth * (price1?.price ?? 0))),
+
+    const { start, end } = parseHistoryRange(
+      intervalSeconds,
+      query.start,
+      query.end,
+    );
+    assertOrderedRange(start, end);
+    assertRangeWithinLimits(start, end, intervalSeconds);
+
+    const { threshold0, threshold1 } = await getDustThresholds(
+      queries,
+      chainId,
+      token0Address,
+      token1Address,
     );
 
     const rows = await queries.getPairOhlcHistory({
@@ -565,59 +615,404 @@ export class GetPairOhlcHistory extends EkuboAPIRoute {
       ),
     } satisfies z.infer<typeof GetPairOhlcHistoryResponseType>;
 
-    return json(response, {
-      headers: {
-        "cache-control": `public, max-age=${Math.ceil(
-          intervalSeconds / 4,
-        )}, must-revalidate`,
-      },
+    return c.json(response, 200, {
+      "cache-control": `public, max-age=${Math.ceil(
+        intervalSeconds / 4,
+      )}, must-revalidate`,
     });
+  },
+);
+
+type PoolPriceHistoryPoint = z.infer<typeof PoolPriceHistoryPointType>;
+type PoolKeyRow = Awaited<ReturnType<Queries["getPoolKeyByCoreAndId"]>>[number];
+type PoolTwammStateRow = NonNullable<
+  Awaited<ReturnType<Queries["getPoolTwammState"]>>
+>;
+type TwammSaleRateDeltaRow = Awaited<
+  ReturnType<Queries["getTwammSaleRateDeltas"]>
+>[number];
+type PoolTickRow = Awaited<ReturnType<Queries["getPoolTicksById"]>>[number];
+
+interface ProjectedSegment {
+  open: number;
+  high: number;
+  low: number;
+  close: number;
+}
+
+type SegmentProjector = (
+  segmentStartSeconds: number,
+  segmentEndSeconds: number,
+) => ProjectedSegment | null;
+
+// Projects the TWAMM pool's price forward from its last virtual execution.
+// Segments must be requested in chronological order, because the projection
+// only ever moves forward.
+function createTwammSegmentProjector({
+  chainId,
+  pool,
+  twammState,
+  lastExecutionTimeSeconds,
+  twammSaleRateDeltas,
+  poolTicks,
+}: {
+  chainId: bigint;
+  pool: PoolKeyRow;
+  twammState: PoolTwammStateRow;
+  lastExecutionTimeSeconds: number;
+  twammSaleRateDeltas: TwammSaleRateDeltaRow[];
+  poolTicks: PoolTickRow[];
+}): SegmentProjector {
+  const token0 = BigInt(pool.token0);
+  const token1 = BigInt(pool.token1);
+  const fee = BigInt(pool.fee);
+  const sortedTicks = poolTicks.map((tick) => ({
+    tick: Number(tick.tick),
+    liquidityDelta: BigInt(tick.liquidity_delta),
+  }));
+  const saleRateDeltas = twammSaleRateDeltas.map((delta) => ({
+    time: Math.floor(delta.time.getTime() / 1_000),
+    saleRateDelta0: BigInt(delta.net_sale_rate_delta0),
+    saleRateDelta1: BigInt(delta.net_sale_rate_delta1),
+  }));
+
+  let projectedState: {
+    sqrtRatio: bigint;
+    liquidity: bigint;
+    activeTickIndex: number | undefined;
+    token0SaleRate: bigint;
+    token1SaleRate: bigint;
+    lastExecutionTime: number;
+  } = {
+    sqrtRatio: BigInt(twammState.sqrt_ratio),
+    liquidity: BigInt(twammState.liquidity),
+    activeTickIndex: undefined,
+    token0SaleRate: BigInt(twammState.token0_sale_rate),
+    token1SaleRate: BigInt(twammState.token1_sale_rate),
+    lastExecutionTime: lastExecutionTimeSeconds,
+  };
+
+  const advanceProjectionTo = (nextTime: number) => {
+    if (nextTime < projectedState.lastExecutionTime) {
+      throw new Error("Projection cannot go backward in time");
+    }
+
+    if (nextTime === projectedState.lastExecutionTime) {
+      return projectedState;
+    }
+
+    const nextState = projectTwammPoolStateAtTime({
+      chainId,
+      token0,
+      token1,
+      fee,
+      sqrtRatio: projectedState.sqrtRatio,
+      liquidity: projectedState.liquidity,
+      tick: twammState.tick,
+      activeTickIndex: projectedState.activeTickIndex,
+      token0SaleRate: projectedState.token0SaleRate,
+      token1SaleRate: projectedState.token1SaleRate,
+      lastExecutionTime: projectedState.lastExecutionTime,
+      sortedTicks,
+      saleRateDeltas,
+      targetTime: nextTime,
+    });
+
+    projectedState = {
+      ...nextState,
+      activeTickIndex: nextState.activeTickIndex,
+    };
+
+    return projectedState;
+  };
+
+  const saleRateDeltaTimes = saleRateDeltas.map((delta) => delta.time);
+  let deltaTimeIndex = 0;
+
+  return (segmentStartSeconds, segmentEndSeconds) => {
+    if (segmentEndSeconds <= segmentStartSeconds) {
+      return null;
+    }
+
+    while (
+      deltaTimeIndex < saleRateDeltaTimes.length &&
+      saleRateDeltaTimes[deltaTimeIndex] <= segmentStartSeconds
+    ) {
+      deltaTimeIndex++;
+    }
+
+    const checkpointTimes = [segmentStartSeconds];
+    let nextDeltaIndex = deltaTimeIndex;
+
+    while (
+      nextDeltaIndex < saleRateDeltaTimes.length &&
+      saleRateDeltaTimes[nextDeltaIndex] <= segmentEndSeconds
+    ) {
+      checkpointTimes.push(saleRateDeltaTimes[nextDeltaIndex]);
+      nextDeltaIndex++;
+    }
+
+    deltaTimeIndex = nextDeltaIndex;
+
+    if (checkpointTimes[checkpointTimes.length - 1] !== segmentEndSeconds) {
+      checkpointTimes.push(segmentEndSeconds);
+    }
+
+    let open = 0;
+    let close = 0;
+    let high = Number.NEGATIVE_INFINITY;
+    let low = Number.POSITIVE_INFINITY;
+
+    for (let i = 0; i < checkpointTimes.length; i++) {
+      const checkpointState = advanceProjectionTo(checkpointTimes[i]);
+      const checkpointPrice = sqrtRatioX128ToPrice(checkpointState.sqrtRatio);
+
+      if (i === 0) {
+        open = checkpointPrice;
+      }
+
+      close = checkpointPrice;
+      high = Math.max(high, checkpointPrice);
+      low = Math.min(low, checkpointPrice);
+    }
+
+    return {
+      open,
+      high,
+      low,
+      close,
+    };
+  };
+}
+
+interface TwammTailWindow {
+  start: Date;
+  end: Date;
+  intervalMilliseconds: number;
+  lastExecutionTimeMs: number;
+}
+
+// Folds the projected price over the rest of the last swap candle into it.
+function extendLastCandle(
+  lastCandle: PoolPriceHistoryPoint,
+  projectSegment: SegmentProjector,
+  { end, intervalMilliseconds, lastExecutionTimeMs }: TwammTailWindow,
+): void {
+  const lastCandleStartMs = new Date(lastCandle.start).getTime();
+  const lastCandleEndMs = Math.min(
+    lastCandleStartMs + intervalMilliseconds,
+    end.getTime(),
+  );
+  const segmentStartMs = Math.max(lastCandleStartMs, lastExecutionTimeMs);
+
+  const projectedLastSegment = projectSegment(
+    Math.floor(segmentStartMs / 1_000),
+    Math.floor(lastCandleEndMs / 1_000),
+  );
+
+  if (projectedLastSegment) {
+    lastCandle.high = Math.max(lastCandle.high, projectedLastSegment.high);
+    lastCandle.low = Math.min(lastCandle.low, projectedLastSegment.low);
+    lastCandle.close = projectedLastSegment.close;
+    // The volume is left as the indexed swaps measured it. The
+    // projection moves the price from TWAMM sale rates, and those
+    // virtual fills are not swaps rows to count.
   }
 }
 
-export class GetPoolPriceHistory extends EkuboAPIRoute {
-  static route = "/pools/:chainId/:coreAddress/:poolId/price/history";
+// Projected buckets start on the candle grid, but no earlier than the last
+// virtual execution.
+function firstProjectedBucketStart(
+  tailStartMs: number,
+  { intervalMilliseconds, lastExecutionTimeMs }: TwammTailWindow,
+): number {
+  if (tailStartMs >= lastExecutionTimeMs) {
+    return tailStartMs;
+  }
 
-  static schema: OpenAPIRouteSchema = {
+  const skippedIntervals = Math.ceil(
+    (lastExecutionTimeMs - tailStartMs) / intervalMilliseconds,
+  );
+  return tailStartMs + skippedIntervals * intervalMilliseconds;
+}
+
+function projectTailCandles(
+  firstBucketStartMs: number,
+  projectSegment: SegmentProjector,
+  { end, intervalMilliseconds }: TwammTailWindow,
+): PoolPriceHistoryPoint[] {
+  const projectedCandles: PoolPriceHistoryPoint[] = [];
+
+  for (
+    let bucketStartMs = firstBucketStartMs;
+    bucketStartMs < end.getTime();
+    bucketStartMs += intervalMilliseconds
+  ) {
+    const bucketEndMs = Math.min(
+      bucketStartMs + intervalMilliseconds,
+      end.getTime(),
+    );
+    const projectedSegment = projectSegment(
+      Math.floor(bucketStartMs / 1_000),
+      Math.floor(bucketEndMs / 1_000),
+    );
+
+    if (!projectedSegment) {
+      continue;
+    }
+
+    projectedCandles.push({
+      start: new Date(bucketStartMs),
+      open: projectedSegment.open,
+      high: projectedSegment.high,
+      low: projectedSegment.low,
+      close: projectedSegment.close,
+    });
+  }
+
+  return projectedCandles;
+}
+
+// Extends the swap candles with the price the TWAMM pool's virtual orders
+// have moved it to since its last execution. Any projection failure leaves
+// the swap-based candles as they are, although the last candle may already
+// have been extended by then.
+async function appendTwammProjection(
+  queries: Queries,
+  data: PoolPriceHistoryPoint[],
+  {
+    chainId,
+    pool,
+    twammState,
+    start,
+    end,
+    intervalSeconds,
+  }: {
+    chainId: bigint;
+    pool: PoolKeyRow;
+    twammState: PoolTwammStateRow;
+    start: Date;
+    end: Date;
+    intervalSeconds: number;
+  },
+): Promise<void> {
+  const lastExecutionTimeSeconds = Math.floor(
+    twammState.last_execution_time.getTime() / 1_000,
+  );
+  const targetTime = Math.floor(end.getTime() / 1_000);
+
+  if (targetTime <= lastExecutionTimeSeconds) {
+    return;
+  }
+
+  const [twammSaleRateDeltas, poolTicks] = await Promise.all([
+    queries.getTwammSaleRateDeltas({
+      poolKeyId: pool.pool_key_id,
+      after: twammState.last_execution_time,
+      until: end,
+    }),
+    queries.getPoolTicksById(pool.pool_key_id),
+  ]);
+
+  if (poolTicks.length === 0) {
+    return;
+  }
+
+  const window: TwammTailWindow = {
+    start,
+    end,
+    intervalMilliseconds: intervalSeconds * 1_000,
+    lastExecutionTimeMs: lastExecutionTimeSeconds * 1_000,
+  };
+
+  try {
+    const projectSegment = createTwammSegmentProjector({
+      chainId,
+      pool,
+      twammState,
+      lastExecutionTimeSeconds,
+      twammSaleRateDeltas,
+      poolTicks,
+    });
+
+    const lastCandle = data.at(-1);
+    const tailStartMs =
+      lastCandle === undefined
+        ? start.getTime()
+        : new Date(lastCandle.start).getTime() + window.intervalMilliseconds;
+
+    if (lastCandle !== undefined) {
+      extendLastCandle(lastCandle, projectSegment, window);
+    }
+
+    data.push(
+      ...projectTailCandles(
+        firstProjectedBucketStart(tailStartMs, window),
+        projectSegment,
+        window,
+      ),
+    );
+  } catch {
+    // Ignore TWAMM projection issues and return swap-based candles only.
+  }
+}
+
+export const GetPoolPriceHistory = defineRoute(
+  createRoute({
+    method: "get",
+    path: "/pools/{chainId}/{coreAddress}/{poolId}/price/history",
     tags: ["Prices"],
     summary: "Get pool price history",
     description:
       "Returns pool OHLC history with swap candles and TWAMM-projected tail fill when needed",
-    parameters: {
-      chainId: Path(ChainIdType, { required: true }),
-      coreAddress: Path(AddressType, { required: true, example: "0xabcd" }),
-      poolId: Path(NumericStringType, { required: true, example: "1" }),
-      interval: Query(z.coerce.number().int().min(1), {
-        required: false,
-        description: "Bucket size in seconds",
+    operationId: "get_GetPoolPriceHistory",
+    request: {
+      params: z.object({
+        chainId: ChainIdType,
+        coreAddress: AddressType.openapi({ example: "0xabcd" }),
+        poolId: NumericStringType.openapi({ example: "1" }),
       }),
-      start: Query(z.coerce.number().int().min(0), {
-        required: false,
-        description: "Unix timestamp (seconds)",
-      }),
-      end: Query(z.coerce.number().int().min(0), {
-        required: false,
-        description: "Unix timestamp (seconds)",
+      query: z.object({
+        interval: z.coerce
+          .number()
+          .int()
+          .min(1)
+          .optional()
+          .describe("Bucket size in seconds")
+          .default(DEFAULT_POOL_PRICE_HISTORY_INTERVAL_SECONDS),
+        start: z.coerce
+          .number()
+          .int()
+          .min(0)
+          .optional()
+          .describe(`Unix timestamp (seconds)${DEFAULT_START_DESCRIPTION}`),
+        end: z.coerce
+          .number()
+          .int()
+          .min(0)
+          .optional()
+          .describe(`Unix timestamp (seconds)${DEFAULT_END_DESCRIPTION}`),
       }),
     },
     responses: {
-      "200": {
-        description: "Pool-level price history and TWAMM metadata for charting",
-        schema: GetPoolPriceHistoryResponseType,
-      },
+      200: jsonResponse(
+        "Pool-level price history and TWAMM metadata for charting",
+        GetPoolPriceHistoryResponseType,
+      ),
+      ...notFoundResponse,
+      ...errorResponses,
     },
-  };
+  }),
+  async (c) => {
+    const { chainId, coreAddress, poolId } = c.req.valid("param");
+    const query = c.req.valid("query");
+    const intervalSeconds = query.interval;
 
-  async handleRequest({ params, query }: IRequest, { env }: RequestContext) {
-    const chainId = BigInt(params.chainId);
-    const coreAddress = BigInt(params.coreAddress);
-    const poolId = BigInt(params.poolId);
-
-    const queries = await createQueries(env);
+    const queries = await createQueries(c.env);
     const poolRows = await queries.getPoolKeyByCoreAndId(
       chainId,
-      coreAddress,
-      poolId,
+      BigInt(coreAddress),
+      BigInt(poolId),
     );
     const pool = poolRows[0] ?? null;
 
@@ -625,60 +1020,13 @@ export class GetPoolPriceHistory extends EkuboAPIRoute {
       throw new StatusError(404, "Pool not found");
     }
 
-    let intervalSeconds = 300;
-    let end = new Date(Date.now());
-    let start = new Date(end.getTime() - intervalSeconds * 60 * 1_000);
-
-    try {
-      intervalSeconds =
-        typeof query.interval === "string"
-          ? Number.parseInt(query.interval, 10)
-          : 300;
-      end =
-        typeof query.end === "string"
-          ? new Date(Number.parseInt(query.end, 10) * 1_000)
-          : new Date(Date.now());
-      start =
-        typeof query.start === "string"
-          ? new Date(Number.parseInt(query.start, 10) * 1_000)
-          : new Date(end.getTime() - intervalSeconds * 60 * 1_000);
-    } catch (e) {
-      throw new StatusError(
-        400,
-        "Invalid `interval`, `end` or `start` parameters",
-      );
-    }
-
-    if (
-      !Number.isFinite(intervalSeconds) ||
-      !Number.isInteger(intervalSeconds) ||
-      intervalSeconds <= 0
-    ) {
-      throw new StatusError(400, "Interval must be a positive integer");
-    }
-
-    if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) {
-      throw new StatusError(400, "Invalid `start` or `end` parameters");
-    }
-
-    if (start.getTime() >= end.getTime()) {
-      throw new StatusError(400, "Start time must be before end time");
-    }
-
-    const durationMilliseconds = end.getTime() - start.getTime();
-    if (durationMilliseconds > 30 * 86_400 * 1_000) {
-      throw new StatusError(
-        400,
-        "Start time cannot be more than 30 days before end time",
-      );
-    }
-
-    const numIntervals = durationMilliseconds / intervalSeconds / 1_000;
-    if (numIntervals > 120) {
-      throw new StatusError(400, "Interval too small for the range");
-    }
-
-    const intervalMilliseconds = intervalSeconds * 1_000;
+    const { start, end } = parseHistoryRange(
+      intervalSeconds,
+      query.start,
+      query.end,
+    );
+    assertOrderedRange(start, end);
+    assertRangeWithinLimits(start, end, intervalSeconds);
 
     const [candles, priceSeed, twammState] = await Promise.all([
       queries.getPoolPriceHistoryCandles({
@@ -691,18 +1039,16 @@ export class GetPoolPriceHistory extends EkuboAPIRoute {
       queries.getPoolTwammState(pool.pool_key_id),
     ]);
 
-    const data: z.infer<typeof PoolPriceHistoryPointType>[] = candles.map(
-      (row) => ({
-        start: row.start,
-        open: sqrtRatioX128ToPrice(row.open_sqrt_ratio),
-        high: sqrtRatioX128ToPrice(row.high_sqrt_ratio),
-        low: sqrtRatioX128ToPrice(row.low_sqrt_ratio),
-        close: sqrtRatioX128ToPrice(row.close_sqrt_ratio),
-        volume0: row.volume0,
-        volume1: row.volume1,
-        swap_count: Number(row.swap_count),
-      }),
-    );
+    const data: PoolPriceHistoryPoint[] = candles.map((row) => ({
+      start: row.start,
+      open: sqrtRatioX128ToPrice(row.open_sqrt_ratio),
+      high: sqrtRatioX128ToPrice(row.high_sqrt_ratio),
+      low: sqrtRatioX128ToPrice(row.low_sqrt_ratio),
+      close: sqrtRatioX128ToPrice(row.close_sqrt_ratio),
+      volume0: row.volume0,
+      volume1: row.volume1,
+      swap_count: Number(row.swap_count),
+    }));
 
     if (
       priceSeed &&
@@ -719,251 +1065,14 @@ export class GetPoolPriceHistory extends EkuboAPIRoute {
     }
 
     if (twammState !== null) {
-      const lastExecutionTimeSeconds = Math.floor(
-        twammState.last_execution_time.getTime() / 1_000,
-      );
-      const targetTime = Math.floor(end.getTime() / 1_000);
-
-      if (targetTime > lastExecutionTimeSeconds) {
-        const [twammSaleRateDeltas, poolTicks] = await Promise.all([
-          queries.getTwammSaleRateDeltas({
-            poolKeyId: pool.pool_key_id,
-            after: twammState.last_execution_time,
-            until: end,
-          }),
-          queries.getPoolTicksById(pool.pool_key_id),
-        ]);
-
-        if (poolTicks.length > 0) {
-          try {
-            const token0 = BigInt(pool.token0);
-            const token1 = BigInt(pool.token1);
-            const fee = BigInt(pool.fee);
-            const sortedTicks = poolTicks.map((tick) => ({
-              tick: Number(tick.tick),
-              liquidityDelta: BigInt(tick.liquidity_delta),
-            }));
-            const saleRateDeltas = twammSaleRateDeltas.map((delta) => ({
-              time: Math.floor(delta.time.getTime() / 1_000),
-              saleRateDelta0: BigInt(delta.net_sale_rate_delta0),
-              saleRateDelta1: BigInt(delta.net_sale_rate_delta1),
-            }));
-
-            let projectedState: {
-              sqrtRatio: bigint;
-              liquidity: bigint;
-              activeTickIndex: number | undefined;
-              token0SaleRate: bigint;
-              token1SaleRate: bigint;
-              lastExecutionTime: number;
-            } = {
-              sqrtRatio: BigInt(twammState.sqrt_ratio),
-              liquidity: BigInt(twammState.liquidity),
-              activeTickIndex: undefined,
-              token0SaleRate: BigInt(twammState.token0_sale_rate),
-              token1SaleRate: BigInt(twammState.token1_sale_rate),
-              lastExecutionTime: lastExecutionTimeSeconds,
-            };
-
-            const advanceProjectionTo = (nextTime: number) => {
-              if (nextTime < projectedState.lastExecutionTime) {
-                throw new Error("Projection cannot go backward in time");
-              }
-
-              if (nextTime === projectedState.lastExecutionTime) {
-                return projectedState;
-              }
-
-              const nextState = projectTwammPoolStateAtTime({
-                chainId,
-                token0,
-                token1,
-                fee,
-                sqrtRatio: projectedState.sqrtRatio,
-                liquidity: projectedState.liquidity,
-                tick: twammState.tick,
-                activeTickIndex: projectedState.activeTickIndex,
-                token0SaleRate: projectedState.token0SaleRate,
-                token1SaleRate: projectedState.token1SaleRate,
-                lastExecutionTime: projectedState.lastExecutionTime,
-                sortedTicks,
-                saleRateDeltas,
-                targetTime: nextTime,
-              });
-
-              projectedState = {
-                ...nextState,
-                activeTickIndex: nextState.activeTickIndex,
-              };
-
-              return projectedState;
-            };
-
-            const tailStartMs =
-              data.length > 0
-                ? new Date(data[data.length - 1].start).getTime() +
-                  intervalMilliseconds
-                : start.getTime();
-
-            const lastExecutionTimeMs = lastExecutionTimeSeconds * 1_000;
-            const saleRateDeltaTimes = saleRateDeltas.map(
-              (delta) => delta.time,
-            );
-            let deltaTimeIndex = 0;
-
-            const projectSegment = (
-              segmentStartSeconds: number,
-              segmentEndSeconds: number,
-            ) => {
-              if (segmentEndSeconds <= segmentStartSeconds) {
-                return null;
-              }
-
-              while (
-                deltaTimeIndex < saleRateDeltaTimes.length &&
-                saleRateDeltaTimes[deltaTimeIndex] <= segmentStartSeconds
-              ) {
-                deltaTimeIndex++;
-              }
-
-              const checkpointTimes = [segmentStartSeconds];
-              let nextDeltaIndex = deltaTimeIndex;
-
-              while (
-                nextDeltaIndex < saleRateDeltaTimes.length &&
-                saleRateDeltaTimes[nextDeltaIndex] <= segmentEndSeconds
-              ) {
-                checkpointTimes.push(saleRateDeltaTimes[nextDeltaIndex]);
-                nextDeltaIndex++;
-              }
-
-              deltaTimeIndex = nextDeltaIndex;
-
-              if (
-                checkpointTimes[checkpointTimes.length - 1] !==
-                segmentEndSeconds
-              ) {
-                checkpointTimes.push(segmentEndSeconds);
-              }
-
-              let open = 0;
-              let close = 0;
-              let high = Number.NEGATIVE_INFINITY;
-              let low = Number.POSITIVE_INFINITY;
-
-              for (let i = 0; i < checkpointTimes.length; i++) {
-                const checkpointState = advanceProjectionTo(checkpointTimes[i]);
-                const checkpointPrice = sqrtRatioX128ToPrice(
-                  checkpointState.sqrtRatio,
-                );
-
-                if (i === 0) {
-                  open = checkpointPrice;
-                }
-
-                close = checkpointPrice;
-                high = Math.max(high, checkpointPrice);
-                low = Math.min(low, checkpointPrice);
-              }
-
-              return {
-                open,
-                high,
-                low,
-                close,
-              };
-            };
-
-            if (data.length > 0) {
-              const lastCandle = data[data.length - 1];
-              const lastCandleStartMs = new Date(lastCandle.start).getTime();
-              const lastCandleEndMs = Math.min(
-                lastCandleStartMs + intervalMilliseconds,
-                end.getTime(),
-              );
-              const segmentStartMs = Math.max(
-                lastCandleStartMs,
-                lastExecutionTimeMs,
-              );
-
-              const projectedLastSegment = projectSegment(
-                Math.floor(segmentStartMs / 1_000),
-                Math.floor(lastCandleEndMs / 1_000),
-              );
-
-              if (projectedLastSegment) {
-                lastCandle.high = Math.max(
-                  lastCandle.high,
-                  projectedLastSegment.high,
-                );
-                lastCandle.low = Math.min(
-                  lastCandle.low,
-                  projectedLastSegment.low,
-                );
-                lastCandle.close = projectedLastSegment.close;
-                // The volume is left as the indexed swaps measured it. The
-                // projection moves the price from TWAMM sale rates, and those
-                // virtual fills are not swaps rows to count.
-              }
-            }
-
-            let firstProjectedBucketStartMs = tailStartMs;
-
-            if (firstProjectedBucketStartMs < lastExecutionTimeMs) {
-              const skippedIntervals = Math.ceil(
-                (lastExecutionTimeMs - firstProjectedBucketStartMs) /
-                  intervalMilliseconds,
-              );
-              firstProjectedBucketStartMs +=
-                skippedIntervals * intervalMilliseconds;
-            }
-
-            if (firstProjectedBucketStartMs < end.getTime()) {
-              const projectedCandles: z.infer<
-                typeof PoolPriceHistoryPointType
-              >[] = [];
-
-              for (
-                let bucketStartMs = firstProjectedBucketStartMs;
-                bucketStartMs < end.getTime();
-                bucketStartMs += intervalMilliseconds
-              ) {
-                const bucketEndMs = Math.min(
-                  bucketStartMs + intervalMilliseconds,
-                  end.getTime(),
-                );
-                const bucketStartSeconds = Math.floor(bucketStartMs / 1_000);
-                const bucketEndSeconds = Math.floor(bucketEndMs / 1_000);
-
-                if (bucketEndSeconds <= bucketStartSeconds) {
-                  continue;
-                }
-
-                const projectedSegment = projectSegment(
-                  bucketStartSeconds,
-                  bucketEndSeconds,
-                );
-
-                if (!projectedSegment) {
-                  continue;
-                }
-
-                projectedCandles.push({
-                  start: new Date(bucketStartMs),
-                  open: projectedSegment.open,
-                  high: projectedSegment.high,
-                  low: projectedSegment.low,
-                  close: projectedSegment.close,
-                });
-              }
-
-              data.push(...projectedCandles);
-            }
-          } catch {
-            // Ignore TWAMM projection issues and return swap-based candles only.
-          }
-        }
-      }
+      await appendTwammProjection(queries, data, {
+        chainId,
+        pool,
+        twammState,
+        start,
+        end,
+        intervalSeconds,
+      });
     }
 
     const response = {
@@ -976,10 +1085,8 @@ export class GetPoolPriceHistory extends EkuboAPIRoute {
       data,
     } satisfies z.infer<typeof GetPoolPriceHistoryResponseType>;
 
-    return json(response, {
-      headers: {
-        "cache-control": `public, max-age=30, must-revalidate`,
-      },
+    return c.json(response, 200, {
+      "cache-control": `public, max-age=30, must-revalidate`,
     });
-  }
-}
+  },
+);

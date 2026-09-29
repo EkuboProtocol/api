@@ -1,12 +1,13 @@
 import { describe, expect, test } from "bun:test";
 import { Env } from "./env";
-import { router } from "./router";
+import { app, openApiDocument } from "./router";
 
-const context = { env: {} as Env };
+const fetchPath = (path: string) =>
+  app.fetch(new Request(`http://localhost${path}`), {} as Env);
 
-describe("Chanfana router integration", () => {
+describe("Hono app integration", () => {
   test("registers every API route and its parameters", () => {
-    const schema = router.schema;
+    const schema = openApiDocument();
     const paths = schema.paths as Record<string, Record<string, unknown>>;
     const operations = Object.values(paths).flatMap((path) =>
       Object.values(path).filter(
@@ -22,14 +23,14 @@ describe("Chanfana router integration", () => {
       ),
     );
 
-    expect(Object.keys(schema.paths)).toHaveLength(58);
+    expect(Object.keys(schema.paths ?? {})).toHaveLength(58);
     expect(operations).toHaveLength(58);
     expect(
       operations.reduce(
         (count, operation) => count + (operation.parameters?.length ?? 0),
         0,
       ),
-    ).toBe(194);
+    ).toBe(196);
 
     const getToken = operations.find(
       (operation) =>
@@ -65,7 +66,10 @@ describe("Chanfana router integration", () => {
       >;
     };
 
-    const paths = router.schema.paths as Record<string, { get?: GetOperation }>;
+    const paths = openApiDocument().paths as Record<
+      string,
+      { get?: GetOperation }
+    >;
     const responseSchema = (path: string) =>
       paths[path]?.get?.responses["200"].content?.["application/json"].schema;
     const requiredEntryFields = (path: string, property: string) =>
@@ -122,126 +126,98 @@ describe("Chanfana router integration", () => {
   });
 
   test("validates requests before invoking route handlers", async () => {
-    const response = await router.fetch(
-      new Request("http://localhost/tokens?pageSize=0"),
-      context,
-    );
+    const response = await fetchPath("/tokens?pageSize=0");
 
     expect(response.status).toBe(400);
-    expect(await response.json()).toEqual({
-      success: false,
-      errors: [
-        {
-          code: 7001,
-          message: "Too small: expected number to be >=1",
-          path: ["query", "pageSize"],
-        },
-      ],
-      result: {},
+    expect((await response.json()) as unknown).toEqual({
+      status: 400,
+      error: "Invalid query: pageSize: Too small: expected number to be >=1",
     });
 
-    const positionEventsResponse = await router.fetch(
-      new Request("http://localhost/positions/1/events?limit=0"),
-      context,
+    const positionEventsResponse = await fetchPath(
+      "/positions/1/events?limit=0",
     );
 
     expect(positionEventsResponse.status).toBe(400);
 
-    const tokenPriceHistoryResponse = await router.fetch(
-      new Request("http://localhost/tokens/1/0x1/price-history?interval=59"),
-      context,
+    const tokenPriceHistoryResponse = await fetchPath(
+      "/tokens/1/0x1/price-history?interval=59",
     );
 
     expect(tokenPriceHistoryResponse.status).toBe(400);
 
-    const invalidVotersPageResponse = await router.fetch(
-      new Request("http://localhost/ve33/0x1/voters?chainId=1&page=2"),
-      context,
+    const invalidVotersPageResponse = await fetchPath(
+      "/ve33/0x1/voters?chainId=1&page=2",
     );
 
     expect(invalidVotersPageResponse.status).toBe(400);
 
-    await expect(
-      router.fetch(
-        new Request(
-          "http://localhost/tokens/1/0x1/price-history?interval=60&duration=86400",
-        ),
-        context,
-      ),
-    ).rejects.toMatchObject({ status: 400 });
+    expect(
+      (
+        await fetchPath(
+          "/tokens/1/0x1/price-history?interval=60&duration=86400",
+        )
+      ).status,
+    ).toBe(400);
   });
 
   test("validates pool key discovery requests without a database", async () => {
-    await expect(
-      router.fetch(
-        new Request("http://localhost/poolKeys/1/0x1?tokenA=0x2&tokenB=0x2"),
-        context,
-      ),
-    ).rejects.toMatchObject({ status: 400 });
+    const sameTokens = await fetchPath("/poolKeys/1/0x1?tokenA=0x2&tokenB=0x2");
+    expect(sameTokens.status).toBe(400);
+    // Errors thrown by handlers keep the { status, error } body.
+    expect((await sameTokens.json()) as unknown).toMatchObject({
+      status: 400,
+      error: expect.any(String),
+    });
 
-    await expect(
-      router.fetch(
-        new Request("http://localhost/poolKeys/1/0x1?tokenB=0x2"),
-        context,
-      ),
-    ).rejects.toMatchObject({ status: 400 });
+    expect((await fetchPath("/poolKeys/1/0x1?tokenB=0x2")).status).toBe(400);
 
-    await expect(
-      router.fetch(
-        new Request(
-          `http://localhost/poolKeys/1/0x1?tokenA=0x${"f".repeat(42)}`,
-        ),
-        context,
-      ),
-    ).rejects.toMatchObject({ status: 400 });
+    expect(
+      (await fetchPath(`/poolKeys/1/0x1?tokenA=0x${"f".repeat(42)}`)).status,
+    ).toBe(400);
 
     for (const path of [
       `/poolKeys/1/0x${"f".repeat(42)}`,
       `/poolKeys/1/0x${"f".repeat(42)}/0x1`,
     ]) {
-      await expect(
-        router.fetch(new Request(`http://localhost${path}`), context),
-      ).rejects.toMatchObject({ status: 400 });
+      expect((await fetchPath(path)).status).toBe(400);
     }
 
-    const badLimit = await router.fetch(
-      new Request("http://localhost/poolKeys/1/0x1?limit=201"),
-      context,
-    );
+    const badLimit = await fetchPath("/poolKeys/1/0x1?limit=201");
     expect(badLimit.status).toBe(400);
 
-    const badCursor = await router.fetch(
-      new Request("http://localhost/poolKeys/1/0x1?after=not-a-number"),
-      context,
-    );
+    const badCursor = await fetchPath("/poolKeys/1/0x1?after=not-a-number");
     expect(badCursor.status).toBe(400);
   });
 
   test("continues to serve ordinary and fallback routes", async () => {
-    const countryResponse = await router.fetch(
-      new Request("http://localhost/country"),
-      context,
-    );
+    const countryResponse = await fetchPath("/country");
     expect(countryResponse.status).toBe(200);
-    expect(await countryResponse.json()).toEqual({ country: null });
+    expect((await countryResponse.json()) as unknown).toEqual({
+      country: null,
+    });
 
-    const missingResponse = await router.fetch(
-      new Request("http://localhost/not-a-route"),
-      context,
-    );
+    const missingResponse = await fetchPath("/not-a-route");
     expect(missingResponse.status).toBe(404);
+    expect((await missingResponse.json()) as unknown).toEqual({
+      status: 404,
+      error: "Not Found",
+    });
+
+    const openApiResponse = await fetchPath("/openapi.json");
+    expect(openApiResponse.status).toBe(200);
+    expect((await openApiResponse.json()) as unknown).toEqual(
+      JSON.parse(JSON.stringify(openApiDocument())),
+    );
   });
 
   test("serves an empty terminal position event page without a database", async () => {
-    const response = await router.fetch(
-      new Request(
-        "http://localhost/positions/1/events?cursor=9223372036854775807",
-      ),
-      context,
+    const response = await fetchPath(
+      "/positions/1/events?cursor=9223372036854775807",
     );
 
     expect(response.status).toBe(200);
-    expect(await response.json()).toEqual({
+    expect((await response.json()) as unknown).toEqual({
       chain_id: "1",
       events: [],
       next_cursor: "9223372036854775807",

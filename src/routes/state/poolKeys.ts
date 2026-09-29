@@ -1,6 +1,11 @@
-import { OpenAPIRouteSchema, Path, Query } from "../../shared/openapi";
-import { IRequest, json, StatusError } from "itty-router";
-import { EkuboAPIRoute, RequestContext } from "../../shared/context";
+import { createRoute, z } from "@hono/zod-openapi";
+import { jsonResponse } from "../../shared/openapi";
+import { defineRoute } from "../../shared/context";
+import {
+  errorResponses,
+  notFoundResponse,
+  StatusError,
+} from "../../shared/errors";
 import { createQueries } from "../../queries";
 import {
   AddressType,
@@ -8,7 +13,6 @@ import {
   DecimalStringType,
   NumericStringType,
 } from "../../shared/validation/address";
-import { z } from "zod";
 import toHex from "../../shared/toHex";
 
 const MAX_ADDRESS = 1n << 160n;
@@ -104,110 +108,115 @@ function formatPoolState(row: PoolStateRow): z.infer<typeof PoolStateType> {
       };
 }
 
-function parseAddressParam(name: string, value: unknown): bigint {
-  const parsed = BigInt(AddressType.parse(value));
+function parseAddressParam(name: string, value: string): bigint {
+  const parsed = BigInt(value);
   if (parsed >= MAX_ADDRESS) {
     throw new StatusError(400, `${name} must fit in 20 bytes`);
   }
   return parsed;
 }
 
-export class ListPoolKeys extends EkuboAPIRoute {
-  static route = "/poolKeys/:chainId/:coreAddress";
+function parseOptionalAddressParam(
+  name: string,
+  value: string | undefined,
+): bigint | undefined {
+  return value === undefined ? undefined : parseAddressParam(name, value);
+}
 
-  static schema: OpenAPIRouteSchema = {
+// tokenA alone keeps pools containing it on either side; with tokenB it
+// selects the exact pair, sorted into token0 and token1.
+function parseTokenFilter(
+  tokenAParam: string | undefined,
+  tokenBParam: string | undefined,
+): { token0?: bigint; token1?: bigint; tokenEither?: bigint } {
+  const tokenA = parseOptionalAddressParam("tokenA", tokenAParam);
+  const tokenB = parseOptionalAddressParam("tokenB", tokenBParam);
+  if (tokenB === undefined) {
+    return { tokenEither: tokenA };
+  }
+  if (tokenA === undefined) {
+    throw new StatusError(400, "tokenB requires tokenA");
+  }
+  if (tokenA === tokenB) {
+    throw new StatusError(400, "tokenA and tokenB must differ");
+  }
+  return tokenA < tokenB
+    ? { token0: tokenA, token1: tokenB }
+    : { token0: tokenB, token1: tokenA };
+}
+
+function parseAfterPoolId(after: string | undefined): bigint | undefined {
+  const afterPoolId = after === undefined ? undefined : BigInt(after);
+  if (afterPoolId !== undefined && afterPoolId >= MAX_POOL_ID) {
+    throw new StatusError(400, "after must fit in 32 bytes");
+  }
+  return afterPoolId;
+}
+
+export const ListPoolKeys = defineRoute(
+  createRoute({
+    method: "get",
+    path: "/poolKeys/{chainId}/{coreAddress}",
     tags: ["Swap"],
     summary: "List pool keys",
     description:
       "Enumerates initialized pool keys for one core deployment in ascending pool_id order with keyset pagination, optionally filtered by one token (either side), an exact pair, or an extension",
-    parameters: {
-      chainId: Path(ChainIdType, { required: true }),
-      coreAddress: Path(AddressType, { example: "0xabcd" }),
-      tokenA: Query(AddressType, {
-        required: false,
-        description:
+    operationId: "get_ListPoolKeys",
+    request: {
+      params: z.object({
+        chainId: ChainIdType,
+        coreAddress: AddressType.openapi({ example: "0xabcd" }),
+      }),
+      query: z.object({
+        tokenA: AddressType.optional().describe(
           "Keep only pools containing this token on either side; with tokenB, the exact pair (order-insensitive)",
-      }),
-      tokenB: Query(AddressType, {
-        required: false,
-        description: "Second token of an exact pair filter",
-      }),
-      extension: Query(AddressType, {
-        required: false,
-        description:
+        ),
+        tokenB: AddressType.optional().describe(
+          "Second token of an exact pair filter",
+        ),
+        extension: AddressType.optional().describe(
           "Keep only pools using this extension; 0x0 selects extensionless pools",
-      }),
-      after: Query(NumericStringType, {
-        required: false,
-        description:
+        ),
+        after: NumericStringType.optional().describe(
           "Return pools whose pool_id is strictly greater; use next_cursor to continue",
-      }),
-      limit: Query(z.coerce.number().int().min(1).max(200), {
-        required: false,
-        description: "Maximum number of pools to return",
-        default: 100,
+        ),
+        limit: z.coerce
+          .number()
+          .int()
+          .min(1)
+          .max(200)
+          .optional()
+          .describe("Maximum number of pools to return")
+          .default(100),
       }),
     },
     responses: {
-      "200": {
-        schema: PoolKeysResponseType,
-        description:
-          "One ascending pool_id-ordered page of pool keys; an unknown chain or core yields an empty page",
-      },
+      200: jsonResponse(
+        "One ascending pool_id-ordered page of pool keys; an unknown chain or core yields an empty page",
+        PoolKeysResponseType,
+      ),
+      ...errorResponses,
     },
-  };
-
-  async handleRequest(
-    { params: { chainId, coreAddress }, query }: IRequest,
-    { env }: RequestContext,
-  ) {
+  }),
+  async (c) => {
+    const { chainId, coreAddress } = c.req.valid("param");
+    const query = c.req.valid("query");
     const core = parseAddressParam("coreAddress", coreAddress);
-    const tokenA =
-      query?.tokenA === undefined
-        ? undefined
-        : parseAddressParam("tokenA", query.tokenA);
-    const tokenB =
-      query?.tokenB === undefined
-        ? undefined
-        : parseAddressParam("tokenB", query.tokenB);
-    if (tokenA === undefined && tokenB !== undefined) {
-      throw new StatusError(400, "tokenB requires tokenA");
-    }
-    if (tokenA !== undefined && tokenA === tokenB) {
-      throw new StatusError(400, "tokenA and tokenB must differ");
-    }
-    const extension =
-      query?.extension === undefined
-        ? undefined
-        : parseAddressParam("extension", query.extension);
-    const afterPoolId =
-      query?.after === undefined
-        ? undefined
-        : BigInt(NumericStringType.parse(query.after));
-    if (afterPoolId !== undefined && afterPoolId >= MAX_POOL_ID) {
-      throw new StatusError(400, "after must fit in 32 bytes");
-    }
-    const limit = z.coerce
-      .number()
-      .int()
-      .min(1)
-      .max(200)
-      .parse(query?.limit ?? 100);
+    const { token0, token1, tokenEither } = parseTokenFilter(
+      query.tokenA,
+      query.tokenB,
+    );
+    const extension = parseOptionalAddressParam("extension", query.extension);
+    const afterPoolId = parseAfterPoolId(query.after);
+    const { limit } = query;
 
-    const [token0, token1] =
-      tokenA !== undefined && tokenB !== undefined
-        ? tokenA < tokenB
-          ? [tokenA, tokenB]
-          : [tokenB, tokenA]
-        : [undefined, undefined];
-
-    const queries = await createQueries(env);
+    const queries = await createQueries(c.env);
     const rows = await queries.listPoolKeys({
-      chainId: BigInt(chainId),
+      chainId,
       coreAddress: core,
       token0,
       token1,
-      tokenEither: token0 === undefined ? tokenA : undefined,
+      tokenEither,
       extension,
       afterPoolId,
       limit: limit + 1,
@@ -227,44 +236,44 @@ export class ListPoolKeys extends EkuboAPIRoute {
       has_more: hasMore,
     } satisfies z.infer<typeof PoolKeysResponseType>;
 
-    return json(response, {
-      headers: {
-        "cache-control": "public, max-age=1800, must-revalidate",
-      },
+    return c.json(response, 200, {
+      "cache-control": "public, max-age=1800, must-revalidate",
     });
-  }
-}
+  },
+);
 
-export class GetPoolKeyById extends EkuboAPIRoute {
-  static route = "/poolKeys/:chainId/:coreAddress/:poolId";
-
-  static schema: OpenAPIRouteSchema = {
+export const GetPoolKeyById = defineRoute(
+  createRoute({
+    method: "get",
+    path: "/poolKeys/{chainId}/{coreAddress}/{poolId}",
     tags: ["Swap"],
     summary: "Get pool key by pool id",
     description:
       "Returns the pool key and latest indexed state for the given core address and pool id",
-    parameters: {
-      chainId: Path(ChainIdType, { required: true }),
-      coreAddress: Path(AddressType, { example: "0xabcd" }),
-      poolId: Path(NumericStringType, { example: "1" }),
+    operationId: "get_GetPoolKeyById",
+    request: {
+      params: z.object({
+        chainId: ChainIdType,
+        coreAddress: AddressType.openapi({ example: "0xabcd" }),
+        poolId: NumericStringType.openapi({ example: "1" }),
+      }),
     },
     responses: {
-      "200": {
-        schema: PoolKeyByIdResponseType,
-        description: "Pool key and indexed state for the given pool",
-      },
+      200: jsonResponse(
+        "Pool key and indexed state for the given pool",
+        PoolKeyByIdResponseType,
+      ),
+      ...notFoundResponse,
+      ...errorResponses,
     },
-  };
-
-  async handleRequest(
-    { params: { chainId, coreAddress, poolId } }: IRequest,
-    { env }: RequestContext,
-  ) {
+  }),
+  async (c) => {
+    const { chainId, coreAddress, poolId } = c.req.valid("param");
     const core = parseAddressParam("coreAddress", coreAddress);
-    const queries = await createQueries(env);
+    const queries = await createQueries(c.env);
 
     const rows = await queries.getPoolKeyByCoreAndId(
-      BigInt(chainId),
+      chainId,
       core,
       BigInt(poolId),
     );
@@ -283,10 +292,8 @@ export class GetPoolKeyById extends EkuboAPIRoute {
 
     // Shorter than the key-only route because this response carries the
     // indexed pool state, which moves on every swap.
-    return json(response, {
-      headers: {
-        "cache-control": "public, max-age=180, must-revalidate",
-      },
+    return c.json(response, 200, {
+      "cache-control": "public, max-age=180, must-revalidate",
     });
-  }
-}
+  },
+);

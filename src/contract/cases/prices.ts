@@ -174,8 +174,6 @@ export const pricesCases: ContractCase[] = [
     // max. Inverting them divides by Number(null) = 0, and JSON serialises
     // the resulting Infinity as null, which the schema's number rejects.
     name: "/price/{chainId}/{baseToken}/{quoteToken}/history inverted dust-only bucket",
-    knownDrift:
-      "A bucket with only dust swaps has NULL min/max, so inverting yields 1/0 = Infinity, serialized as null; the schema says number.",
     request: `/price/1/${USDC}/0x0/history?interval=3600`,
     stub: () => {
       stubPairPrices();
