@@ -220,6 +220,41 @@ const TokenIdListRequestSchema = z
     },
   });
 
+const IncludePricesType = z
+  .enum(["true", "false"])
+  .default("true")
+  .transform((value) => value === "true");
+
+// Without prices the list only changes when token metadata does (new listings,
+// logos, visibility), so browsers and the edge can hold it far longer than the
+// priced list, and a stale copy revalidates to a 304 rather than a new body.
+const PRICE_FREE_TOKEN_LIST_CACHE_CONTROL =
+  "public, max-age=300, stale-while-revalidate=3600";
+
+function parseAfterToken(afterToken: unknown) {
+  if (typeof afterToken !== "string") return null;
+  const [chainId, address] = afterToken.split(":");
+  return chainId && address
+    ? { chainId: BigInt(chainId), address: BigInt(address) }
+    : null;
+}
+
+function parseListTokensQuery(query: IRequest["query"]) {
+  const search =
+    typeof query.search === "string" ? query.search.trim() : undefined;
+
+  return {
+    chainId: ChainIdType.optional().parse(query.chainId),
+    minVisibilityPriority: VisibilityPriorityType.parse(
+      query.minVisibilityPriority ?? 0,
+    ),
+    pageSize: Number(query.pageSize ?? 1000),
+    afterToken: parseAfterToken(query.afterToken),
+    search: search === "" ? undefined : search,
+    includePrices: IncludePricesType.parse(query.includePrices),
+  };
+}
+
 export class ListTokens extends EkuboAPIRoute {
   static route = "/tokens";
   static schema: OpenAPIRouteSchema = {
@@ -243,6 +278,11 @@ export class ListTokens extends EkuboAPIRoute {
       minVisibilityPriority: Query(VisibilityPriorityType, {
         required: false,
       }),
+      includePrices: Query(IncludePricesType, {
+        required: false,
+        description:
+          "Set to false to omit usd_price from every row. The price-free list only changes when token metadata does, so it is cached for longer; pair it with /tokens/prices to keep prices fresh.",
+      }),
     },
     responses: {
       "200": {
@@ -253,36 +293,25 @@ export class ListTokens extends EkuboAPIRoute {
   };
 
   async handleRequest({ query }: IRequest, { env }: RequestContext) {
-    const chainId = ChainIdType.optional().parse(query.chainId);
-    const minVisibilityPriority = VisibilityPriorityType.parse(
-      query.minVisibilityPriority ?? 0,
-    );
-    const pageSize = Number(query.pageSize ?? 1000);
-    const [afterTokenChainId, afterTokenAddress] =
-      typeof query.afterToken === "string" ? query.afterToken.split(":") : [];
-
-    const afterToken =
-      afterTokenChainId && afterTokenAddress
-        ? {
-            chainId: BigInt(afterTokenChainId),
-            address: BigInt(afterTokenAddress),
-          }
-        : null;
-
-    const search =
-      typeof query.search === "string" ? query.search.trim() : undefined;
+    const { includePrices, ...filters } = parseListTokensQuery(query);
 
     const queries = await createQueries(env);
-    const rows = await queries.listErc20Tokens({
-      chainId,
-      minVisibilityPriority,
-      pageSize,
-      afterToken,
-      search: search === "" ? undefined : search,
-    });
+    const rows = await queries.listErc20Tokens(filters);
 
-    const tokens = rows.map(buildTokenInfo);
-    const response = tokens satisfies TokenListResponse;
+    if (!includePrices) {
+      const response = rows.map((row) => {
+        const { usd_price, ...token } = buildTokenInfo(row);
+        return token;
+      }) satisfies Omit<TokenInfo, "usd_price">[];
+
+      return json(response, {
+        headers: {
+          "cache-control": PRICE_FREE_TOKEN_LIST_CACHE_CONTROL,
+        },
+      });
+    }
+
+    const response = rows.map(buildTokenInfo) satisfies TokenListResponse;
 
     return json(response, {
       headers: {

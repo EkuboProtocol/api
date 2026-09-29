@@ -29,7 +29,7 @@ describe("Chanfana router integration", () => {
         (count, operation) => count + (operation.parameters?.length ?? 0),
         0,
       ),
-    ).toBe(193);
+    ).toBe(194);
 
     const getToken = operations.find(
       (operation) =>
