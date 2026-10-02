@@ -11,7 +11,7 @@ import { NFTMetadata, NFTMetadataSchema, TokenIdType } from "./format";
 import { generateDcaOrderNft } from "./generateDcaOrderNft";
 import {
   AddressType,
-  NumericStringType,
+  ChainIdStringType,
 } from "../../shared/validation/address";
 import { generateTwapOrderNftMetadata } from "../../shared/metadatas/twap";
 
@@ -25,7 +25,7 @@ export const GetOrderNftMetadata = defineRoute(
     operationId: "get_GetOrderNftMetadata",
     request: {
       params: z.object({
-        chainId: NumericStringType,
+        chainId: ChainIdStringType,
         nftAddress: AddressType.describe(
           "The address of the Positions NFT contract",
         ),
@@ -85,7 +85,7 @@ export const GetOrderNftImage = defineRoute(
     operationId: "get_GetOrderNftImage",
     request: {
       params: z.object({
-        chainId: NumericStringType,
+        chainId: ChainIdStringType,
         nftAddress: AddressType.describe(
           "The address of the Positions NFT contract",
         ),
