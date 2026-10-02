@@ -7,7 +7,7 @@
     "@ekubo/sdk": "^0.0.10",
     "@hono/zod-openapi": "^1.6.3",
     "@types/bun": "^1.4.2",
-    "@typescript-eslint/parser": "8.70.1",
+    "@typescript-eslint/parser": "8.71.0",
     "eslint": "10.11.0",
     "hono": "^4.13.11",
     "postgres": "^3.4.9",
