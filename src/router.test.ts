@@ -1,5 +1,6 @@
-import { describe, expect, test } from "bun:test";
+import { describe, expect, spyOn, test } from "bun:test";
 import { Env } from "./env";
+import { Queries } from "./queries";
 import { app, openApiDocument } from "./router";
 
 const fetchPath = (path: string) =>
@@ -159,6 +160,49 @@ describe("Hono app integration", () => {
         )
       ).status,
     ).toBe(400);
+  });
+
+  test("rejects numeric path parameters that do not parse", async () => {
+    for (const path of [
+      "/positions/1e5",
+      "/positions/1e",
+      "/positions/2e10",
+      "/positions/1e999999999999999999999",
+      "/twap/orders/1e5",
+      "/twap/orders/0e0",
+      "/tokens/1/1e5",
+      "/limit-orders/orders/1e5",
+      "/positions/1/0x1/1e5",
+      // Chain IDs are int8 in the database.
+      "/tokens/9223372036854775808/0x1",
+      "/governance/9223372036854775808/proposals",
+      "/pair/393402133025997798000961/0x1/0x2/pools",
+    ]) {
+      const response = await fetchPath(path);
+      expect({ path, status: response.status }).toEqual({ path, status: 400 });
+      expect((await response.json()) as unknown).toMatchObject({
+        status: 400,
+        error: expect.stringMatching(/^Invalid param: /),
+      });
+    }
+  });
+
+  test("passes a large position token ID through to the query", async () => {
+    const tokenId = 2n ** 256n - 1n;
+    const getPositionMetadata = spyOn(
+      Queries.prototype,
+      "getPositionMetadata",
+    ).mockResolvedValue(null);
+    try {
+      const response = await app.fetch(
+        new Request(`http://localhost/positions/1/0x1/${tokenId}`),
+        { PG_CONNECTION_STRING: "postgres://test:test@127.0.0.1:1/test" },
+      );
+      expect(response.status).toBe(404);
+      expect(getPositionMetadata).toHaveBeenCalledWith(1n, 1n, tokenId);
+    } finally {
+      getPositionMetadata.mockRestore();
+    }
   });
 
   test("validates pool key discovery requests without a database", async () => {

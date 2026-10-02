@@ -6,7 +6,7 @@ import {
   AddressType,
   DecimalStringType,
   HexStringType,
-  NumericStringType,
+  ChainIdStringType,
 } from "../../shared/validation/address";
 import { createQueries } from "../../queries";
 import toHex from "../../shared/toHex";
@@ -53,7 +53,7 @@ export const ListProposals = defineRoute(
     operationId: "get_ListProposals",
     request: {
       params: z.object({
-        chainId: NumericStringType.describe(
+        chainId: ChainIdStringType.describe(
           "Chain ID for which to list proposals",
         ),
       }),
@@ -126,7 +126,7 @@ export const ListVotesOnProposal = defineRoute(
     operationId: "get_ListVotesOnProposal",
     request: {
       params: z.object({
-        chainId: NumericStringType.describe(
+        chainId: ChainIdStringType.describe(
           "Chain ID for which to list proposals",
         ),
         proposalId: HexStringType.describe("The ID of the proposal"),
@@ -203,7 +203,7 @@ export const ListProposalVoters = defineRoute(
     operationId: "get_ListProposalVoters",
     request: {
       params: z.object({
-        chainId: NumericStringType.describe(
+        chainId: ChainIdStringType.describe(
           "Chain ID for which to list proposals",
         ),
         proposalId: HexStringType.describe("The ID of the proposal"),
@@ -283,7 +283,7 @@ export const ListTopDelegates = defineRoute(
     operationId: "get_ListTopDelegates",
     request: {
       params: z.object({
-        chainId: NumericStringType.describe(
+        chainId: ChainIdStringType.describe(
           "Chain ID for which to list top delegates",
         ),
       }),
@@ -348,7 +348,7 @@ export const GetStakerInfo = defineRoute(
     operationId: "get_GetStakerInfo",
     request: {
       params: z.object({
-        chainId: NumericStringType.describe(
+        chainId: ChainIdStringType.describe(
           "Chain ID for which to look up staker data",
         ),
         address: AddressType.describe(

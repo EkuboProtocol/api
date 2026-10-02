@@ -4,6 +4,7 @@ import {
   AddressType,
   ChainIdType,
   DecimalStringType,
+  ChainIdStringType,
   NumericStringType,
   TokenIdentifierType,
 } from "../../shared/validation/address";
@@ -194,7 +195,7 @@ const PairPathParameters = z.object({
 
 // The volume and pools routes declare the chain ID as a numeric string.
 const PairNumericChainPathParameters = PairPathParameters.extend({
-  chainId: NumericStringType,
+  chainId: ChainIdStringType,
 });
 
 type PoolKeyFilters = {

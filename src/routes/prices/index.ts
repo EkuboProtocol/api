@@ -4,6 +4,7 @@ import { parseOutTokenAddress } from "../../shared/parseOutTokens";
 import {
   AddressType,
   ChainIdType,
+  ChainIdStringType,
   NumericStringType,
   TokenIdentifierType,
 } from "../../shared/validation/address";
@@ -304,7 +305,7 @@ export const GetPairPriceHistory = defineRoute(
         quoteToken: TokenIdentifierType.openapi({
           example: "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48",
         }),
-        chainId: NumericStringType.openapi({ example: "1" }),
+        chainId: ChainIdStringType.openapi({ example: "1" }),
       }),
       query: z.object({
         interval: z.coerce
@@ -505,7 +506,7 @@ export const GetPairOhlcHistory = defineRoute(
     operationId: "get_GetPairOhlcHistory",
     request: {
       params: z.object({
-        chainId: NumericStringType.openapi({ example: "1" }),
+        chainId: ChainIdStringType.openapi({ example: "1" }),
         baseToken: TokenIdentifierType.openapi({ example: "0x0" }),
         quoteToken: TokenIdentifierType.openapi({
           example: "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48",

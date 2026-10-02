@@ -11,6 +11,7 @@ import {
   ChainIdType,
   DecimalStringType,
   HexStringType,
+  ChainIdStringType,
   NumericStringType,
 } from "../../shared/validation/address";
 import { createQueries, type PositionEventRow } from "../../queries";
@@ -419,7 +420,7 @@ export const GetPositionNftMetadata = defineRoute(
     operationId: "get_GetPositionNftMetadata",
     request: {
       params: z.object({
-        chainId: NumericStringType.describe(
+        chainId: ChainIdStringType.describe(
           "Chain ID for which to generate metadata",
         ),
         nftAddress: AddressType.describe(
@@ -489,7 +490,7 @@ export const ListPositionNftEvents = defineRoute(
     operationId: "get_ListPositionNftEvents",
     request: {
       params: z.object({
-        chainId: NumericStringType.describe(
+        chainId: ChainIdStringType.describe(
           "Chain ID for which to list events",
         ),
         lockerAddress: AddressType.describe(
@@ -676,7 +677,7 @@ export const GetPositionNftImage = defineRoute(
     operationId: "get_GetPositionNftImage",
     request: {
       params: z.object({
-        chainId: NumericStringType,
+        chainId: ChainIdStringType,
         nftAddress: AddressType.describe(
           "The address of the Positions NFT contract",
         ),

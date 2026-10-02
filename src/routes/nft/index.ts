@@ -15,11 +15,11 @@ import { generateTwapOrderNftMetadata } from "../../shared/metadatas/twap";
 import { generateLimitOrderNftMetadata } from "../../shared/metadatas/limit";
 import {
   AddressType,
-  NumericStringType,
+  ChainIdStringType,
 } from "../../shared/validation/address";
 
 const NftParamsType = z.object({
-  chainId: NumericStringType.describe(
+  chainId: ChainIdStringType.describe(
     "Chain ID for which to generate metadata",
   ),
   nftAddress: AddressType.describe("The address of the NFT contract"),

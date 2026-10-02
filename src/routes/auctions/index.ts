@@ -11,6 +11,7 @@ import {
   ChainIdType,
   DecimalStringType,
   HexStringType,
+  ChainIdStringType,
   NumericStringType,
   VisibilityPriorityType,
 } from "../../shared/validation/address";
@@ -142,7 +143,7 @@ export const GetAuctionNftMetadata = defineRoute(
     operationId: "get_GetAuctionNftMetadata",
     request: {
       params: z.object({
-        chainId: NumericStringType.describe(
+        chainId: ChainIdStringType.describe(
           "Chain ID for which to generate metadata",
         ),
         nftAddress: AddressType.describe("The NFT contract address"),
@@ -305,7 +306,7 @@ export const GetAuctionNftState = defineRoute(
     operationId: "get_GetAuctionNftState",
     request: {
       params: z.object({
-        chainId: NumericStringType.describe(
+        chainId: ChainIdStringType.describe(
           "Chain ID for which to fetch state",
         ),
         nftAddress: AddressType.describe("The NFT contract address"),
@@ -375,7 +376,7 @@ export const GetAuctionNftImage = defineRoute(
     operationId: "get_GetAuctionNftImage",
     request: {
       params: z.object({
-        chainId: NumericStringType.describe(
+        chainId: ChainIdStringType.describe(
           "Chain ID for which to generate metadata",
         ),
         nftAddress: AddressType.describe("The NFT contract address"),
