@@ -187,6 +187,45 @@ describe("Hono app integration", () => {
     }
   });
 
+  test("rejects token searches with control characters", async () => {
+    for (const path of [
+      "/tokens?chainId=1&search=%00",
+      "/tokens?search=%00&pageSize=3",
+      "/tokens?search=a%00b&pageSize=2",
+      "/tokens?search=ETH%00&pageSize=3",
+      "/tokens?search=ETH%0A",
+      "/tokens?search=%7F",
+    ]) {
+      const response = await fetchPath(path);
+      expect({ path, status: response.status }).toEqual({ path, status: 400 });
+      expect((await response.json()) as unknown).toEqual({
+        status: 400,
+        error: "Invalid query: search: Must not contain control characters",
+      });
+    }
+  });
+
+  test("passes an ordinary token search through to the query", async () => {
+    const listErc20Tokens = spyOn(
+      Queries.prototype,
+      "listErc20Tokens",
+    ).mockResolvedValue(
+      [] as unknown as Awaited<ReturnType<Queries["listErc20Tokens"]>>,
+    );
+    try {
+      const response = await app.fetch(
+        new Request("http://localhost/tokens?search=%20%C3%A9ETH%20"),
+        { PG_CONNECTION_STRING: "postgres://test:test@127.0.0.1:1/test" },
+      );
+      expect(response.status).toBe(200);
+      expect(listErc20Tokens).toHaveBeenCalledWith(
+        expect.objectContaining({ search: "éETH" }),
+      );
+    } finally {
+      listErc20Tokens.mockRestore();
+    }
+  });
+
   test("passes a large position token ID through to the query", async () => {
     const tokenId = 2n ** 256n - 1n;
     const getPositionMetadata = spyOn(
