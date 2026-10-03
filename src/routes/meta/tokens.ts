@@ -257,11 +257,16 @@ export const ListTokens = defineRoute(
     request: {
       query: z.object({
         chainId: ChainIdType.optional(),
+        // Postgres rejects NUL in text, and no symbol has control characters.
         search: z
           .string()
           .describe("Token symbol search")
           .min(1)
           .max(32)
+          .regex(
+            /^[^\u0000-\u001f\u007f-\u009f]*$/,
+            "Must not contain control characters",
+          )
           .optional(),
         pageSize: z.coerce.number().int().min(1).max(10_000).default(1000),
         afterToken: z
