@@ -9545,6 +9545,1407 @@
         }
       }
     },
+    "/launches": {
+      "get": {
+        "tags": [
+          "Launches"
+        ],
+        "summary": "List launches",
+        "description": "Lists ScheduledLaunch launches from the indexed launchpad tables, newest first",
+        "operationId": "get_ListLaunches",
+        "parameters": [
+          {
+            "schema": {
+              "type": "integer",
+              "title": "Chain ID",
+              "description": "Restrict to one chain",
+              "format": "int64",
+              "minimum": 1,
+              "maximum": 9223372036854776000
+            },
+            "required": false,
+            "description": "Restrict to one chain",
+            "name": "chainId",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "enum": [
+                "upcoming",
+                "live",
+                "ended",
+                "migrated"
+              ],
+              "description": "Derived from the chain's indexed head block time, not the wall clock: upcoming before start_time, live in [start_time, end_time) while not complete, ended at or after end_time while not complete, migrated once complete"
+            },
+            "required": false,
+            "description": "Derived from the chain's indexed head block time, not the wall clock: upcoming before start_time, live in [start_time, end_time) while not complete, ended at or after end_time while not complete, migrated once complete",
+            "name": "status",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "pattern": "^0x[a-fA-F0-9]+$",
+                  "description": "A hexadecimal number"
+                },
+                {
+                  "type": "string",
+                  "pattern": "^\\d+$",
+                  "description": "A decimal number"
+                }
+              ],
+              "title": "Address",
+              "description": "Only launches created through LaunchRouter by this address"
+            },
+            "required": false,
+            "description": "Only launches created through LaunchRouter by this address",
+            "name": "creator",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 200,
+              "default": 50,
+              "description": "Maximum number of launches per page"
+            },
+            "required": false,
+            "description": "Maximum number of launches per page",
+            "name": "pageSize",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "default": 1,
+              "description": "Page number to fetch (1-indexed)"
+            },
+            "required": false,
+            "description": "Page number to fetch (1-indexed)",
+            "name": "page",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "A page of launches",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "chain_id": {
+                            "type": "string",
+                            "pattern": "^\\d+$",
+                            "description": "A decimal number"
+                          },
+                          "pool_key_id": {
+                            "type": "string",
+                            "pattern": "^\\d+$",
+                            "description": "A decimal number"
+                          },
+                          "pool_id": {
+                            "type": "string",
+                            "pattern": "^0x[a-fA-F0-9]+$",
+                            "description": "A hexadecimal number"
+                          },
+                          "pool_key": {
+                            "type": "object",
+                            "properties": {
+                              "core_address": {
+                                "type": "string",
+                                "pattern": "^0x[a-fA-F0-9]+$",
+                                "description": "A hexadecimal number"
+                              },
+                              "token0": {
+                                "type": "string",
+                                "pattern": "^0x[a-fA-F0-9]+$",
+                                "description": "A hexadecimal number"
+                              },
+                              "token1": {
+                                "type": "string",
+                                "pattern": "^0x[a-fA-F0-9]+$",
+                                "description": "A hexadecimal number"
+                              },
+                              "fee": {
+                                "type": "string",
+                                "pattern": "^0x[a-fA-F0-9]+$",
+                                "description": "A hexadecimal number"
+                              },
+                              "tick_spacing": {
+                                "type": [
+                                  "integer",
+                                  "null"
+                                ]
+                              },
+                              "extension": {
+                                "type": "string",
+                                "pattern": "^0x[a-fA-F0-9]+$",
+                                "description": "A hexadecimal number"
+                              }
+                            },
+                            "required": [
+                              "core_address",
+                              "token0",
+                              "token1",
+                              "fee",
+                              "tick_spacing",
+                              "extension"
+                            ]
+                          },
+                          "launch_token": {
+                            "type": "object",
+                            "properties": {
+                              "address": {
+                                "type": "string",
+                                "pattern": "^0x[a-fA-F0-9]+$",
+                                "description": "A hexadecimal number"
+                              },
+                              "name": {
+                                "type": "string"
+                              },
+                              "symbol": {
+                                "type": "string"
+                              },
+                              "decimals": {
+                                "type": "integer"
+                              },
+                              "total_supply": {
+                                "type": "string",
+                                "pattern": "^\\d+$",
+                                "description": "A decimal number"
+                              }
+                            },
+                            "required": [
+                              "address",
+                              "name",
+                              "symbol",
+                              "decimals",
+                              "total_supply"
+                            ]
+                          },
+                          "quote_token": {
+                            "type": "object",
+                            "properties": {
+                              "address": {
+                                "type": "string",
+                                "pattern": "^0x[a-fA-F0-9]+$",
+                                "description": "A hexadecimal number"
+                              },
+                              "name": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ],
+                                "description": "Null when the token is not in the token list"
+                              },
+                              "symbol": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "decimals": {
+                                "type": [
+                                  "integer",
+                                  "null"
+                                ]
+                              }
+                            },
+                            "required": [
+                              "address",
+                              "name",
+                              "symbol",
+                              "decimals"
+                            ]
+                          },
+                          "launch_token_is_token1": {
+                            "type": "boolean"
+                          },
+                          "start_time": {
+                            "type": "integer",
+                            "description": "Unix time in seconds"
+                          },
+                          "end_time": {
+                            "type": "integer",
+                            "description": "Unix time in seconds"
+                          },
+                          "target_tick": {
+                            "type": "integer",
+                            "description": "Tick in raw quote units per launch token, independent of token order"
+                          },
+                          "upper_tick": {
+                            "type": "integer"
+                          },
+                          "tick_spacing": {
+                            "type": "integer"
+                          },
+                          "initial_fee": {
+                            "type": "string",
+                            "pattern": "^\\d+$",
+                            "description": "0.64 fixed-point fee fraction"
+                          },
+                          "final_fee": {
+                            "type": "string",
+                            "pattern": "^\\d+$",
+                            "description": "0.64 fixed-point fee fraction"
+                          },
+                          "migration_tick_lower": {
+                            "type": "integer"
+                          },
+                          "migration_tick_upper": {
+                            "type": "integer"
+                          },
+                          "deployed": {
+                            "type": "string",
+                            "pattern": "^\\d+$",
+                            "description": "A decimal number"
+                          },
+                          "reserve0": {
+                            "type": "string",
+                            "pattern": "^\\d+$",
+                            "description": "A decimal number"
+                          },
+                          "reserve1": {
+                            "type": "string",
+                            "pattern": "^\\d+$",
+                            "description": "A decimal number"
+                          },
+                          "complete": {
+                            "type": "boolean"
+                          },
+                          "status": {
+                            "type": [
+                              "string",
+                              "null"
+                            ],
+                            "enum": [
+                              "upcoming",
+                              "live",
+                              "ended",
+                              "migrated",
+                              null
+                            ],
+                            "description": "Null only when the chain has no indexed head yet and the launch is not complete"
+                          },
+                          "status_as_of": {
+                            "type": [
+                              "integer",
+                              "null"
+                            ],
+                            "description": "The indexed head block time the status was derived from"
+                          },
+                          "owner": {
+                            "type": "string",
+                            "pattern": "^0x[a-fA-F0-9]+$",
+                            "description": "Owner of record in LaunchCreated (LaunchRouter for routed launches)"
+                          },
+                          "creator": {
+                            "type": [
+                              "string",
+                              "null"
+                            ],
+                            "pattern": "^0x[a-fA-F0-9]+$",
+                            "description": "LaunchRouter.LaunchCreatedBy creator, the account that may claim creator fees; null when the launch was not created through LaunchRouter"
+                          },
+                          "created_block_number": {
+                            "type": "string",
+                            "pattern": "^\\d+$",
+                            "description": "A decimal number"
+                          },
+                          "created_transaction_hash": {
+                            "type": "string",
+                            "pattern": "^0x[a-fA-F0-9]+$",
+                            "description": "A hexadecimal number"
+                          },
+                          "created_time": {
+                            "type": "integer",
+                            "description": "Unix time in seconds"
+                          }
+                        },
+                        "required": [
+                          "chain_id",
+                          "pool_key_id",
+                          "pool_id",
+                          "pool_key",
+                          "launch_token",
+                          "quote_token",
+                          "launch_token_is_token1",
+                          "start_time",
+                          "end_time",
+                          "target_tick",
+                          "upper_tick",
+                          "tick_spacing",
+                          "initial_fee",
+                          "final_fee",
+                          "migration_tick_lower",
+                          "migration_tick_upper",
+                          "deployed",
+                          "reserve0",
+                          "reserve1",
+                          "complete",
+                          "status",
+                          "status_as_of",
+                          "owner",
+                          "creator",
+                          "created_block_number",
+                          "created_transaction_hash",
+                          "created_time"
+                        ]
+                      }
+                    },
+                    "pagination": {
+                      "type": "object",
+                      "properties": {
+                        "page": {
+                          "type": "integer",
+                          "minimum": 1
+                        },
+                        "pageSize": {
+                          "type": "integer",
+                          "minimum": 1
+                        },
+                        "totalPages": {
+                          "type": "integer",
+                          "minimum": 0
+                        },
+                        "totalItems": {
+                          "type": "integer",
+                          "minimum": 0
+                        }
+                      },
+                      "required": [
+                        "page",
+                        "pageSize",
+                        "totalPages",
+                        "totalItems"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "data",
+                    "pagination"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The request parameters are invalid",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "An unexpected server error occurred",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/launches/{chainId}/{poolId}/stats": {
+      "get": {
+        "tags": [
+          "Launches"
+        ],
+        "summary": "Get launch stats",
+        "description": "Swap volume by side, swap and locker counts, creator fees accrued and claimed, and funding received for one launch",
+        "operationId": "get_GetLaunchStats",
+        "parameters": [
+          {
+            "schema": {
+              "type": "integer",
+              "title": "Chain ID",
+              "description": "The ID of the network that is being fetched",
+              "format": "int64",
+              "minimum": 1,
+              "maximum": 9223372036854776000
+            },
+            "required": true,
+            "description": "The ID of the network that is being fetched",
+            "name": "chainId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "pattern": "^0x[a-fA-F0-9]+$",
+                  "description": "A hexadecimal number"
+                },
+                {
+                  "type": "string",
+                  "pattern": "^\\d+$",
+                  "description": "A decimal number"
+                }
+              ],
+              "title": "Numeric",
+              "description": "The launch pool's ID",
+              "example": "0x1234"
+            },
+            "required": true,
+            "description": "The launch pool's ID",
+            "name": "poolId",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Launch statistics",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "chain_id": {
+                      "type": "string",
+                      "pattern": "^\\d+$",
+                      "description": "A decimal number"
+                    },
+                    "pool_id": {
+                      "type": "string",
+                      "pattern": "^0x[a-fA-F0-9]+$",
+                      "description": "A hexadecimal number"
+                    },
+                    "swaps": {
+                      "type": "object",
+                      "properties": {
+                        "count": {
+                          "type": "integer"
+                        },
+                        "buy_count": {
+                          "type": "integer"
+                        },
+                        "sell_count": {
+                          "type": "integer"
+                        },
+                        "distinct_transactions": {
+                          "type": "integer"
+                        },
+                        "distinct_lockers": {
+                          "type": "integer",
+                          "description": "Distinct LaunchSwapped.locker addresses: the contract that forwarded the swap (usually a router), not the user"
+                        },
+                        "distinct_transaction_senders": {
+                          "type": "null",
+                          "description": "Not available: the indexer stores no transaction sender, and the API does not resolve transactions to their senders"
+                        }
+                      },
+                      "required": [
+                        "count",
+                        "buy_count",
+                        "sell_count",
+                        "distinct_transactions",
+                        "distinct_lockers",
+                        "distinct_transaction_senders"
+                      ]
+                    },
+                    "volume": {
+                      "type": "object",
+                      "properties": {
+                        "buy": {
+                          "type": "object",
+                          "properties": {
+                            "quote_in": {
+                              "type": "string",
+                              "pattern": "^\\d+$",
+                              "description": "A decimal number"
+                            },
+                            "launch_token_out": {
+                              "type": "string",
+                              "pattern": "^\\d+$",
+                              "description": "A decimal number"
+                            }
+                          },
+                          "required": [
+                            "quote_in",
+                            "launch_token_out"
+                          ],
+                          "description": "Swaps that took launch tokens out of the pool"
+                        },
+                        "sell": {
+                          "type": "object",
+                          "properties": {
+                            "launch_token_in": {
+                              "type": "string",
+                              "pattern": "^\\d+$",
+                              "description": "A decimal number"
+                            },
+                            "quote_out": {
+                              "type": "string",
+                              "pattern": "^\\d+$",
+                              "description": "A decimal number"
+                            }
+                          },
+                          "required": [
+                            "launch_token_in",
+                            "quote_out"
+                          ],
+                          "description": "Swaps that put launch tokens into the pool"
+                        }
+                      },
+                      "required": [
+                        "buy",
+                        "sell"
+                      ]
+                    },
+                    "creator_fees": {
+                      "type": "object",
+                      "properties": {
+                        "accrued": {
+                          "type": "object",
+                          "properties": {
+                            "launch_token": {
+                              "type": "string",
+                              "pattern": "^\\d+$",
+                              "description": "A decimal number"
+                            },
+                            "quote_token": {
+                              "type": "string",
+                              "pattern": "^\\d+$",
+                              "description": "A decimal number"
+                            }
+                          },
+                          "required": [
+                            "launch_token",
+                            "quote_token"
+                          ],
+                          "description": "Sum of LaunchSwapped fees, saved for the launch's creator"
+                        },
+                        "claimed": {
+                          "type": "object",
+                          "properties": {
+                            "launch_token": {
+                              "type": "string",
+                              "pattern": "^\\d+$",
+                              "description": "A decimal number"
+                            },
+                            "quote_token": {
+                              "type": "string",
+                              "pattern": "^\\d+$",
+                              "description": "A decimal number"
+                            }
+                          },
+                          "required": [
+                            "launch_token",
+                            "quote_token"
+                          ]
+                        },
+                        "claim_count": {
+                          "type": "integer"
+                        }
+                      },
+                      "required": [
+                        "accrued",
+                        "claimed",
+                        "claim_count"
+                      ]
+                    },
+                    "funding": {
+                      "type": "object",
+                      "properties": {
+                        "received": {
+                          "type": "object",
+                          "properties": {
+                            "launch_token": {
+                              "type": "string",
+                              "pattern": "^\\d+$",
+                              "description": "A decimal number"
+                            },
+                            "quote_token": {
+                              "type": "string",
+                              "pattern": "^\\d+$",
+                              "description": "A decimal number"
+                            }
+                          },
+                          "required": [
+                            "launch_token",
+                            "quote_token"
+                          ],
+                          "description": "PrincipalReceived from lockers that forwarded LAUNCH_FUND"
+                        },
+                        "count": {
+                          "type": "integer"
+                        },
+                        "migrated_principal": {
+                          "type": "object",
+                          "properties": {
+                            "launch_token": {
+                              "type": "string",
+                              "pattern": "^\\d+$",
+                              "description": "A decimal number"
+                            },
+                            "quote_token": {
+                              "type": "string",
+                              "pattern": "^\\d+$",
+                              "description": "A decimal number"
+                            }
+                          },
+                          "required": [
+                            "launch_token",
+                            "quote_token"
+                          ],
+                          "description": "PrincipalReceived from the launch extension at migration"
+                        }
+                      },
+                      "required": [
+                        "received",
+                        "count",
+                        "migrated_principal"
+                      ]
+                    },
+                    "attribution": {
+                      "type": "object",
+                      "properties": {
+                        "counts": {
+                          "type": "string"
+                        },
+                        "lockers": {
+                          "type": "string"
+                        },
+                        "senders": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "counts",
+                        "lockers",
+                        "senders"
+                      ],
+                      "description": "Where each count comes from"
+                    }
+                  },
+                  "required": [
+                    "chain_id",
+                    "pool_id",
+                    "swaps",
+                    "volume",
+                    "creator_fees",
+                    "funding",
+                    "attribution"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The request parameters are invalid",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The requested resource was not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "An unexpected server error occurred",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/launches/{chainId}/{poolId}/swaps": {
+      "get": {
+        "tags": [
+          "Launches"
+        ],
+        "summary": "List launch swaps",
+        "description": "Returns a launch's LaunchSwapped events in ascending event order",
+        "operationId": "get_ListLaunchSwaps",
+        "parameters": [
+          {
+            "schema": {
+              "type": "integer",
+              "title": "Chain ID",
+              "description": "The ID of the network that is being fetched",
+              "format": "int64",
+              "minimum": 1,
+              "maximum": 9223372036854776000
+            },
+            "required": true,
+            "description": "The ID of the network that is being fetched",
+            "name": "chainId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "pattern": "^0x[a-fA-F0-9]+$",
+                  "description": "A hexadecimal number"
+                },
+                {
+                  "type": "string",
+                  "pattern": "^\\d+$",
+                  "description": "A decimal number"
+                }
+              ],
+              "title": "Numeric",
+              "description": "The launch pool's ID",
+              "example": "0x1234"
+            },
+            "required": true,
+            "description": "The launch pool's ID",
+            "name": "poolId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "integer",
+              "format": "int64",
+              "description": "Return swaps strictly after this event_id; use next_cursor to continue"
+            },
+            "required": false,
+            "description": "Return swaps strictly after this event_id; use next_cursor to continue",
+            "name": "cursor",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 1000,
+              "default": 100,
+              "description": "Maximum number of swaps to return"
+            },
+            "required": false,
+            "description": "Maximum number of swaps to return",
+            "name": "limit",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "A page of launch swaps",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "chain_id": {
+                      "type": "string",
+                      "pattern": "^\\d+$",
+                      "description": "A decimal number"
+                    },
+                    "pool_id": {
+                      "type": "string",
+                      "pattern": "^0x[a-fA-F0-9]+$",
+                      "description": "A hexadecimal number"
+                    },
+                    "swaps": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "event_id": {
+                            "type": "string",
+                            "pattern": "^-?\\d+$"
+                          },
+                          "block_number": {
+                            "type": "string",
+                            "pattern": "^\\d+$",
+                            "description": "A decimal number"
+                          },
+                          "transaction_index": {
+                            "type": "integer"
+                          },
+                          "event_index": {
+                            "type": "integer"
+                          },
+                          "transaction_hash": {
+                            "type": "string",
+                            "pattern": "^0x[a-fA-F0-9]+$",
+                            "description": "A hexadecimal number"
+                          },
+                          "time": {
+                            "type": "integer",
+                            "description": "Unix time in seconds"
+                          },
+                          "locker": {
+                            "type": "string",
+                            "pattern": "^0x[a-fA-F0-9]+$",
+                            "description": "The locker that forwarded the swap, usually a router contract"
+                          },
+                          "delta0": {
+                            "type": "string",
+                            "pattern": "^-?\\d+$",
+                            "description": "Fee-inclusive pool-perspective delta of token0"
+                          },
+                          "delta1": {
+                            "type": "string",
+                            "pattern": "^-?\\d+$",
+                            "description": "Fee-inclusive pool-perspective delta of token1"
+                          },
+                          "fee_amount": {
+                            "type": "string",
+                            "pattern": "^\\d+$",
+                            "description": "A decimal number"
+                          },
+                          "fee_is_token1": {
+                            "type": "boolean"
+                          }
+                        },
+                        "required": [
+                          "event_id",
+                          "block_number",
+                          "transaction_index",
+                          "event_index",
+                          "transaction_hash",
+                          "time",
+                          "locker",
+                          "delta0",
+                          "delta1",
+                          "fee_amount",
+                          "fee_is_token1"
+                        ]
+                      }
+                    },
+                    "next_cursor": {
+                      "type": [
+                        "string",
+                        "null"
+                      ],
+                      "pattern": "^-?\\d+$"
+                    },
+                    "has_more": {
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "chain_id",
+                    "pool_id",
+                    "swaps",
+                    "next_cursor",
+                    "has_more"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The request parameters are invalid",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The requested resource was not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "An unexpected server error occurred",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/launches/{chainId}/{poolId}": {
+      "get": {
+        "tags": [
+          "Launches"
+        ],
+        "summary": "Get a launch",
+        "description": "Returns a launch's configuration, saved state, latest advance, migration and claimed creator fees, plus the Core pool state",
+        "operationId": "get_GetLaunch",
+        "parameters": [
+          {
+            "schema": {
+              "type": "integer",
+              "title": "Chain ID",
+              "description": "The ID of the network that is being fetched",
+              "format": "int64",
+              "minimum": 1,
+              "maximum": 9223372036854776000
+            },
+            "required": true,
+            "description": "The ID of the network that is being fetched",
+            "name": "chainId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "pattern": "^0x[a-fA-F0-9]+$",
+                  "description": "A hexadecimal number"
+                },
+                {
+                  "type": "string",
+                  "pattern": "^\\d+$",
+                  "description": "A decimal number"
+                }
+              ],
+              "title": "Numeric",
+              "description": "The launch pool's ID",
+              "example": "0x1234"
+            },
+            "required": true,
+            "description": "The launch pool's ID",
+            "name": "poolId",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The launch",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "chain_id": {
+                      "type": "string",
+                      "pattern": "^\\d+$",
+                      "description": "A decimal number"
+                    },
+                    "pool_key_id": {
+                      "type": "string",
+                      "pattern": "^\\d+$",
+                      "description": "A decimal number"
+                    },
+                    "pool_id": {
+                      "type": "string",
+                      "pattern": "^0x[a-fA-F0-9]+$",
+                      "description": "A hexadecimal number"
+                    },
+                    "pool_key": {
+                      "type": "object",
+                      "properties": {
+                        "core_address": {
+                          "type": "string",
+                          "pattern": "^0x[a-fA-F0-9]+$",
+                          "description": "A hexadecimal number"
+                        },
+                        "token0": {
+                          "type": "string",
+                          "pattern": "^0x[a-fA-F0-9]+$",
+                          "description": "A hexadecimal number"
+                        },
+                        "token1": {
+                          "type": "string",
+                          "pattern": "^0x[a-fA-F0-9]+$",
+                          "description": "A hexadecimal number"
+                        },
+                        "fee": {
+                          "type": "string",
+                          "pattern": "^0x[a-fA-F0-9]+$",
+                          "description": "A hexadecimal number"
+                        },
+                        "tick_spacing": {
+                          "type": [
+                            "integer",
+                            "null"
+                          ]
+                        },
+                        "extension": {
+                          "type": "string",
+                          "pattern": "^0x[a-fA-F0-9]+$",
+                          "description": "A hexadecimal number"
+                        }
+                      },
+                      "required": [
+                        "core_address",
+                        "token0",
+                        "token1",
+                        "fee",
+                        "tick_spacing",
+                        "extension"
+                      ]
+                    },
+                    "launch_token": {
+                      "type": "object",
+                      "properties": {
+                        "address": {
+                          "type": "string",
+                          "pattern": "^0x[a-fA-F0-9]+$",
+                          "description": "A hexadecimal number"
+                        },
+                        "name": {
+                          "type": "string"
+                        },
+                        "symbol": {
+                          "type": "string"
+                        },
+                        "decimals": {
+                          "type": "integer"
+                        },
+                        "total_supply": {
+                          "type": "string",
+                          "pattern": "^\\d+$",
+                          "description": "A decimal number"
+                        }
+                      },
+                      "required": [
+                        "address",
+                        "name",
+                        "symbol",
+                        "decimals",
+                        "total_supply"
+                      ]
+                    },
+                    "quote_token": {
+                      "type": "object",
+                      "properties": {
+                        "address": {
+                          "type": "string",
+                          "pattern": "^0x[a-fA-F0-9]+$",
+                          "description": "A hexadecimal number"
+                        },
+                        "name": {
+                          "type": [
+                            "string",
+                            "null"
+                          ],
+                          "description": "Null when the token is not in the token list"
+                        },
+                        "symbol": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "decimals": {
+                          "type": [
+                            "integer",
+                            "null"
+                          ]
+                        }
+                      },
+                      "required": [
+                        "address",
+                        "name",
+                        "symbol",
+                        "decimals"
+                      ]
+                    },
+                    "launch_token_is_token1": {
+                      "type": "boolean"
+                    },
+                    "start_time": {
+                      "type": "integer",
+                      "description": "Unix time in seconds"
+                    },
+                    "end_time": {
+                      "type": "integer",
+                      "description": "Unix time in seconds"
+                    },
+                    "target_tick": {
+                      "type": "integer",
+                      "description": "Tick in raw quote units per launch token, independent of token order"
+                    },
+                    "upper_tick": {
+                      "type": "integer"
+                    },
+                    "tick_spacing": {
+                      "type": "integer"
+                    },
+                    "initial_fee": {
+                      "type": "string",
+                      "pattern": "^\\d+$",
+                      "description": "0.64 fixed-point fee fraction"
+                    },
+                    "final_fee": {
+                      "type": "string",
+                      "pattern": "^\\d+$",
+                      "description": "0.64 fixed-point fee fraction"
+                    },
+                    "migration_tick_lower": {
+                      "type": "integer"
+                    },
+                    "migration_tick_upper": {
+                      "type": "integer"
+                    },
+                    "deployed": {
+                      "type": "string",
+                      "pattern": "^\\d+$",
+                      "description": "A decimal number"
+                    },
+                    "reserve0": {
+                      "type": "string",
+                      "pattern": "^\\d+$",
+                      "description": "A decimal number"
+                    },
+                    "reserve1": {
+                      "type": "string",
+                      "pattern": "^\\d+$",
+                      "description": "A decimal number"
+                    },
+                    "complete": {
+                      "type": "boolean"
+                    },
+                    "status": {
+                      "type": [
+                        "string",
+                        "null"
+                      ],
+                      "enum": [
+                        "upcoming",
+                        "live",
+                        "ended",
+                        "migrated",
+                        null
+                      ],
+                      "description": "Null only when the chain has no indexed head yet and the launch is not complete"
+                    },
+                    "status_as_of": {
+                      "type": [
+                        "integer",
+                        "null"
+                      ],
+                      "description": "The indexed head block time the status was derived from"
+                    },
+                    "owner": {
+                      "type": "string",
+                      "pattern": "^0x[a-fA-F0-9]+$",
+                      "description": "Owner of record in LaunchCreated (LaunchRouter for routed launches)"
+                    },
+                    "creator": {
+                      "type": [
+                        "string",
+                        "null"
+                      ],
+                      "pattern": "^0x[a-fA-F0-9]+$",
+                      "description": "LaunchRouter.LaunchCreatedBy creator, the account that may claim creator fees; null when the launch was not created through LaunchRouter"
+                    },
+                    "created_block_number": {
+                      "type": "string",
+                      "pattern": "^\\d+$",
+                      "description": "A decimal number"
+                    },
+                    "created_transaction_hash": {
+                      "type": "string",
+                      "pattern": "^0x[a-fA-F0-9]+$",
+                      "description": "A hexadecimal number"
+                    },
+                    "created_time": {
+                      "type": "integer",
+                      "description": "Unix time in seconds"
+                    },
+                    "pool_state": {
+                      "type": [
+                        "object",
+                        "null"
+                      ],
+                      "properties": {
+                        "sqrt_ratio": {
+                          "type": "string",
+                          "pattern": "^\\d+$",
+                          "description": "A decimal number"
+                        },
+                        "tick": {
+                          "type": "integer"
+                        },
+                        "liquidity": {
+                          "type": "string",
+                          "pattern": "^\\d+$",
+                          "description": "A decimal number"
+                        }
+                      },
+                      "required": [
+                        "sqrt_ratio",
+                        "tick",
+                        "liquidity"
+                      ],
+                      "description": "Core pool state of the launch pool"
+                    },
+                    "latest_advance": {
+                      "type": [
+                        "object",
+                        "null"
+                      ],
+                      "properties": {
+                        "block_number": {
+                          "type": "string",
+                          "pattern": "^\\d+$",
+                          "description": "A decimal number"
+                        },
+                        "transaction_hash": {
+                          "type": "string",
+                          "pattern": "^0x[a-fA-F0-9]+$",
+                          "description": "A hexadecimal number"
+                        },
+                        "time": {
+                          "type": "integer",
+                          "description": "Unix time in seconds"
+                        }
+                      },
+                      "required": [
+                        "block_number",
+                        "transaction_hash",
+                        "time"
+                      ],
+                      "description": "The LaunchAdvanced event the deployed/reserve/complete values come from; null before the first advance"
+                    },
+                    "terminal": {
+                      "type": [
+                        "object",
+                        "null"
+                      ],
+                      "properties": {
+                        "pool_id": {
+                          "type": "string",
+                          "pattern": "^0x[a-fA-F0-9]+$",
+                          "description": "A hexadecimal number"
+                        },
+                        "locked_liquidity": {
+                          "type": "string",
+                          "pattern": "^\\d+$",
+                          "description": "A decimal number"
+                        }
+                      },
+                      "required": [
+                        "pool_id",
+                        "locked_liquidity"
+                      ],
+                      "description": "The pool the principal was locked in once migrated"
+                    },
+                    "creator_fees_claimed": {
+                      "type": "object",
+                      "properties": {
+                        "amount0": {
+                          "type": "string",
+                          "pattern": "^\\d+$",
+                          "description": "A decimal number"
+                        },
+                        "amount1": {
+                          "type": "string",
+                          "pattern": "^\\d+$",
+                          "description": "A decimal number"
+                        }
+                      },
+                      "required": [
+                        "amount0",
+                        "amount1"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "chain_id",
+                    "pool_key_id",
+                    "pool_id",
+                    "pool_key",
+                    "launch_token",
+                    "quote_token",
+                    "launch_token_is_token1",
+                    "start_time",
+                    "end_time",
+                    "target_tick",
+                    "upper_tick",
+                    "tick_spacing",
+                    "initial_fee",
+                    "final_fee",
+                    "migration_tick_lower",
+                    "migration_tick_upper",
+                    "deployed",
+                    "reserve0",
+                    "reserve1",
+                    "complete",
+                    "status",
+                    "status_as_of",
+                    "owner",
+                    "creator",
+                    "created_block_number",
+                    "created_transaction_hash",
+                    "created_time",
+                    "pool_state",
+                    "latest_advance",
+                    "terminal",
+                    "creator_fees_claimed"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The request parameters are invalid",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The requested resource was not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "An unexpected server error occurred",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/governance/{chainId}/proposals": {
       "get": {
         "tags": [
