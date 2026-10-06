@@ -11,7 +11,7 @@ const TokenIdentifierSchema = z.union([z.string(), z.number()]);
 
 // Each colo sees a request only every so often, so a ten-minute lifetime alone
 // would make most visitors wait for the full query. The edge serves the stale
-// copy instead and refreshes it in the background (src/index.ts).
+// copy instead and refreshes it in the background (src/worker.ts).
 const OVERVIEW_CACHE_CONTROL =
   "public, max-age=600, stale-while-revalidate=86400";
 

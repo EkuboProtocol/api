@@ -1,7 +1,7 @@
 # Repository Guidelines
 
 ## Project Structure & Module Organization
-The TypeScript worker entrypoint lives in `src/index.ts` (edge cache, ETag and CORS), which hands requests to the `OpenAPIHono` app built in `src/router.ts` from the route modules. API domains live under `src/routes/*` (for example `prices`, `quote`, `stats`, `twamm`), each exporting handlers consumed by the router. Shared validation, formatting, and context utilities are in `src/shared`, while `src/env.ts` handles environment bindings and `src/queries.ts` wraps database access. Config lives in `wrangler.toml`, `tsconfig.json`, and `package.json`; coordinate before adding new top-level folders.
+The TypeScript worker entrypoint is `src/index.ts`; `src/worker.ts` handles the edge cache (including stale-while-revalidate, which the Cache API does not do itself), ETag and CORS, and hands requests to the `OpenAPIHono` app built in `src/router.ts` from the route modules. API domains live under `src/routes/*` (for example `prices`, `quote`, `stats`, `twamm`), each exporting handlers consumed by the router. Shared validation, formatting, and context utilities are in `src/shared`, while `src/env.ts` handles environment bindings and `src/queries.ts` wraps database access. Config lives in `wrangler.toml`, `tsconfig.json`, and `package.json`; coordinate before adding new top-level folders.
 
 ## Build, Test, and Development Commands
 - `bun install` installs worker dependencies and shared SDKs.

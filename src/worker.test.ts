@@ -1,11 +1,5 @@
-import {
-  beforeEach,
-  describe,
-  expect,
-  it,
-  mock,
-  setSystemTime,
-} from "bun:test";
+import { beforeEach, describe, expect, it, setSystemTime } from "bun:test";
+import { createWorker } from "./worker";
 
 // A Cache API stand-in that, like the real one, drops entries once their
 // max-age has passed.
@@ -29,21 +23,19 @@ const cacheStub = {
 (globalThis as unknown as { caches: unknown }).caches = { default: cacheStub };
 
 let computed = 0;
-mock.module("./router", () => ({
-  app: {
-    fetch: async () => {
-      computed++;
-      return new Response(JSON.stringify({ version: computed }), {
-        headers: {
-          "content-type": "application/json",
-          "cache-control": "public, max-age=600, stale-while-revalidate=86400",
-        },
-      });
-    },
+const app = {
+  fetch: async () => {
+    computed++;
+    return new Response(JSON.stringify({ version: computed }), {
+      headers: {
+        "content-type": "application/json",
+        "cache-control": "public, max-age=600, stale-while-revalidate=86400",
+      },
+    });
   },
-}));
+};
 
-const { default: worker } = await import("./index");
+const worker = createWorker(app);
 
 const body = (response: Response): Promise<unknown> => response.json();
 
@@ -55,7 +47,7 @@ function run(url = "https://api.test/overview/tvl") {
   } as unknown as ExecutionContext;
   return worker
     .fetch(new Request(url), {}, ctx)
-    .then(async (response) => ({ response, waits }));
+    .then(async (response: Response) => ({ response, waits }));
 }
 
 describe("worker stale-while-revalidate", () => {
