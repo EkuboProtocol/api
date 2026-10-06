@@ -1,6 +1,11 @@
 import { Env } from "./env";
 import { app } from "./router";
 import { notModified, withEtag } from "./shared/etag";
+import {
+  fromStoredResponse,
+  refreshOnce,
+  toStoredResponse,
+} from "./shared/staleWhileRevalidate";
 
 const NUMERICISH_REGEX = /^(?:0x[0-9a-fA-F]+|[+-]?\d+)$/;
 const MAX_NUMERICISH_LENGTH = 128;
@@ -88,8 +93,31 @@ function finalize(request: Request, response: Response): Response {
   });
 }
 
+async function store(cacheKey: URL, response: Response): Promise<Response> {
+  const tagged = await withEtag(response);
+  await cache.put(cacheKey, toStoredResponse(tagged.clone(), Date.now()));
+  return tagged;
+}
+
+function refreshInBackground(
+  request: Request,
+  cacheKey: URL,
+  env: Env,
+  ctx: ExecutionContext,
+) {
+  const refresh = refreshOnce(cacheKey.href, async () => {
+    const response = await app.fetch(
+      new Request(request.url, { method: "GET" }),
+      env,
+      ctx,
+    );
+    if (response.ok) await store(cacheKey, response);
+  });
+  if (refresh) ctx.waitUntil(refresh);
+}
+
 export default {
-  fetch: async (request: Request, env: Env) => {
+  fetch: async (request: Request, env: Env, ctx: ExecutionContext) => {
     // first check the preflight before anything. it's so cheap to handle we shouldn't even bother with check the cache
     const preflightResponse = preflight(request);
     if (preflightResponse) return preflightResponse;
@@ -100,15 +128,16 @@ export default {
     if (cacheKey) {
       const cached = await cache.match(cacheKey);
       if (cached) {
-        return finalize(request, cached);
+        const { response, stale } = fromStoredResponse(cached, Date.now());
+        if (stale) refreshInBackground(request, cacheKey, env, ctx);
+        return finalize(request, response);
       }
     }
 
-    let response = await app.fetch(request, env);
+    let response = await app.fetch(request, env, ctx);
 
     if (cacheKey && response.ok) {
-      response = await withEtag(response);
-      await cache.put(cacheKey, response.clone());
+      response = await store(cacheKey, response);
     }
 
     return finalize(request, response);
