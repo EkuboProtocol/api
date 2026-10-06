@@ -9,6 +9,12 @@ import toHex from "../../shared/toHex";
 const TimestampType = z.union([z.date(), z.string()]);
 const TokenIdentifierSchema = z.union([z.string(), z.number()]);
 
+// Each colo sees a request only every so often, so a ten-minute lifetime alone
+// would make most visitors wait for the full query. The edge serves the stale
+// copy instead and refreshes it in the background (src/worker.ts).
+const OVERVIEW_CACHE_CONTROL =
+  "public, max-age=600, stale-while-revalidate=86400";
+
 type VolumeRow = { token: string; volume: string; chain_id: bigint } & Partial<{
   fees: string;
   ve33_fees: string;
@@ -213,7 +219,7 @@ export const GetOverviewPairs = defineRoute(
     } satisfies z.infer<typeof OverviewPairsResponseType>;
 
     return c.json(response, 200, {
-      "cache-control": "public, max-age=600",
+      "cache-control": OVERVIEW_CACHE_CONTROL,
     });
   },
 );
@@ -294,7 +300,7 @@ export const GetOverviewBoostedFeesPools = defineRoute(
     } satisfies z.infer<typeof OverviewBoostedFeesPoolsResponseType>;
 
     return c.json(response, 200, {
-      "cache-control": "public, max-age=600",
+      "cache-control": OVERVIEW_CACHE_CONTROL,
     });
   },
 );
@@ -346,7 +352,7 @@ export const GetOverviewRevenue = defineRoute(
     } satisfies z.infer<typeof OverviewRevenueResponseType>;
 
     return c.json(response, 200, {
-      "cache-control": "public, max-age=600",
+      "cache-control": OVERVIEW_CACHE_CONTROL,
     });
   },
 );
@@ -405,7 +411,7 @@ export const GetOverviewVolume = defineRoute(
     } satisfies z.infer<typeof OverviewVolumeResponseType>;
 
     return c.json(response, 200, {
-      "cache-control": "public, max-age=600",
+      "cache-control": OVERVIEW_CACHE_CONTROL,
     });
   },
 );
@@ -452,7 +458,7 @@ export const GetOverviewTvl = defineRoute(
     } satisfies z.infer<typeof OverviewTvlResponseType>;
 
     return c.json(response, 200, {
-      "cache-control": "public, max-age=600",
+      "cache-control": OVERVIEW_CACHE_CONTROL,
     });
   },
 );
