@@ -4077,6 +4077,360 @@ ORDER BY po.token_id DESC
       totalCount,
     };
   }
+
+  // One row per launch from the indexer's scheduled_launch_pool_states (00134),
+  // with its LaunchCreated event, LaunchRouter creator and the chain's indexed
+  // head. Status is derived from the head block time, never the wall clock.
+  private launchRows(condition: postgres.Fragment) {
+    return this.sql`
+      SELECT pk.chain_id,
+             slps.pool_key_id,
+             pk.core_address,
+             pk.pool_id,
+             pk.token0,
+             pk.token1,
+             pk.fee,
+             pk.tick_spacing                   AS pool_tick_spacing,
+             pk.pool_extension,
+             slps.token,
+             c.name                            AS token_name,
+             c.symbol                          AS token_symbol,
+             c.decimals                        AS token_decimals,
+             slps.total_supply,
+             slps.quote_token,
+             qt.token_name                     AS quote_token_name,
+             qt.token_symbol                   AS quote_token_symbol,
+             qt.token_decimals                 AS quote_token_decimals,
+             slps.token_is_token1,
+             slps.start_time,
+             slps.end_time,
+             slps.target_tick,
+             slps.upper_tick,
+             slps.tick_spacing,
+             slps.initial_fee,
+             slps.final_fee,
+             slps.migration_tick_lower,
+             slps.migration_tick_upper,
+             slps.deployed,
+             slps.reserve0,
+             slps.reserve1,
+             slps.complete,
+             slps.owner,
+             lcb.creator,
+             c.emitter                         AS launch_extension,
+             c.block_number                    AS created_block_number,
+             c.transaction_hash                AS created_transaction_hash,
+             b.block_time                      AS created_time,
+             slps.created_event_id,
+             slps.last_advanced_event_id,
+             ic.head_block_time,
+             CASE
+               WHEN slps.complete THEN 'migrated'
+               WHEN ic.head_block_time IS NULL THEN NULL
+               WHEN EXTRACT(EPOCH FROM ic.head_block_time) < slps.start_time THEN 'upcoming'
+               WHEN EXTRACT(EPOCH FROM ic.head_block_time) < slps.end_time THEN 'live'
+               ELSE 'ended'
+               END                             AS status
+      -- The LATERAL subqueries are point lookups by primary key per launch.
+      -- As plain joins the planner may instead merge against the chain's
+      -- whole blocks index when its row estimates are off.
+      FROM scheduled_launch_pool_states slps
+             JOIN pool_keys pk ON pk.pool_key_id = slps.pool_key_id
+             JOIN LATERAL (SELECT *
+                           FROM scheduled_launch_created sc
+                           WHERE sc.chain_id = pk.chain_id
+                             AND sc.event_id = slps.created_event_id
+                           LIMIT 1) c ON TRUE
+             JOIN LATERAL (SELECT bl.block_time
+                           FROM blocks bl
+                           WHERE bl.chain_id = c.chain_id
+                             AND bl.block_number = c.block_number
+                           LIMIT 1) b ON TRUE
+             LEFT JOIN LATERAL (SELECT lc.creator
+                                FROM launch_created_by lc
+                                WHERE lc.pool_key_id = slps.pool_key_id
+                                ORDER BY lc.event_id DESC
+                                LIMIT 1) lcb ON TRUE
+             LEFT JOIN erc20_tokens qt
+                       ON qt.chain_id = pk.chain_id AND qt.token_address = slps.quote_token
+             LEFT JOIN indexer_cursor ic ON ic.chain_id = pk.chain_id
+      WHERE ${condition}
+    `;
+  }
+
+  public async listLaunches({
+    chainId,
+    status,
+    creator,
+    page,
+    pageSize,
+  }: {
+    chainId: bigint | null;
+    status: LaunchStatus | null;
+    creator: bigint | null;
+    page: number;
+    pageSize: number;
+  }) {
+    const chainCondition =
+      chainId === null ? this.sql`TRUE` : this.sql`pk.chain_id = ${chainId}`;
+    const creatorCondition =
+      creator === null
+        ? this.sql`TRUE`
+        : this.sql`lcb.creator = ${creator.toString()}`;
+    const statusCondition =
+      status === null ? this.sql`TRUE` : this.sql`l.status = ${status}`;
+    const base = this.launchRows(
+      this.sql`${chainCondition} AND ${creatorCondition}`,
+    );
+
+    const [rows, [{ total }]] = await Promise.all([
+      this.sql<LaunchRow[]>`
+        SELECT l.*
+        FROM (${base}) l
+        WHERE ${statusCondition}
+        ORDER BY l.created_time DESC, l.chain_id, l.pool_key_id
+        LIMIT ${pageSize} OFFSET ${(page - 1) * pageSize}
+      `,
+      this.sql<{ total: number }[]>`
+        SELECT COUNT(*)::int AS total
+        FROM (${base}) l
+        WHERE ${statusCondition}
+      `,
+    ]);
+    return { rows, totalCount: total };
+  }
+
+  public async getLaunch(chainId: bigint, poolId: bigint) {
+    const base = this.launchRows(
+      this.sql`pk.chain_id = ${chainId} AND pk.pool_id = ${poolId.toString()}`,
+    );
+    const rows = await this.sql<LaunchDetailRow[]>`
+      SELECT l.*,
+             ps.sqrt_ratio                      AS state_sqrt_ratio,
+             ps.tick                            AS state_tick,
+             ps.liquidity                       AS state_liquidity,
+             a.block_number                     AS advanced_block_number,
+             a.transaction_hash                 AS advanced_transaction_hash,
+             ab.block_time                      AS advanced_time,
+             t.terminal_pool_id,
+             t.locked_liquidity,
+             COALESCE(fc.amount0, 0)::text      AS creator_fees_claimed0,
+             COALESCE(fc.amount1, 0)::text      AS creator_fees_claimed1
+      FROM (${base}) l
+             LEFT JOIN pool_states ps ON ps.pool_key_id = l.pool_key_id
+             LEFT JOIN scheduled_launch_advanced a
+                       ON a.chain_id = l.chain_id AND a.event_id = l.last_advanced_event_id
+             LEFT JOIN blocks ab ON ab.chain_id = a.chain_id AND ab.block_number = a.block_number
+             LEFT JOIN LATERAL (SELECT stp.terminal_pool_id, stp.locked_liquidity
+                                FROM scheduled_launch_terminal_pools stp
+                                WHERE stp.pool_key_id = l.pool_key_id
+                                ORDER BY stp.last_locked_event_id DESC
+                                LIMIT 1) t ON TRUE
+             LEFT JOIN LATERAL (SELECT SUM(cfc.amount0) AS amount0, SUM(cfc.amount1) AS amount1
+                                FROM scheduled_launch_creator_fees_claimed cfc
+                                WHERE cfc.pool_key_id = l.pool_key_id) fc ON TRUE
+    `;
+    return rows[0] ?? null;
+  }
+
+  public async getLaunchStats(chainId: bigint, poolId: bigint) {
+    const rows = await this.sql<LaunchStatsRow[]>`
+      WITH l AS (SELECT slps.pool_key_id, slps.token_is_token1, c.emitter AS launch_extension
+                 FROM scheduled_launch_pool_states slps
+                        JOIN pool_keys pk ON pk.pool_key_id = slps.pool_key_id
+                        JOIN scheduled_launch_created c
+                             ON c.chain_id = pk.chain_id AND c.event_id = slps.created_event_id
+                 WHERE pk.chain_id = ${chainId}
+                   AND pk.pool_id = ${poolId.toString()}),
+           swaps AS (SELECT CASE WHEN l.token_is_token1 THEN s.delta1 ELSE s.delta0 END AS token_delta,
+                            CASE WHEN l.token_is_token1 THEN s.delta0 ELSE s.delta1 END AS quote_delta,
+                            s.fee_amount,
+                            s.fee_is_token1 = l.token_is_token1                          AS fee_in_token,
+                            s.locker,
+                            s.transaction_hash
+                     FROM l
+                            JOIN scheduled_launch_swapped s ON s.pool_key_id = l.pool_key_id),
+           claimed AS (SELECT COALESCE(SUM(CASE WHEN l.token_is_token1 THEN f.amount1 ELSE f.amount0 END), 0) AS token,
+                              COALESCE(SUM(CASE WHEN l.token_is_token1 THEN f.amount0 ELSE f.amount1 END), 0) AS quote,
+                              COUNT(f.*)::int                                                                AS claims
+                       FROM l
+                              LEFT JOIN scheduled_launch_creator_fees_claimed f ON f.pool_key_id = l.pool_key_id),
+           funding AS (SELECT p.from_address = l.launch_extension                                       AS migrated,
+                              CASE WHEN l.token_is_token1 THEN p.amount1 ELSE p.amount0 END AS token,
+                              CASE WHEN l.token_is_token1 THEN p.amount0 ELSE p.amount1 END AS quote
+                       FROM l
+                              JOIN launch_principal_received p ON p.pool_key_id = l.pool_key_id)
+      SELECT sa.*,
+             claimed.token::text AS fees_claimed_token,
+             claimed.quote::text AS fees_claimed_quote,
+             claimed.claims      AS fee_claim_count,
+             fa.*
+      FROM l
+             CROSS JOIN claimed
+             CROSS JOIN (SELECT COUNT(*)::int                                                      AS swap_count,
+                                COUNT(*) FILTER (WHERE token_delta < 0)::int                       AS buy_count,
+                                COUNT(*) FILTER (WHERE token_delta > 0)::int                       AS sell_count,
+                                COALESCE(SUM(quote_delta) FILTER (WHERE token_delta < 0), 0)::text AS buy_quote_in,
+                                COALESCE(SUM(-token_delta) FILTER (WHERE token_delta < 0), 0)::text
+                                                                                                   AS buy_token_out,
+                                COALESCE(SUM(token_delta) FILTER (WHERE token_delta > 0), 0)::text AS sell_token_in,
+                                COALESCE(SUM(-quote_delta) FILTER (WHERE token_delta > 0), 0)::text
+                                                                                                   AS sell_quote_out,
+                                COUNT(DISTINCT locker)::int                                        AS distinct_lockers,
+                                COUNT(DISTINCT transaction_hash)::int                              AS distinct_transactions,
+                                COALESCE(SUM(fee_amount) FILTER (WHERE fee_in_token), 0)::text     AS fees_accrued_token,
+                                COALESCE(SUM(fee_amount) FILTER (WHERE NOT fee_in_token), 0)::text AS fees_accrued_quote
+                         FROM swaps) sa
+             CROSS JOIN (SELECT COALESCE(SUM(token) FILTER (WHERE NOT migrated), 0)::text AS funding_token,
+                                COALESCE(SUM(quote) FILTER (WHERE NOT migrated), 0)::text AS funding_quote,
+                                COUNT(*) FILTER (WHERE NOT migrated)::int                 AS funding_count,
+                                COALESCE(SUM(token) FILTER (WHERE migrated), 0)::text     AS migrated_principal_token,
+                                COALESCE(SUM(quote) FILTER (WHERE migrated), 0)::text     AS migrated_principal_quote
+                         FROM funding) fa
+    `;
+    return rows[0] ?? null;
+  }
+
+  public async listLaunchSwaps({
+    chainId,
+    poolId,
+    cursor,
+    limit,
+  }: {
+    chainId: bigint;
+    poolId: bigint;
+    cursor: bigint | null;
+    limit: number;
+  }) {
+    const cursorCondition =
+      cursor === null ? this.sql`TRUE` : this.sql`s.event_id > ${cursor}`;
+    // The launch row comes back even when it has no swaps (or none after the
+    // cursor), so the route can tell an unknown launch from an empty page.
+    return this.sql<LaunchSwapRow[]>`
+      WITH l AS (SELECT slps.pool_key_id, pk.chain_id
+                 FROM scheduled_launch_pool_states slps
+                        JOIN pool_keys pk ON pk.pool_key_id = slps.pool_key_id
+                 WHERE pk.chain_id = ${chainId}
+                   AND pk.pool_id = ${poolId.toString()})
+      SELECT s.event_id,
+             s.block_number,
+             s.transaction_index,
+             s.event_index,
+             s.transaction_hash,
+             b.block_time,
+             s.locker,
+             s.delta0,
+             s.delta1,
+             s.fee_amount,
+             s.fee_is_token1
+      FROM l
+             LEFT JOIN LATERAL (SELECT *
+                                FROM scheduled_launch_swapped s
+                                WHERE s.pool_key_id = l.pool_key_id
+                                  AND ${cursorCondition}
+                                ORDER BY s.event_id
+                                LIMIT ${limit}) s ON TRUE
+             LEFT JOIN blocks b ON b.chain_id = s.chain_id AND b.block_number = s.block_number
+      ORDER BY s.event_id
+    `;
+  }
+}
+
+export type LaunchStatus = "upcoming" | "live" | "ended" | "migrated";
+
+export interface LaunchRow {
+  chain_id: bigint;
+  pool_key_id: bigint;
+  core_address: string;
+  pool_id: string;
+  token0: string;
+  token1: string;
+  fee: string;
+  pool_tick_spacing: number | null;
+  pool_extension: string;
+  token: string;
+  token_name: string;
+  token_symbol: string;
+  token_decimals: number;
+  total_supply: string;
+  quote_token: string;
+  quote_token_name: string | null;
+  quote_token_symbol: string | null;
+  quote_token_decimals: number | null;
+  token_is_token1: boolean;
+  start_time: bigint;
+  end_time: bigint;
+  target_tick: number;
+  upper_tick: number;
+  tick_spacing: number;
+  initial_fee: string;
+  final_fee: string;
+  migration_tick_lower: number;
+  migration_tick_upper: number;
+  deployed: string;
+  reserve0: string;
+  reserve1: string;
+  complete: boolean;
+  owner: string;
+  creator: string | null;
+  launch_extension: string;
+  created_block_number: bigint;
+  created_transaction_hash: string;
+  created_time: Date;
+  created_event_id: bigint;
+  last_advanced_event_id: bigint | null;
+  head_block_time: Date | null;
+  status: LaunchStatus | null;
+}
+
+export interface LaunchDetailRow extends LaunchRow {
+  state_sqrt_ratio: string | null;
+  state_tick: number | null;
+  state_liquidity: string | null;
+  advanced_block_number: bigint | null;
+  advanced_transaction_hash: string | null;
+  advanced_time: Date | null;
+  terminal_pool_id: string | null;
+  locked_liquidity: string | null;
+  creator_fees_claimed0: string;
+  creator_fees_claimed1: string;
+}
+
+export interface LaunchStatsRow {
+  swap_count: number;
+  buy_count: number;
+  sell_count: number;
+  buy_quote_in: string;
+  buy_token_out: string;
+  sell_token_in: string;
+  sell_quote_out: string;
+  distinct_lockers: number;
+  distinct_transactions: number;
+  fees_accrued_token: string;
+  fees_accrued_quote: string;
+  fees_claimed_token: string;
+  fees_claimed_quote: string;
+  fee_claim_count: number;
+  funding_token: string;
+  funding_quote: string;
+  funding_count: number;
+  migrated_principal_token: string;
+  migrated_principal_quote: string;
+}
+
+// A launch with no swaps on the page yields one row with every swap column null.
+export interface LaunchSwapRow {
+  event_id: bigint | null;
+  block_number: bigint | null;
+  transaction_index: number | null;
+  event_index: number | null;
+  transaction_hash: string | null;
+  block_time: Date | null;
+  locker: string | null;
+  delta0: string | null;
+  delta1: string | null;
+  fee_amount: string | null;
+  fee_is_token1: boolean | null;
 }
 
 export async function createQueries(env: Env) {

@@ -65,6 +65,12 @@ import {
   ListAuctions,
 } from "./routes/auctions";
 import {
+  GetLaunch,
+  GetLaunchStats,
+  ListLaunches,
+  ListLaunchSwaps,
+} from "./routes/launches";
+import {
   ListVe33Pools,
   ListVe33TokensByAddress,
   ListVe33Voters,
@@ -124,6 +130,10 @@ const routes: readonly ApiRoute[] = [
   GetAuctionNftMetadata,
   GetAuctionNftState,
   GetAuctionNftImage,
+  ListLaunches,
+  GetLaunchStats,
+  ListLaunchSwaps,
+  GetLaunch,
   ListProposals,
   ListTopDelegates,
   ListVotesOnProposal,
