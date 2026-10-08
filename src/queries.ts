@@ -254,6 +254,34 @@ export class Queries {
     `;
   }
 
+  // Every pool token in the canonical list that has a price, regardless of
+  // visibility, so USD totals match what /tokens/batch would price. Limiting
+  // to pool tokens keeps this to a few hundred of the ~14k priced tokens.
+  public listPricedErc20Tokens(chainId: bigint | null) {
+    return this.sql<
+      {
+        chain_id: bigint;
+        token_address: string;
+        token_decimals: number;
+        usd_price: string | number;
+      }[]
+    >`
+      WITH pool_tokens AS (
+        SELECT chain_id, token0 AS token_address
+        FROM pool_keys
+        WHERE chain_id = COALESCE(${chainId}, chain_id)
+        UNION
+        SELECT chain_id, token1
+        FROM pool_keys
+        WHERE chain_id = COALESCE(${chainId}, chain_id)
+      )
+      SELECT t.chain_id, t.token_address, t.token_decimals, p.value AS usd_price
+      FROM pool_tokens
+      JOIN erc20_tokens t USING (chain_id, token_address)
+      JOIN erc20_tokens_latest_price p USING (chain_id, token_address)
+    `;
+  }
+
   public async getErc20TokenByAddress({
     chainId,
     tokenAddress,
@@ -2954,8 +2982,7 @@ pt.last_transfer_event_id DESC NULLS LAST
     };
     type NullableVe33PoolRow = {
       [K in keyof Omit<Ve33PoolRow, "total_count" | "total_vote_weight">]:
-        | Ve33PoolRow[K]
-        | null;
+        Ve33PoolRow[K] | null;
     } & Pick<Ve33PoolRow, "total_count" | "total_vote_weight">;
 
     const rows = await this.sql<NullableVe33PoolRow[]>`
