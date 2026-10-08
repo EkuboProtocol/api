@@ -240,6 +240,20 @@ export const statsCases: ContractCase[] = [
           delta: "-1000000000000000",
         },
       ]);
+      stubQuery("listPricedErc20Tokens", [
+        {
+          chain_id: 1n,
+          token_address: USDC_DECIMAL,
+          token_decimals: 6,
+          usd_price: "1.0001",
+        },
+        {
+          chain_id: 1n,
+          token_address: WETH_DECIMAL,
+          token_decimals: 18,
+          usd_price: "2500.5",
+        },
+      ]);
     },
   },
   {
@@ -263,6 +277,20 @@ export const statsCases: ContractCase[] = [
           volume: "400000000000000000",
           fees: "1200000000000000",
           ve33_fees: "0",
+        },
+      ]);
+      stubQuery("listPricedErc20Tokens", [
+        {
+          chain_id: 1n,
+          token_address: USDC_DECIMAL,
+          token_decimals: 6,
+          usd_price: "1.0001",
+        },
+        {
+          chain_id: 1n,
+          token_address: WETH_DECIMAL,
+          token_decimals: 18,
+          usd_price: "2500.5",
         },
       ]);
     },

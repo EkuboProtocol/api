@@ -1629,11 +1629,62 @@
                           "chain_id"
                         ]
                       }
+                    },
+                    "totals": {
+                      "type": "object",
+                      "properties": {
+                        "tvlUsd": {
+                          "type": "number",
+                          "description": "USD value of tvlByToken, using the latest token prices; unpriced tokens count as 0"
+                        },
+                        "tvlDeltaUsdYesterday": {
+                          "type": "number",
+                          "description": "USD value of the tvlDeltaByTokenByDate entries dated tvlDeltaDate, at the latest token prices"
+                        },
+                        "tvlDeltaDate": {
+                          "type": "string",
+                          "description": "The UTC date (YYYY-MM-DD) summed into tvlDeltaUsdYesterday: the day before the response was computed"
+                        }
+                      },
+                      "required": [
+                        "tvlUsd",
+                        "tvlDeltaUsdYesterday",
+                        "tvlDeltaDate"
+                      ]
+                    },
+                    "totalsByChain": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "tvlUsd": {
+                            "type": "number",
+                            "description": "USD value of tvlByToken, using the latest token prices; unpriced tokens count as 0"
+                          },
+                          "tvlDeltaUsdYesterday": {
+                            "type": "number",
+                            "description": "USD value of the tvlDeltaByTokenByDate entries dated tvlDeltaDate, at the latest token prices"
+                          },
+                          "chain_id": {
+                            "type": "string",
+                            "pattern": "^0x[a-fA-F0-9]+$",
+                            "description": "A hexadecimal number"
+                          }
+                        },
+                        "required": [
+                          "tvlUsd",
+                          "tvlDeltaUsdYesterday",
+                          "chain_id"
+                        ]
+                      },
+                      "description": "The same totals per chain, sorted by chain_id"
                     }
                   },
                   "required": [
                     "tvlByToken",
-                    "tvlDeltaByTokenByDate"
+                    "tvlDeltaByTokenByDate",
+                    "totals",
+                    "totalsByChain"
                   ]
                 }
               }
@@ -1769,11 +1820,47 @@
                           "chain_id"
                         ]
                       }
+                    },
+                    "totals": {
+                      "type": "object",
+                      "properties": {
+                        "volumeUsd24h": {
+                          "type": "number",
+                          "description": "USD value of volumeByToken_24h, using the latest token prices; unpriced tokens count as 0"
+                        }
+                      },
+                      "required": [
+                        "volumeUsd24h"
+                      ]
+                    },
+                    "totalsByChain": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "volumeUsd24h": {
+                            "type": "number",
+                            "description": "USD value of volumeByToken_24h, using the latest token prices; unpriced tokens count as 0"
+                          },
+                          "chain_id": {
+                            "type": "string",
+                            "pattern": "^0x[a-fA-F0-9]+$",
+                            "description": "A hexadecimal number"
+                          }
+                        },
+                        "required": [
+                          "volumeUsd24h",
+                          "chain_id"
+                        ]
+                      },
+                      "description": "The same totals per chain, sorted by chain_id"
                     }
                   },
                   "required": [
                     "volumeByTokenByDate",
-                    "volumeByToken_24h"
+                    "volumeByToken_24h",
+                    "totals",
+                    "totalsByChain"
                   ]
                 }
               }

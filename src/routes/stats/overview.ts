@@ -5,6 +5,12 @@ import { errorResponses } from "../../shared/errors";
 import { jsonResponse } from "../../shared/openapi";
 import { ChainIdType, HexStringType } from "../../shared/validation/address";
 import toHex from "../../shared/toHex";
+import {
+  createTokenPricer,
+  sumFields,
+  sumUsdByChain,
+  utcDateString,
+} from "./usdTotals";
 
 const TimestampType = z.union([z.date(), z.string()]);
 const TokenIdentifierSchema = z.union([z.string(), z.number()]);
@@ -152,9 +158,21 @@ const VolumeByDateEntryType = VolumeEntryType.extend({
   date: TimestampType,
 });
 
+const UsdAmountType = z.number();
+
+const VolumeTotalsType = z.object({
+  volumeUsd24h: UsdAmountType.describe(
+    "USD value of volumeByToken_24h, using the latest token prices; unpriced tokens count as 0",
+  ),
+});
+
 const OverviewVolumeResponseType = z.object({
   volumeByTokenByDate: z.array(VolumeByDateEntryType),
   volumeByToken_24h: z.array(VolumeEntryType),
+  totals: VolumeTotalsType,
+  totalsByChain: z
+    .array(VolumeTotalsType.extend({ chain_id: HexStringType }))
+    .describe("The same totals per chain, sorted by chain_id"),
 });
 
 const TvlEntryType = z.object({
@@ -170,10 +188,32 @@ const TvlDeltaEntryType = z.object({
   chain_id: HexStringType,
 });
 
+const TvlTotalsType = z.object({
+  tvlUsd: UsdAmountType.describe(
+    "USD value of tvlByToken, using the latest token prices; unpriced tokens count as 0",
+  ),
+  tvlDeltaUsdYesterday: UsdAmountType.describe(
+    "USD value of the tvlDeltaByTokenByDate entries dated tvlDeltaDate, at the latest token prices",
+  ),
+});
+
 const OverviewTvlResponseType = z.object({
   tvlByToken: z.array(TvlEntryType),
   tvlDeltaByTokenByDate: z.array(TvlDeltaEntryType),
+  totals: TvlTotalsType.extend({
+    tvlDeltaDate: z
+      .string()
+      .describe(
+        "The UTC date (YYYY-MM-DD) summed into tvlDeltaUsdYesterday: the day before the response was computed",
+      ),
+  }),
+  totalsByChain: z
+    .array(TvlTotalsType.extend({ chain_id: HexStringType }))
+    .describe("The same totals per chain, sorted by chain_id"),
 });
+
+const TVL_TOTAL_FIELDS = ["tvlUsd", "tvlDeltaUsdYesterday"] as const;
+const VOLUME_TOTAL_FIELDS = ["volumeUsd24h"] as const;
 
 const MinTvlQueryParameter = z.coerce.number().min(0).default(1_000);
 
@@ -384,17 +424,30 @@ export const GetOverviewVolume = defineRoute(
     const chainId = c.req.valid("query").chainId ?? null;
     const queries = await createQueries(c.env);
 
-    const [rawVolumeByToken_24h, volumeByTokenByDate] = await Promise.all([
-      queries.getTotalVolume({
-        chainId,
-        since: twentyFourHoursAgo,
-        minVolumeUsd: 1000,
-      }),
-      queries.getVolumeByTokenByDate(chainId, thirtyDaysAgo),
-    ]);
+    const [rawVolumeByToken_24h, volumeByTokenByDate, pricedTokens] =
+      await Promise.all([
+        queries.getTotalVolume({
+          chainId,
+          since: twentyFourHoursAgo,
+          minVolumeUsd: 1000,
+        }),
+        queries.getVolumeByTokenByDate(chainId, thirtyDaysAgo),
+        queries.listPricedErc20Tokens(chainId),
+      ]);
 
     const volumeByToken_24h = rawVolumeByToken_24h.map((row) =>
       normalizeVolumeRow(row as VolumeRow),
+    );
+
+    const priceUsd = createTokenPricer(pricedTokens);
+    const totalsByChain = sumUsdByChain(
+      VOLUME_TOTAL_FIELDS,
+      volumeByToken_24h.map((row) => ({
+        chain_id: row.chain_id,
+        usd: {
+          volumeUsd24h: priceUsd(row.chain_id, row.token, row.volume),
+        },
+      })),
     );
 
     const response = {
@@ -408,6 +461,8 @@ export const GetOverviewVolume = defineRoute(
         chain_id: toHex(vol.chain_id),
         token: toHex(vol.token),
       })),
+      totals: sumFields(VOLUME_TOTAL_FIELDS, totalsByChain),
+      totalsByChain,
     } satisfies z.infer<typeof OverviewVolumeResponseType>;
 
     return c.json(response, 200, {
@@ -439,14 +494,38 @@ export const GetOverviewTvl = defineRoute(
     const chainId = c.req.valid("query").chainId ?? null;
     const queries = await createQueries(c.env);
 
-    const [tvlByToken, rawTvlDeltaByTokenByDate] = await Promise.all([
-      queries.getTvlByToken(chainId),
-      queries.getTvlDeltaByTokenByDate(chainId, thirtyDaysAgo),
-    ]);
+    const tvlDeltaDate = utcDateString(
+      new Date(timestamp - 1000 * 60 * 60 * 24),
+    );
+
+    const [tvlByToken, rawTvlDeltaByTokenByDate, pricedTokens] =
+      await Promise.all([
+        queries.getTvlByToken(chainId),
+        queries.getTvlDeltaByTokenByDate(chainId, thirtyDaysAgo),
+        queries.listPricedErc20Tokens(chainId),
+      ]);
 
     const tvlDeltaByTokenByDate = rawTvlDeltaByTokenByDate.map((row) =>
       normalizeTvlDeltaRow(row as TvlDeltaRow),
     );
+
+    const priceUsd = createTokenPricer(pricedTokens);
+    const totalsByChain = sumUsdByChain(TVL_TOTAL_FIELDS, [
+      ...tvlByToken.map((row) => ({
+        chain_id: row.chain_id.toString(),
+        usd: {
+          tvlUsd: priceUsd(row.chain_id.toString(), row.token, row.balance),
+        },
+      })),
+      ...tvlDeltaByTokenByDate
+        .filter((row) => utcDateString(row.date) === tvlDeltaDate)
+        .map((row) => ({
+          chain_id: row.chain_id,
+          usd: {
+            tvlDeltaUsdYesterday: priceUsd(row.chain_id, row.token, row.delta),
+          },
+        })),
+    ]);
 
     const response = {
       tvlByToken: tvlByToken.map((tvl) => ({
@@ -455,6 +534,11 @@ export const GetOverviewTvl = defineRoute(
         chain_id: toHex(tvl.chain_id),
       })),
       tvlDeltaByTokenByDate,
+      totals: {
+        ...sumFields(TVL_TOTAL_FIELDS, totalsByChain),
+        tvlDeltaDate,
+      },
+      totalsByChain,
     } satisfies z.infer<typeof OverviewTvlResponseType>;
 
     return c.json(response, 200, {
