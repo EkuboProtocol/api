@@ -4115,7 +4115,9 @@ export async function createQueries(env: Env) {
   const sql = postgres(connectionString, {
     max: 1,
     fetch_types: false,
-    debug: true,
+    // Debug mode captures a stack for every query and makes the SQL and its
+    // parameters enumerable on query errors, so logging an error prints them.
+    debug: false,
     types: { bigint: postgres.BigInt },
     connection: {
       application_name: "ekubo-api",
