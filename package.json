@@ -2,7 +2,7 @@
   "name": "@ekubo/api",
   "version": "0.0.1",
   "devDependencies": {
-    "@cloudflare/workers-types": "^5.20261005.1",
+    "@cloudflare/workers-types": "^5.20261006.1",
     "@ekubo/position-svg-generator": "^0.3.1",
     "@ekubo/sdk": "^0.0.10",
     "@hono/zod-openapi": "^1.6.3",
