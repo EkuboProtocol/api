@@ -18,6 +18,7 @@ import { stateCases } from "./contract/cases/state";
 import { statsCases } from "./contract/cases/stats";
 import { twammCases } from "./contract/cases/twamm";
 import { ve33Cases } from "./contract/cases/ve33";
+import { launchesCases } from "./contract/cases/launches";
 
 const cases: ContractCase[] = [
   ...metaCases,
@@ -30,6 +31,7 @@ const cases: ContractCase[] = [
   ...auctionsCases,
   ...governanceCases,
   ...ve33Cases,
+  ...launchesCases,
   ...incentivesCases,
 ];
 

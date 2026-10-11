@@ -1,5 +1,9 @@
 import postgres, { type Sql } from "postgres";
 import { Env } from "./env";
+import {
+  LaunchQueries,
+  type LaunchReadOptions,
+} from "./routes/launches/queries";
 
 export type StateFilter = "opened" | "closed";
 
@@ -180,6 +184,22 @@ export class Queries {
 
   constructor(sql: Sql<{ bigint: bigint }>) {
     this.sql = sql;
+  }
+
+  public readZeroSeedList(input: LaunchReadOptions & { creator?: bigint }) {
+    return new LaunchQueries(this.sql).list(input);
+  }
+
+  public readZeroSeedDetail(chainId: bigint, poolId: bigint) {
+    return new LaunchQueries(this.sql).detail(chainId, poolId);
+  }
+
+  public readZeroSeedSwaps(input: LaunchReadOptions & { poolId: bigint }) {
+    return new LaunchQueries(this.sql).swaps(input);
+  }
+
+  public readZeroSeedClaims(input: LaunchReadOptions & { poolId: bigint }) {
+    return new LaunchQueries(this.sql).claims(input);
   }
 
   public async listErc20Tokens({
