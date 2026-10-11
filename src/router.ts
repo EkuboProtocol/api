@@ -66,7 +66,7 @@ import {
 } from "./routes/auctions";
 import {
   GetLaunch,
-  GetLaunchStats,
+  ListLaunchClaims,
   ListLaunches,
   ListLaunchSwaps,
 } from "./routes/launches";
@@ -131,7 +131,7 @@ const routes: readonly ApiRoute[] = [
   GetAuctionNftState,
   GetAuctionNftImage,
   ListLaunches,
-  GetLaunchStats,
+  ListLaunchClaims,
   ListLaunchSwaps,
   GetLaunch,
   ListProposals,
