@@ -9,6 +9,7 @@ import {
   DecimalStringType,
   NumericStringType,
 } from "../../shared/validation/address";
+import { IncentiveInsightType, toIncentiveInsight } from "./insights";
 
 export const RewardType = z
   .object({
@@ -27,6 +28,12 @@ export type Reward = z.infer<typeof RewardType>;
 export const GetRewardsForPositionResponseType = z
   .object({
     rewards: z.array(RewardType),
+    incentiveInsights: z
+      .array(IncentiveInsightType)
+      .optional()
+      .describe(
+        "Present only when insights=24h is requested. One entry per campaign the position has rewards in, plus every running campaign on the chain whose locker filter admits it. Independent of startTime and endTime",
+      ),
   })
   .required({ rewards: true })
   .describe("The list of rewards for a specified position");
@@ -58,6 +65,12 @@ export const ListRewardsForLocker = defineRoute(
           .describe(
             "Filter to rewards in periods that ended at or before this time",
           ),
+        insights: z
+          .enum(["24h"])
+          .optional()
+          .describe(
+            "Also return incentiveInsights: earnings over the 24 hours ending at each campaign's latest computed reward period",
+          ),
       }),
     },
     responses: {
@@ -70,16 +83,21 @@ export const ListRewardsForLocker = defineRoute(
   }),
   async (c) => {
     const { chainId, locker, salt } = c.req.valid("param");
-    const { startTime, endTime } = c.req.valid("query");
+    const { startTime, endTime, insights } = c.req.valid("query");
     const queries = await createQueries(c.env);
 
-    const computedRewards = await queries.listComputedRewardsForPosition(
-      chainId,
-      locker,
-      salt,
-      startTime,
-      endTime,
-    );
+    const [computedRewards, insightRows] = await Promise.all([
+      queries.listComputedRewardsForPosition(
+        chainId,
+        locker,
+        salt,
+        startTime,
+        endTime,
+      ),
+      insights === "24h"
+        ? queries.listRewardInsightsForPosition(chainId, locker, salt)
+        : null,
+    ]);
 
     return c.json(
       {
@@ -91,6 +109,9 @@ export const ListRewardsForLocker = defineRoute(
               pending: cr.pending,
             }) satisfies Reward,
         ),
+        ...(insightRows === null
+          ? {}
+          : { incentiveInsights: insightRows.map(toIncentiveInsight) }),
       } satisfies z.infer<typeof GetRewardsForPositionResponseType>,
       200,
       {

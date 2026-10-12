@@ -11644,6 +11644,19 @@
             "description": "Filter to rewards in periods that ended at or before this time",
             "name": "endTime",
             "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "enum": [
+                "24h"
+              ],
+              "description": "Also return incentiveInsights: earnings over the 24 hours ending at each campaign's latest computed reward period"
+            },
+            "required": false,
+            "description": "Also return incentiveInsights: earnings over the 24 hours ending at each campaign's latest computed reward period",
+            "name": "insights",
+            "in": "query"
           }
         ],
         "responses": {
@@ -11679,6 +11692,76 @@
                           "pending"
                         ]
                       }
+                    },
+                    "incentiveInsights": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "campaignSlug": {
+                            "type": "string"
+                          },
+                          "historyWindow": {
+                            "type": "object",
+                            "properties": {
+                              "startTime": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ],
+                                "format": "date-time",
+                                "description": "Start of the window, inclusive; null when unavailable"
+                              },
+                              "endTime": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ],
+                                "format": "date-time",
+                                "description": "End of the window, exclusive. Equal to computedThrough; null when unavailable"
+                              },
+                              "amount": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ],
+                                "pattern": "^\\d+$",
+                                "description": "Reward token base units earned in the window. complete: the exact amount, and \"0\" is a genuine zero. partial: an exact subtotal of the periods fully inside the window, a lower bound on the window's earnings. unavailable: always null"
+                              },
+                              "status": {
+                                "type": "string",
+                                "enum": [
+                                  "complete",
+                                  "partial",
+                                  "unavailable"
+                                ],
+                                "description": "complete: every reward period touching the window is computed and fully inside it, or earned this position nothing. partial: some period crossing the window edge earned this position rewards that cannot be split, so amount excludes them. unavailable: nothing has been computed, or no period fits inside the window"
+                              }
+                            },
+                            "required": [
+                              "startTime",
+                              "endTime",
+                              "amount",
+                              "status"
+                            ]
+                          },
+                          "computedThrough": {
+                            "type": [
+                              "string",
+                              "null"
+                            ],
+                            "format": "date-time",
+                            "description": "Rewards for every period of the campaign ending at or before this time are computed. null when no period has been computed"
+                          }
+                        },
+                        "required": [
+                          "campaignSlug",
+                          "historyWindow",
+                          "computedThrough"
+                        ],
+                        "description": "The position's earnings over the 24 hours ending at the latest completed and computed reward period of the campaign"
+                      },
+                      "description": "Present only when insights=24h is requested. One entry per campaign the position has rewards in, plus every running campaign on the chain whose locker filter admits it. Independent of startTime and endTime"
                     }
                   },
                   "required": [

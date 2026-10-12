@@ -31,7 +31,7 @@ describe("Hono app integration", () => {
         (count, operation) => count + (operation.parameters?.length ?? 0),
         0,
       ),
-    ).toBe(196);
+    ).toBe(197);
 
     const getToken = operations.find(
       (operation) =>
