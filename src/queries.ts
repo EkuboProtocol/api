@@ -3369,6 +3369,84 @@ GROUP BY c.slug
     `;
   }
 
+  // One row per campaign on the chain that the position has rewards in, plus
+  // every campaign currently running that the locker is eligible for, so a
+  // genuine zero can be told apart from missing data.
+  //
+  // computed_through is the end of the latest period such that every period of
+  // the campaign starting before it has been computed. The window is the 24
+  // hours ending there. Periods inside the window are summed exactly; a period
+  // crossing either edge cannot be split, so it is counted as uncertain when the
+  // position earned something in it (a zero there is still an exact zero for the
+  // part inside the window).
+  //
+  // Every computed_rewards lookup is a primary key probe on
+  // (campaign_reward_period_id, locker, salt) for the handful of periods that
+  // touch the window; nothing scans other positions or recomputes rewards.
+  async listRewardInsightsForPosition(
+    chainId: bigint,
+    locker: string,
+    salt: string,
+  ) {
+    return this.sql<
+      {
+        slug: string;
+        computed_through: Date | null;
+        contained_periods: number;
+        contained_amount: string;
+        uncertain_periods: number;
+      }[]
+    >`
+WITH campaign_scope AS (SELECT c.id, c.slug
+                        FROM incentives.campaigns c
+                        WHERE c.chain_id = ${chainId}
+                          AND (EXISTS (SELECT 1
+                                       FROM incentives.computed_rewards_by_position_materialized crbp
+                                       WHERE crbp.campaign_id = c.id
+                                         AND crbp.locker = ${locker}
+                                         AND crbp.salt = ${salt})
+                            OR (c.start_time <= NOW()
+                                AND (c.end_time IS NULL OR c.end_time > NOW())
+                                AND (c.allowed_lockers IS NULL OR ${locker}::NUMERIC = ANY (c.allowed_lockers))))),
+     frontier AS (SELECT cs.id,
+                         cs.slug,
+                         (SELECT MAX(crp.end_time)
+                          FROM incentives.campaign_reward_periods crp
+                          WHERE crp.campaign_id = cs.id
+                            AND crp.rewards_last_computed_at IS NOT NULL
+                            AND crp.end_time <= COALESCE((SELECT MIN(u.start_time)
+                                                          FROM incentives.campaign_reward_periods u
+                                                          WHERE u.campaign_id = cs.id
+                                                            AND u.rewards_last_computed_at IS NULL),
+                                                         'infinity'::timestamptz)) AS computed_through
+                  FROM campaign_scope cs),
+     window_periods AS (SELECT f.id                                                    AS campaign_id,
+                               crp.start_time >= f.computed_through - INTERVAL '24 hours'
+                                   AND crp.end_time <= f.computed_through              AS contained,
+                               crp.rewards_last_computed_at IS NOT NULL                AS computed,
+                               cr.reward_amount
+                        FROM frontier f
+                                 JOIN incentives.campaign_reward_periods crp
+                                      ON crp.campaign_id = f.id
+                                          AND crp.start_time < f.computed_through
+                                          AND crp.end_time > f.computed_through - INTERVAL '24 hours'
+                                 LEFT JOIN incentives.computed_rewards cr
+                                           ON cr.campaign_reward_period_id = crp.id
+                                               AND cr.locker = ${locker}
+                                               AND cr.salt = ${salt})
+SELECT f.slug,
+       f.computed_through,
+       (COUNT(wp.campaign_id) FILTER (WHERE wp.contained))::INT4                        AS contained_periods,
+       (COALESCE(SUM(wp.reward_amount) FILTER (WHERE wp.contained), 0))::TEXT           AS contained_amount,
+       (COUNT(wp.campaign_id) FILTER (WHERE NOT wp.contained
+           AND (NOT wp.computed OR COALESCE(wp.reward_amount, 0) <> 0)))::INT4          AS uncertain_periods
+FROM frontier f
+         LEFT JOIN window_periods wp ON wp.campaign_id = f.id
+GROUP BY f.id, f.slug, f.computed_through
+ORDER BY f.slug
+    `;
+  }
+
   async listAvailableClaimsForAddress(
     address: string,
     chainId: bigint | null = null,

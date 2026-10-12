@@ -98,6 +98,39 @@ export const incentivesCases: ContractCase[] = [
       ]),
   },
   {
+    name: "/rewards/{chainId}/{locker}/{salt} with insights",
+    operation: "/rewards/{chainId}/{locker}/{salt}",
+    request: `/rewards/1/${LOCKER}/42?insights=24h`,
+    stub: () => {
+      stubQuery("listComputedRewardsForPosition", [
+        { slug: "usdc-weth", amount: "1500000", pending: "500000" },
+      ]);
+      stubQuery("listRewardInsightsForPosition", [
+        {
+          slug: "usdc-weth",
+          computed_through: new Date("2026-09-29T00:00:00.000Z"),
+          contained_periods: 2,
+          contained_amount: "40000",
+          uncertain_periods: 0,
+        },
+        {
+          slug: "weekly",
+          computed_through: new Date("2026-09-28T00:00:00.000Z"),
+          contained_periods: 0,
+          contained_amount: "0",
+          uncertain_periods: 1,
+        },
+        {
+          slug: "not-started",
+          computed_through: null,
+          contained_periods: 0,
+          contained_amount: "0",
+          uncertain_periods: 0,
+        },
+      ]);
+    },
+  },
+  {
     operation: "/claims/{address}",
     request: `/claims/${OWNER}?chainId=1`,
     stub: () =>
