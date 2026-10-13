@@ -77,6 +77,9 @@ const GetTokenUsdPriceHistoryResponseType = z.object({
   data: z.array(TokenUsdPriceHistoryPointType),
 });
 
+const MAX_HISTORY_POINTS = 120;
+const MAX_HISTORY_DURATION_SECONDS = 30 * 86_400;
+
 const DEFAULT_TOKEN_PRICE_HISTORY_INTERVAL_SECONDS = 15 * 60;
 const DEFAULT_TOKEN_PRICE_HISTORY_DURATION_SECONDS = 24 * 60 * 60;
 const MAX_TOKEN_PRICE_HISTORY_POINTS = 120;
@@ -88,8 +91,6 @@ function sqrtRatioX128ToPrice(sqrtRatio: bigint | string): number {
 
 // Pair and pool histories default to this many buckets ending now.
 const DEFAULT_HISTORY_POINT_COUNT = 60;
-const MAX_HISTORY_POINTS = 120;
-const MAX_HISTORY_DURATION_SECONDS = 30 * 86_400;
 
 const DEFAULT_PAIR_PRICE_HISTORY_INTERVAL_SECONDS = 1_800;
 const DEFAULT_POOL_PRICE_HISTORY_INTERVAL_SECONDS = 300;
@@ -231,9 +232,11 @@ export const GetTokenUsdPriceHistory = defineRoute(
           .number()
           .int()
           .min(3_600)
-          .max(86_400)
+          .max(MAX_HISTORY_DURATION_SECONDS)
           .optional()
-          .describe("History duration in seconds, up to 24 hours")
+          .describe(
+            "History duration in seconds, up to 30 days. Prices older than a day are kept at hourly resolution, so older buckets are exact only for intervals that are whole hours",
+          )
           .default(DEFAULT_TOKEN_PRICE_HISTORY_DURATION_SECONDS),
       }),
     },
