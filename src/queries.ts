@@ -172,7 +172,20 @@ export interface RawErc20TokenRow {
   sort_order: number;
   total_supply: string | null;
   usd_price: string | null;
-  bridge_infos: Record<string, { bridge_address: string }> | null;
+  bridge_infos: Record<string, RawBridgeInfo> | null;
+}
+
+export type BridgeRelationshipKind =
+  "canonical_bridge" | "native_issuer" | "interoperability" | "unknown";
+
+export interface RawBridgeInfo {
+  bridge_address: string;
+  // Absent or null until the token list sync writes them.
+  relationship?: BridgeRelationshipKind | null;
+  bridge_name?: string | null;
+  source_name?: string | null;
+  source_url?: string | null;
+  inferred_reverse?: boolean | null;
 }
 
 export class Queries {
@@ -221,7 +234,14 @@ export class Queries {
       LEFT JOIN LATERAL (
         SELECT jsonb_object_agg(
           dest_chain_id,
-          jsonb_build_object('bridge_address', dest_token_address::TEXT)
+          jsonb_build_object(
+            'bridge_address', dest_token_address::TEXT,
+            'relationship', relationship,
+            'bridge_name', bridge_name,
+            'source_name', source_name,
+            'source_url', source_url,
+            'inferred_reverse', inferred_reverse
+          )
         ) AS bridge_infos
         FROM erc20_tokens_bridge_relationships br
         WHERE br.source_chain_id = t.chain_id
@@ -307,7 +327,14 @@ export class Queries {
       LEFT JOIN LATERAL (
         SELECT jsonb_object_agg(
           dest_chain_id,
-          jsonb_build_object('bridge_address', dest_token_address::TEXT)
+          jsonb_build_object(
+            'bridge_address', dest_token_address::TEXT,
+            'relationship', relationship,
+            'bridge_name', bridge_name,
+            'source_name', source_name,
+            'source_url', source_url,
+            'inferred_reverse', inferred_reverse
+          )
         ) AS bridge_infos
         FROM erc20_tokens_bridge_relationships br
         WHERE br.source_chain_id = t.chain_id
@@ -401,7 +428,14 @@ export class Queries {
       LEFT JOIN LATERAL (
         SELECT jsonb_object_agg(
           dest_chain_id,
-          jsonb_build_object('bridge_address', dest_token_address::TEXT)
+          jsonb_build_object(
+            'bridge_address', dest_token_address::TEXT,
+            'relationship', relationship,
+            'bridge_name', bridge_name,
+            'source_name', source_name,
+            'source_url', source_url,
+            'inferred_reverse', inferred_reverse
+          )
         ) AS bridge_infos
         FROM erc20_tokens_bridge_relationships br
         WHERE br.source_chain_id = t.chain_id

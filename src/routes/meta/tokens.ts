@@ -14,6 +14,37 @@ import {
 import { createQueries, Queries, RawErc20TokenRow } from "../../queries";
 import toHex from "../../shared/toHex";
 
+const BridgeInfoType = z.object({
+  bridge_address: z
+    .string()
+    .describe("Token address for the destination chain"),
+  relationship: z
+    .enum(["canonical_bridge", "native_issuer", "interoperability", "unknown"])
+    .nullable()
+    .describe(
+      "How the destination token relates to this one: a copy minted by the canonical bridge, a deployment by the issuer itself, a version issued through an interoperability protocol such as LayerZero, or unknown. Null when not yet recorded",
+    ),
+  bridge_name: z
+    .string()
+    .nullable()
+    .describe("Bridge, issuer or interoperability protocol, when known"),
+  source_name: z
+    .string()
+    .nullable()
+    .describe("Source the link was taken from. Null when not yet recorded"),
+  source_url: z
+    .string()
+    .nullable()
+    .describe("Location of that source. Null when not yet recorded"),
+  inferred_reverse: z
+    .boolean()
+    .nullable()
+    .describe(
+      "True when this direction was mirrored from a one-way link in the source rather than read from it. Null when not yet recorded",
+    ),
+});
+type BridgeInfo = z.infer<typeof BridgeInfoType>;
+
 export const TokenType = z
   .object({
     chain_id: z.string(),
@@ -54,14 +85,7 @@ export const TokenType = z
       z.number().describe("The USD price for one unit of the token").gte(0),
     ),
     bridgeInfos: z.nullable(
-      z.record(
-        z.string().describe("Destination chain ID"),
-        z.object({
-          bridge_address: z
-            .string()
-            .describe("Token address for the destination chain"),
-        }),
-      ),
+      z.record(z.string().describe("Destination chain ID"), BridgeInfoType),
     ),
   })
   .required({
@@ -91,18 +115,23 @@ type RawBridgeInfoMap = NonNullable<RawErc20TokenRow["bridge_infos"]>;
 
 function formatBridgeInfos(
   bridgeInfos: RawBridgeInfoMap | null | undefined,
-): Record<string, { bridge_address: string }> | null {
+): Record<string, BridgeInfo> | null {
   if (!bridgeInfos) {
     return null;
   }
 
-  const result: Record<string, { bridge_address: string }> = {};
+  const result: Record<string, BridgeInfo> = {};
 
   for (const chainId in bridgeInfos) {
-    const { bridge_address } = bridgeInfos[chainId];
+    const info = bridgeInfos[chainId];
 
     result[BigInt(chainId).toString()] = {
-      bridge_address: toHex(BigInt(bridge_address), 20),
+      bridge_address: toHex(BigInt(info.bridge_address), 20),
+      relationship: info.relationship ?? null,
+      bridge_name: info.bridge_name ?? null,
+      source_name: info.source_name ?? null,
+      source_url: info.source_url ?? null,
+      inferred_reverse: info.inferred_reverse ?? null,
     };
   }
 
