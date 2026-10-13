@@ -146,6 +146,23 @@ export const pricesCases: ContractCase[] = [
       ]);
     },
   },
+  ...[
+    ["week", 14_400, 604_800],
+    ["month", 43_200, 2_592_000],
+  ].map(
+    ([range, interval, duration]): ContractCase => ({
+      operation: "/tokens/{chainId}/{tokenAddress}/price-history",
+      name: `/tokens/{chainId}/{tokenAddress}/price-history ${range}`,
+      request: `/tokens/1/${USDC}/price-history?interval=${interval}&duration=${duration}`,
+      stub: () => {
+        stubQuery("getErc20TokenByAddress", tokenRow());
+        stubQuery("getTokenUsdPriceHistory", [
+          { start: at(START), price: 1.00000000310102 },
+          { start: at(START + Number(interval)), price: 0.99999999560024 },
+        ]);
+      },
+    }),
+  ),
   {
     operation: "/price/{chainId}/{baseToken}/{quoteToken}/history",
     request: `/price/1/0x0/${USDC}/history?interval=3600`,

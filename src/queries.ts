@@ -352,11 +352,25 @@ export class Queries {
           "timestamp",
           source,
           value
-        FROM erc20_tokens_usd_prices
-        WHERE chain_id = ${chainId}
-          AND token_address = ${tokenAddress.toString()}
-          AND "timestamp" >= ${start}
-          AND "timestamp" <= ${end}
+        FROM (
+          SELECT "timestamp", source, value
+          FROM erc20_tokens_usd_prices
+          WHERE chain_id = ${chainId}
+            AND token_address = ${tokenAddress.toString()}
+            AND "timestamp" >= ${start}
+            AND "timestamp" <= ${end}
+          UNION ALL
+          -- The indexer keeps a day of raw observations and folds older ones
+          -- into the latest observation of each UTC hour.
+          SELECT "timestamp", source, value
+          FROM erc20_tokens_usd_prices_hourly
+          WHERE chain_id = ${chainId}
+            AND token_address = ${tokenAddress.toString()}
+            AND hour >= ${start}::timestamptz - INTERVAL '1 hour'
+            AND hour <= ${end}
+            AND "timestamp" >= ${start}
+            AND "timestamp" <= ${end}
+        ) AS prices
       ) AS bucketed_prices
       ORDER BY bucket_start, "timestamp" DESC, source DESC
     `;

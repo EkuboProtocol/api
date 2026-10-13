@@ -160,6 +160,14 @@ describe("Hono app integration", () => {
         )
       ).status,
     ).toBe(400);
+
+    expect(
+      (
+        await fetchPath(
+          "/tokens/1/0x1/price-history?interval=86400&duration=2592001",
+        )
+      ).status,
+    ).toBe(400);
   });
 
   test("rejects numeric path parameters that do not parse", async () => {

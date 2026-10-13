@@ -2676,12 +2676,12 @@
             "schema": {
               "type": "integer",
               "minimum": 3600,
-              "maximum": 86400,
+              "maximum": 2592000,
               "default": 86400,
-              "description": "History duration in seconds, up to 24 hours"
+              "description": "History duration in seconds, up to 30 days. Prices older than a day are kept at hourly resolution, so older buckets are exact only for intervals that are whole hours"
             },
             "required": false,
-            "description": "History duration in seconds, up to 24 hours",
+            "description": "History duration in seconds, up to 30 days. Prices older than a day are kept at hourly resolution, so older buckets are exact only for intervals that are whole hours",
             "name": "duration",
             "in": "query"
           }
