@@ -215,10 +215,57 @@
                                 "bridge_address": {
                                   "type": "string",
                                   "description": "Token address for the destination chain"
+                                },
+                                "relationship": {
+                                  "type": [
+                                    "string",
+                                    "null"
+                                  ],
+                                  "enum": [
+                                    "canonical_bridge",
+                                    "native_issuer",
+                                    "interoperability",
+                                    "unknown",
+                                    null
+                                  ],
+                                  "description": "How the destination token relates to this one: a copy minted by the canonical bridge, a deployment by the issuer itself, a version issued through an interoperability protocol such as LayerZero, or unknown. Null when not yet recorded"
+                                },
+                                "bridge_name": {
+                                  "type": [
+                                    "string",
+                                    "null"
+                                  ],
+                                  "description": "Bridge, issuer or interoperability protocol, when known"
+                                },
+                                "source_name": {
+                                  "type": [
+                                    "string",
+                                    "null"
+                                  ],
+                                  "description": "Source the link was taken from. Null when not yet recorded"
+                                },
+                                "source_url": {
+                                  "type": [
+                                    "string",
+                                    "null"
+                                  ],
+                                  "description": "Location of that source. Null when not yet recorded"
+                                },
+                                "inferred_reverse": {
+                                  "type": [
+                                    "boolean",
+                                    "null"
+                                  ],
+                                  "description": "True when this direction was mirrored from a one-way link in the source rather than read from it. Null when not yet recorded"
                                 }
                               },
                               "required": [
-                                "bridge_address"
+                                "bridge_address",
+                                "relationship",
+                                "bridge_name",
+                                "source_name",
+                                "source_url",
+                                "inferred_reverse"
                               ]
                             }
                           }
@@ -299,10 +346,57 @@
                                 "bridge_address": {
                                   "type": "string",
                                   "description": "Token address for the destination chain"
+                                },
+                                "relationship": {
+                                  "type": [
+                                    "string",
+                                    "null"
+                                  ],
+                                  "enum": [
+                                    "canonical_bridge",
+                                    "native_issuer",
+                                    "interoperability",
+                                    "unknown",
+                                    null
+                                  ],
+                                  "description": "How the destination token relates to this one: a copy minted by the canonical bridge, a deployment by the issuer itself, a version issued through an interoperability protocol such as LayerZero, or unknown. Null when not yet recorded"
+                                },
+                                "bridge_name": {
+                                  "type": [
+                                    "string",
+                                    "null"
+                                  ],
+                                  "description": "Bridge, issuer or interoperability protocol, when known"
+                                },
+                                "source_name": {
+                                  "type": [
+                                    "string",
+                                    "null"
+                                  ],
+                                  "description": "Source the link was taken from. Null when not yet recorded"
+                                },
+                                "source_url": {
+                                  "type": [
+                                    "string",
+                                    "null"
+                                  ],
+                                  "description": "Location of that source. Null when not yet recorded"
+                                },
+                                "inferred_reverse": {
+                                  "type": [
+                                    "boolean",
+                                    "null"
+                                  ],
+                                  "description": "True when this direction was mirrored from a one-way link in the source rather than read from it. Null when not yet recorded"
                                 }
                               },
                               "required": [
-                                "bridge_address"
+                                "bridge_address",
+                                "relationship",
+                                "bridge_name",
+                                "source_name",
+                                "source_url",
+                                "inferred_reverse"
                               ]
                             }
                           }
@@ -449,10 +543,57 @@
                             "bridge_address": {
                               "type": "string",
                               "description": "Token address for the destination chain"
+                            },
+                            "relationship": {
+                              "type": [
+                                "string",
+                                "null"
+                              ],
+                              "enum": [
+                                "canonical_bridge",
+                                "native_issuer",
+                                "interoperability",
+                                "unknown",
+                                null
+                              ],
+                              "description": "How the destination token relates to this one: a copy minted by the canonical bridge, a deployment by the issuer itself, a version issued through an interoperability protocol such as LayerZero, or unknown. Null when not yet recorded"
+                            },
+                            "bridge_name": {
+                              "type": [
+                                "string",
+                                "null"
+                              ],
+                              "description": "Bridge, issuer or interoperability protocol, when known"
+                            },
+                            "source_name": {
+                              "type": [
+                                "string",
+                                "null"
+                              ],
+                              "description": "Source the link was taken from. Null when not yet recorded"
+                            },
+                            "source_url": {
+                              "type": [
+                                "string",
+                                "null"
+                              ],
+                              "description": "Location of that source. Null when not yet recorded"
+                            },
+                            "inferred_reverse": {
+                              "type": [
+                                "boolean",
+                                "null"
+                              ],
+                              "description": "True when this direction was mirrored from a one-way link in the source rather than read from it. Null when not yet recorded"
                             }
                           },
                           "required": [
-                            "bridge_address"
+                            "bridge_address",
+                            "relationship",
+                            "bridge_name",
+                            "source_name",
+                            "source_url",
+                            "inferred_reverse"
                           ]
                         }
                       }
@@ -700,10 +841,57 @@
                           "bridge_address": {
                             "type": "string",
                             "description": "Token address for the destination chain"
+                          },
+                          "relationship": {
+                            "type": [
+                              "string",
+                              "null"
+                            ],
+                            "enum": [
+                              "canonical_bridge",
+                              "native_issuer",
+                              "interoperability",
+                              "unknown",
+                              null
+                            ],
+                            "description": "How the destination token relates to this one: a copy minted by the canonical bridge, a deployment by the issuer itself, a version issued through an interoperability protocol such as LayerZero, or unknown. Null when not yet recorded"
+                          },
+                          "bridge_name": {
+                            "type": [
+                              "string",
+                              "null"
+                            ],
+                            "description": "Bridge, issuer or interoperability protocol, when known"
+                          },
+                          "source_name": {
+                            "type": [
+                              "string",
+                              "null"
+                            ],
+                            "description": "Source the link was taken from. Null when not yet recorded"
+                          },
+                          "source_url": {
+                            "type": [
+                              "string",
+                              "null"
+                            ],
+                            "description": "Location of that source. Null when not yet recorded"
+                          },
+                          "inferred_reverse": {
+                            "type": [
+                              "boolean",
+                              "null"
+                            ],
+                            "description": "True when this direction was mirrored from a one-way link in the source rather than read from it. Null when not yet recorded"
                           }
                         },
                         "required": [
-                          "bridge_address"
+                          "bridge_address",
+                          "relationship",
+                          "bridge_name",
+                          "source_name",
+                          "source_url",
+                          "inferred_reverse"
                         ]
                       }
                     }

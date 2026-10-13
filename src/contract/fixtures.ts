@@ -25,7 +25,18 @@ export const tokenRow = (
   sort_order: 0,
   total_supply: "1000000000000",
   usd_price: "1.0001",
-  bridge_infos: { "23448594291968334": { bridge_address: "0x1234" } },
+  bridge_infos: {
+    "23448594291968334": { bridge_address: "0x1234" },
+    "8453": {
+      bridge_address: "0x833589fcd6edb6e08f4c7c32d4f71b54bda02913",
+      relationship: "native_issuer",
+      bridge_name: "Circle",
+      source_name: "Circle USDC contract addresses",
+      source_url:
+        "https://developers.circle.com/stablecoins/usdc-contract-addresses",
+      inferred_reverse: false,
+    },
+  },
   ...overrides,
 });
 
