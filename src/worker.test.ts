@@ -118,3 +118,16 @@ describe("worker cache key", () => {
     expect(computed).toBe(1);
   });
 });
+
+describe("worker cache key for unlisted parameters", () => {
+  beforeEach(() => {
+    entries.clear();
+    computed = 0;
+  });
+
+  it("keys parameters outside the numeric list exactly as sent", async () => {
+    await run("https://api.test/tokens?newParam=0x0");
+    const { response } = await run("https://api.test/tokens?newParam=0");
+    expect(await body(response)).toEqual({ version: 2 });
+  });
+});

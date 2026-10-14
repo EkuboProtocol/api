@@ -9,9 +9,33 @@ import {
 const NUMERICISH_REGEX = /^(?:0x[0-9a-fA-F]+|[+-]?\d+)$/;
 const MAX_NUMERICISH_LENGTH = 128;
 
-// Free-text query parameters are matched as typed, so "0x0", "00" and "0" are
-// different requests and must not share a cache entry.
-const FREE_TEXT_QUERY_PARAMS = new Set(["search"]);
+// Query parameters whose values are integers, so "0x1", "01" and "1" mean the
+// same thing and may share a cache entry. Every other parameter is keyed
+// exactly as sent: folding free text such as search=0x0 into search=0 would
+// serve one search's results for another. Adding a name here is checked
+// against the OpenAPI document by cacheKeyContract.test.ts.
+export const NUMERIC_QUERY_PARAMS: ReadonlySet<string> = new Set([
+  "address",
+  "after",
+  "chainId",
+  "coreAddress",
+  "cursor",
+  "duration",
+  "end",
+  "extension",
+  "fromBlock",
+  "interval",
+  "limit",
+  "minVisibilityPriority",
+  "owner",
+  "page",
+  "pageSize",
+  "poolId",
+  "start",
+  "toBlock",
+  "tokenA",
+  "tokenB",
+]);
 
 function normalizeNumberishValue(value: string): string {
   if (value.length === 0 || value.length > MAX_NUMERICISH_LENGTH) {
@@ -33,7 +57,9 @@ function normalizeRequestForCache(request: Request): URL {
   const url = new URL(request.url);
   const normalizedUrl = new URL(url.toString());
 
-  // Canonicalize integer-like path segments, e.g. /0x123 -> /291.
+  // Canonicalize integer-like path segments, e.g. /0x123 -> /291. This is only
+  // safe because every path parameter is an integer, address or enum, which
+  // cacheKeyContract.test.ts enforces.
   const normalizedPathSegments = normalizedUrl.pathname
     .split("/")
     .map((segment) => normalizeNumberishValue(segment));
@@ -51,9 +77,9 @@ function normalizeRequestForCache(request: Request): URL {
       ([key, value]) =>
         [
           key,
-          FREE_TEXT_QUERY_PARAMS.has(key)
-            ? value
-            : normalizeNumberishValue(value),
+          NUMERIC_QUERY_PARAMS.has(key)
+            ? normalizeNumberishValue(value)
+            : value,
         ] as const,
     )
     .sort(([aKey, aValue], [bKey, bValue]) =>
