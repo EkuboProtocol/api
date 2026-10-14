@@ -7,11 +7,12 @@
     "@ekubo/sdk": "^0.0.10",
     "@hono/zod-openapi": "^1.6.3",
     "@types/bun": "^1.4.2",
-    "@typescript-eslint/parser": "8.71.1",
-    "eslint": "10.12.0",
+    "@typescript/native": "npm:typescript@^7.0.2",
     "hono": "^4.13.13",
+    "oxfmt": "0.73.0",
+    "oxlint": "1.88.0",
+    "oxlint-tsgolint": "^7.0.2004",
     "postgres": "^3.4.9",
-    "prettier": "^3.9.10",
     "wrangler": "^4.149.0",
     "zod": "^4.6.6"
   },
@@ -23,9 +24,13 @@
   "license": "MIT",
   "scripts": {
     "start": "wrangler dev",
-    "lint": "eslint .",
-    "lint:prune": "eslint . --prune-suppressions",
-    "openapi": "bun scripts/generateOpenApi.ts"
+    "lint": "bun scripts/lint.ts",
+    "lint:prune": "bun scripts/lint.ts --prune",
+    "openapi": "bun scripts/generateOpenApi.ts",
+    "typecheck": "bun node_modules/@typescript/native/bin/tsc -b",
+    "format": "oxfmt",
+    "format:check": "oxfmt --check",
+    "test": "bun test"
   },
   "overrides": {
     "zod": "^4.6.6"

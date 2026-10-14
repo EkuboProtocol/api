@@ -1,0 +1,62 @@
+{
+  "src/contract/cases/twamm.ts": {
+    "typescript(no-unnecessary-type-assertion)": {
+      "count": 1
+    }
+  },
+  "src/queries.test.ts": {
+    "typescript(no-unnecessary-type-assertion)": {
+      "count": 1
+    }
+  },
+  "src/queries.ts": {
+    "eslint(complexity)": {
+      "count": 8
+    }
+  },
+  "src/router.test.ts": {
+    "typescript(no-unnecessary-type-assertion)": {
+      "count": 9
+    }
+  },
+  "src/routes/incentives/insights.pg.test.ts": {
+    "typescript(no-unnecessary-type-assertion)": {
+      "count": 2
+    }
+  },
+  "src/routes/meta/priceChanges.test.ts": {
+    "typescript(no-unnecessary-type-assertion)": {
+      "count": 1
+    }
+  },
+  "src/routes/nft/generateDcaOrderNft.ts": {
+    "eslint(complexity)": {
+      "count": 1
+    }
+  },
+  "src/routes/nft/generateLimitOrderNft.ts": {
+    "eslint(complexity)": {
+      "count": 1
+    }
+  },
+  "src/routes/nft/generatePositionNft.ts": {
+    "eslint(complexity)": {
+      "count": 1
+    }
+  },
+  "src/routes/prices/twammProjection.ts": {
+    "eslint(complexity)": {
+      "count": 2
+    }
+  },
+  "src/shared/metadatas/positions.ts": {
+    "eslint(complexity)": {
+      "count": 1
+    }
+  },
+  "src/testing/fakePostgres.ts": {
+    "typescript(no-unnecessary-type-assertion)": {
+      "count": 1
+    }
+  }
+}
