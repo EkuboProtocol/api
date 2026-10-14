@@ -3,6 +3,7 @@ import {
   ListTokens,
   GetToken,
   BatchGetTokens,
+  BatchGetTokenUsdPriceChanges,
   ListTokenUsdPrices,
 } from "./routes/meta/tokens";
 import { GetBlock, GetClosestBlock } from "./routes/meta/blocks";
@@ -79,6 +80,7 @@ import { createApp } from "./shared/context";
 const routes: readonly ApiRoute[] = [
   ListTokens,
   BatchGetTokens,
+  BatchGetTokenUsdPriceChanges,
   ListTokenUsdPrices,
   GetToken,
   GetClosestBlock,
