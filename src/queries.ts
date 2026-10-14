@@ -452,6 +452,71 @@ export class Queries {
     return rows;
   }
 
+  // The latest price of each requested token beside its price a day ago: the
+  // latest observation at or before that moment, from the raw table (a day of
+  // observations) or the hourly rollup it is pruned into. Both lookups are
+  // bounded index seeks, so the cost grows with the number of ids only. A
+  // token with no observation in the few hours before that moment has no
+  // reference price.
+  public async getErc20TokenUsdPriceChanges(
+    ids: { chainId: bigint; tokenAddress: bigint }[],
+  ) {
+    if (ids.length === 0) {
+      return [];
+    }
+
+    return this.sql<
+      {
+        chain_id: bigint;
+        token_address: string;
+        usd_price: number;
+        usd_price_24h_ago: number | null;
+      }[]
+    >`
+      SELECT
+        p.chain_id,
+        p.token_address,
+        p.value AS usd_price,
+        past.value AS usd_price_24h_ago
+      FROM erc20_tokens_latest_price p
+      LEFT JOIN LATERAL (
+        SELECT c.value
+        FROM (
+          (
+            SELECT r."timestamp", r.source, r.value
+            FROM erc20_tokens_usd_prices r
+            WHERE r.chain_id = p.chain_id
+              AND r.token_address = p.token_address
+              AND r."timestamp" <= NOW() - INTERVAL '24 hours'
+              AND r."timestamp" > NOW() - INTERVAL '26 hours'
+            ORDER BY r."timestamp" DESC, r.source DESC
+            LIMIT 1
+          )
+          UNION ALL
+          (
+            SELECT h."timestamp", h.source, h.value
+            FROM erc20_tokens_usd_prices_hourly h
+            WHERE h.chain_id = p.chain_id
+              AND h.token_address = p.token_address
+              AND h.hour > NOW() - INTERVAL '27 hours'
+              AND h.hour <= NOW() - INTERVAL '24 hours'
+              AND h."timestamp" <= NOW() - INTERVAL '24 hours'
+            ORDER BY h.hour DESC
+            LIMIT 1
+          )
+        ) AS c
+        ORDER BY c."timestamp" DESC, c.source DESC
+        LIMIT 1
+      ) AS past ON TRUE
+      WHERE (p.chain_id, p.token_address) IN ${this.sql(
+        ids.map(
+          ({ chainId, tokenAddress }) =>
+            this.sql`(${chainId.toString()}, ${tokenAddress.toString()})`,
+        ) as any,
+      )}
+    `;
+  }
+
   // The chain head comes from indexer_cursor, not from blocks.
   //
   // The indexer no longer writes a blocks row for a block with no events, and

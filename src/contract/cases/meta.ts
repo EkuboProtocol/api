@@ -1,5 +1,5 @@
 import { ContractCase, stubQuery } from "../harness";
-import { tokenRow, USDC, WETH, WETH_DECIMAL } from "../fixtures";
+import { tokenRow, USDC, USDC_DECIMAL, WETH, WETH_DECIMAL } from "../fixtures";
 
 const block = {
   number: "21000000",
@@ -38,6 +38,25 @@ export const metaCases: ContractCase[] = [
     stub: () =>
       stubQuery("listErc20TokenUsdPrices", [
         { token_address: WETH_DECIMAL, usd_price: 2500.5 },
+      ]),
+  },
+  {
+    operation: "/tokens/price-changes",
+    request: `/tokens/price-changes?id=1:${USDC}&id=0x1:${WETH}`,
+    stub: () =>
+      stubQuery("getErc20TokenUsdPriceChanges", [
+        {
+          chain_id: 1n,
+          token_address: WETH_DECIMAL,
+          usd_price: 2500.5,
+          usd_price_24h_ago: 2450.25,
+        },
+        {
+          chain_id: 1n,
+          token_address: USDC_DECIMAL,
+          usd_price: 1,
+          usd_price_24h_ago: null,
+        },
       ]),
   },
   {

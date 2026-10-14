@@ -639,6 +639,97 @@
         }
       }
     },
+    "/tokens/price-changes": {
+      "get": {
+        "tags": [
+          "Meta"
+        ],
+        "summary": "Batch token 24 hour USD price changes",
+        "description": "The latest USD price of each requested token and its price 24 hours ago, for showing a 24 hour change in token lists. Accepts up to 100 tokens.",
+        "operationId": "get_BatchGetTokenUsdPriceChanges",
+        "parameters": [
+          {
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "pattern": "^(?:\\d+|0x[a-fA-F0-9]+):0x[a-fA-F0-9]+$",
+                "description": "Token identifier formatted as chain_id:token_address where chain_id may be decimal or 0x-prefixed hexadecimal"
+              },
+              "description": "Repeat the id parameter to fetch multiple tokens (e.g. ?id=1:0x...&id=0x1:0x...)",
+              "example": "1:0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48"
+            },
+            "required": true,
+            "description": "Repeat the id parameter to fetch multiple tokens (e.g. ?id=1:0x...&id=0x1:0x...)",
+            "name": "id",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Latest and 24 hour old USD prices",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "chain_id": {
+                        "type": "string"
+                      },
+                      "address": {
+                        "type": "string"
+                      },
+                      "usd_price": {
+                        "type": "number",
+                        "minimum": 0,
+                        "description": "The latest USD price"
+                      },
+                      "usd_price_24h_ago": {
+                        "type": [
+                          "number",
+                          "null"
+                        ],
+                        "minimum": 0,
+                        "description": "The latest USD price observed at or before 24 hours ago, at most a few hours earlier. Null when there is none"
+                      }
+                    },
+                    "required": [
+                      "chain_id",
+                      "address",
+                      "usd_price",
+                      "usd_price_24h_ago"
+                    ]
+                  },
+                  "description": "One entry per requested token that has a USD price, in request order"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The request parameters are invalid",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "An unexpected server error occurred",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/tokens/prices": {
       "get": {
         "tags": [

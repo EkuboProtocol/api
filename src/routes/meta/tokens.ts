@@ -408,6 +408,128 @@ export const ListTokenUsdPrices = defineRoute(
   },
 );
 
+const MAX_PRICE_CHANGE_IDS = 100;
+
+const TokenUsdPriceChangeType = z.object({
+  chain_id: z.string(),
+  address: z.string(),
+  usd_price: z.number().describe("The latest USD price").gte(0),
+  usd_price_24h_ago: z
+    .number()
+    .gte(0)
+    .nullable()
+    .describe(
+      "The latest USD price observed at or before 24 hours ago, at most a few hours earlier. Null when there is none",
+    ),
+});
+
+const TokenUsdPriceChangesResponseType = z
+  .array(TokenUsdPriceChangeType)
+  .openapi({
+    description:
+      "One entry per requested token that has a USD price, in request order",
+  });
+type TokenUsdPriceChangesResponse = z.infer<
+  typeof TokenUsdPriceChangesResponseType
+>;
+
+export const BatchGetTokenUsdPriceChanges = defineRoute(
+  createRoute({
+    method: "get",
+    path: "/tokens/price-changes",
+    tags: ["Meta"],
+    summary: "Batch token 24 hour USD price changes",
+    description: `The latest USD price of each requested token and its price 24 hours ago, for showing a 24 hour change in token lists. Accepts up to ${MAX_PRICE_CHANGE_IDS} tokens.`,
+    operationId: "get_BatchGetTokenUsdPriceChanges",
+    request: {
+      query: z.object({
+        id: queryArray(
+          z
+            .string()
+            .describe(
+              "Token identifier formatted as chain_id:token_address where chain_id may be decimal or 0x-prefixed hexadecimal",
+            )
+            .regex(TOKEN_ID_PARAM_REGEX, {
+              message:
+                "Token identifiers must use chain_id:token_address with a decimal or 0x-prefixed chain ID and 0x-prefixed token address",
+            }),
+        )
+          .describe(
+            "Repeat the id parameter to fetch multiple tokens (e.g. ?id=1:0x...&id=0x1:0x...)",
+          )
+          .openapi({ example: "1:0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48" }),
+      }),
+    },
+    responses: {
+      200: jsonResponse(
+        "Latest and 24 hour old USD prices",
+        TokenUsdPriceChangesResponseType,
+      ),
+      ...errorResponses,
+    },
+  }),
+  async (c) => {
+    const { id: ids } = c.req.valid("query");
+
+    if (ids.length === 0) {
+      throw new StatusError(400, "At least one id parameter is required");
+    }
+    if (ids.length > MAX_PRICE_CHANGE_IDS) {
+      throw new StatusError(
+        400,
+        `At most ${MAX_PRICE_CHANGE_IDS} id parameters are allowed`,
+      );
+    }
+
+    const tokenIds = Array.from(
+      new Map(
+        ids
+          .map(parseTokenIdParam)
+          .map((tokenId) => [
+            buildTokenIdentifierKey(tokenId.chainId, tokenId.tokenAddress),
+            tokenId,
+          ]),
+      ).values(),
+    );
+
+    const queries = await createQueries(c.env);
+    const rows = await queries.getErc20TokenUsdPriceChanges(tokenIds);
+    const rowsByKey = new Map(
+      rows.map((row) => [
+        buildTokenIdentifierKey(
+          BigInt(row.chain_id),
+          BigInt(row.token_address),
+        ),
+        row,
+      ]),
+    );
+
+    const response: TokenUsdPriceChangesResponse = tokenIds.flatMap(
+      ({ chainId, tokenAddress }) => {
+        const row = rowsByKey.get(
+          buildTokenIdentifierKey(chainId, tokenAddress),
+        );
+        if (!row) return [];
+        return [
+          {
+            chain_id: toHex(chainId),
+            address: toHex(tokenAddress, 20),
+            usd_price: Number(row.usd_price),
+            usd_price_24h_ago:
+              row.usd_price_24h_ago === null
+                ? null
+                : Number(row.usd_price_24h_ago),
+          },
+        ];
+      },
+    );
+
+    return c.json(response, 200, {
+      "cache-control": "public, max-age=60",
+    });
+  },
+);
+
 export const BatchGetTokens = defineRoute(
   createRoute({
     method: "get",
