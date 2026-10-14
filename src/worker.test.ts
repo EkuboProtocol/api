@@ -90,3 +90,31 @@ describe("worker stale-while-revalidate", () => {
     expect(waits).toHaveLength(0);
   });
 });
+
+describe("worker cache key", () => {
+  beforeEach(() => {
+    entries.clear();
+    computed = 0;
+    setSystemTime(new Date("2026-10-06T00:00:00Z"));
+  });
+
+  it("keeps numeric-looking search terms distinct", async () => {
+    const searches = ["0x0", "00", "0", "+0", "0x00"];
+    for (const [i, search] of searches.entries()) {
+      const { response } = await run(
+        `https://api.test/tokens?chainId=1&search=${encodeURIComponent(search)}`,
+      );
+      expect(await body(response)).toEqual({ version: i + 1 });
+    }
+    expect(computed).toBe(searches.length);
+  });
+
+  it("still folds hex and decimal forms of numeric parameters", async () => {
+    await run("https://api.test/tokens?chainId=1&search=eth");
+    const { response } = await run(
+      "https://api.test/tokens?chainId=0x1&search=eth",
+    );
+    expect(await body(response)).toEqual({ version: 1 });
+    expect(computed).toBe(1);
+  });
+});
