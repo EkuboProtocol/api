@@ -15,7 +15,7 @@ PG_CONNECTION_STRING = "postgresql://postgres:postgres@localhost:5432/postgres"
 
 [env.prod]
 hyperdrive = [
-    { binding = "HYPERDRIVE", id = "c6bd83f26cc840e3aa09870557f286f4" },
+  { binding = "HYPERDRIVE", id = "c6bd83f26cc840e3aa09870557f286f4" },
 ]
 routes = [{ pattern = "prod-api.ekubo.org", custom_domain = true }]
 

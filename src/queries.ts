@@ -176,7 +176,10 @@ export interface RawErc20TokenRow {
 }
 
 export type BridgeRelationshipKind =
-  "canonical_bridge" | "native_issuer" | "interoperability" | "unknown";
+  | "canonical_bridge"
+  | "native_issuer"
+  | "interoperability"
+  | "unknown";
 
 export interface RawBridgeInfo {
   bridge_address: string;
@@ -3095,7 +3098,8 @@ pt.last_transfer_event_id DESC NULLS LAST
     };
     type NullableVe33PoolRow = {
       [K in keyof Omit<Ve33PoolRow, "total_count" | "total_vote_weight">]:
-        Ve33PoolRow[K] | null;
+        | Ve33PoolRow[K]
+        | null;
     } & Pick<Ve33PoolRow, "total_count" | "total_vote_weight">;
 
     const rows = await this.sql<NullableVe33PoolRow[]>`
