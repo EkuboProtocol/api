@@ -9,6 +9,10 @@ import {
 const NUMERICISH_REGEX = /^(?:0x[0-9a-fA-F]+|[+-]?\d+)$/;
 const MAX_NUMERICISH_LENGTH = 128;
 
+// Free-text query parameters are matched as typed, so "0x0", "00" and "0" are
+// different requests and must not share a cache entry.
+const FREE_TEXT_QUERY_PARAMS = new Set(["search"]);
+
 function normalizeNumberishValue(value: string): string {
   if (value.length === 0 || value.length > MAX_NUMERICISH_LENGTH) {
     return value;
@@ -43,7 +47,15 @@ function normalizeRequestForCache(request: Request): URL {
 
   const normalizedParams = new URLSearchParams();
   params
-    .map(([key, value]) => [key, normalizeNumberishValue(value)] as const)
+    .map(
+      ([key, value]) =>
+        [
+          key,
+          FREE_TEXT_QUERY_PARAMS.has(key)
+            ? value
+            : normalizeNumberishValue(value),
+        ] as const,
+    )
     .sort(([aKey, aValue], [bKey, bValue]) =>
       aKey === bKey ? aValue.localeCompare(bValue) : aKey.localeCompare(bKey),
     )
