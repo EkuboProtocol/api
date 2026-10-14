@@ -28,6 +28,6 @@
     "openapi": "bun scripts/generateOpenApi.ts"
   },
   "overrides": {
-    "zod": "^4.6.4"
+    "zod": "^4.6.6"
   }
 }
