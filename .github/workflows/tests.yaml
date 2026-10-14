@@ -8,12 +8,19 @@ on:
     branches:
       - main
 
+concurrency:
+  group: checks-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+
+permissions:
+  contents: read
+
 jobs:
   run-tests:
     runs-on: ubuntu-latest
-    name: Run tests
+    name: Format, lint, types and unit tests
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
 
       - uses: oven-sh/setup-bun@v2
         with:
@@ -21,8 +28,19 @@ jobs:
 
       - run: bun ci
 
-      - run: bun run lint
+      # Every step runs even when an earlier one fails, so one push reports
+      # every kind of problem at once.
+      - name: Format
+        run: bun run format:check
 
-      - run: bunx tsc --noEmit
+      - name: Lint
+        if: ${{ !cancelled() }}
+        run: bun run lint
 
-      - run: bun test
+      - name: Type check
+        if: ${{ !cancelled() }}
+        run: bun run typecheck
+
+      - name: Unit tests
+        if: ${{ !cancelled() }}
+        run: bun test
