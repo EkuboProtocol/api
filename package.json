@@ -6,7 +6,7 @@
     "@ekubo/position-svg-generator": "^0.3.1",
     "@ekubo/sdk": "^0.0.10",
     "@hono/zod-openapi": "^1.6.3",
-    "@types/bun": "^1.4.2",
+    "@types/bun": "^1.4.3",
     "@typescript/native": "npm:typescript@^7.0.2",
     "hono": "^4.13.13",
     "oxfmt": "0.73.0",
