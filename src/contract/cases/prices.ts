@@ -1,13 +1,10 @@
 import { ContractCase, QueryResult, stubQuery } from "../harness";
 import { CORE, tokenRow, USDC, USDC_DECIMAL } from "../fixtures";
 
-// Request window for the pool price history cases: ten hourly buckets.
 const START = 1_790_600_000;
 const END = START + 10 * 3_600;
 const at = (seconds: number) => new Date(seconds * 1_000);
 
-// sqrt(token1 per token0) * 2**128 for ETH/USDC around 2.7e-9 USDC units per
-// wei, as postgres returns NUMERIC.
 const SQRT_2_68 = "17615981356597974461518658387574784";
 const SQRT_2_69 = "17648816392279131946403317996847104";
 const SQRT_2_70 = "17681590452805816215298018342076416";
@@ -52,13 +49,9 @@ const candle = (
   close_sqrt_ratio: close,
   volume0: "137964328940192000",
   volume1: "370862000",
-  // Declared as string in queries.ts; COUNT(*) is int8, which the driver
-  // returns as bigint.
   swap_count: swapCount as unknown as string,
 });
 
-// The first candle starts after the window opens, so the handler prepends a
-// volume-less seed candle from getPoolPriceSeed.
 const swapCandles = [
   candle(START + 3_600, [SQRT_2_69, SQRT_2_71, SQRT_2_68, SQRT_2_70], 3n),
   candle(START + 3 * 3_600, [SQRT_2_70, SQRT_2_72, SQRT_2_70, SQRT_2_71], 1n),
@@ -72,8 +65,6 @@ function stubSwapPricePath(): void {
   });
 }
 
-// A full-range TWAMM pool selling ETH for USDC and USDC for ETH, whose last
-// virtual execution sits mid-window so the handler projects the tail.
 function stubTwammPool(): void {
   const liquidity = "5196152422706632";
   stubQuery("getPoolKeyByCoreAndId", [
@@ -111,9 +102,6 @@ type TwammState = QueryResult<"getPoolTwammState">;
 
 type PriceHistoryRow = QueryResult<"getPriceHistory">[number];
 
-// Declared as {start: string; vwap/min/max: number} in queries.ts; date_bin
-// over timestamptz returns a Date and the NUMERIC aggregates come back as
-// strings.
 const priceHistoryRow = (
   startSeconds: number,
   vwap: string,
@@ -129,7 +117,6 @@ const priceHistoryRow = (
   }) as unknown as PriceHistoryRow;
 
 function stubPairPrices(): void {
-  // Unregistered tokens fall back to their raw addresses.
   stubQuery("getErc20TokenByAddress", null);
   stubQuery("getVolumeWeightedPrice", { price: 2.7e-9, k_volume: 10n ** 30n });
 }
@@ -185,9 +172,6 @@ export const pricesCases: ContractCase[] = [
   },
   {
     operation: "/price/{chainId}/{baseToken}/{quoteToken}/history",
-    // A bucket whose swaps all fall under the dust threshold has NULL min and
-    // max. Inverting them divides by Number(null) = 0, and JSON serialises
-    // the resulting Infinity as null, which the schema's number rejects.
     name: "/price/{chainId}/{baseToken}/{quoteToken}/history inverted dust-only bucket",
     request: `/price/1/${USDC}/0x0/history?interval=3600`,
     stub: () => {
@@ -211,8 +195,6 @@ export const pricesCases: ContractCase[] = [
           close: "2.6448e-9",
           volume0: "137964328940192000",
           volume1: "370862000",
-          // Declared as string in queries.ts; COUNT(*) is int8, which the
-          // driver returns as bigint.
           swap_count: 4n as unknown as string,
         },
       ]);
@@ -224,8 +206,6 @@ export const pricesCases: ContractCase[] = [
     stub: () => {
       stubQuery("getPoolKeyByCoreAndId", [ethUsdcPool()]);
       stubSwapPricePath();
-      // Declared without null in queries.ts (rows[0] ?? null infers the row
-      // type), but a pool without TWAMM state returns null.
       stubQuery("getPoolTwammState", null as unknown as TwammState);
     },
   },

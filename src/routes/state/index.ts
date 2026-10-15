@@ -15,8 +15,6 @@ import {
 import toHex from "../../shared/toHex";
 
 const LiquidityPointType = z.object({
-  // per_pool_per_tick_liquidity.tick is an INT4, which the driver returns as
-  // a number.
   tick: z.number().int(),
   net_liquidity_delta_diff: z.string(),
 });
@@ -75,8 +73,6 @@ export const GetPoolLiquidity = defineRoute(
     });
 
     const response = {
-      // queries.ts declares tick as a string, but the driver already returns
-      // the INT4 as a number, so Number() leaves the value unchanged.
       data: rows.map(({ tick, net_liquidity_delta_diff }) => ({
         tick: Number(tick),
         net_liquidity_delta_diff,

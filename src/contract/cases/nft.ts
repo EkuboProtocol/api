@@ -40,8 +40,6 @@ const tokens = [
   }),
 ];
 
-// Declared with string bounds/tick_spacing/amplification in queries.ts;
-// postgres returns the int4/int2 columns as numbers.
 const positionMetadata = (
   overrides: Record<string, unknown> = {},
 ): NonNullable<QueryResult<"getPositionMetadata">> =>
@@ -126,9 +124,6 @@ const classification = {
 
 type PositionsRow = QueryResult<"getPositionsByAddress">["rows"][number];
 
-// The SELECT returns core_address and nft_address but not minted_tx_hash,
-// minted_timestamp, salt or fee_denominator, which the declared
-// PositionMetadata intersection claims; int4 columns come back as numbers.
 const positionsRow = (overrides: Record<string, unknown> = {}): PositionsRow =>
   ({
     chain_id: 1n,
@@ -174,8 +169,6 @@ const stubPositionsByAddress = () =>
     totalCount: 2,
   });
 
-// Declared with a string timestamp in queries.ts; postgres returns
-// timestamptz as a Date.
 const historyRow = (
   row: Record<string, unknown>,
 ): QueryResult<"getPositionHistory">[number] =>

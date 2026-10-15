@@ -9,8 +9,6 @@ const VE33_DECIMAL = BigInt(VE33).toString();
 const VE_TOKEN = "0x6666666666666666666666666666666666666666";
 const VE_TOKEN_DECIMAL = BigInt(VE_TOKEN).toString();
 
-// Declared as string | null in queries.ts; pool_keys.stableswap_center_tick is
-// INT4 and stableswap_amplification INT2, which postgres returns as numbers.
 const stableswapInt = (value: number) => value as unknown as string;
 
 const poolRow = (overrides: Partial<PoolRow> = {}): PoolRow => ({

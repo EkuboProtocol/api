@@ -74,9 +74,6 @@ import {
 import type { ApiRoute } from "./shared/context";
 import { createApp } from "./shared/context";
 
-// Registration order matters where paths overlap: a literal segment such as
-// /tokens/batch or /blocks/{chainId}/closest must be registered before the
-// parameterised route that would otherwise also match it.
 const routes: readonly ApiRoute[] = [
   ListTokens,
   BatchGetTokens,
@@ -172,8 +169,6 @@ export function openApiDocument() {
 let document: ReturnType<typeof openApiDocument> | undefined;
 
 app.get("/openapi.json", (c) => c.json((document ??= openApiDocument())));
-// JSON is valid YAML, so the YAML path the previous router served keeps working
-// without a YAML serialiser in the bundle.
 app.get("/openapi.yaml", (c) =>
   c.body(JSON.stringify((document ??= openApiDocument()), null, 2), 200, {
     "content-type": "text/yaml;charset=UTF-8",

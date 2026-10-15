@@ -49,8 +49,6 @@ const campaignRow = (overrides: Partial<CampaignRow> = {}): CampaignRow => ({
       daily_rewards: "0",
       daily_rewards_token0: "0",
       daily_rewards_token1: "0",
-      // Declared as number in queries.ts; the view's AVG over the last day's
-      // periods is NULL when none fall in that window.
       realized_volatility: null as unknown as number,
     },
   ],
@@ -72,8 +70,6 @@ export const incentivesCases: ContractCase[] = [
       ]),
   },
   {
-    // The view's next_drop_time CASE has no ELSE branch, so a campaign whose
-    // end_time has passed yields NULL.
     name: "/campaigns ended campaign",
     operation: "/campaigns",
     request: "/campaigns",
@@ -83,7 +79,6 @@ export const incentivesCases: ContractCase[] = [
           slug: "ended",
           start_time: new Date("2026-01-01T00:00:00.000Z"),
           end_time: new Date("2026-03-01T00:00:00.000Z"),
-          // Declared as Date in queries.ts; NULL once the campaign has ended.
           next_drop_time: null as unknown as Date,
         }),
       ]),
@@ -151,8 +146,6 @@ export const incentivesCases: ContractCase[] = [
           slug: null,
           chain_id: 1n,
           drop_address: DROP_DECIMAL,
-          // Declared as string in queries.ts; owner comes from a LEFT JOIN on
-          // the funded root and is NULL for drops that were never funded.
           owner: null as unknown as string,
           token: USDC_DECIMAL,
           root: ROOT_DECIMAL,

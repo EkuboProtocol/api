@@ -106,7 +106,6 @@ const TokenListResponseType = z
   .array(TokenType)
   .openapi({ description: "Array of tokens" });
 type TokenListResponse = z.infer<typeof TokenListResponseType>;
-// includePrices=false drops usd_price from every row.
 const ListTokensResponseType = TokenListResponseType.or(
   z.array(TokenType.omit({ usd_price: true })),
 ).openapi({ description: "Array of tokens" });
@@ -261,9 +260,6 @@ const IncludePricesType = z
   .default("true")
   .transform((value) => value === "true");
 
-// Without prices the list only changes when token metadata does (new listings,
-// logos, visibility), so browsers and the edge can hold it far longer than the
-// priced list, and a stale copy revalidates to a 304 rather than a new body.
 const PRICE_FREE_TOKEN_LIST_CACHE_CONTROL =
   "public, max-age=300, stale-while-revalidate=3600";
 

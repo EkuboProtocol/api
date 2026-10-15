@@ -16,8 +16,6 @@ import { MAX_U128 } from "@ekubo/sdk";
 import { parseOutTokens } from "../../shared/parseOutTokens";
 import { createQueries } from "../../queries";
 
-// Sale rate deltas are negative where orders end, so the shared unsigned
-// DecimalStringType does not describe them.
 const SignedDecimalStringType = z
   .string()
   .describe("A signed decimal number")
@@ -261,9 +259,7 @@ export const GetTwammPairState = defineRoute(
             token1SaleRateDelta: srd.net_sale_rate_delta1.toString(),
           })),
         )
-        // sort is necessary here because we have state across many pools concatenated to sale rate delta across many pools
         .sort(({ time: t0 }, { time: t1 }) => t0 - t1)
-        // this combines any sale rate deltas that are on the same time, which can happen if all the pools are executed up to latest
         .reduce<TwammStateResponseType["saleRateDeltas"]>((memo, current) => {
           const last = memo[memo.length - 1];
           if (!last) return [current];

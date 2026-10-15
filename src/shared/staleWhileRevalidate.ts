@@ -1,11 +1,3 @@
-// The Cache API ignores stale-while-revalidate: an entry stored with
-// max-age=600 simply disappears after ten minutes, and the next request at that
-// colo pays the full query cost. For responses that declare
-// stale-while-revalidate, the worker therefore stores the entry for
-// max-age + stale-while-revalidate, remembers when it was stored, and once the
-// entry is older than max-age serves it as is while refreshing it in the
-// background.
-
 const STORED_AT_HEADER = "x-ekubo-stored-at";
 const CACHE_CONTROL_HEADER = "x-ekubo-cache-control";
 
@@ -32,8 +24,6 @@ export function parseSwrPolicy(cacheControl: string | null): SwrPolicy | null {
   return { maxAge, staleWhileRevalidate };
 }
 
-// Returns the copy to put into the cache, or the response unchanged when it
-// does not declare stale-while-revalidate.
 export function toStoredResponse(response: Response, now: number): Response {
   const cacheControl = response.headers.get("cache-control");
   const policy = parseSwrPolicy(cacheControl);
@@ -53,8 +43,6 @@ export function toStoredResponse(response: Response, now: number): Response {
   });
 }
 
-// Undoes toStoredResponse and reports whether the entry is past its max-age.
-// Entries stored without the marker are served unchanged and count as fresh.
 export function fromStoredResponse(
   stored: Response,
   now: number,
@@ -79,8 +67,6 @@ export function fromStoredResponse(
   return { response, stale: now - storedAt > maxAge * 1000 };
 }
 
-// Refreshes already running in this isolate, so a burst of requests for a
-// stale entry starts one recomputation rather than one each.
 const refreshing = new Set<string>();
 
 export function refreshOnce(key: string, refresh: () => Promise<void>) {

@@ -1,8 +1,6 @@
 import { beforeEach, describe, expect, it, setSystemTime } from "bun:test";
 import { createWorker } from "./worker";
 
-// A Cache API stand-in that, like the real one, drops entries once their
-// max-age has passed.
 const entries = new Map<string, { response: Response; expires: number }>();
 const cacheStub = {
   async match(key: URL) {

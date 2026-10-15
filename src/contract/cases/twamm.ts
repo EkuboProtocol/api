@@ -33,8 +33,6 @@ const delta = (
   net_sale_rate_delta1: delta1,
 });
 
-// Orders that start in the future only add sale rate. Every order also ends,
-// which subtracts its sale rate; those negative deltas are the known-drift cases.
 const startingDeltas = [
   delta("2024-10-19T00:00:00Z", "1500000000", "0"),
   delta("2024-10-20T00:00:00Z", "0", "250000000000"),
@@ -60,7 +58,6 @@ const stubPair = (deltas: QueryResult<"getSaleRateDeltasByKey">[number][]) => {
   stubQuery("getTwammPoolStateByKey", [
     poolState("1000000000", "0", "2024-10-18T12:00:00Z"),
     poolState("0", "400000000000", "2024-10-18T12:00:00Z"),
-    // Idle pools are filtered out of the pair response.
     poolState("0", "0", "2024-10-01T00:00:00Z"),
   ]);
   stubQuery("getSaleRateDeltasByKey", deltas);
@@ -87,8 +84,6 @@ const orderRows: OrderRows[number][] = [
     nft_address: BigInt(ORDER_NFT).toString(),
     token_id: "4242",
     total_count: 3,
-    // jsonb: timestamps arrive as ISO strings, last_collect_proceeds is the
-    // ::TEXT rendering of a timestamptz.
     orders: [
       {
         sell_token: USDC_DECIMAL,

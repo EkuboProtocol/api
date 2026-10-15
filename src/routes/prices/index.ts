@@ -23,8 +23,6 @@ import { getTokenByAddress } from "../meta/tokens";
 const PriceHistoryPointType = z.object({
   start: z.union([z.string(), z.date()]),
   vwap: z.number(),
-  // A bucket whose swaps are all dust has no min or max. Inverting the pair
-  // divides by zero for those, and JSON serializes the Infinity as null.
   max: z.number().nullable(),
   min: z.number().nullable(),
   k_volume: z.string(),
@@ -44,11 +42,6 @@ export const PoolPriceHistoryPointType = z.object({
   high: z.number(),
   low: z.number(),
   close: z.number(),
-  // Sums of the swap amounts in each token's smallest unit, labelled by the
-  // pool's sort order. They are optional because not every candle is built
-  // from swaps: a candle carrying the price forward over a quiet stretch, and
-  // one projected from TWAMM sale rates, describe no indexed trades and so
-  // report no volume rather than a misleading zero.
   volume0: z.string().optional(),
   volume1: z.string().optional(),
   swap_count: z.number().int().optional(),
@@ -89,7 +82,6 @@ function sqrtRatioX128ToPrice(sqrtRatio: bigint | string): number {
   return ratio * ratio;
 }
 
-// Pair and pool histories default to this many buckets ending now.
 const DEFAULT_HISTORY_POINT_COUNT = 60;
 
 const DEFAULT_PAIR_PRICE_HISTORY_INTERVAL_SECONDS = 1_800;
@@ -98,8 +90,6 @@ const DEFAULT_POOL_PRICE_HISTORY_INTERVAL_SECONDS = 300;
 const DEFAULT_END_DESCRIPTION = "; defaults to now";
 const DEFAULT_START_DESCRIPTION = `; defaults to ${DEFAULT_HISTORY_POINT_COUNT} intervals before end`;
 
-// `end` defaults to now and `start` to DEFAULT_HISTORY_POINT_COUNT intervals
-// before `end`.
 function parseHistoryRange(
   intervalSeconds: number,
   startSeconds: number | undefined,
@@ -178,8 +168,6 @@ function dustThreshold(priceInEth: number | undefined): bigint {
   return BigInt(Math.max(0, Math.round(thresholdEth * (priceInEth ?? 0))));
 }
 
-// Dust swaps are excluded by requiring both sides to move at least the
-// value of 0.01 ETH, converted into each token by its price in ETH.
 async function getDustThresholds(
   queries: Queries,
   chainId: bigint,
@@ -436,11 +424,6 @@ const GetPairOhlcHistoryResponseType = z.object({
 
 const DEFAULT_OHLC_INTERVAL_SECONDS = 3_600;
 
-/**
- * A candle as the database produces it: priced in token1 per token0, with
- * volumes still labelled by sort order rather than by the caller's base and
- * quote.
- */
 export type CanonicalOhlcCandle = {
   start: string | Date;
   open: number;
@@ -456,14 +439,6 @@ function invertPrice(price: number): number {
   return price === 0 ? 0 : 1 / price;
 }
 
-/**
- * Re-expresses a canonical candle in the orientation the caller asked for.
- *
- * Inverting a price swaps the extremes as well as the ends, because the
- * highest price of token1 per token0 is the moment token0 was cheapest in
- * terms of token1. Open and close keep their ends: they are anchored to a
- * point in time, not to a magnitude.
- */
 export function orientOhlcCandle(
   candle: CanonicalOhlcCandle,
   baseBeforeQuote: boolean,
@@ -649,9 +624,6 @@ type SegmentProjector = (
   segmentEndSeconds: number,
 ) => ProjectedSegment | null;
 
-// Projects the TWAMM pool's price forward from its last virtual execution.
-// Segments must be requested in chronological order, because the projection
-// only ever moves forward.
 function createTwammSegmentProjector({
   chainId,
   pool,
@@ -796,7 +768,6 @@ interface TwammTailWindow {
   lastExecutionTimeMs: number;
 }
 
-// Folds the projected price over the rest of the last swap candle into it.
 function extendLastCandle(
   lastCandle: PoolPriceHistoryPoint,
   projectSegment: SegmentProjector,
@@ -818,14 +789,9 @@ function extendLastCandle(
     lastCandle.high = Math.max(lastCandle.high, projectedLastSegment.high);
     lastCandle.low = Math.min(lastCandle.low, projectedLastSegment.low);
     lastCandle.close = projectedLastSegment.close;
-    // The volume is left as the indexed swaps measured it. The
-    // projection moves the price from TWAMM sale rates, and those
-    // virtual fills are not swaps rows to count.
   }
 }
 
-// Projected buckets start on the candle grid, but no earlier than the last
-// virtual execution.
 function firstProjectedBucketStart(
   tailStartMs: number,
   { intervalMilliseconds, lastExecutionTimeMs }: TwammTailWindow,
@@ -877,10 +843,6 @@ function projectTailCandles(
   return projectedCandles;
 }
 
-// Extends the swap candles with the price the TWAMM pool's virtual orders
-// have moved it to since its last execution. Any projection failure leaves
-// the swap-based candles as they are, although the last candle may already
-// have been extended by then.
 async function appendTwammProjection(
   queries: Queries,
   data: PoolPriceHistoryPoint[],

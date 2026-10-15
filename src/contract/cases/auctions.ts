@@ -5,7 +5,6 @@ import { OWNER, pairTokens, USDC_DECIMAL, WETH_DECIMAL } from "../fixtures";
 const AUCTIONS = "0x5f6a1b2c3d4e5f60718293a4b5c6d7e8f9a0b1c2";
 const AUCTIONS_DECIMAL = BigInt(AUCTIONS).toString();
 const TOKEN_ID = "77";
-// Packed auction config: selling flag, start time and duration.
 const CONFIG = BigInt(
   "0x0000000001000000000000000000000000000000000067120b000003f480",
 ).toString();
@@ -39,8 +38,6 @@ const auctionRow = (
   ...overrides,
 });
 
-// A second, still-running auction key with no symbols, proceeds, completion
-// or boost yet.
 const openAuctionRow = () =>
   auctionRow({
     current_owner: null,

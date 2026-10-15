@@ -1,9 +1,5 @@
 import { createServer, type Server, type Socket } from "node:net";
 
-// A minimal PostgreSQL wire-protocol server for tests that need a real
-// postgres.js client without a database. It accepts any startup without
-// authentication and answers the extended-query flow postgres.js uses. Every
-// query returns `rows` (all columns as text), or fails with `error` if set.
 export interface FakePostgresOptions {
   readonly rows?: readonly Record<string, string>[];
   readonly error?: {
@@ -92,7 +88,6 @@ function errorResponse(code: string, text: string): Buffer {
   );
 }
 
-// Parameter type OIDs from a Parse message: name\0 query\0 int16 n, int32[n].
 function parseParameterTypes(body: Uint8Array): number[] {
   const view = new DataView(body.buffer, body.byteOffset, body.byteLength);
   let i = body.indexOf(0) + 1;
@@ -123,7 +118,6 @@ interface ConnectionState {
 
 type Handler = (state: ConnectionState, body: Uint8Array) => Buffer;
 
-// Replies to each frontend message type of the extended-query protocol.
 const HANDLERS: Record<string, Handler> = {
   P: (state, body) => {
     state.parameterTypes = parseParameterTypes(body);
@@ -164,7 +158,6 @@ const HANDLERS: Record<string, Handler> = {
 };
 
 function reply(state: ConnectionState, type: string, body: Uint8Array) {
-  // After an error the server skips everything up to the next Sync.
   if (state.failed && type !== "S") return EMPTY;
   return HANDLERS[type]?.(state, body) ?? EMPTY;
 }
@@ -190,7 +183,6 @@ function connection(socket: Socket, options: FakePostgresOptions) {
         if (buffer.length < length) break;
         const code = buffer.readInt32BE(4);
         buffer = buffer.subarray(length);
-        // SSLRequest: refuse, the client then sends a plain startup message.
         if (code === 80877103) out.push(Buffer.from("N"));
         else {
           started = true;

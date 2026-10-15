@@ -5,11 +5,6 @@ import { getTokenByUserSpecifiedIdentifier } from "../routes/meta/tokens";
 
 const RAW_TOKEN_ADDRESS_REGEX = /^(?:0x[a-fA-F0-9]+|\d+)$/;
 
-// Resolves a user-supplied token identifier to its address. Registered
-// tokens resolve through the token table; anything else must already be a
-// raw address, so stats pages keep working for tokens the indexer has never
-// registered. All downstream queries filter on raw addresses, so an
-// unregistered token simply contributes no USD-denominated value.
 export async function parseOutTokenAddress(
   queries: Queries,
   chainId: bigint,

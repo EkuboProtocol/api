@@ -6,9 +6,6 @@ import {
   type ProjectionPosition,
 } from "./projection";
 
-// Starknet mainnet values from prod-api.ekubo.org on 2026-10-12: the
-// btcfi_season WBTC/strkBTC pair from /campaigns, and position 2288759
-// (0x22ec77) from /positions/{owner} with its pool's current tick.
 const NOW = new Date("2026-10-12T12:00:00Z");
 const CHAIN = 0x534e5f4d41494en;
 const CORE = 0x5dd3d2f4429af886cd1a3b08289dbcea99a294197e9eb43b0e0325b4bn;
@@ -47,7 +44,6 @@ const position: ProjectionPosition = {
   token0: WBTC,
   token1: STRKBTC,
   extension: 0n,
-  // 0.01%
   fee: 0x68db8bac710cb4000000000000000n,
   feeDenominator: 1n << 128n,
   tickLower: 0,
@@ -68,9 +64,6 @@ describe("projectNextDayReward", () => {
       NOW,
     );
     if (projection.status !== "estimated") throw new Error(projection.status);
-    // The whole range is above the price and inside the 1,868-tick band, so
-    // all of its 7.99 WBTC counts against the pair's 39.23 WBTC above-price
-    // depth: 20.37% of the 3,333.27 STRK token0 budget.
     expect(projection.share0).toBeCloseTo(799196424 / 3923441287, 6);
     expect(projection.share1).toBe(0);
     expect(Number(projection.amount) / 1e18).toBeCloseTo(678.99, 1);
@@ -92,8 +85,6 @@ describe("projectNextDayReward", () => {
   });
 
   test("liquidity inside the fee distance or beyond the band earns nothing", () => {
-    // Fee distance is 100 ticks and the band 1,868: [-639, -539) is too
-    // close, [1229, 5000) too far.
     for (const [tickLower, tickUpper] of [
       [-639, -539],
       [1229, 5000],

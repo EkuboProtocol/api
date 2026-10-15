@@ -2,10 +2,6 @@ import { describe, expect, it } from "bun:test";
 import { openApiDocument } from "./router";
 import { NUMERIC_QUERY_PARAMS } from "./worker";
 
-// The worker folds integer-looking values (0x1, 01, +1 -> 1) in cache keys.
-// These tests fail when a route declares a parameter for which that folding
-// would merge requests that should get different responses.
-
 type Schema = {
   type?: string | string[];
   pattern?: string;
@@ -20,8 +16,6 @@ type Parameter = { name: string; in: string; schema?: Schema };
 const INTEGER_PATTERNS = new Set(["^0x[a-fA-F0-9]+$", "^\\d+$"]);
 const NUMERICISH = /^(?:0x[0-9a-fA-F]+|[+-]?\d+)$/;
 
-// True when every value the schema accepts is an integer, so folding
-// different spellings of the same integer cannot change the response.
 function isIntegerSchema(schema: Schema | undefined): boolean {
   if (!schema) return false;
   if (schema.anyOf) return schema.anyOf.every(isIntegerSchema);
@@ -36,7 +30,6 @@ function isIntegerSchema(schema: Schema | undefined): boolean {
   );
 }
 
-// Integers, or string enums none of whose values look like integers.
 function isPathSafeSchema(schema: Schema | undefined): boolean {
   if (!schema) return false;
   if (schema.anyOf) return schema.anyOf.every(isPathSafeSchema);

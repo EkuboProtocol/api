@@ -10,8 +10,6 @@ import {
   WETH_DECIMAL,
 } from "../fixtures";
 
-// DATE_TRUNC over timestamptz and blocks.block_time come back as Date, while
-// queries.ts declares several of them as string.
 const DAY = new Date("2026-09-28T00:00:00.000Z");
 const BLOCK_TIME = new Date("2026-09-28T12:34:56.000Z");
 const asDeclaredString = (date: Date) => date as unknown as string;
@@ -44,7 +42,6 @@ const poolStatsRow = (overrides: Partial<PoolStatsRow> = {}): PoolStatsRow => ({
   boosted_fees_last_donated_time: BLOCK_TIME,
   boosted_fees_future_deltas: [
     {
-      // EXTRACT(epoch ...)::text renders the NUMERIC with fractional digits.
       time: "1790000000.000000",
       donate_rate_delta0: "-1000000",
       donate_rate_delta1: "0",
@@ -62,9 +59,6 @@ const unboostedPoolStatsRow = poolStatsRow({
   boosted_fees_future_deltas: null,
 });
 
-// Stableswap pools have tick_spacing NULL (pool_keys_tick_spacing_required);
-// queries.ts declares tick_spacing as number and the stableswap columns as
-// string, but they are INT4/INT2 and come back as numbers.
 const stableswapPoolStatsRow = poolStatsRow({
   pool_id: "221360928884514619392",
   tick_spacing: null as unknown as number,
@@ -102,8 +96,6 @@ const pairEventRow = (overrides: Partial<PairEventRow> = {}): PairEventRow => ({
 
 type TopPositionRow = QueryResult<"getTopPositionsByPair">[number];
 
-// lower_bound/upper_bound and tick_spacing are INT4 and stableswap_amplification
-// is INT2, all declared as string in queries.ts; the runtime values are numbers.
 const topPositionRow = (
   overrides: Partial<TopPositionRow> = {},
 ): TopPositionRow => ({
@@ -158,8 +150,6 @@ export const statsCases: ContractCase[] = [
         {
           chain_id: 1n,
           token0: USDC_DECIMAL,
-          // Declared as number in queries.ts; postgres returns NUMERIC as a
-          // string.
           token1: WETH_DECIMAL as unknown as number,
           volume0_24h: "1000000",
           volume1_24h: "400000000000000000",
@@ -211,8 +201,6 @@ export const statsCases: ContractCase[] = [
     request: "/overview/revenue?chainId=1",
     stub: () => {
       stubQuery("getRevenueByTokenByDate", [
-        // Declared as {token, volume, chain_id}; the query actually selects
-        // date and revenue.
         {
           chain_id: 1n,
           token: USDC_DECIMAL,
@@ -369,7 +357,6 @@ export const statsCases: ContractCase[] = [
     request: `/tokens/1/${USDC}/${WETH}/liquidity`,
     stub: () => {
       stubTokens(pairTokens);
-      // per_pool_per_tick_liquidity.tick is INT4, declared as string.
       stubQuery("getPairLiquidityGraph", [
         {
           tick: -20000000 as unknown as string,
@@ -416,7 +403,6 @@ export const statsCases: ContractCase[] = [
     request: `/tokens/1/${USDC}/${WETH}/events`,
     stub: () => {
       stubTokens(pairTokens);
-      // pool_keys.tick_spacing is NULL for stableswap pools; declared number.
       stubQuery("getPairEvents", [
         pairEventRow({ tick_spacing: null as unknown as number }),
       ]);
