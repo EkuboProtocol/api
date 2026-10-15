@@ -12,8 +12,6 @@ const caseFor = (operation: string): ContractCase => {
   return contractCase;
 };
 
-// The ERC721 metadata routes link to their own image routes, so the image URL
-// in each metadata response must resolve to a 200 SVG.
 describe("NFT metadata image links resolve to the image routes", () => {
   beforeEach(stubAllQueriesToThrow);
   afterEach(() => mock.restore());

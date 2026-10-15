@@ -33,13 +33,10 @@ describe("orientOhlcCandle", () => {
   test("inverts the price and swaps the extremes when the base token sorts second", () => {
     expect(orientOhlcCandle(candle, false)).toEqual({
       start: "2026-08-18T00:00:00.000Z",
-      // Open and close stay at their own ends: they are anchored in time.
       open: 1 / 2,
-      // The high becomes the inverse of the low, and vice versa.
       high: 1 / 1,
       low: 1 / 8,
       close: 1 / 4,
-      // The volumes swap roles along with the tokens.
       volume_base: "250",
       volume_quote: "100",
       swap_count: 7,
@@ -109,10 +106,6 @@ describe("PoolPriceHistoryPointType", () => {
   });
 
   test("accepts a candle that measures no swaps", () => {
-    // A candle carrying the price forward over a quiet stretch, and one
-    // projected from TWAMM sale rates, describe no indexed trades. Clients
-    // read the absent volume as "not measured" and draw no bar, which is why
-    // these fields must stay optional rather than default to zero.
     const parsed = PoolPriceHistoryPointType.parse(prices);
 
     expect(parsed.volume0).toBeUndefined();

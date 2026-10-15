@@ -183,7 +183,6 @@ export type BridgeRelationshipKind =
 
 export interface RawBridgeInfo {
   bridge_address: string;
-  // Absent or null until the token list sync writes them.
   relationship?: BridgeRelationshipKind | null;
   bridge_name?: string | null;
   source_name?: string | null;
@@ -277,9 +276,6 @@ export class Queries {
     `;
   }
 
-  // Every pool token in the canonical list that has a price, regardless of
-  // visibility, so USD totals match what /tokens/batch would price. Limiting
-  // to pool tokens keeps this to a few hundred of the ~14k priced tokens.
   public listPricedErc20Tokens(chainId: bigint | null) {
     return this.sql<
       {
@@ -455,12 +451,6 @@ export class Queries {
     return rows;
   }
 
-  // The latest price of each requested token beside its price a day ago: the
-  // latest observation at or before that moment, from the raw table (a day of
-  // observations) or the hourly rollup it is pruned into. Both lookups are
-  // bounded index seeks, so the cost grows with the number of ids only. A
-  // token with no observation in the few hours before that moment has no
-  // reference price.
   public async getErc20TokenUsdPriceChanges(
     ids: { chainId: bigint; tokenAddress: bigint }[],
   ) {
@@ -572,11 +562,6 @@ export class Queries {
     return rows[0];
   }
 
-  // Resolves from blocks, and otherwise from the cursor head. The head is an
-  // empty block far more often than not and empty blocks have no blocks row,
-  // so without the second arm the number that getLatestBlock just returned
-  // would 404 on this same route. Any other empty block still resolves to
-  // nothing, which is what it did for empty blocks older than a day before.
   public async getBlock(blockNumber: number, chainId: bigint) {
     const rows = await this.sql<
       {
@@ -1255,8 +1240,6 @@ FROM token_mint AS mint
         ? this.sql`pk.pool_id > ${afterPoolId.toString()}`
         : this.sql`TRUE`;
 
-    // The state join is a primary-key lookup per returned row (limit-bounded),
-    // so it is unconditional; callers decide whether to expose it.
     return this.sql<
       {
         pool_id: string;
@@ -3486,20 +3469,6 @@ GROUP BY c.slug
     `;
   }
 
-  // One row per campaign on the chain that the position has rewards in, plus
-  // every campaign currently running that the locker is eligible for, so a
-  // genuine zero can be told apart from missing data.
-  //
-  // computed_through is the end of the latest period such that every period of
-  // the campaign starting before it has been computed. The window is the 24
-  // hours ending there. Periods inside the window are summed exactly; a period
-  // crossing either edge cannot be split, so it is counted as uncertain when the
-  // position earned something in it (a zero there is still an exact zero for the
-  // part inside the window).
-  //
-  // Every computed_rewards lookup is a primary key probe on
-  // (campaign_reward_period_id, locker, salt) for the handful of periods that
-  // touch the window; nothing scans other positions or recomputes rewards.
   async listRewardInsightsForPosition(
     chainId: bigint,
     locker: string,
@@ -4317,7 +4286,6 @@ export async function createQueries(env: Env) {
     connection: {
       application_name: "ekubo-api",
       default_transaction_read_only: true,
-      // set the statement timeout to aggressively disconnect
       statement_timeout: 5_000,
     },
   });

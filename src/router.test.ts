@@ -181,7 +181,6 @@ describe("Hono app integration", () => {
       "/tokens/1/1e5",
       "/limit-orders/orders/1e5",
       "/positions/1/0x1/1e5",
-      // Chain IDs are int8 in the database.
       "/tokens/9223372036854775808/0x1",
       "/governance/9223372036854775808/proposals",
       "/pair/393402133025997798000961/0x1/0x2/pools",
@@ -255,7 +254,6 @@ describe("Hono app integration", () => {
   test("validates pool key discovery requests without a database", async () => {
     const sameTokens = await fetchPath("/poolKeys/1/0x1?tokenA=0x2&tokenB=0x2");
     expect(sameTokens.status).toBe(400);
-    // Errors thrown by handlers keep the { status, error } body.
     expect((await sameTokens.json()) as unknown).toMatchObject({
       status: 400,
       error: expect.any(String),

@@ -1,12 +1,3 @@
-// Validators for cacheable GET responses, so a client polling an unchanged
-// response gets a bodiless 304 instead of the full payload again.
-//
-// The tag is a hash of the body rather than anything per-colo, so every
-// Cloudflare location hands out the same tag for the same content. Cloudflare
-// weakens strong tags when it compresses a response, which is why the
-// comparison below ignores the W/ prefix; If-None-Match uses weak comparison
-// anyway (RFC 9110 13.1.2).
-
 const HEADERS_KEPT_ON_304 = ["cache-control", "etag", "age", "last-modified"];
 
 export async function withEtag(response: Response): Promise<Response> {

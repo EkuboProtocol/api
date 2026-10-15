@@ -118,7 +118,6 @@ function preflight(request: Request): Response | null {
 
 function finalize(request: Request, response: Response): Response {
   const final = notModified(request, response) ?? response;
-  // Cached responses have immutable headers, so copy before adding CORS.
   const headers = new Headers(final.headers);
   headers.set("access-control-allow-origin", "*");
   return new Response(final.body, {
@@ -165,7 +164,6 @@ function refreshInBackground(
 
 export const createWorker = (app: App) => ({
   fetch: async (request: Request, env: Env, ctx: ExecutionContext) => {
-    // first check the preflight before anything. it's so cheap to handle we shouldn't even bother with check the cache
     const preflightResponse = preflight(request);
     if (preflightResponse) return preflightResponse;
 

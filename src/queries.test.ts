@@ -6,8 +6,6 @@ import { createQueries } from "./queries";
 import { app } from "./router";
 import { startFakePostgres, type FakePostgres } from "./testing/fakePostgres";
 
-// A chain id that appears nowhere except as a bound query parameter, and a
-// fragment of the getLatestBlock SQL text. Neither may reach an error log.
 const PARAMETER = "987654321";
 const SQL_FRAGMENT = "head_block_number IS NOT NULL";
 
@@ -21,8 +19,6 @@ afterEach(async () => {
 
 const envFor = (url: string) => ({ PG_CONNECTION_STRING: url }) as Env;
 
-// Everything a log sink could render from the error: util.inspect (console),
-// Bun.inspect, JSON serialization and the stack.
 function renderings(error: unknown): string[] {
   return [
     inspect(error, { depth: 5, showHidden: false }),
@@ -68,7 +64,6 @@ describe("createQueries", () => {
     expect(error.code).toBe(FAILURE.code);
     expect(error.severity).toBe("ERROR");
     expect(error.routine).toBe("fake_routine");
-    // The stack still points at the query's call site.
     expect(error.stack).toContain("getLatestBlock");
   });
 
@@ -86,8 +81,6 @@ describe("createQueries", () => {
     }
   });
 
-  // Guards the test above: with postgres.js debug mode on, the same
-  // renderings do carry the SQL and the parameter.
   test("debug mode would expose them", async () => {
     server = await startFakePostgres({ error: FAILURE });
     const sql = postgres(server.url, {

@@ -21,7 +21,6 @@ export const CampaignType = z
     rewardToken: AddressType,
     startTime: z.date(),
     endTime: z.date().nullable(),
-    // Null once the campaign has ended.
     nextDropTime: z.date().nullable(),
     allowedExtensions: z.array(AddressType),
     pairs: z.array(

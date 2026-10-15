@@ -117,8 +117,6 @@ const ListVe33VotersResponseType = z.object({
   pagination: PaginationMetadataType,
 });
 
-// pageSize may be omitted to return every row, which only makes sense for the
-// first page.
 function assertPageSizeForPage(page: number, pageSize: number | undefined) {
   if (pageSize === undefined && page > 1) {
     throw new StatusError(

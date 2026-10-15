@@ -16,8 +16,6 @@ export type TokenPricer = (
 const tokenKey = (chainId: string, token: string) =>
   `${BigInt(chainId)}:${BigInt(token)}`;
 
-// Matches the interface's former client-side sum: a token outside the
-// canonical list, or without a price, contributes 0.
 export function createTokenPricer(rows: PricedTokenRow[]): TokenPricer {
   const byKey = new Map<string, { price: number; scale: number }>();
   for (const row of rows) {
@@ -36,9 +34,6 @@ export function createTokenPricer(rows: PricedTokenRow[]): TokenPricer {
   };
 }
 
-// Sums one or more USD fields per chain. Every chain present in `rows` gets an
-// entry, so a chain whose tokens are all unpriced reports 0 rather than
-// disappearing. Sorted by chain id for a stable response.
 export function sumUsdByChain<F extends string>(
   fields: readonly F[],
   rows: { chain_id: string; usd: Partial<Record<F, number>> }[],

@@ -27,8 +27,6 @@ const PoolKeyType = z.object({
   stableswap_params: z
     .object({ center_tick: z.number().int(), amplification: z.number().int() })
     .nullable(),
-  // The packed bytes32 PoolConfig as emitted on chain; null for legacy
-  // v2-core pools whose events carried no packed config.
   config: z.string().nullable(),
 });
 
@@ -40,8 +38,6 @@ const PoolStateType = z
   })
   .nullable();
 
-// Every field is always serialized; nullable means present-but-null, never
-// omitted, so consumers can rely on the shape.
 const PoolKeyListEntryType = z.object({
   pool_id: z.string(),
   pool_key: PoolKeyType,
@@ -123,8 +119,6 @@ function parseOptionalAddressParam(
   return value === undefined ? undefined : parseAddressParam(name, value);
 }
 
-// tokenA alone keeps pools containing it on either side; with tokenB it
-// selects the exact pair, sorted into token0 and token1.
 function parseTokenFilter(
   tokenAParam: string | undefined,
   tokenBParam: string | undefined,
@@ -290,8 +284,6 @@ export const GetPoolKeyById = defineRoute(
       state: formatPoolState(row),
     } satisfies z.infer<typeof PoolKeyByIdResponseType>;
 
-    // Shorter than the key-only route because this response carries the
-    // indexed pool state, which moves on every swap.
     return c.json(response, 200, {
       "cache-control": "public, max-age=180, must-revalidate",
     });

@@ -193,7 +193,6 @@ const PairPathParameters = z.object({
   tokenB: TokenIdentifierType,
 });
 
-// The volume and pools routes declare the chain ID as a numeric string.
 const PairNumericChainPathParameters = PairPathParameters.extend({
   chainId: ChainIdStringType,
 });
@@ -516,8 +515,6 @@ export const GetPairLiquidity = defineRoute(
       chainId,
     });
 
-    // tick is an INT4 column, so the driver already returns a number; the
-    // query declares it as a string.
     const data = rows.map(({ tick, net_liquidity_delta_diff }) => ({
       tick: Number(tick),
       net_liquidity_delta_diff,

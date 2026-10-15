@@ -18,16 +18,12 @@ const concentratedPool: Omit<PoolKeyRow, "pool_key_id"> = {
   extension: "0",
   stableswap_center_tick: null,
   stableswap_amplification: null,
-  // Packed extension | fee | tick spacing.
   pool_config: "39614081257132165326439400",
   state_sqrt_ratio: "17681590452805816215298018342076416",
   state_tick: -19_730_000,
   state_liquidity: "1572500836553",
 };
 
-// A stableswap pool has no tick spacing and carries its center tick and
-// amplification instead. Declared as string | null in queries.ts; the
-// columns are INT4 and INT2, which the driver returns as numbers.
 const stableswapPool: Omit<PoolKeyRow, "pool_key_id"> = {
   ...concentratedPool,
   token0: USDC_DECIMAL,
@@ -40,8 +36,6 @@ const stableswapPool: Omit<PoolKeyRow, "pool_key_id"> = {
     "38549393542740661678021248373509897400086468500495821779220149926589286240480",
 };
 
-// A legacy v2-core pool (no packed config) that was registered but never
-// initialised, so there is no pool_states row to join.
 const uninitialisedPool: Omit<ListedPoolKeyRow, "pool_id"> = {
   ...concentratedPool,
   token1: WETH_DECIMAL,
@@ -54,9 +48,6 @@ const uninitialisedPool: Omit<ListedPoolKeyRow, "pool_id"> = {
 export const stateCases: ContractCase[] = [
   {
     operation: "/pools/{chainId}/{coreAddress}/{poolId}/liquidity",
-    // per_pool_per_tick_liquidity.tick is INT4, so the driver returns a
-    // number (declared as string in queries.ts) and the handler passes it
-    // through, while the schema documents tick as a string.
     name: "/pools/{chainId}/{coreAddress}/{poolId}/liquidity tick is a number",
     request: `/pools/1/${CORE}/${POOL_ID}/liquidity`,
     stub: () =>

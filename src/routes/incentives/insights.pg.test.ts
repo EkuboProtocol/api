@@ -1,15 +1,3 @@
-// Runs the rewards queries against a real PostgreSQL. Skipped unless
-// TEST_PG_CONNECTION_STRING points at a disposable database: it drops and
-// recreates the incentives schema there. For example:
-//
-//   docker run -d --rm --name rewards-pg -e POSTGRES_PASSWORD=test \
-//     -p 127.0.0.1:25628:5432 postgres:18
-//   TEST_PG_CONNECTION_STRING=postgres://postgres:test@127.0.0.1:25628/postgres \
-//     bun test src/routes/incentives/insights.pg.test.ts
-//
-// The tables are the columns of indexer migrations 00015 and 00088 that the
-// queries read; computed_rewards_by_position_materialized is the view the API
-// reads since 00120.
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import postgres from "postgres";
 import { createQueries, type Queries } from "../../queries";
@@ -21,7 +9,6 @@ const LOCKER =
   "0x2e0af29598b407c8716b17f6d2795eca1b471413fa03fb145a5e33722184067";
 const OTHER_LOCKER = "0x1234";
 const SALT = "2288759";
-// The position the same owner withdrew before minting SALT.
 const OLD_SALT = "2287941";
 const CHAIN = 23448594291968334n;
 
@@ -122,9 +109,6 @@ async function days(
 async function seed(sql: Admin) {
   await sql.unsafe(SCHEMA);
 
-  // Daily periods for two pairs. Oct 1-11 are computed, Oct 12 is running.
-  // The position is new (minted Oct 9 after a rebalance), the old one stopped
-  // earning on Oct 9, and periods up to Oct 7 are in a drop.
   const daily = await campaign(sql, "daily", "2026-10-01T00:00:00Z", null);
   const pairA = await days(sql, daily, "2026-10-01T00:00:00Z", 11);
   const pairB = await days(sql, daily, "2026-10-01T00:00:00Z", 11, {
@@ -145,8 +129,6 @@ async function seed(sql: Admin) {
   for (let i = 0; i < 7; i++)
     await sql`INSERT INTO incentives.generated_drop_reward_periods VALUES (1, ${pairA[i]}), (1, ${pairB[i]})`;
 
-  // Pair A has computed Oct 10, pair B has not: the frontier must not pass
-  // pair B's uncomputed period.
   const delayed = await campaign(sql, "delayed", "2026-10-01T00:00:00Z", null);
   const delayedA = await days(sql, delayed, "2026-10-08T00:00:00Z", 3);
   await days(sql, delayed, "2026-10-08T00:00:00Z", 2, { pair: 2 });
@@ -157,7 +139,6 @@ async function seed(sql: Admin) {
   await reward(sql, delayedA[1], "7");
   await reward(sql, delayedA[2], "8");
 
-  // One week-long period: it cannot be split into the last 24 hours.
   const weekly = await campaign(sql, "weekly", "2026-09-29T00:00:00Z", null);
   await reward(
     sql,
@@ -172,7 +153,6 @@ async function seed(sql: Admin) {
   );
   await period(sql, weeklyNone, "2026-09-29T00:00:00Z", "2026-10-06T00:00:00Z");
 
-  // A day inside the window plus a period crossing its start that paid.
   const straddle = await campaign(
     sql,
     "straddle",
@@ -198,15 +178,12 @@ async function seed(sql: Admin) {
     "40",
   );
 
-  // Running, computed, but the position never earned in it.
   const idle = await campaign(sql, "idle", "2026-10-01T00:00:00Z", null);
   await days(sql, idle, "2026-10-01T00:00:00Z", 11);
 
-  // Running but nothing computed yet.
   const fresh = await campaign(sql, "fresh", "2026-10-01T00:00:00Z", null);
   await days(sql, fresh, "2026-10-01T00:00:00Z", 2, { computed: false });
 
-  // Ended campaigns: listed only if the position earned in them.
   const endedPaid = await campaign(
     sql,
     "ended-paid",
@@ -224,7 +201,6 @@ async function seed(sql: Admin) {
   );
   await days(sql, endedIdle, "2026-08-01T00:00:00Z", 2);
 
-  // Not eligible: another locker only, another chain, not started.
   const otherLocker = await campaign(
     sql,
     "other-locker",
@@ -242,7 +218,6 @@ async function seed(sql: Admin) {
   );
   await days(sql, otherChain, "2026-10-01T00:00:00Z", 11);
   await campaign(sql, "future", "2099-01-01T00:00:00Z", null);
-  // Allowed lockers that include this one.
   const ownLocker = await campaign(
     sql,
     "own-locker",
@@ -366,8 +341,6 @@ describe.skipIf(!URL)("rewards queries on PostgreSQL", () => {
     expect(rows.map((r) => ({ ...r }))).toEqual([
       { slug: "daily", amount: "9000", pending: "2000" },
     ]);
-    // A rebalance into a new NFT is a new salt: the old position keeps what
-    // it earned and the new one starts from its own periods.
     expect((await insights(OLD_SALT)).daily.historyWindow).toMatchObject({
       amount: "0",
       status: "complete",

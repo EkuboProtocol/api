@@ -26,8 +26,6 @@ const NftParamsType = z.object({
   id: TokenIdType,
 });
 
-// An NFT address can hold positions, TWAMM orders or limit orders; look them up
-// in that order and stop at the first kind that has the token.
 async function findNftMetadata(
   queries: Queries,
   chainId: bigint,

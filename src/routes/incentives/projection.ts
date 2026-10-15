@@ -56,22 +56,17 @@ export interface ProjectionPosition {
   token0: bigint;
   token1: bigint;
   extension: bigint;
-  // The pool fee as a fraction fee / feeDenominator (2^64 on EVM chains,
-  // 2^128 on Starknet).
   fee: bigint;
   feeDenominator: bigint;
   tickLower: number;
   tickUpper: number;
   liquidity: bigint;
-  // Whether depth0/depth1 already contain this liquidity: true for an
-  // existing position, false for a hypothetical deposit.
   includedInDepth: boolean;
 }
 
 export type Projection =
   | {
       status: "estimated";
-      // Reward token base units over the next 24 hours.
       amount: bigint;
       share0: number;
       share1: number;
@@ -124,8 +119,6 @@ function supported(
     campaign.endTime.getTime() < now.getTime() + DAY_MS
   )
     return skip("unsupported", "campaign ends within the next 24 hours");
-  // depth0/depth1 count every locker's liquidity, but scoring only counts
-  // the allowed lockers', so the share would be understated.
   if (campaign.allowedLockers !== null)
     return skip("unsupported", "campaign restricts lockers");
   if (
@@ -137,8 +130,6 @@ function supported(
   return null;
 }
 
-// Token amounts the position holds inside [lower, upper], as
-// pool_market_depth_view integrates them.
 function amount0(liquidity: number, lower: number, upper: number) {
   if (upper <= lower) return 0;
   return liquidity * (SQRT_TICK ** -lower - SQRT_TICK ** -upper);
@@ -172,7 +163,6 @@ export function projectNextDayReward(
     Math.log1p(Number(position.fee) / Number(position.feeDenominator)) /
       LOG_TICK,
   );
-  // The depth view skips a pool whose fee is at least the band.
   if (feeTicks >= depthTicks)
     return skip("unsupported", "pool fee is wider than the depth band");
 

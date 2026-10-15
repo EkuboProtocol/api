@@ -63,7 +63,6 @@ describe("200 responses match the published OpenAPI schema", () => {
     },
   );
 
-  // Fixing one of these makes its test fail: drop the case's knownDrift.
   test.each(named(cases.filter((c) => c.knownDrift !== undefined)))(
     "known drift: %s",
     async (_, contractCase) => {

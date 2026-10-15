@@ -15,8 +15,6 @@ export const ErrorResponseType = z
 
 export type ErrorResponse = z.infer<typeof ErrorResponseType>;
 
-// Thrown by handlers and helpers for any non-200 outcome; the app's error
-// handler turns it into an ErrorResponse body with the same status.
 export class StatusError extends Error {
   constructor(
     public readonly status: number,
@@ -39,8 +37,6 @@ function errorResponse(status: keyof typeof ERROR_DESCRIPTIONS) {
   };
 }
 
-// Every route can answer 400 (parameter validation) and 500; routes that look
-// something up also declare 404.
 export const errorResponses = {
   400: errorResponse(400),
   500: errorResponse(500),

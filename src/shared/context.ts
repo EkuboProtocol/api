@@ -18,8 +18,6 @@ export interface ApiRoute<R extends RouteConfig = RouteConfig> {
   readonly handler: RouteHandler<R, AppEnv>;
 }
 
-// Pairs a route with its handler so the handler is typed against the route's
-// declared parameters and responses.
 export function defineRoute<R extends RouteConfig>(
   route: R,
   handler: RouteHandler<R, AppEnv>,
@@ -55,8 +53,6 @@ export function createApp(): App {
   app.notFound((c) => c.json({ status: 404, error: "Not Found" }, 404));
 
   app.onError((e, c) => {
-    // Handlers that parse values beyond their declared parameters report
-    // failures as a ZodError; those are still the caller's fault.
     if (e instanceof z.ZodError) {
       return c.json({ status: 400, error: formatIssues(e) }, 400);
     }

@@ -235,8 +235,6 @@ export const ListProposalVoters = defineRoute(
             r.yea !== null
               ? {
                   yea: r.yea,
-                  // A non-null yea means the governor_voted row joined, and its
-                  // block_number references blocks, so vote_time is set too.
                   time: r.vote_time!,
                 }
               : null,
@@ -331,7 +329,6 @@ export const ListTopDelegates = defineRoute(
 const GetStakerInfoResponse = z
   .object({
     amountDelegatedTo: DecimalStringType,
-    // getDelegatesStakedTo does not compute voting records.
     delegates: z.array(DelegateType.omit({ votingRecord: true })),
   })
   .required({ amountDelegatedTo: true, delegates: true });
