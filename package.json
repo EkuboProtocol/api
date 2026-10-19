@@ -13,7 +13,7 @@
     "oxlint": "1.88.0",
     "oxlint-tsgolint": "^7.0.2004",
     "postgres": "^3.4.9",
-    "wrangler": "^4.149.0",
+    "wrangler": "^4.151.0",
     "zod": "^4.6.7"
   },
   "engines": {
