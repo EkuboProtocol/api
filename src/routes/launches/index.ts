@@ -9,13 +9,19 @@ import {
   StatusError,
 } from "../../shared/errors";
 import { LaunchList, LaunchDetail, SwapPage, ClaimPage } from "./schema";
+import { NumericStringType } from "../../shared/validation/address";
 
 const chainId = z.coerce
   .bigint()
   .min(0n)
   .max((1n << 63n) - 1n)
-  .openapi({ type: "string" });
-const poolId = z.string().regex(/^0x[0-9a-fA-F]{64}$/);
+  .openapi({ type: "integer", format: "int64" });
+// Path segments are folded as integers in the edge cache key, so the pool id
+// accepts any hex or decimal form of the same uint256.
+const poolId = NumericStringType.refine(
+  (value) => BigInt(value) < 1n << 256n,
+  "Pool ID out of range",
+);
 const cursor = z
   .string()
   .regex(/^(0|-?[1-9][0-9]*)$/)

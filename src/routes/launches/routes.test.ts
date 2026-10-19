@@ -21,7 +21,7 @@ test("hosted launch entrypoints stay disabled without database or live pins", as
     for (const env of [{}, localEnv]) {
       const response = await request(path, env);
       expect(response.status).toBe(404);
-      expect((await response.json()) as unknown).toEqual({
+      expect(await response.json()).toEqual({
         status: 404,
         error: "Launch support is disabled",
       });
@@ -36,12 +36,12 @@ test("invalid arguments return 400 and the removed stats route returns 404", asy
     "/launches?chainId=31337&limit=0",
     "/launches?chainId=31337&before_event_id=9223372036854775808",
     `${base}/swaps?after_event_id=-9223372036854775809`,
-    "/launches/31337/0x1234",
+    `/launches/31337/0x1${"0".repeat(64)}`,
     "/launches/31337/NaN",
   ]) {
     const response = await request(path);
     expect(response.status).toBe(400);
-    expect(((await response.json()) as { status: number }).status).toBe(400);
+    expect(await response.json()).toMatchObject({ status: 400 });
   }
   expect((await request(`${base}/stats`)).status).toBe(404);
 });
@@ -56,7 +56,7 @@ test("stale-index errors retain the established 503 error envelope", async () =>
   try {
     const response = await request(base, localEnv);
     expect(response.status).toBe(503);
-    expect((await response.json()) as unknown).toEqual({
+    expect(await response.json()).toEqual({
       status: 503,
       error: "Launch index is stale or has no coherent head",
     });

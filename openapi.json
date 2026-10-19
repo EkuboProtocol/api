@@ -9921,7 +9921,8 @@
         "parameters": [
           {
             "schema": {
-              "type": "string"
+              "type": "integer",
+              "format": "int64"
             },
             "required": true,
             "name": "chainId",
@@ -10350,7 +10351,8 @@
         "parameters": [
           {
             "schema": {
-              "type": "string"
+              "type": "integer",
+              "format": "int64"
             },
             "required": true,
             "name": "chainId",
@@ -10358,10 +10360,23 @@
           },
           {
             "schema": {
-              "type": "string",
-              "pattern": "^0x[0-9a-fA-F]{64}$"
+              "anyOf": [
+                {
+                  "type": "string",
+                  "pattern": "^0x[a-fA-F0-9]+$",
+                  "description": "A hexadecimal number"
+                },
+                {
+                  "type": "string",
+                  "pattern": "^\\d+$",
+                  "description": "A decimal number"
+                }
+              ],
+              "title": "Numeric",
+              "description": "A number represented in hexadecimal or decimal"
             },
             "required": true,
+            "description": "A number represented in hexadecimal or decimal",
             "name": "poolId",
             "in": "path"
           },
@@ -10578,7 +10593,8 @@
         "parameters": [
           {
             "schema": {
-              "type": "string"
+              "type": "integer",
+              "format": "int64"
             },
             "required": true,
             "name": "chainId",
@@ -10586,10 +10602,23 @@
           },
           {
             "schema": {
-              "type": "string",
-              "pattern": "^0x[0-9a-fA-F]{64}$"
+              "anyOf": [
+                {
+                  "type": "string",
+                  "pattern": "^0x[a-fA-F0-9]+$",
+                  "description": "A hexadecimal number"
+                },
+                {
+                  "type": "string",
+                  "pattern": "^\\d+$",
+                  "description": "A decimal number"
+                }
+              ],
+              "title": "Numeric",
+              "description": "A number represented in hexadecimal or decimal"
             },
             "required": true,
+            "description": "A number represented in hexadecimal or decimal",
             "name": "poolId",
             "in": "path"
           },
@@ -10828,7 +10857,8 @@
         "parameters": [
           {
             "schema": {
-              "type": "string"
+              "type": "integer",
+              "format": "int64"
             },
             "required": true,
             "name": "chainId",
@@ -10836,10 +10866,23 @@
           },
           {
             "schema": {
-              "type": "string",
-              "pattern": "^0x[0-9a-fA-F]{64}$"
+              "anyOf": [
+                {
+                  "type": "string",
+                  "pattern": "^0x[a-fA-F0-9]+$",
+                  "description": "A hexadecimal number"
+                },
+                {
+                  "type": "string",
+                  "pattern": "^\\d+$",
+                  "description": "A decimal number"
+                }
+              ],
+              "title": "Numeric",
+              "description": "A number represented in hexadecimal or decimal"
             },
             "required": true,
+            "description": "A number represented in hexadecimal or decimal",
             "name": "poolId",
             "in": "path"
           }
