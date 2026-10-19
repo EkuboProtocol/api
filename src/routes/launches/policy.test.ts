@@ -77,7 +77,9 @@ test("frozen schemas expose no staged status/stats/exhausted fields", () => {
     next_cursor: null,
   };
   expect(LaunchList.safeParse(empty).success).toBe(true);
-  expect(LaunchList.safeParse({ ...empty, status: "ended" }).success).toBe(false);
+  expect(LaunchList.safeParse({ ...empty, status: "ended" }).success).toBe(
+    false,
+  );
   for (const schema of [SwapPage, ClaimPage]) {
     expect(
       schema.safeParse({

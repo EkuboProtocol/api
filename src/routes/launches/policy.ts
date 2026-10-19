@@ -19,7 +19,7 @@ export interface LaunchInstance {
   abiSha256: string;
 }
 
-// Constructor-executed LOCAL instances in indexer f6af307 / fixture 41d416ce.
+// Constructor-executed LOCAL instances in indexer 76c42bf / fixture 41d416ce.
 // No live instance exists. Never enable these via a hosted configuration.
 export const LOCAL_INSTANCES: readonly LaunchInstance[] = [
   {

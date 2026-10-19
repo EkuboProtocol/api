@@ -1,7 +1,7 @@
 import { ContractCase, stubQuery } from "../harness";
 import { LOCAL_INSTANCES } from "../../routes/launches/policy";
 
-const pin = LOCAL_INSTANCES[0]!;
+const pin = LOCAL_INSTANCES[0];
 const zero = `0x${"0".repeat(64)}`;
 const as_of = { block_number: "1", block_hash: zero, block_time: 1000 };
 const summary = {

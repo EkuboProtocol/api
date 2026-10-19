@@ -3,7 +3,7 @@
 Frozen response contract: `zero-seed-launch-api/v1`. Behavioral policy:
 `zero-seed-launch-draft-policy/v2`, CTO freeze revision
 `ceebe872-8deb-4858-a192-8c013516def1`. Indexer source:
-`f6af3070036dda06c885a91351277044330c03fd`. Live instance lists are empty.
+`76c42bfb1c1ce0311b120cd4f6e4c4c561160961`. Live instance lists are empty.
 
 ## Requests
 

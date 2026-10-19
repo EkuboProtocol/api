@@ -17,11 +17,20 @@ if (!["127.0.0.1", "localhost"].includes(url.hostname))
   throw new Error("Only loopback test Postgres is permitted");
 const head = Bun.spawnSync(["git", "-C", root, "rev-parse", "HEAD"]);
 if (
-  head.stdout.toString().trim() !== "f6af3070036dda06c885a91351277044330c03fd"
+  head.stdout.toString().trim() !== "76c42bfb1c1ce0311b120cd4f6e4c4c561160961"
 )
   throw new Error("Indexer source pin mismatch");
-const clean = Bun.spawnSync(["git", "-C", root, "diff", "--quiet", "HEAD", "--"]);
-if (clean.exitCode !== 0) throw new Error("Pinned indexer tracked source is modified");
+const clean = Bun.spawnSync([
+  "git",
+  "-C",
+  root,
+  "diff",
+  "--quiet",
+  "HEAD",
+  "--",
+]);
+if (clean.exitCode !== 0)
+  throw new Error("Pinned indexer tracked source is modified");
 const fixturePath = resolve(
   root,
   "tests/fixtures/zero-seed-launch/local-chain.json",
@@ -55,9 +64,11 @@ import { LOCAL_INSTANCES } from ${JSON.stringify(resolve(api, "routes/launches/p
 import { Queries } from ${JSON.stringify(resolve(api, "queries"))};
 import { app } from ${JSON.stringify(resolve(api, "router"))};
 ${source}`;
-const ending = source.lastIndexOf("});");
+// The harness ends by closing its describe callback, as `});` or, formatted
+// across lines, `  },\n);`. The API cases go inside that callback.
+const ending = source.search(/\n(?:\}\);|  \},\n\);)\s*$/);
 if (ending < 0) throw new Error("Unrecognized pinned indexer harness");
-source = source.slice(0, ending) + extra + source.slice(ending);
+source = source.slice(0, ending + 1) + extra + source.slice(ending + 1);
 await mkdir(scratch, { recursive: true });
 const target = resolve(scratch, "api-emitted-replay.test.ts");
 await Bun.write(target, source);
