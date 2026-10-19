@@ -9968,7 +9968,7 @@
                     "schema_version": {
                       "type": "string",
                       "enum": [
-                        "zero-seed-launch-api/v1"
+                        "zero-seed-launch-api/v2"
                       ]
                     },
                     "data": {
@@ -9979,7 +9979,7 @@
                           "schema_version": {
                             "type": "string",
                             "enum": [
-                              "zero-seed-launch-api/v1"
+                              "zero-seed-launch-api/v2"
                             ]
                           },
                           "chain_id": {
@@ -10143,6 +10143,10 @@
                                 "type": "string",
                                 "pattern": "^(0|[1-9][0-9]*)$"
                               },
+                              "decay_factor": {
+                                "type": "string",
+                                "pattern": "^(0|[1-9][0-9]*)$"
+                              },
                               "phase": {
                                 "type": "string",
                                 "enum": [
@@ -10166,6 +10170,7 @@
                               "fee_end",
                               "initial_fee",
                               "final_fee",
+                              "decay_factor",
                               "phase",
                               "fee_rate",
                               "evaluated_at"
@@ -10411,7 +10416,7 @@
                     "schema_version": {
                       "type": "string",
                       "enum": [
-                        "zero-seed-launch-api/v1"
+                        "zero-seed-launch-api/v2"
                       ]
                     },
                     "chain_id": {
@@ -10653,7 +10658,7 @@
                     "schema_version": {
                       "type": "string",
                       "enum": [
-                        "zero-seed-launch-api/v1"
+                        "zero-seed-launch-api/v2"
                       ]
                     },
                     "chain_id": {
@@ -10898,7 +10903,7 @@
                     "schema_version": {
                       "type": "string",
                       "enum": [
-                        "zero-seed-launch-api/v1"
+                        "zero-seed-launch-api/v2"
                       ]
                     },
                     "chain_id": {
@@ -11062,6 +11067,10 @@
                           "type": "string",
                           "pattern": "^(0|[1-9][0-9]*)$"
                         },
+                        "decay_factor": {
+                          "type": "string",
+                          "pattern": "^(0|[1-9][0-9]*)$"
+                        },
                         "phase": {
                           "type": "string",
                           "enum": [
@@ -11085,6 +11094,7 @@
                         "fee_end",
                         "initial_fee",
                         "final_fee",
+                        "decay_factor",
                         "phase",
                         "fee_rate",
                         "evaluated_at"

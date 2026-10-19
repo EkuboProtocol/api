@@ -40,6 +40,14 @@
         expect(body.fee_ledger.quote_token.unclaimed).toBe(launchState.creatorFees[1]);
         expect(body.inventory.price_tick).toBe(decodePoolState(launchState.poolStateWord).tick);
         expect(body.fee_schedule.evaluated_at).toBe(body.as_of.block_time);
+        // The API's TypeScript schedule equals the indexer's SQL feeAt and the stored factor.
+        const [sql] = await db.sql<{ rate: string; factor: string }[]>`
+          SELECT zero_seed_launch_fee_at(trading_start, fee_duration, initial_fee, final_fee, decay_factor,
+                                         ${body.as_of.block_time}::int8)::text AS rate, decay_factor::text AS factor
+          FROM zero_seed_launch_created WHERE pool_id = ${BigInt(fixture.launches.l1!.poolId).toString()}::numeric`;
+        expect(body.fee_schedule.fee_rate).toBe(sql!.rate);
+        expect(body.fee_schedule.decay_factor).toBe(sql!.factor);
+        expect(body.schema_version).toBe("zero-seed-launch-api/v2");
         expect(body).not.toHaveProperty("status");
         expect(body.inventory).not.toHaveProperty("exhausted");
       });

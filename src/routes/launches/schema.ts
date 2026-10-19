@@ -1,7 +1,7 @@
 import { z } from "@hono/zod-openapi";
 
 // Frozen API v1 shapes (EKU-1513); behavioral policy is separately v2.
-export const SchemaVersion = z.literal("zero-seed-launch-api/v1");
+export const SchemaVersion = z.literal("zero-seed-launch-api/v2");
 const U = z.string().regex(/^(0|[1-9][0-9]*)$/);
 const I = z.string().regex(/^(0|-?[1-9][0-9]*)$/);
 const Address = z.string().regex(/^0x[0-9a-f]{40}$/);
@@ -39,6 +39,8 @@ export const FeeSchedule = z.strictObject({
   fee_end: Seconds,
   initial_fee: U,
   final_fee: U,
+  // Q0.64 per-second multiplier of the unscaled exponential, not a half-life.
+  decay_factor: U,
   phase: z.enum(["before_trading_start", "fee_decay", "final_fee"]),
   fee_rate: U,
   evaluated_at: Seconds,

@@ -1,9 +1,17 @@
 # Zero-seed launch reads (draft/local)
 
-Frozen response contract: `zero-seed-launch-api/v1`. Behavioral policy:
-`zero-seed-launch-draft-policy/v2`, CTO freeze revision
-`ceebe872-8deb-4858-a192-8c013516def1`. Indexer source:
-`76c42bfb1c1ce0311b120cd4f6e4c4c561160961`. Live instance lists are empty.
+Draft response contract: `zero-seed-launch-api/v2` (v1 plus
+`fee_schedule.decay_factor`, for the draft exponential creator-fee decay of
+evm-contracts `b1cbb1c1a9a00de62072a63a8f4aab4d97065573`). Behavioral policy:
+`zero-seed-launch-draft-policy/v2`. Indexer source:
+`cdf58fcfca963aa3eaaaa5d388578ddf81739459`. Live instance lists are empty.
+
+`fee_schedule.fee_rate` is the contract's `feeAt` at the indexed block time:
+`initial_fee` until `trading_start`, then
+`final_fee + floor((initial_fee - final_fee) * (b^t - b^D) / (2^64 - b^D))` with
+`b^n` the contract's `powQ64` (square-and-multiply, floor after every Q0.64
+multiply), then `final_fee` from `fee_end`. `decay_factor` is a literal Q0.64
+per-second multiplier, not a half-life; do not assume a linear schedule.
 
 ## Requests
 

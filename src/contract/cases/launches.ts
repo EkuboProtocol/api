@@ -5,7 +5,7 @@ const pin = LOCAL_INSTANCES[0];
 const zero = `0x${"0".repeat(64)}`;
 const as_of = { block_number: "1", block_hash: zero, block_time: 1000 };
 const summary = {
-  schema_version: "zero-seed-launch-api/v1" as const,
+  schema_version: "zero-seed-launch-api/v2" as const,
   chain_id: "31337",
   pool_id: zero,
   pool_key: {
@@ -39,6 +39,7 @@ const summary = {
     fee_end: 4600,
     initial_fee: "10",
     final_fee: "3",
+    decay_factor: "18425445863997925462",
     phase: "fee_decay" as const,
     fee_rate: "10",
     evaluated_at: 1000,
@@ -54,7 +55,7 @@ const summary = {
 };
 const ledger = { accrued: "0", claimed: "0", unclaimed: "0" };
 const identity = {
-  schema_version: "zero-seed-launch-api/v1" as const,
+  schema_version: "zero-seed-launch-api/v2" as const,
   chain_id: "31337",
   pool_id: zero,
   as_of,
@@ -67,7 +68,7 @@ export const launchesCases: ContractCase[] = [
     request: "/launches?chainId=31337",
     stub: () =>
       stubQuery("readZeroSeedList", {
-        schema_version: "zero-seed-launch-api/v1",
+        schema_version: "zero-seed-launch-api/v2",
         data: [summary],
         as_of,
         next_cursor: null,

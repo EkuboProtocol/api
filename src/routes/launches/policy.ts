@@ -2,7 +2,7 @@ import { z } from "@hono/zod-openapi";
 import { FeeSchedule } from "./schema";
 
 export const ABI_SHA256 =
-  "189ff93c0f6fb64f6e7dd0675872bf6686692f8303e6218b8c2521bfa5ced215";
+  "bc51b39284a5a2a0970d3a804420762ce291dc01f9c21ddf31840e354a3792bb";
 export const POLICY_SHA256 =
   "7864a2d33a0fa8964922a5225653ed19842c590091f289eb4e29306feac6f6e1";
 const CORE = "0x00000000000014aa86c5d3c41765bb24e11bd701";
@@ -19,26 +19,27 @@ export interface LaunchInstance {
   abiSha256: string;
 }
 
-// Constructor-executed LOCAL instances in indexer 76c42bf / fixture 41d416ce.
+// Constructor-executed LOCAL instances in indexer cdf58fc / fixture b4026bee
+// (evm-contracts b1cbb1c1, draft exponential creator-fee decay).
 // No live instance exists. Never enable these via a hosted configuration.
 export const LOCAL_INSTANCES: readonly LaunchInstance[] = [
   {
     chainId: "31337",
-    address: "0x510d7c117adeeb89bb33b9acb53995f3280eaa3a",
+    address: "0x5142e167b32877ca3cf3060010a0a1418e3ef1b9",
     core: CORE,
     quote: "0xffffffffffffffffffffffffffffffffffffffff",
     runtime:
-      "0x8d8839b97583f275a84aaf26cd6a5fa3ba21a7be04731a65f6140fc5040477c4",
+      "0x8fb360bb48006819049e6b9a53679ccaa01264e61465ce8e8cd2e8b185d3a8d1",
     quoteRuntime: WETH_RUNTIME,
     abiSha256: ABI_SHA256,
   },
   {
     chainId: "31337",
-    address: "0x5195c03d30c11be73485ab76a35eb6f59fc52072",
+    address: "0x51174b5db84c81a906ec55445070fd84c8c8e655",
     core: CORE,
     quote: "0x0000000000000000000000000000000000010000",
     runtime:
-      "0x8751bab213ba226c4e45f6441b9df2db1f9c8ee9e9335320e180f3b348646014",
+      "0xa951db07ad354ea45df3ff1b720b69c7cc588c4feb44aaea79cd79639da61f6e",
     quoteRuntime: WETH_RUNTIME,
     abiSha256: ABI_SHA256,
   },
@@ -89,32 +90,70 @@ function seconds(value: bigint) {
   return Number(value);
 }
 
+const Q64 = 1n << 64n;
+
+/**
+ * powQ64 of the contract (math/feeDecay.sol): factor ** exponent in Q0.64 by
+ * square-and-multiply, flooring after every multiply and squaring only while
+ * bits remain. BigInt division floors for these non-negative operands.
+ */
+export function powQ64(factor: bigint, exponent: bigint): bigint {
+  let result = Q64;
+  let base = factor;
+  let rest = exponent;
+  while (rest !== 0n) {
+    if ((rest & 1n) === 1n) result = (result * base) / Q64;
+    rest >>= 1n;
+    if (rest !== 0n) base = (base * base) / Q64;
+  }
+  return result;
+}
+
+/**
+ * feeAt of the contract: initial until the start, then
+ * final + floor((initial - final) * (b^t - b^D) / (2^64 - b^D)), then final.
+ */
+export function decayedFee(
+  initial: bigint,
+  final: bigint,
+  factor: bigint,
+  duration: bigint,
+  elapsed: bigint,
+): bigint {
+  if (elapsed === 0n) return initial;
+  if (elapsed >= duration) return final;
+  const endpoint = powQ64(factor, duration);
+  return (
+    final +
+    ((initial - final) * (powQ64(factor, elapsed) - endpoint)) /
+      (Q64 - endpoint)
+  );
+}
+
 export function feeSchedule(input: {
   start: bigint;
   duration: bigint;
   initial: bigint;
   final: bigint;
+  decayFactor: bigint;
   indexedTime: bigint;
 }): z.infer<typeof FeeSchedule> {
-  const { start, duration, initial, final, indexedTime } = input;
-  [start, duration, initial, final, indexedTime].forEach(uint64);
-  if (duration === 0n || final > initial) {
+  const { start, duration, initial, final, decayFactor, indexedTime } = input;
+  [start, duration, initial, final, decayFactor, indexedTime].forEach(uint64);
+  if (duration === 0n || final > initial || decayFactor === 0n) {
     throw new Error("Invalid indexed fee schedule");
   }
   const end = uint64(start + duration);
   const phase = feePhase(start, end, indexedTime);
   const elapsed = indexedTime > start ? indexedTime - start : 0n;
-  // Contract floors the decrement (not the remaining fee).
-  const rate =
-    indexedTime >= end
-      ? final
-      : initial - ((initial - final) * elapsed) / duration;
+  const rate = decayedFee(initial, final, decayFactor, duration, elapsed);
   return {
     trading_start: seconds(start),
     fee_duration: seconds(duration),
     fee_end: seconds(end),
     initial_fee: initial.toString(),
     final_fee: final.toString(),
+    decay_factor: decayFactor.toString(),
     phase,
     fee_rate: rate.toString(),
     evaluated_at: seconds(indexedTime),

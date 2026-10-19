@@ -47,6 +47,7 @@ interface LaunchRow extends EventRow {
   fee_duration: bigint;
   initial_fee: Numeric;
   final_fee: Numeric;
+  decay_factor: Numeric;
   position_id: Numeric;
   tick_lower: number;
   tick_upper: number;
@@ -90,7 +91,7 @@ function event(row: EventRow) {
 }
 function summary(row: LaunchRow, asOf: z.infer<typeof BlockRef>) {
   return {
-    schema_version: "zero-seed-launch-api/v1" as const,
+    schema_version: "zero-seed-launch-api/v2" as const,
     chain_id: decimal(row.chain_id),
     pool_id: hex(row.pool_id, 32),
     pool_key: {
@@ -126,6 +127,7 @@ function summary(row: LaunchRow, asOf: z.infer<typeof BlockRef>) {
       duration: row.fee_duration,
       initial: BigInt(row.initial_fee),
       final: BigInt(row.final_fee),
+      decayFactor: BigInt(row.decay_factor),
       indexedTime: BigInt(asOf.block_time),
     }),
     created: event(row),
@@ -297,7 +299,7 @@ export class LaunchQueries {
       `;
       const page = rows.slice(0, input.limit);
       return parseIndexed(LaunchList, {
-        schema_version: "zero-seed-launch-api/v1",
+        schema_version: "zero-seed-launch-api/v2",
         as_of: asOf,
         data: page.map((r) => summary(r, asOf)),
         next_cursor:
@@ -360,7 +362,7 @@ export class LaunchQueries {
         };
       });
       return parseIndexed(SwapPage, {
-        schema_version: "zero-seed-launch-api/v1",
+        schema_version: "zero-seed-launch-api/v2",
         chain_id: input.chainId.toString(),
         pool_id: hex(input.poolId, 32),
         as_of: asOf,
@@ -400,7 +402,7 @@ export class LaunchQueries {
         ),
       }));
       return parseIndexed(ClaimPage, {
-        schema_version: "zero-seed-launch-api/v1",
+        schema_version: "zero-seed-launch-api/v2",
         chain_id: input.chainId.toString(),
         pool_id: hex(input.poolId, 32),
         as_of: asOf,
