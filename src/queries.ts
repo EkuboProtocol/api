@@ -201,7 +201,9 @@ export class Queries {
     this.sql = sql;
   }
 
-  public readZeroSeedList(input: LaunchReadOptions & { creator?: bigint }) {
+  public readZeroSeedList(
+    input: LaunchReadOptions & { creator?: bigint; owner?: bigint },
+  ) {
     return new LaunchQueries(this.sql).list(input);
   }
 
@@ -215,6 +217,10 @@ export class Queries {
 
   public readZeroSeedClaims(input: LaunchReadOptions & { poolId: bigint }) {
     return new LaunchQueries(this.sql).claims(input);
+  }
+
+  public readZeroSeedOwners(input: LaunchReadOptions & { poolId: bigint }) {
+    return new LaunchQueries(this.sql).owners(input);
   }
 
   public async listErc20Tokens({

@@ -17,6 +17,7 @@ test("hosted launch entrypoints stay disabled without database or live pins", as
     base,
     `${base}/swaps`,
     `${base}/claims`,
+    `${base}/owners`,
   ]) {
     for (const env of [{}, localEnv]) {
       const response = await request(path, env);
@@ -36,6 +37,9 @@ test("invalid arguments return 400 and the removed stats route returns 404", asy
     "/launches?chainId=31337&limit=0",
     "/launches?chainId=31337&before_event_id=9223372036854775808",
     `${base}/swaps?after_event_id=-9223372036854775809`,
+    `${base}/owners?limit=201`,
+    `/launches?chainId=31337&owner=0x1${"0".repeat(40)}`,
+    "/launches?chainId=31337&creator=owner",
     `/launches/31337/0x1${"0".repeat(64)}`,
     "/launches/31337/NaN",
   ]) {

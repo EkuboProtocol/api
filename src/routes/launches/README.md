@@ -1,30 +1,54 @@
 # Zero-seed launch reads (draft/local)
 
-Draft response contract: `zero-seed-launch-api/v2` (v1 plus
-`fee_schedule.decay_factor`, for the draft exponential creator-fee decay of
-evm-contracts `b1cbb1c1a9a00de62072a63a8f4aab4d97065573`). Behavioral policy:
-`zero-seed-launch-draft-policy/v2`. Indexer source:
-`cdf58fcfca963aa3eaaaa5d388578ddf81739459`. Live instance lists are empty.
+Draft response contract: `zero-seed-launch-api/v3`, for the forward-only
+`ZeroSeedLaunch` with a native ETH quote, the fixed-base creator-fee table and
+the separate `ZeroSeedLaunchPeriphery` of evm-contracts
+`4f1a3060b099e8a50469848118f44c0c65cfab9a`. Indexer schema
+`zero-seed-launch-index/v2` (migration 00139). Live instance lists are empty.
 
-`fee_schedule.fee_rate` is the contract's `feeAt` at the indexed block time:
-`initial_fee` until `trading_start`, then
-`final_fee + floor((initial_fee - final_fee) * (b^t - b^D) / (2^64 - b^D))` with
-`b^n` the contract's `powQ64` (square-and-multiply, floor after every Q0.64
-multiply), then `final_fee` from `fee_end`. `decay_factor` is a literal Q0.64
-per-second multiplier, not a half-life; do not assume a linear schedule.
+Changes from v2:
+
+- `quote_token.kind` is `native` or `erc20`. Native ETH is address 0, always
+  token0 (the launch token is token1), 18 decimals, and has no token contract:
+  its `name` and `symbol` are null and no ERC-20 metadata is read.
+- `fee_schedule.decay_factor` is gone; `fee_schedule.decay` is
+  `{ kind: "fixed_base_q128", half_life_seconds: 600 }`. `fee_rate` is the
+  contract's `feeAt` at the indexed block time: `initial_fee` until
+  `trading_start`, then
+  `final_fee + floor((initial_fee - final_fee) * (decay(t) - decay(D)) / (2^128 - decay(D)))`
+  with `decay` the contract's `decayQ128` (one Q128 constant per exponent bit,
+  floor after every multiply, zero from 2^17 s), then `final_fee` from
+  `fee_end`. `policy.test.ts` checks it against all 25,212 rows of the
+  protocol's independent all-second vectors.
+- `creator` is the owner at creation (`LaunchOwnerChanged` from the zero
+  address) and never changes; `owner` is the current owner, which holds the
+  unclaimed and future fees (`fee_ledger.holder`, `transferable: true`);
+  `controller` is the periphery that forwarded the creation. Only launches
+  whose controller is the pinned periphery are served.
+- Claims are the periphery payouts (`owner`, `recipient`), each linked by
+  `ledger_event_id` to the extension's ledger event of the same transaction;
+  the amounts are counted once.
+- New `GET /launches/{chainId}/{poolId}/owners`; `GET /launches` accepts
+  `owner` (current) besides `creator`.
+
+`fixtures/zero-seed-launch-api-v3.golden.json` is a machine-readable example of
+every response, written by the actual handlers over the replayed local fixture
+(native and WETH launches, transfers, claims, a reorg).
 
 ## Requests
 
-- `GET /launches?chainId=31337&limit=50&before_event_id=...&creator=0x...`
+- `GET /launches?chainId=31337&limit=50&before_event_id=...&creator=0x...&owner=0x...`
 - `GET /launches/{chainId}/{poolId}`
 - `GET /launches/{chainId}/{poolId}/swaps?limit=50&after_event_id=...`
 - `GET /launches/{chainId}/{poolId}/claims?limit=50&after_event_id=...`
+- `GET /launches/{chainId}/{poolId}/owners?limit=50&after_event_id=...`
 
 One chain per list request gives an unambiguous indexed `as_of`. Pool IDs are
 32-byte hex. Cursors are signed decimal event IDs: newest-first creations use
-`before_event_id`; oldest-first swaps/claims use `after_event_id`. Limits are
-1–200. A non-null `next_cursor` means another row was observed in that snapshot.
-Cursor continuation is not a frozen historical snapshot: reorgs may change pages.
+`before_event_id`; oldest-first swaps/claims/owners use `after_event_id`.
+Limits are 1–200. A non-null `next_cursor` means another row was observed in
+that snapshot. Cursor continuation is not a frozen historical snapshot: reorgs
+may change pages.
 
 No stats, lifecycle status, staged funding, advances, terminal migration, user
 counts or connected-wallet analytics exist. Forwarding lockers are contracts,
@@ -36,11 +60,12 @@ All hosted query delegates construct a reader with **no enabled instances**.
 They refuse launch reads with 404 without querying Postgres; missing database
 configuration also returns 404. There is no environment-binding enable switch.
 Only the explicit local test harness can pass the full reviewed instance
-manifest. Constructor quote, Core, executed runtime, WETH runtime and ABI must
-match together; synthetic 6-decimal fixtures and template runtimes are refused.
+manifest. Extension and periphery addresses and runtimes, Core, constructor
+quote and its kind (an ERC-20 also its runtime) and both ABIs must match
+together; template runtimes are refused.
 
-List SQL screens the extension, quote, Core, ordered pair, zero Core fee and
-spacing before pagination. Detail and both histories use that same selection.
+List SQL screens the extension, controller (periphery), quote and kind, Core,
+ordered pair, zero Core fee and spacing before pagination. Detail and both histories use that same selection.
 Missing/unsupported launches return 404. A missing, mismatched or stale cursor
 head returns 503. Parameters return 400; malformed internal indexed output
 fails as 500, never a success or client-validation fallback.

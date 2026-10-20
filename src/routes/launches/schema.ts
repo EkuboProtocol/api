@@ -1,7 +1,8 @@
 import { z } from "@hono/zod-openapi";
 
-// Frozen API v1 shapes (EKU-1513); behavioral policy is separately v2.
-export const SchemaVersion = z.literal("zero-seed-launch-api/v2");
+// v3: native ETH quote kind, fixed-base fee table, periphery owner identity.
+export const SCHEMA_VERSION = "zero-seed-launch-api/v3" as const;
+export const SchemaVersion = z.literal(SCHEMA_VERSION);
 const U = z.string().regex(/^(0|[1-9][0-9]*)$/);
 const I = z.string().regex(/^(0|-?[1-9][0-9]*)$/);
 const Address = z.string().regex(/^0x[0-9a-f]{40}$/);
@@ -24,6 +25,9 @@ const Token = z.strictObject({
   symbol: z.string().nullable(),
   decimals: z.number().int().min(0).max(255).nullable(),
 });
+// Native ETH is address 0, always token0, 18 decimals and has no token
+// contract, so no ERC-20 metadata is read for it (name and symbol are null).
+const QuoteToken = Token.extend({ kind: z.enum(["native", "erc20"]) });
 const PoolKey = z.strictObject({
   core_address: Address,
   token0: Address,
@@ -39,8 +43,11 @@ export const FeeSchedule = z.strictObject({
   fee_end: Seconds,
   initial_fee: U,
   final_fee: U,
-  // Q0.64 per-second multiplier of the unscaled exponential, not a half-life.
-  decay_factor: U,
+  // 2^(-t/600) from a fixed Q128 table, rescaled to reach final_fee at fee_end.
+  decay: z.strictObject({
+    kind: z.literal("fixed_base_q128"),
+    half_life_seconds: z.literal(600),
+  }),
   phase: z.enum(["before_trading_start", "fee_decay", "final_fee"]),
   fee_rate: U,
   evaluated_at: Seconds,
@@ -51,9 +58,14 @@ export const LaunchSummary = z.strictObject({
   pool_id: Bytes32,
   pool_key: PoolKey,
   token: Token,
-  quote_token: Token,
+  quote_token: QuoteToken,
   launch_token_is_token1: z.boolean(),
+  // The locker that forwarded the creation: the instance's periphery.
+  controller: Address,
+  // Owner at creation (LaunchOwnerChanged from the zero address); never changes.
   creator: Address,
+  // Current owner: holds the unclaimed and future creator fees; transferable.
+  owner: Address,
   ask_tick: z.number().int(),
   upper_tick: z.number().int(),
   fee_schedule: FeeSchedule,
@@ -76,11 +88,12 @@ export const LaunchDetail = LaunchSummary.extend({
   }),
   fee_ledger: z.strictObject({
     holder: Address,
-    transferable: z.literal(false),
+    transferable: z.literal(true),
     launch_token: LedgerSide,
     quote_token: LedgerSide,
     swap_count: z.number().int().nonnegative(),
     claim_count: z.number().int().nonnegative(),
+    owner_change_count: z.number().int().positive(),
     last_event_id: I,
   }),
   inventory: z.strictObject({
@@ -105,12 +118,21 @@ export const Swap = z.strictObject({
   fee_amount: U,
   fee_asset: z.enum(["launch_token", "quote_token"]),
 });
+// One claim: the periphery payout event, linked to the extension ledger
+// event of the same transaction. The amounts are counted once.
 export const Claim = z.strictObject({
   event: EventRef,
-  creator: Address,
+  ledger_event_id: I,
+  owner: Address,
   recipient: Address,
   launch_token_amount: U,
   quote_token_amount: U,
+});
+export const OwnerChange = z.strictObject({
+  event: EventRef,
+  // null for the creation
+  previous_owner: Address.nullable(),
+  new_owner: Address,
 });
 const PageIdentity = z.strictObject({
   schema_version: SchemaVersion,
@@ -121,3 +143,4 @@ const PageIdentity = z.strictObject({
 });
 export const SwapPage = PageIdentity.extend({ data: z.array(Swap) });
 export const ClaimPage = PageIdentity.extend({ data: z.array(Claim) });
+export const OwnerPage = PageIdentity.extend({ data: z.array(OwnerChange) });

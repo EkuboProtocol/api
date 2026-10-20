@@ -8,6 +8,8 @@ import {
   ClaimPage,
   LaunchDetail,
   LaunchList,
+  OwnerPage,
+  SCHEMA_VERSION,
   SwapPage,
 } from "./schema";
 
@@ -32,7 +34,11 @@ interface LaunchRow extends EventRow {
   token1: Numeric;
   token: Numeric;
   quote_token: Numeric;
-  creator: Numeric;
+  quote_kind: "native" | "erc20";
+  controller: Numeric;
+  initial_owner: Numeric;
+  current_owner: Numeric;
+  owner_change_count: bigint;
   name: string;
   symbol: string;
   decimals: number;
@@ -47,7 +53,6 @@ interface LaunchRow extends EventRow {
   fee_duration: bigint;
   initial_fee: Numeric;
   final_fee: Numeric;
-  decay_factor: Numeric;
   position_id: Numeric;
   tick_lower: number;
   tick_upper: number;
@@ -91,7 +96,7 @@ function event(row: EventRow) {
 }
 function summary(row: LaunchRow, asOf: z.infer<typeof BlockRef>) {
   return {
-    schema_version: "zero-seed-launch-api/v2" as const,
+    schema_version: SCHEMA_VERSION,
     chain_id: decimal(row.chain_id),
     pool_id: hex(row.pool_id, 32),
     pool_key: {
@@ -112,14 +117,11 @@ function summary(row: LaunchRow, asOf: z.infer<typeof BlockRef>) {
       symbol: row.symbol,
       decimals: row.decimals,
     },
-    quote_token: {
-      address: hex(row.quote_token, 20),
-      name: row.quote_name,
-      symbol: row.quote_symbol,
-      decimals: row.quote_decimals,
-    },
+    quote_token: quoteToken(row),
     launch_token_is_token1: row.token_is_token1,
-    creator: hex(row.creator, 20),
+    controller: hex(row.controller, 20),
+    creator: hex(row.initial_owner, 20),
+    owner: hex(row.current_owner, 20),
     ask_tick: row.ask_tick,
     upper_tick: row.upper_tick,
     fee_schedule: feeSchedule({
@@ -127,11 +129,28 @@ function summary(row: LaunchRow, asOf: z.infer<typeof BlockRef>) {
       duration: row.fee_duration,
       initial: BigInt(row.initial_fee),
       final: BigInt(row.final_fee),
-      decayFactor: BigInt(row.decay_factor),
       indexedTime: BigInt(asOf.block_time),
     }),
     created: event(row),
     as_of: asOf,
+  };
+}
+// Native ETH has no token contract: 18 decimals, no ERC-20 metadata.
+function quoteToken(row: LaunchRow) {
+  if (row.quote_kind === "native")
+    return {
+      address: hex(row.quote_token, 20),
+      name: null,
+      symbol: null,
+      decimals: 18,
+      kind: "native" as const,
+    };
+  return {
+    address: hex(row.quote_token, 20),
+    name: row.quote_name,
+    symbol: row.quote_symbol,
+    decimals: row.quote_decimals,
+    kind: "erc20" as const,
   };
 }
 function ledger(accrued: Numeric, claimed: Numeric) {
@@ -163,8 +182,8 @@ function detail(row: LaunchRow, asOf: z.infer<typeof BlockRef>) {
       reserves_basis: "core_pool_balance",
     },
     fee_ledger: {
-      holder: launch.creator,
-      transferable: false,
+      holder: launch.owner,
+      transferable: true,
       launch_token: row.token_is_token1
         ? ledger(row.accrued1, row.claimed1)
         : ledger(row.accrued0, row.claimed0),
@@ -173,6 +192,7 @@ function detail(row: LaunchRow, asOf: z.infer<typeof BlockRef>) {
         : ledger(row.accrued1, row.claimed1),
       swap_count: Number(row.swap_count),
       claim_count: Number(row.claim_count),
+      owner_change_count: Number(row.owner_change_count),
       last_event_id: decimal(row.last_event_id),
     },
     inventory: {
@@ -256,10 +276,13 @@ export class LaunchQueries {
     // Screening occurs in SQL BEFORE cursor/limit; no arbitrary quote can
     // occupy a page or be served by detail/history.
     const pins = this.enabled.filter((p) => p.chainId === chainId.toString());
+    // Only launches created through the instance's periphery have an owner.
     const checks = pins.map(
       (p) => tx`
       (c.emitter = ${BigInt(p.address).toString()}::numeric
+       AND c.controller = ${BigInt(p.periphery).toString()}::numeric
        AND c.quote_token = ${BigInt(p.quote).toString()}::numeric
+       AND c.quote_kind = ${p.quoteKind}
        AND pk.core_address = ${BigInt(p.core).toString()}::numeric)
     `,
     );
@@ -269,6 +292,7 @@ export class LaunchQueries {
              qt.token_name AS quote_name, qt.token_symbol AS quote_symbol,
              qt.token_decimals AS quote_decimals, s.accrued0, s.accrued1,
              s.claimed0, s.claimed1, s.swap_count, s.claim_count, s.last_event_id,
+             s.initial_owner, s.current_owner, s.owner_change_count,
              pt.balance0, pt.balance1, ps.tick
       FROM zero_seed_launch_created c
       JOIN zero_seed_launch_pool_keys registration USING (pool_key_id)
@@ -278,20 +302,25 @@ export class LaunchQueries {
       JOIN pool_states ps USING (pool_key_id)
       JOIN pool_tvl pt USING (pool_key_id)
       LEFT JOIN erc20_tokens qt ON qt.chain_id = c.chain_id AND qt.token_address = c.quote_token
+                                AND c.quote_kind = 'erc20'
       WHERE c.chain_id = ${chainId} AND pk.chain_id = c.chain_id
         AND pk.pool_extension = c.emitter AND pk.fee = 0
         AND pk.token0 = LEAST(c.token, c.quote_token)
         AND pk.token1 = GREATEST(c.token, c.quote_token)
         AND pk.tick_spacing = c.tick_spacing
+        AND s.current_owner IS NOT NULL AND s.initial_owner IS NOT NULL
         AND (${supported}) AND ${filter}
     `;
   }
 
-  async list(input: LaunchReadOptions & { creator?: bigint }) {
+  async list(input: LaunchReadOptions & { creator?: bigint; owner?: bigint }) {
     return this.snapshot(input.chainId, async (tx, asOf) => {
+      const creator = input.creator?.toString() ?? null;
+      const owner = input.owner?.toString() ?? null;
       const filter = tx`
         (${input.cursor ?? null}::int8 IS NULL OR c.event_id < ${input.cursor ?? null})
-        AND (${input.creator?.toString() ?? null}::numeric IS NULL OR c.creator = ${input.creator?.toString() ?? null})
+        AND (${creator}::numeric IS NULL OR s.initial_owner = ${creator})
+        AND (${owner}::numeric IS NULL OR s.current_owner = ${owner})
       `;
       const rows = await tx<LaunchRow[]>`
         SELECT * FROM (${this.rows(tx, input.chainId, filter)}) l
@@ -299,7 +328,7 @@ export class LaunchQueries {
       `;
       const page = rows.slice(0, input.limit);
       return parseIndexed(LaunchList, {
-        schema_version: "zero-seed-launch-api/v2",
+        schema_version: SCHEMA_VERSION,
         as_of: asOf,
         data: page.map((r) => summary(r, asOf)),
         next_cursor:
@@ -362,7 +391,7 @@ export class LaunchQueries {
         };
       });
       return parseIndexed(SwapPage, {
-        schema_version: "zero-seed-launch-api/v2",
+        schema_version: SCHEMA_VERSION,
         chain_id: input.chainId.toString(),
         pool_id: hex(input.poolId, 32),
         as_of: asOf,
@@ -376,23 +405,31 @@ export class LaunchQueries {
   async claims(input: LaunchReadOptions & { poolId: bigint }) {
     return this.snapshot(input.chainId, async (tx, asOf) => {
       const launch = await this.launch(tx, input.chainId, input.poolId);
+      // The periphery payout, joined to the extension claim it pays out; the
+      // ledger moved once, by the latter.
       const rows = await tx<
         (EventRow & {
-          creator: Numeric;
+          claimed_event_id: bigint;
+          owner: Numeric;
           recipient: Numeric;
           amount0: Numeric;
           amount1: Numeric;
         })[]
       >`
-        SELECT cl.*, b.block_hash, b.block_time FROM zero_seed_launch_fees_claimed cl
-        JOIN blocks b ON b.chain_id = cl.chain_id AND b.block_number = cl.block_number
-        WHERE cl.pool_key_id = ${launch.pool_key_id}
-          AND (${input.cursor ?? null}::int8 IS NULL OR cl.event_id > ${input.cursor ?? null})
-        ORDER BY cl.event_id LIMIT ${input.limit + 1}
+        SELECT p.*, b.block_hash, b.block_time FROM zero_seed_launch_fees_paid p
+        JOIN zero_seed_launch_fees_claimed cl
+          ON cl.chain_id = p.chain_id AND cl.event_id = p.claimed_event_id
+             AND cl.pool_key_id = p.pool_key_id
+             AND (cl.amount0, cl.amount1) = (p.amount0, p.amount1)
+        JOIN blocks b ON b.chain_id = p.chain_id AND b.block_number = p.block_number
+        WHERE p.pool_key_id = ${launch.pool_key_id}
+          AND (${input.cursor ?? null}::int8 IS NULL OR p.event_id > ${input.cursor ?? null})
+        ORDER BY p.event_id LIMIT ${input.limit + 1}
       `;
       const data = rows.slice(0, input.limit).map((row) => ({
         event: event(row),
-        creator: hex(row.creator, 20),
+        ledger_event_id: decimal(row.claimed_event_id),
+        owner: hex(row.owner, 20),
         recipient: hex(row.recipient, 20),
         launch_token_amount: decimal(
           launch.token_is_token1 ? row.amount1 : row.amount0,
@@ -402,7 +439,39 @@ export class LaunchQueries {
         ),
       }));
       return parseIndexed(ClaimPage, {
-        schema_version: "zero-seed-launch-api/v2",
+        schema_version: SCHEMA_VERSION,
+        chain_id: input.chainId.toString(),
+        pool_id: hex(input.poolId, 32),
+        as_of: asOf,
+        data,
+        next_cursor:
+          rows.length > input.limit ? data.at(-1)!.event.event_id : null,
+      });
+    });
+  }
+
+  async owners(input: LaunchReadOptions & { poolId: bigint }) {
+    return this.snapshot(input.chainId, async (tx, asOf) => {
+      const launch = await this.launch(tx, input.chainId, input.poolId);
+      const rows = await tx<
+        (EventRow & { previous_owner: Numeric; new_owner: Numeric })[]
+      >`
+        SELECT o.*, b.block_hash, b.block_time FROM zero_seed_launch_owner_changed o
+        JOIN blocks b ON b.chain_id = o.chain_id AND b.block_number = o.block_number
+        WHERE o.pool_key_id = ${launch.pool_key_id}
+          AND (${input.cursor ?? null}::int8 IS NULL OR o.event_id > ${input.cursor ?? null})
+        ORDER BY o.event_id LIMIT ${input.limit + 1}
+      `;
+      const data = rows.slice(0, input.limit).map((row) => ({
+        event: event(row),
+        previous_owner:
+          BigInt(row.previous_owner) === 0n
+            ? null
+            : hex(row.previous_owner, 20),
+        new_owner: hex(row.new_owner, 20),
+      }));
+      return parseIndexed(OwnerPage, {
+        schema_version: SCHEMA_VERSION,
         chain_id: input.chainId.toString(),
         pool_id: hex(input.poolId, 32),
         as_of: asOf,

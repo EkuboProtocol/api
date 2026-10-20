@@ -6,9 +6,9 @@
       WHERE indexer_cursor.chain_id = ${CHAIN_ID}`;
   }
 
-  test("API actual handlers: emitted-state golden, screening, pages, ledgers, reorg and repair", async () => {
+  test("API actual handlers: emitted-state golden, owners, native quote, screening, pages, ledgers, reorg and repair", async () => {
     const db = await freshDb();
-    const processors = arithmeticReplayProcessors();
+    const processors = LAUNCH_ON();
     const reader = new LaunchQueries(db.sql as never, {
       localHarness: true, instances: LOCAL_INSTANCES, maxIndexAgeSeconds: 60,
     });
@@ -17,6 +17,7 @@
       spyOn(Queries.prototype, "readZeroSeedDetail").mockImplementation((chain, pool) => reader.detail(chain, pool)),
       spyOn(Queries.prototype, "readZeroSeedSwaps").mockImplementation((input) => reader.swaps(input)),
       spyOn(Queries.prototype, "readZeroSeedClaims").mockImplementation((input) => reader.claims(input)),
+      spyOn(Queries.prototype, "readZeroSeedOwners").mockImplementation((input) => reader.owners(input)),
     ];
     const get = async (path: string, status = 200) => {
       const response = await app.fetch(new Request(`http://localhost${path}`), { PG_CONNECTION_STRING: urlFor(db.name) });
@@ -25,95 +26,171 @@
       if (response.status !== status) throw new Error(JSON.stringify(body));
       return body;
     };
-    const fullFixture = JSON.parse(readFileSync(resolve(ROOT, "tests/fixtures/zero-seed-launch/local-chain.json"), "utf8"));
-    const base = `/launches/${CHAIN_ID}/${fixture.launches.l1!.poolId}`;
+    const lower = (a: string) => a.toLowerCase();
+    const full = JSON.parse(readFileSync(resolve(ROOT, "tests/fixtures/zero-seed-launch/local-chain.json"), "utf8"));
+    const { creator, newOwner, feeRecipient, trader } = full.addresses;
+    const path = (label: string) => `/launches/${CHAIN_ID}/${fixture.launches[label]!.poolId}`;
+    /** One launch at one block: API detail versus the chain state and the indexer's SQL feeAt. */
+    const expectLaunch = async (state: any, label: string) => {
+      const chain = state.pools.find((p: any) => p.label === label);
+      const body = await get(path(label));
+      const install = full.installations[label];
+      const instance = full.instances.find((i: any) => i.label === install.instance);
+      const launchIs1 = body.launch_token_is_token1;
+      expect(body.schema_version).toBe("zero-seed-launch-api/v3");
+      expect(body.principal.installed_supply).toBe(install.actualInstalledSupply);
+      expect(body.principal.liquidity).toBe(install.actualLiquidity);
+      expect(body.fee_ledger.launch_token.unclaimed).toBe(chain.creatorFees[launchIs1 ? 1 : 0]);
+      expect(body.fee_ledger.quote_token.unclaimed).toBe(chain.creatorFees[launchIs1 ? 0 : 1]);
+      expect(body.fee_ledger.transferable).toBe(true);
+      expect([body.owner, body.fee_ledger.holder, body.creator, body.controller]).toEqual(
+        [lower(chain.launchOwner), lower(chain.launchOwner), lower(install.owner), lower(chain.controller)]);
+      expect(body.controller).toBe(lower(instance.periphery));
+      expect(body.quote_token.kind).toBe(instance.quoteKind);
+      expect(body.quote_token.address).toBe(lower(instance.quote));
+      if (instance.quoteKind === "native") {
+        expect([body.quote_token.decimals, body.quote_token.name, body.quote_token.symbol, launchIs1]).toEqual([18, null, null, true]);
+        expect(body.pool_key.token0).toBe("0x0000000000000000000000000000000000000000");
+      }
+      const tick = decodePoolState(chain.poolStateWord).tick;
+      expect(body.inventory.price_tick).toBe(launchIs1 ? -tick : tick);
+      expect(body.fee_schedule.evaluated_at).toBe(body.as_of.block_time);
+      expect(body.fee_schedule.decay).toEqual({ kind: "fixed_base_q128", half_life_seconds: 600 });
+      expect(body.fee_schedule).not.toHaveProperty("decay_factor");
+      // The API's TypeScript schedule equals the indexer's SQL feeAt and the contract's feeAt.
+      const [sql] = await db.sql<{ rate: string }[]>`
+        SELECT zero_seed_launch_fee_at(trading_start, fee_duration, initial_fee, final_fee,
+                                       ${body.as_of.block_time}::int8)::text AS rate
+        FROM zero_seed_launch_created WHERE pool_id = ${num(fixture.launches[label]!.poolId)}::numeric`;
+      expect(body.fee_schedule.fee_rate).toBe(sql!.rate);
+      expect(body.fee_schedule.fee_rate).toBe(chain.feeAtBlockTime);
+      expect(body).not.toHaveProperty("status");
+      expect(body.inventory).not.toHaveProperty("exhausted");
+      return body;
+    };
+    /** Claims are counted once: payouts equal the ledger's claimed amounts. */
+    const expectClaimsOnce = async (label: string) => {
+      const detail = await get(path(label));
+      const claims = await get(`${path(label)}/claims`);
+      expect(claims.data.length).toBe(detail.fee_ledger.claim_count);
+      const sum = (side: string) => claims.data.reduce((n: bigint, c: any) => n + BigInt(c[side]), 0n).toString();
+      expect(sum("launch_token_amount")).toBe(detail.fee_ledger.launch_token.claimed);
+      expect(sum("quote_token_amount")).toBe(detail.fee_ledger.quote_token.claimed);
+      return claims;
+    };
     try {
       await replay(db, prefix, processors, async (state) => {
         await expectChainParity(db, state);
         await apiHead(db);
-        if (!state.pools.some((p) => p.label === "l1")) return;
-        const body = await get(base);
-        const launchState = state.pools.find((p) => p.label === "l1")!;
-        expect(body.principal.installed_supply).toBe(fullFixture.installations.l1.actualInstalledSupply);
-        expect(body.principal.liquidity).toBe(fullFixture.installations.l1.actualLiquidity);
-        expect(body.fee_ledger.launch_token.unclaimed).toBe(launchState.creatorFees[0]);
-        expect(body.fee_ledger.quote_token.unclaimed).toBe(launchState.creatorFees[1]);
-        expect(body.inventory.price_tick).toBe(decodePoolState(launchState.poolStateWord).tick);
-        expect(body.fee_schedule.evaluated_at).toBe(body.as_of.block_time);
-        // The API's TypeScript schedule equals the indexer's SQL feeAt and the stored factor.
-        const [sql] = await db.sql<{ rate: string; factor: string }[]>`
-          SELECT zero_seed_launch_fee_at(trading_start, fee_duration, initial_fee, final_fee, decay_factor,
-                                         ${body.as_of.block_time}::int8)::text AS rate, decay_factor::text AS factor
-          FROM zero_seed_launch_created WHERE pool_id = ${BigInt(fixture.launches.l1!.poolId).toString()}::numeric`;
-        expect(body.fee_schedule.fee_rate).toBe(sql!.rate);
-        expect(body.fee_schedule.decay_factor).toBe(sql!.factor);
-        expect(body.schema_version).toBe("zero-seed-launch-api/v2");
-        expect(body).not.toHaveProperty("status");
-        expect(body.inventory).not.toHaveProperty("exhausted");
+        for (const pool of state.pools) await expectLaunch(state, pool.label);
       });
-      await replay(db, alternate, processors);
-      await apiHead(db);
+      // A launch in the deployment block is served.
+      expect((await get(`/launches?chainId=${CHAIN_ID}`)).data.map((l: any) => l.pool_id)).toEqual(
+        [fixture.launches.l2!.poolId, fixture.launches.l1!.poolId]);
+      await replay(db, alternate, processors, async (state) => {
+        await apiHead(db);
+        for (const pool of state.pools) await expectLaunch(state, pool.label);
+      });
       const list = await get(`/launches?chainId=${CHAIN_ID}&limit=1`);
-      expect(list.data).toHaveLength(1);
-      expect(list.data[0].pool_id).toBe(fixture.launches.l3!.poolId);
-      const second = await get(`/launches?chainId=${CHAIN_ID}&limit=1&before_event_id=${list.next_cursor}`);
-      expect(second.data.map((l: any) => l.pool_id)).toEqual([fixture.launches.l1!.poolId]);
+      expect(list.data.map((l: any) => l.pool_id)).toEqual([fixture.launches.l3!.poolId]);
+      const second = await get(`/launches?chainId=${CHAIN_ID}&limit=2&before_event_id=${list.next_cursor}`);
+      expect(second.data.map((l: any) => l.pool_id)).toEqual([fixture.launches.l2!.poolId, fixture.launches.l1!.poolId]);
       expect(second.next_cursor).toBeNull();
-      const lowWeth = await get(`/launches/${CHAIN_ID}/${fixture.launches.l3!.poolId}`);
-      expect(lowWeth.launch_token_is_token1).toBe(true);
-      expect(lowWeth.principal.installed_supply).toBe(fullFixture.installations.l3.actualInstalledSupply);
-      await replay(db, canonical, processors);
-      await apiHead(db);
-      const canonicalList = await get(`/launches?chainId=${CHAIN_ID}&limit=1`);
-      expect(canonicalList.data.map((l: any) => l.pool_id)).toEqual([fixture.launches.l1!.poolId]);
+      const alternateL1 = await get(path("l1"));
+      expect([alternateL1.owner, alternateL1.creator]).toEqual([lower(newOwner), lower(creator)]);
+      const nativeAlternate = await get(path("l3"));
+      expect([nativeAlternate.creator, nativeAlternate.owner, nativeAlternate.quote_token.kind]).toEqual([lower(newOwner), lower(newOwner), "native"]);
+
+      // Reorg onto the canonical branch: the alternate transfer, claims and l3 disappear.
+      await invalidateFrom(db.dao, fixture.forkPoint + 1);
+      await replay(db, canonical, processors, async (state) => {
+        await apiHead(db);
+        for (const pool of state.pools) await expectLaunch(state, pool.label);
+      });
+      const canonicalList = await get(`/launches?chainId=${CHAIN_ID}`);
+      expect(canonicalList.data.map((l: any) => l.pool_id)).toEqual(
+        ["l4", "l2", "l1"].map((l) => fixture.launches[l]!.poolId));
       expect(canonicalList.next_cursor).toBeNull();
-      await get(`/launches/${CHAIN_ID}/${fixture.launches.l3!.poolId}`, 404);
-      for (const label of ["l2", "l4"]) {
-        await get(`/launches/${CHAIN_ID}/${fixture.launches[label]!.poolId}`, 404);
-        await get(`/launches/${CHAIN_ID}/${fixture.launches[label]!.poolId}/swaps`, 404);
-        await get(`/launches/${CHAIN_ID}/${fixture.launches[label]!.poolId}/claims`, 404);
-      }
-      const detail = await get(base);
-      const swaps = await get(`${base}/swaps`);
-      const claims = await get(`${base}/claims`);
+      for (const suffix of ["", "/swaps", "/claims", "/owners"])
+        await get(`${path("l3")}${suffix}`, 404);
+      // creator (owner at creation) and current owner filters
+      expect((await get(`/launches?chainId=${CHAIN_ID}&creator=${creator}`)).data.map((l: any) => l.pool_id)).toEqual(
+        [fixture.launches.l2!.poolId, fixture.launches.l1!.poolId]);
+      expect((await get(`/launches?chainId=${CHAIN_ID}&owner=${feeRecipient}`)).data.map((l: any) => l.pool_id)).toEqual(
+        [fixture.launches.l1!.poolId]);
+      expect((await get(`/launches?chainId=${CHAIN_ID}&owner=${BigInt(trader).toString()}`)).data.map((l: any) => l.pool_id)).toEqual(
+        [fixture.launches.l4!.poolId]);
+      expect((await get(`/launches?chainId=${CHAIN_ID}&owner=${creator}`)).data).toEqual([]);
+      const owners = await get(`${path("l1")}/owners`);
+      expect(owners.data.map((o: any) => [o.previous_owner, o.new_owner])).toEqual([
+        [null, lower(creator)], [lower(creator), lower(newOwner)], [lower(newOwner), lower(feeRecipient)]]);
+      const firstOwner = await get(`${path("l1")}/owners?limit=1`);
+      const laterOwners = await get(`${path("l1")}/owners?after_event_id=${firstOwner.next_cursor}`);
+      expect([...firstOwner.data, ...laterOwners.data]).toEqual(owners.data);
+      const detail = await get(path("l1"));
+      expect(detail.fee_ledger.owner_change_count).toBe(3);
+      const swaps = await get(`${path("l1")}/swaps`);
       expect(swaps.data.length).toBe(detail.fee_ledger.swap_count);
-      expect(claims.data.length).toBe(detail.fee_ledger.claim_count);
-      const firstSwap = await get(`${base}/swaps?limit=1`);
-      const later = await get(`${base}/swaps?after_event_id=${firstSwap.next_cursor}`);
+      const claims = await expectClaimsOnce("l1");
+      await expectClaimsOnce("l2");
+      await expectClaimsOnce("l4");
+      // l1 claims: by the creator, by the recipient-owner after two transfers, then twice at zero
+      expect(claims.data.map((c: any) => c.owner)).toEqual(
+        [lower(creator), lower(feeRecipient), lower(feeRecipient), lower(feeRecipient)]);
+      expect(claims.data.at(-1).launch_token_amount).toBe("0");
+      const firstSwap = await get(`${path("l1")}/swaps?limit=1`);
+      const later = await get(`${path("l1")}/swaps?after_event_id=${firstSwap.next_cursor}`);
       expect([...firstSwap.data, ...later.data]).toEqual(swaps.data);
-      const firstClaim = await get(`${base}/claims?limit=1`);
-      const laterClaims = await get(`${base}/claims?after_event_id=${firstClaim.next_cursor}`);
+      const firstClaim = await get(`${path("l1")}/claims?limit=1`);
+      const laterClaims = await get(`${path("l1")}/claims?after_event_id=${firstClaim.next_cursor}`);
       expect([...firstClaim.data, ...laterClaims.data]).toEqual(claims.data);
-      for (const row of [...swaps.data, ...claims.data]) {
+      for (const row of [...swaps.data, ...claims.data, ...owners.data]) {
         const [block] = await db.sql`SELECT block_hash, block_time FROM blocks WHERE chain_id=${CHAIN_ID} AND block_number=${row.event.block_number}`;
         expect(row.event.block_hash).toBe(`0x${block!.block_hash.toString(16).padStart(64, "0")}`);
         expect(row.event.block_time).toBe(Math.floor(block!.block_time.getTime() / 1000));
       }
+      // native buys pay ETH in: quote delta positive on buys
+      expect(swaps.data.filter((s: any) => s.direction === "buy").every((s: any) => BigInt(s.quote_token_delta) > 0n)).toBe(true);
       if (process.env.LAUNCH_GOLDEN_DIR) {
-        await Bun.write(resolve(process.env.LAUNCH_GOLDEN_DIR, "actual-handler-golden.json"), JSON.stringify({ list, second, lowWeth, canonicalList, detail, swaps, claims }, null, 2));
+        const l2 = await get(path("l2"));
+        const l2Claims = await get(`${path("l2")}/claims`);
+        const l2Owners = await get(`${path("l2")}/owners`);
+        await Bun.write(resolve(process.env.LAUNCH_GOLDEN_DIR, "actual-handler-golden.json"), JSON.stringify({
+          schema_version: "zero-seed-launch-api/v3",
+          source: { fixture: "indexer tests/fixtures/zero-seed-launch/local-chain.json", chain_id: String(CHAIN_ID) },
+          list, second, canonicalList, nativeDetail: detail, nativeSwaps: swaps, nativeClaims: claims, nativeOwners: owners,
+          erc20Detail: l2, erc20Claims: l2Claims, erc20Owners: l2Owners,
+        }, null, 2));
       }
-      const before = await get(base);
+      const before = await get(path("l1"));
       await replay(db, canonical, processors);
       await apiHead(db);
-      expect(await get(base)).toEqual(before);
+      expect(await get(path("l1"))).toEqual(before);
       await db.sql`SELECT recompute_zero_seed_launch_state(pool_key_id) FROM zero_seed_launch_created`;
-      expect(await get(base)).toEqual(before);
-      await db.sql`UPDATE zero_seed_launch_states SET claimed0 = accrued0 + 1 WHERE pool_key_id = (SELECT pool_key_id FROM pool_keys WHERE chain_id=${CHAIN_ID} AND pool_id=${BigInt(fixture.launches.l1!.poolId).toString()}::numeric)`;
-      await get(base, 500);
+      expect(await get(path("l1"))).toEqual(before);
+      await db.sql`UPDATE zero_seed_launch_states SET claimed0 = accrued0 + 1 WHERE pool_key_id = (SELECT pool_key_id FROM pool_keys WHERE chain_id=${CHAIN_ID} AND pool_id=${num(fixture.launches.l1!.poolId)}::numeric)`;
+      await get(path("l1"), 500);
       await db.sql`SELECT recompute_zero_seed_launch_state(pool_key_id) FROM zero_seed_launch_created`;
-      expect(await get(base)).toEqual(before);
+      expect(await get(path("l1"))).toEqual(before);
       await db.sql`UPDATE indexer_cursor SET last_updated = NOW() - INTERVAL '2 minutes' WHERE chain_id=${CHAIN_ID}`;
-      await get(base, 503);
+      await get(path("l1"), 503);
       await apiHead(db);
       await db.sql`UPDATE indexer_cursor SET head_block_hash = 0 WHERE chain_id=${CHAIN_ID}`;
-      await get(base, 503);
+      await get(path("l1"), 503);
       await apiHead(db);
+      // A reader without the periphery-bound pins serves nothing.
+      const unpinned = new LaunchQueries(db.sql as never, {
+        localHarness: true,
+        instances: LOCAL_INSTANCES.map((p) => ({ ...p, periphery: "0x0000000000000000000000000000000000000001" })),
+        maxIndexAgeSeconds: 60,
+      });
+      await expect(unpinned.detail(CHAIN_ID, BigInt(fixture.launches.l1!.poolId))).rejects.toThrow(/disabled/);
       const writerSql = postgres(urlFor(db.name), { max: 1, onnotice: () => {}, types: { bigint: postgres.BigInt, numeric: NumericIntegerType } }) as unknown as Db["sql"];
       const writer = { sql: writerSql, dao: Reflect.construct(DAO, [writerSql, CHAIN_ID]) as DAO, name: db.name };
       try {
         await Reflect.apply(Reflect.get(reader, "snapshot"), reader, [CHAIN_ID, async (tx: any, asOf: any) => {
           const [old] = await tx`SELECT COUNT(*)::int AS n FROM zero_seed_launch_created`;
-          await invalidateFrom(writer.dao, 9);
+          await invalidateFrom(writer.dao, fixture.forkPoint + 1);
           await apiHead(writer);
           const [same] = await tx`SELECT COUNT(*)::int AS n FROM zero_seed_launch_created`;
           const [sameHead] = await tx`SELECT head_block_number FROM indexer_cursor WHERE chain_id=${CHAIN_ID}`;
@@ -123,12 +200,18 @@
       } finally {
         await writerSql.end();
       }
-      await get(`/launches/${CHAIN_ID}/${fixture.launches.l3!.poolId}`, 404);
+      expect((await get(`/launches?chainId=${CHAIN_ID}`)).data.map((l: any) => l.pool_id)).toEqual(
+        [fixture.launches.l2!.poolId, fixture.launches.l1!.poolId]);
+      // Back to the deployment block: only the launch created in it remains.
+      const l2Block = Number((await get(path("l2"))).created.block_number);
+      await invalidateFrom(db.dao, l2Block);
+      await apiHead(db);
       expect((await get(`/launches?chainId=${CHAIN_ID}`)).data.map((l: any) => l.pool_id)).toEqual([fixture.launches.l1!.poolId]);
+      await get(path("l2"), 404);
+      // Before the deployment block nothing is indexed: no coherent head.
       await invalidateFrom(db.dao, Number(before.created.block_number));
       await apiHead(db);
-      expect((await get(`/launches?chainId=${CHAIN_ID}`)).data).toEqual([]);
-      await get(base, 404);
+      await get(`/launches?chainId=${CHAIN_ID}`, 503);
       expect((await db.sql`SELECT COUNT(*)::int AS n FROM zero_seed_launch_states`)[0]!.n).toBe(0);
     } finally {
       spies.forEach((s) => s.mockRestore());

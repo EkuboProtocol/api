@@ -9949,11 +9949,46 @@
           },
           {
             "schema": {
-              "type": "string",
-              "pattern": "^0x[0-9a-fA-F]{40}$"
+              "anyOf": [
+                {
+                  "type": "string",
+                  "pattern": "^0x[a-fA-F0-9]+$",
+                  "description": "A hexadecimal number"
+                },
+                {
+                  "type": "string",
+                  "pattern": "^\\d+$",
+                  "description": "A decimal number"
+                }
+              ],
+              "title": "Address",
+              "description": "An address on the specified blockchain network"
             },
             "required": false,
+            "description": "An address on the specified blockchain network",
             "name": "creator",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "pattern": "^0x[a-fA-F0-9]+$",
+                  "description": "A hexadecimal number"
+                },
+                {
+                  "type": "string",
+                  "pattern": "^\\d+$",
+                  "description": "A decimal number"
+                }
+              ],
+              "title": "Address",
+              "description": "An address on the specified blockchain network"
+            },
+            "required": false,
+            "description": "An address on the specified blockchain network",
+            "name": "owner",
             "in": "query"
           }
         ],
@@ -9968,7 +10003,7 @@
                     "schema_version": {
                       "type": "string",
                       "enum": [
-                        "zero-seed-launch-api/v2"
+                        "zero-seed-launch-api/v3"
                       ]
                     },
                     "data": {
@@ -9979,7 +10014,7 @@
                           "schema_version": {
                             "type": "string",
                             "enum": [
-                              "zero-seed-launch-api/v2"
+                              "zero-seed-launch-api/v3"
                             ]
                           },
                           "chain_id": {
@@ -10097,20 +10132,36 @@
                                 ],
                                 "minimum": 0,
                                 "maximum": 255
+                              },
+                              "kind": {
+                                "type": "string",
+                                "enum": [
+                                  "native",
+                                  "erc20"
+                                ]
                               }
                             },
                             "required": [
                               "address",
                               "name",
                               "symbol",
-                              "decimals"
+                              "decimals",
+                              "kind"
                             ],
                             "additionalProperties": false
                           },
                           "launch_token_is_token1": {
                             "type": "boolean"
                           },
+                          "controller": {
+                            "type": "string",
+                            "pattern": "^0x[0-9a-f]{40}$"
+                          },
                           "creator": {
+                            "type": "string",
+                            "pattern": "^0x[0-9a-f]{40}$"
+                          },
+                          "owner": {
                             "type": "string",
                             "pattern": "^0x[0-9a-f]{40}$"
                           },
@@ -10143,9 +10194,27 @@
                                 "type": "string",
                                 "pattern": "^(0|[1-9][0-9]*)$"
                               },
-                              "decay_factor": {
-                                "type": "string",
-                                "pattern": "^(0|[1-9][0-9]*)$"
+                              "decay": {
+                                "type": "object",
+                                "properties": {
+                                  "kind": {
+                                    "type": "string",
+                                    "enum": [
+                                      "fixed_base_q128"
+                                    ]
+                                  },
+                                  "half_life_seconds": {
+                                    "type": "number",
+                                    "enum": [
+                                      600
+                                    ]
+                                  }
+                                },
+                                "required": [
+                                  "kind",
+                                  "half_life_seconds"
+                                ],
+                                "additionalProperties": false
                               },
                               "phase": {
                                 "type": "string",
@@ -10170,7 +10239,7 @@
                               "fee_end",
                               "initial_fee",
                               "final_fee",
-                              "decay_factor",
+                              "decay",
                               "phase",
                               "fee_rate",
                               "evaluated_at"
@@ -10252,7 +10321,9 @@
                           "token",
                           "quote_token",
                           "launch_token_is_token1",
+                          "controller",
                           "creator",
+                          "owner",
                           "ask_tick",
                           "upper_tick",
                           "fee_schedule",
@@ -10352,7 +10423,7 @@
           "Launches"
         ],
         "operationId": "get_ListLaunchClaims",
-        "summary": "List atomic full two-asset creator fee claims",
+        "summary": "List atomic full two-asset creator fee claims, each paid out once by the periphery",
         "parameters": [
           {
             "schema": {
@@ -10416,7 +10487,7 @@
                     "schema_version": {
                       "type": "string",
                       "enum": [
-                        "zero-seed-launch-api/v2"
+                        "zero-seed-launch-api/v3"
                       ]
                     },
                     "chain_id": {
@@ -10504,7 +10575,11 @@
                             ],
                             "additionalProperties": false
                           },
-                          "creator": {
+                          "ledger_event_id": {
+                            "type": "string",
+                            "pattern": "^(0|-?[1-9][0-9]*)$"
+                          },
+                          "owner": {
                             "type": "string",
                             "pattern": "^0x[0-9a-f]{40}$"
                           },
@@ -10523,10 +10598,246 @@
                         },
                         "required": [
                           "event",
-                          "creator",
+                          "ledger_event_id",
+                          "owner",
                           "recipient",
                           "launch_token_amount",
                           "quote_token_amount"
+                        ],
+                        "additionalProperties": false
+                      }
+                    }
+                  },
+                  "required": [
+                    "schema_version",
+                    "chain_id",
+                    "pool_id",
+                    "next_cursor",
+                    "as_of",
+                    "data"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The request parameters are invalid",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The requested resource was not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "An unexpected server error occurred",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "The indexed head is missing, inconsistent or stale",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/launches/{chainId}/{poolId}/owners": {
+      "get": {
+        "tags": [
+          "Launches"
+        ],
+        "operationId": "get_ListLaunchOwners",
+        "summary": "List the creation owner and every later ownership transfer",
+        "parameters": [
+          {
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            },
+            "required": true,
+            "name": "chainId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "pattern": "^0x[a-fA-F0-9]+$",
+                  "description": "A hexadecimal number"
+                },
+                {
+                  "type": "string",
+                  "pattern": "^\\d+$",
+                  "description": "A decimal number"
+                }
+              ],
+              "title": "Numeric",
+              "description": "A number represented in hexadecimal or decimal"
+            },
+            "required": true,
+            "description": "A number represented in hexadecimal or decimal",
+            "name": "poolId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string"
+            },
+            "required": false,
+            "name": "after_event_id",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 200,
+              "default": 50
+            },
+            "required": false,
+            "name": "limit",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Indexed zero-seed launch data",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "schema_version": {
+                      "type": "string",
+                      "enum": [
+                        "zero-seed-launch-api/v3"
+                      ]
+                    },
+                    "chain_id": {
+                      "type": "string",
+                      "pattern": "^(0|[1-9][0-9]*)$"
+                    },
+                    "pool_id": {
+                      "type": "string",
+                      "pattern": "^0x[0-9a-f]{64}$"
+                    },
+                    "next_cursor": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "as_of": {
+                      "type": "object",
+                      "properties": {
+                        "block_number": {
+                          "type": "string",
+                          "pattern": "^(0|[1-9][0-9]*)$"
+                        },
+                        "block_hash": {
+                          "type": "string",
+                          "pattern": "^0x[0-9a-f]{64}$"
+                        },
+                        "block_time": {
+                          "type": "integer",
+                          "minimum": 0
+                        }
+                      },
+                      "required": [
+                        "block_number",
+                        "block_hash",
+                        "block_time"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "event": {
+                            "type": "object",
+                            "properties": {
+                              "block_number": {
+                                "type": "string",
+                                "pattern": "^(0|[1-9][0-9]*)$"
+                              },
+                              "block_hash": {
+                                "type": "string",
+                                "pattern": "^0x[0-9a-f]{64}$"
+                              },
+                              "block_time": {
+                                "type": "integer",
+                                "minimum": 0
+                              },
+                              "event_id": {
+                                "type": "string",
+                                "pattern": "^(0|-?[1-9][0-9]*)$"
+                              },
+                              "transaction_index": {
+                                "type": "integer",
+                                "minimum": 0
+                              },
+                              "event_index": {
+                                "type": "integer",
+                                "minimum": 0
+                              },
+                              "transaction_hash": {
+                                "type": "string",
+                                "pattern": "^0x[0-9a-f]{64}$"
+                              }
+                            },
+                            "required": [
+                              "block_number",
+                              "block_hash",
+                              "block_time",
+                              "event_id",
+                              "transaction_index",
+                              "event_index",
+                              "transaction_hash"
+                            ],
+                            "additionalProperties": false
+                          },
+                          "previous_owner": {
+                            "type": [
+                              "string",
+                              "null"
+                            ],
+                            "pattern": "^0x[0-9a-f]{40}$"
+                          },
+                          "new_owner": {
+                            "type": "string",
+                            "pattern": "^0x[0-9a-f]{40}$"
+                          }
+                        },
+                        "required": [
+                          "event",
+                          "previous_owner",
+                          "new_owner"
                         ],
                         "additionalProperties": false
                       }
@@ -10658,7 +10969,7 @@
                     "schema_version": {
                       "type": "string",
                       "enum": [
-                        "zero-seed-launch-api/v2"
+                        "zero-seed-launch-api/v3"
                       ]
                     },
                     "chain_id": {
@@ -10903,7 +11214,7 @@
                     "schema_version": {
                       "type": "string",
                       "enum": [
-                        "zero-seed-launch-api/v2"
+                        "zero-seed-launch-api/v3"
                       ]
                     },
                     "chain_id": {
@@ -11021,20 +11332,36 @@
                           ],
                           "minimum": 0,
                           "maximum": 255
+                        },
+                        "kind": {
+                          "type": "string",
+                          "enum": [
+                            "native",
+                            "erc20"
+                          ]
                         }
                       },
                       "required": [
                         "address",
                         "name",
                         "symbol",
-                        "decimals"
+                        "decimals",
+                        "kind"
                       ],
                       "additionalProperties": false
                     },
                     "launch_token_is_token1": {
                       "type": "boolean"
                     },
+                    "controller": {
+                      "type": "string",
+                      "pattern": "^0x[0-9a-f]{40}$"
+                    },
                     "creator": {
+                      "type": "string",
+                      "pattern": "^0x[0-9a-f]{40}$"
+                    },
+                    "owner": {
                       "type": "string",
                       "pattern": "^0x[0-9a-f]{40}$"
                     },
@@ -11067,9 +11394,27 @@
                           "type": "string",
                           "pattern": "^(0|[1-9][0-9]*)$"
                         },
-                        "decay_factor": {
-                          "type": "string",
-                          "pattern": "^(0|[1-9][0-9]*)$"
+                        "decay": {
+                          "type": "object",
+                          "properties": {
+                            "kind": {
+                              "type": "string",
+                              "enum": [
+                                "fixed_base_q128"
+                              ]
+                            },
+                            "half_life_seconds": {
+                              "type": "number",
+                              "enum": [
+                                600
+                              ]
+                            }
+                          },
+                          "required": [
+                            "kind",
+                            "half_life_seconds"
+                          ],
+                          "additionalProperties": false
                         },
                         "phase": {
                           "type": "string",
@@ -11094,7 +11439,7 @@
                         "fee_end",
                         "initial_fee",
                         "final_fee",
-                        "decay_factor",
+                        "decay",
                         "phase",
                         "fee_rate",
                         "evaluated_at"
@@ -11248,7 +11593,7 @@
                         "transferable": {
                           "type": "boolean",
                           "enum": [
-                            false
+                            true
                           ]
                         },
                         "launch_token": {
@@ -11305,6 +11650,10 @@
                           "type": "integer",
                           "minimum": 0
                         },
+                        "owner_change_count": {
+                          "type": "integer",
+                          "exclusiveMinimum": 0
+                        },
                         "last_event_id": {
                           "type": "string",
                           "pattern": "^(0|-?[1-9][0-9]*)$"
@@ -11317,6 +11666,7 @@
                         "quote_token",
                         "swap_count",
                         "claim_count",
+                        "owner_change_count",
                         "last_event_id"
                       ],
                       "additionalProperties": false
@@ -11350,7 +11700,9 @@
                     "token",
                     "quote_token",
                     "launch_token_is_token1",
+                    "controller",
                     "creator",
+                    "owner",
                     "ask_tick",
                     "upper_tick",
                     "fee_schedule",

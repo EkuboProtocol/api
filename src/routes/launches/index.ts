@@ -8,8 +8,17 @@ import {
   ErrorResponseType,
   StatusError,
 } from "../../shared/errors";
-import { LaunchList, LaunchDetail, SwapPage, ClaimPage } from "./schema";
-import { NumericStringType } from "../../shared/validation/address";
+import {
+  LaunchList,
+  LaunchDetail,
+  SwapPage,
+  ClaimPage,
+  OwnerPage,
+} from "./schema";
+import {
+  AddressType,
+  NumericStringType,
+} from "../../shared/validation/address";
 
 const chainId = z.coerce
   .bigint()
@@ -33,6 +42,11 @@ const cursor = z
       .max((1n << 63n) - 1n),
   )
   .openapi({ type: "string" });
+// Numeric like every address query parameter, so the edge cache key folds it.
+const address = AddressType.refine(
+  (value) => BigInt(value) < 1n << 160n,
+  "Address out of range",
+);
 const limit = z.coerce.number().int().min(1).max(200).default(50);
 const params = z.object({ chainId, poolId });
 const page = z.object({ after_event_id: cursor.optional(), limit });
@@ -68,22 +82,24 @@ export const ListLaunches = defineRoute(
         chainId,
         before_event_id: cursor.optional(),
         limit,
-        creator: z
-          .string()
-          .regex(/^0x[0-9a-fA-F]{40}$/)
-          .optional(),
+        // owner at creation
+        creator: address.optional(),
+        // current owner
+        owner: address.optional(),
       }),
     },
     responses: { 200: response(LaunchList), ...errors },
   }),
   async (c) => {
-    const { chainId, before_event_id, limit, creator } = c.req.valid("query");
+    const { chainId, before_event_id, limit, creator, owner } =
+      c.req.valid("query");
     const q = await launchQueries(c.env);
     const data = await q.readZeroSeedList({
       chainId,
       cursor: before_event_id,
       limit,
       creator: creator === undefined ? undefined : BigInt(creator),
+      owner: owner === undefined ? undefined : BigInt(owner),
     });
     return c.json(data, 200, headers);
   },
@@ -143,7 +159,8 @@ export const ListLaunchClaims = defineRoute(
     path: "/launches/{chainId}/{poolId}/claims",
     tags: ["Launches"],
     operationId: "get_ListLaunchClaims",
-    summary: "List atomic full two-asset creator fee claims",
+    summary:
+      "List atomic full two-asset creator fee claims, each paid out once by the periphery",
     request: { params, query: page },
     responses: { 200: response(ClaimPage), ...errors },
   }),
@@ -153,6 +170,33 @@ export const ListLaunchClaims = defineRoute(
     const q = await launchQueries(c.env);
     return c.json(
       await q.readZeroSeedClaims({
+        chainId,
+        poolId: BigInt(poolId),
+        cursor: after_event_id,
+        limit,
+      }),
+      200,
+      headers,
+    );
+  },
+);
+
+export const ListLaunchOwners = defineRoute(
+  createRoute({
+    method: "get",
+    path: "/launches/{chainId}/{poolId}/owners",
+    tags: ["Launches"],
+    operationId: "get_ListLaunchOwners",
+    summary: "List the creation owner and every later ownership transfer",
+    request: { params, query: page },
+    responses: { 200: response(OwnerPage), ...errors },
+  }),
+  async (c) => {
+    const { chainId, poolId } = c.req.valid("param");
+    const { after_event_id, limit } = c.req.valid("query");
+    const q = await launchQueries(c.env);
+    return c.json(
+      await q.readZeroSeedOwners({
         chainId,
         poolId: BigInt(poolId),
         cursor: after_event_id,
