@@ -39,6 +39,14 @@ const TwammOrderPartInfo = z.object({
   sale_rate: DecimalStringType,
   last_collect_proceeds: z.number().int().nullable(),
   total_amount_sold: DecimalStringType,
+  amount_sold_checkpoint: DecimalStringType.openapi({
+    description:
+      "Amount sold up to amount_sold_checkpoint_time. It only changes when the order is updated; after that time the order sells at sale_rate, so amount sold at time t is amount_sold_checkpoint + floor((min(t, end_time) - amount_sold_checkpoint_time) * sale_rate / 2**32)",
+  }),
+  amount_sold_checkpoint_time: z.number().int().min(0).openapi({
+    description:
+      "The epoch time in seconds up to which amount_sold_checkpoint is accounted, between start_time and end_time",
+  }),
 });
 
 const TwammOrderInfo = z.object({
@@ -118,6 +126,10 @@ function buildListTwapOrdersResponse(
             end_time: toEpochSeconds(order.end_time),
           },
           total_amount_sold: order.total_amount_sold,
+          amount_sold_checkpoint: order.amount_sold_checkpoint,
+          amount_sold_checkpoint_time: toEpochSeconds(
+            order.amount_sold_checkpoint_time,
+          ),
           last_collect_proceeds: order.last_collect_proceeds
             ? toEpochSeconds(order.last_collect_proceeds)
             : null,
