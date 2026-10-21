@@ -1786,6 +1786,8 @@ ORDER BY event_id DESC
           end_time: string;
           total_proceeds_withdrawn: string;
           total_amount_sold: string;
+          amount_sold_checkpoint: string;
+          amount_sold_checkpoint_time: string;
           sale_rate: string;
           last_collect_proceeds: string | null;
         }[];
@@ -1808,6 +1810,11 @@ WITH owned_tokens AS (
               fee,
               last_collect_proceeds,
               amount_sold,
+              CASE
+                WHEN ot.is_selling_token1 THEN ot.amount1_sold_last
+                ELSE ot.amount0_sold_last
+                END AS amount_sold_checkpoint,
+              LEAST(GREATEST(ot.amount_sold_last_block_time, ot.start_time), ot.end_time) AS amount_sold_checkpoint_time,
               total_proceeds_withdrawn,
               sale_rate,
               tpw.last_collect_proceeds IS NOT NULL
@@ -1846,6 +1853,8 @@ WITH owned_tokens AS (
                   'end_time', end_time,
                   'total_proceeds_withdrawn', total_proceeds_withdrawn::TEXT,
                   'total_amount_sold', amount_sold::TEXT,
+                  'amount_sold_checkpoint', amount_sold_checkpoint::TEXT,
+                  'amount_sold_checkpoint_time', amount_sold_checkpoint_time,
                   'sale_rate', sale_rate::TEXT,
                   'last_collect_proceeds', last_collect_proceeds::TEXT
                ) ORDER BY end_time
