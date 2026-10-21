@@ -74,7 +74,7 @@ test("native token1 and ERC-20 token0 launches share one extension and split req
     [erc20, golden.erc20Owners],
   ] as const) {
     expect(detail.creator).not.toBe(detail.owner);
-    expect(owners.data[0]!.new_owner).toBe(detail.creator);
+    expect(owners.data[0].new_owner).toBe(detail.creator);
     expect(owners.data.at(-1)!.new_owner).toBe(detail.owner);
   }
 });

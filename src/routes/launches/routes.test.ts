@@ -38,9 +38,12 @@ test("the hosted reader enables no instance and no ERC-20 quote", async () => {
   }) as never);
   expect(Reflect.get(hosted, "enabled")).toEqual([]);
   expect(Reflect.get(hosted, "quotes")).toEqual([]);
-  await expect(
-    hosted.list({ chainId: 31337n, limit: 1 }),
-  ).rejects.toMatchObject({ status: 404 });
+  const refused = await hosted.list({ chainId: 31337n, limit: 1 }).then(
+    () => undefined,
+    (error: unknown) => error,
+  );
+  expect(refused).toBeInstanceOf(StatusError);
+  expect(refused).toMatchObject({ status: 404 });
   // even a harness that passes the reviewed lists is refused when not local
   const notLocal = new LaunchQueries((() => {}) as never, {
     localHarness: false,

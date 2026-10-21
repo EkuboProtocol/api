@@ -1,39 +1,47 @@
 # Zero-seed launch reads (draft/local)
 
-Draft response contract: `zero-seed-launch-api/v3`, for the forward-only
-`ZeroSeedLaunch` with a native ETH quote, the fixed-base creator-fee table and
-the separate `ZeroSeedLaunchPeriphery` of evm-contracts
-`4f1a3060b099e8a50469848118f44c0c65cfab9a`. Indexer schema
-`zero-seed-launch-index/v2` (migration 00139). Live instance lists are empty.
+Draft response contract: `zero-seed-launch-api/v4`, for the forward-only
+`ZeroSeedLaunch` and its separate `ZeroSeedLaunchPeriphery` of evm-contracts
+`40af6cb359b0de2f61f15e47b6622a00c48b5b08` (ABI sha256 of `jq -cS .abi`:
+ZeroSeedLaunch `999068f8e41867e972f4485c0105f584a2c10d7537615e6b4517807548fcd4bf`,
+periphery `df24d9f07d45323da7e46c0f6e64ce24f8f522442d60cb07880ddf742ebe7305`).
+Indexer schema `zero-seed-launch-index/v3` (migration 00139). Live instance
+and quote lists are empty.
 
-Changes from v2:
+Changes from v3:
 
-- `quote_token.kind` is `native` or `erc20`. Native ETH is address 0, always
-  token0 (the launch token is token1), 18 decimals, and has no token contract:
-  its `name` and `symbol` are null and no ERC-20 metadata is read.
-- `fee_schedule.decay_factor` is gone; `fee_schedule.decay` is
-  `{ kind: "fixed_base_q128", half_life_seconds: 600 }`. `fee_rate` is the
-  contract's `feeAt` at the indexed block time: `initial_fee` until
-  `trading_start`, then
-  `final_fee + floor((initial_fee - final_fee) * (decay(t) - decay(D)) / (2^128 - decay(D)))`
-  with `decay` the contract's `decayQ128` (one Q128 constant per exponent bit,
-  floor after every multiply, zero from 2^17 s), then `final_fee` from
-  `fee_end`. `policy.test.ts` checks it against all 25,212 rows of the
-  protocol's independent all-second vectors.
-- `creator` is the owner at creation (`LaunchOwnerChanged` from the zero
-  address) and never changes; `owner` is the current owner, which holds the
-  unclaimed and future fees (`fee_ledger.holder`, `transferable: true`);
-  `controller` is the periphery that forwarded the creation. Only launches
-  whose controller is the pinned periphery are served.
-- Claims are the periphery payouts (`owner`, `recipient`), each linked by
-  `ledger_event_id` to the extension's ledger event of the same transaction;
-  the amounts are counted once.
-- New `GET /launches/{chainId}/{poolId}/owners`; `GET /launches` accepts
-  `owner` (current) besides `creator`.
+- Every `LaunchSummary` (list and detail) has
+  `supply: { requested, installed, sink, sink_holder }`, decimal strings of
+  raw launch-token units. `requested` is `LaunchParameters.supply` as
+  submitted and the token's `totalSupply`; `installed` is what Core took into
+  the position at creation (the launch-token delta of Core's
+  `PositionUpdated`), all of the circulating inventory; `sink` is
+  `requested - installed`, minted to `sink_holder` (address 0) and never
+  spendable. It is not a burn: `totalSupply` stays `requested`. The API
+  refuses (500) indexed rows outside `0 < installed <= requested` or with
+  `sink != requested - installed`.
+- `principal.installed_supply` is removed (use `supply.installed`);
+  `principal.liquidity` is the liquidity the extension computed and
+  installed.
+- The quote is per launch (`LaunchParameters.quoteToken`): one extension and
+  periphery serve native ETH and ERC-20 quotes. `quote_token` is the launch's
+  own quote; an instance has no quote. Native ETH is address 0, always token0
+  (the launch token is token1), 18 decimals, null name and symbol. An ERC-20
+  quote above the launch token's address makes the launch token token0.
 
-`fixtures/zero-seed-launch-api-v3.golden.json` is a machine-readable example of
-every response, written by the actual handlers over the replayed local fixture
-(native and WETH launches, transfers, claims, a reorg).
+Unchanged from v3: the fixed-base fee table (`fee_schedule.decay` is
+`{ kind: "fixed_base_q128", half_life_seconds: 600 }` and `fee_rate` the
+contract's `feeAt` at the indexed block time, checked in `policy.test.ts`
+against all 25,212 rows of the protocol's independent all-second vectors),
+`creator` (owner at creation, never changes) versus `owner` (current,
+transferable holder of unclaimed and future fees) and `controller` (the
+periphery), periphery claim payouts linked by `ledger_event_id` and counted
+once, and the `/owners` history and `owner`/`creator` list filters.
+
+`fixtures/zero-seed-launch-api-v4.golden.json` is a machine-readable example of
+every response, written by the actual handlers over the replayed local fixture:
+a native-ETH (launch token1, sink 578) and two ERC-20 (launch token0, sink 790)
+launches on one extension, ownership transfers, claims, swaps and a reorg.
 
 ## Requests
 
@@ -60,12 +68,18 @@ All hosted query delegates construct a reader with **no enabled instances**.
 They refuse launch reads with 404 without querying Postgres; missing database
 configuration also returns 404. There is no environment-binding enable switch.
 Only the explicit local test harness can pass the full reviewed instance
-manifest. Extension and periphery addresses and runtimes, Core, constructor
-quote and its kind (an ERC-20 also its runtime) and both ABIs must match
-together; template runtimes are refused.
+manifest and quote list. Extension and periphery addresses and runtimes, Core
+and both ABIs must match an instance together. Quote support is per launch:
+native ETH is always eligible; an ERC-20 quote only if it is in the reviewed
+quote list by chain, address and runtime codehash. The local list holds only
+the fixture's plain test ERC-20 (evm-contracts `test/TestToken.sol`,
+relocated to `0xff…ff`); the hosted list is empty, so no ERC-20 quote launch
+can be served there even if launch reads were enabled.
 
-List SQL screens the extension, controller (periphery), quote and kind, Core,
-ordered pair, zero Core fee and spacing before pagination. Detail and both histories use that same selection.
+List SQL screens the extension, controller (periphery), Core, the launch's own
+quote and kind against the supported quote list, ordered pair, zero Core fee
+and spacing before pagination, so an unsupported quote never occupies a page.
+Detail and all histories use that same selection: an unsupported launch is 404.
 Missing/unsupported launches return 404. A missing, mismatched or stale cursor
 head returns 503. Parameters return 400; malformed internal indexed output
 fails as 500, never a success or client-validation fallback.
@@ -76,47 +90,69 @@ are `no-store`. Local test freshness is 60 seconds from cursor `last_updated`;
 this is not an approved live/hosted parameter. Fee rates and phases depend only
 on the indexed block timestamp. HTTP does not accept a wall-clock fee override.
 
-Principal is the immutable installed supply/L pair and Core event-accounted pool
+Principal is the immutable installed liquidity and Core event-accounted pool
 reserves (including rounding dust). Creator accrued/claimed/unclaimed ledgers
 are separate, per asset. Upper-bound leftover token residue and Core unowned
 token/quote dust are different quantities; no shared <=90 bound or fabricated
 claimable-funds estimate is exposed. Both assets are claimed atomically in full.
 
-Requested supply and build/expiry times are not all emitted onchain. The API
-must not fabricate them. Producer/owner surfaces separately bind a single
-preview's requested→actual supply/L, 31 UTF-8 byte metadata, all calldata and
-exact sink/start/expiry constraints. This read API does not close L-3 end-to-end.
+The installed supply is not emitted by `LaunchCreated`; the indexer takes it
+from Core's position update of the creation and refuses a creation without
+exactly one consistent update. Build/expiry times are not emitted onchain and
+are not served. Producer/owner surfaces separately bind a preview's
+requested supply and computed installation, 31 UTF-8 byte metadata, all
+calldata and start/expiry constraints; this read API does not.
 
 ## Local verification and stop/reset
 
-Run `bun test src/routes/launches src/responseSchemas.test.ts
-src/openapiSnapshot.test.ts`, `bun run lint`, and `bunx tsc --noEmit`.
+Run `bun run format:check`, `bun run lint`, `bun run typecheck` and
+`bun test` (or `bun test src/routes/launches src/responseSchemas.test.ts
+src/openapiSnapshot.test.ts` for the launch routes). `bun run openapi`
+regenerates `openapi.json`.
 
 For actual emitted-state/Postgres/handler replay, provide the exact pinned
-indexer checkout, a disposable loopback Postgres 18, and the run scratch path:
+indexer checkout (EkuboProtocol/indexer
+`d783593ea71371acc1851b9e887b064026d83609`, fixture
+`tests/fixtures/zero-seed-launch/local-chain.json` sha256
+`5dd281b580fb68dfaba00778d2241adf42c7b64ec5e8a70bfab8c9111ecf0ebb`), a
+disposable loopback Postgres 18 and a scratch directory:
 
 ```sh
+docker run -d --rm --name launch-replay-pg -p 127.0.0.1:55453:5432 \
+  --tmpfs /var/lib/postgresql:rw \
+  -e POSTGRES_USER=fixture -e POSTGRES_PASSWORD=fixture postgres:18
 ZERO_SEED_INDEXER_WORKTREE=/path/to/pinned/indexer \
 TEST_PG_CONNECTION_STRING=postgres://fixture:fixture@127.0.0.1:55453/postgres \
-PAPERCLIP_RUN_SCRATCH_DIR=/path/to/run-scratch \
-LAUNCH_GOLDEN_DIR=/path/to/run-scratch \
+LAUNCH_REPLAY_SCRATCH_DIR=/path/to/scratch \
+LAUNCH_GOLDEN_DIR=/path/to/scratch \
 bun scripts/verifyLaunchReplay.ts
+docker stop launch-replay-pg
 ```
 
+With `LAUNCH_GOLDEN_DIR` set, the run writes `actual-handler-golden.json`;
+copy it to `fixtures/zero-seed-launch-api-v4.golden.json` and run
+`bun run format`.
+
 The runner checks source/fixture pins, creates a scratch copy of the reviewed
-indexer test harness, appends API tests, and executes actual stream/DAO/SQL
-replay without editing the indexer checkout. Test-only query-method spies wire
+indexer test harness, appends API tests (`scripts/launchReplayCases.txt`),
+and executes actual stream/DAO/SQL replay without editing the indexer
+checkout. The API cases check every launch's supply against the chain
+(`totalSupply`, `balanceOf(address(0))`, Core's position delta), that
+ERC-20 quote launches are 404 and absent from lists when their quote is not
+in the reviewed list (empty, wrong runtime or wrong chain) while the native
+launch is served, and that a malformed indexed supply fails as 500. Test-only query-method spies wire
 the actual HTTP handlers to real local SQL with the reviewed local manifest;
 they do not stub response rows. All temporary databases are dropped by the
 harness. No RPC, fork URL, provider/secret read or production migration is used.
 
 Safe stop is launch support OFF. A pre-issuance source rollback to the PR base
-without launch routes is safe; the old staged or arbitrary-quote drafts are
-not. Reset only the dedicated disposable local test databases/container.
+without launch routes is safe; the old staged, constructor-quote or
+arbitrary-quote drafts are not. Reset only the dedicated disposable local test databases/container.
 Application rollback cannot refund, withdraw, rebalance or migrate immutable
 principal. No merge/deploy/live issuance or authority change is authorized.
 
 Live provenance/registration/state, production query performance/capacity/costs,
-served artifacts, mined UserOps, full WETH metadata reproduction, downstream
+served artifacts, mined UserOps, ERC-20 quote metadata (not indexed for the
+local quote, so its name, symbol and decimals are null), downstream
 whole-stack QA/Sage, external audit and legal/provider/wallet/board/release
 controls remain NOT PROVEN/HOLD.
