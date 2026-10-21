@@ -10003,7 +10003,7 @@
                     "schema_version": {
                       "type": "string",
                       "enum": [
-                        "zero-seed-launch-api/v3"
+                        "zero-seed-launch-api/v4"
                       ]
                     },
                     "data": {
@@ -10014,7 +10014,7 @@
                           "schema_version": {
                             "type": "string",
                             "enum": [
-                              "zero-seed-launch-api/v3"
+                              "zero-seed-launch-api/v4"
                             ]
                           },
                           "chain_id": {
@@ -10147,6 +10147,36 @@
                               "symbol",
                               "decimals",
                               "kind"
+                            ],
+                            "additionalProperties": false
+                          },
+                          "supply": {
+                            "type": "object",
+                            "properties": {
+                              "requested": {
+                                "type": "string",
+                                "pattern": "^(0|[1-9][0-9]*)$"
+                              },
+                              "installed": {
+                                "type": "string",
+                                "pattern": "^(0|[1-9][0-9]*)$"
+                              },
+                              "sink": {
+                                "type": "string",
+                                "pattern": "^(0|[1-9][0-9]*)$"
+                              },
+                              "sink_holder": {
+                                "type": "string",
+                                "enum": [
+                                  "0x0000000000000000000000000000000000000000"
+                                ]
+                              }
+                            },
+                            "required": [
+                              "requested",
+                              "installed",
+                              "sink",
+                              "sink_holder"
                             ],
                             "additionalProperties": false
                           },
@@ -10320,6 +10350,7 @@
                           "pool_key",
                           "token",
                           "quote_token",
+                          "supply",
                           "launch_token_is_token1",
                           "controller",
                           "creator",
@@ -10487,7 +10518,7 @@
                     "schema_version": {
                       "type": "string",
                       "enum": [
-                        "zero-seed-launch-api/v3"
+                        "zero-seed-launch-api/v4"
                       ]
                     },
                     "chain_id": {
@@ -10734,7 +10765,7 @@
                     "schema_version": {
                       "type": "string",
                       "enum": [
-                        "zero-seed-launch-api/v3"
+                        "zero-seed-launch-api/v4"
                       ]
                     },
                     "chain_id": {
@@ -10969,7 +11000,7 @@
                     "schema_version": {
                       "type": "string",
                       "enum": [
-                        "zero-seed-launch-api/v3"
+                        "zero-seed-launch-api/v4"
                       ]
                     },
                     "chain_id": {
@@ -11214,7 +11245,7 @@
                     "schema_version": {
                       "type": "string",
                       "enum": [
-                        "zero-seed-launch-api/v3"
+                        "zero-seed-launch-api/v4"
                       ]
                     },
                     "chain_id": {
@@ -11347,6 +11378,36 @@
                         "symbol",
                         "decimals",
                         "kind"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "supply": {
+                      "type": "object",
+                      "properties": {
+                        "requested": {
+                          "type": "string",
+                          "pattern": "^(0|[1-9][0-9]*)$"
+                        },
+                        "installed": {
+                          "type": "string",
+                          "pattern": "^(0|[1-9][0-9]*)$"
+                        },
+                        "sink": {
+                          "type": "string",
+                          "pattern": "^(0|[1-9][0-9]*)$"
+                        },
+                        "sink_holder": {
+                          "type": "string",
+                          "enum": [
+                            "0x0000000000000000000000000000000000000000"
+                          ]
+                        }
+                      },
+                      "required": [
+                        "requested",
+                        "installed",
+                        "sink",
+                        "sink_holder"
                       ],
                       "additionalProperties": false
                     },
@@ -11529,10 +11590,6 @@
                           "type": "string",
                           "pattern": "^(0|[1-9][0-9]*)$"
                         },
-                        "installed_supply": {
-                          "type": "string",
-                          "pattern": "^(0|[1-9][0-9]*)$"
-                        },
                         "locked": {
                           "type": "boolean",
                           "enum": [
@@ -11575,7 +11632,6 @@
                         "tick_lower",
                         "tick_upper",
                         "liquidity",
-                        "installed_supply",
                         "locked",
                         "withdrawable",
                         "pool_reserves",
@@ -11699,6 +11755,7 @@
                     "pool_key",
                     "token",
                     "quote_token",
+                    "supply",
                     "launch_token_is_token1",
                     "controller",
                     "creator",

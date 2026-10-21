@@ -2,6 +2,8 @@ import { expect, spyOn, test } from "bun:test";
 import { app } from "../../router";
 import { Queries } from "../../queries";
 import { StatusError } from "../../shared/errors";
+import { LOCAL_INSTANCES, LOCAL_QUOTES } from "./policy";
+import { LaunchQueries } from "./queries";
 
 const pool = `0x${"1".repeat(64)}`;
 const base = `/launches/31337/${pool}`;
@@ -28,6 +30,26 @@ test("hosted launch entrypoints stay disabled without database or live pins", as
       });
     }
   }
+});
+
+test("the hosted reader enables no instance and no ERC-20 quote", async () => {
+  const hosted = new LaunchQueries((() => {
+    throw new Error("no query may run");
+  }) as never);
+  expect(Reflect.get(hosted, "enabled")).toEqual([]);
+  expect(Reflect.get(hosted, "quotes")).toEqual([]);
+  await expect(
+    hosted.list({ chainId: 31337n, limit: 1 }),
+  ).rejects.toMatchObject({ status: 404 });
+  // even a harness that passes the reviewed lists is refused when not local
+  const notLocal = new LaunchQueries((() => {}) as never, {
+    localHarness: false,
+    instances: LOCAL_INSTANCES,
+    quotes: LOCAL_QUOTES,
+    maxIndexAgeSeconds: 60,
+  });
+  expect(Reflect.get(notLocal, "enabled")).toEqual([]);
+  expect(Reflect.get(notLocal, "quotes")).toEqual([]);
 });
 
 test("invalid arguments return 400 and the removed stats route returns 404", async () => {

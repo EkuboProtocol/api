@@ -8,64 +8,140 @@ import {
   decayQ128,
   decayedFee,
   feeSchedule,
+  launchSupply,
   LOCAL_INSTANCES,
+  LOCAL_QUOTES,
   supportedInstances,
   supportedLaunch,
+  supportedQuotes,
 } from "./policy";
 import {
   ClaimPage,
   LaunchDetail,
   LaunchList,
+  LaunchSummary,
   OwnerPage,
   SwapPage,
 } from "./schema";
 
-test("local instance manifests bind every constructor/runtime/ABI/periphery field", () => {
+const NATIVE = "0x0000000000000000000000000000000000000000";
+
+test("local instance manifests bind every runtime/ABI/periphery/Core field and carry no quote", () => {
   expect(supportedInstances(LOCAL_INSTANCES, true)).toEqual(LOCAL_INSTANCES);
   expect(supportedInstances(LOCAL_INSTANCES, false)).toEqual([]);
   expect(supportedInstances([], true)).toEqual([]);
+  expect(LOCAL_INSTANCES).toHaveLength(1);
   for (const pin of LOCAL_INSTANCES) {
+    expect(Object.keys(pin).some((key) => /quote/i.test(key))).toBe(false);
     for (const key of Object.keys(pin) as (keyof typeof pin)[]) {
       expect(
         supportedInstances([{ ...pin, [key]: "unreviewed" }], true),
       ).toEqual([]);
     }
-    expect(supportedLaunch(pin, LOCAL_INSTANCES)).toBe(true);
-    for (const key of [
-      "chainId",
-      "address",
-      "periphery",
-      "core",
-      "quote",
-      "quoteKind",
-    ] as const) {
+    const native = { ...pin, quote: NATIVE, quoteKind: "native" as const };
+    expect(supportedLaunch(native, LOCAL_INSTANCES, [])).toBe(true);
+    for (const key of ["chainId", "address", "periphery", "core"] as const) {
       expect(
-        supportedLaunch({ ...pin, [key]: "unreviewed" }, LOCAL_INSTANCES),
+        supportedLaunch(
+          { ...native, [key]: "unreviewed" },
+          LOCAL_INSTANCES,
+          LOCAL_QUOTES,
+        ),
       ).toBe(false);
     }
-    expect(supportedLaunch(pin, [])).toBe(false);
+    expect(supportedLaunch(native, [], LOCAL_QUOTES)).toBe(false);
   }
 });
 
-test("native and ERC-20 quote provenance stay distinct", () => {
-  const [native, weth] = LOCAL_INSTANCES;
-  expect([native.quote, native.quoteKind, native.quoteRuntime]).toEqual([
-    "0x0000000000000000000000000000000000000000",
-    "native",
-    null,
+test("quote support is per launch: native, or a reviewed ERC-20 by chain/address/runtime", () => {
+  const [pin] = LOCAL_INSTANCES;
+  const [token] = LOCAL_QUOTES;
+  expect([token.chainId, token.address, token.runtime]).toEqual([
+    "31337",
+    "0xffffffffffffffffffffffffffffffffffffffff",
+    "0xe8ccd7c4eb891208d5e04a27a31dfaf2b9bce01e083d7b36f10b6dd6ea643e63",
   ]);
-  expect(weth.quoteKind).toBe("erc20");
-  expect(weth.quoteRuntime).toMatch(/^0x[0-9a-f]{64}$/);
-  // relabelling either kind, or giving native ETH a runtime, is unreviewed
-  expect(supportedInstances([{ ...native, quoteKind: "erc20" }], true)).toEqual(
-    [],
-  );
+  expect(supportedQuotes(LOCAL_QUOTES, true)).toEqual(LOCAL_QUOTES);
+  // hosted: no ERC-20 quote is ever supported
+  expect(supportedQuotes(LOCAL_QUOTES, false)).toEqual([]);
+  for (const key of Object.keys(token) as (keyof typeof token)[])
+    expect(supportedQuotes([{ ...token, [key]: "unreviewed" }], true)).toEqual(
+      [],
+    );
+  const erc20 = {
+    ...pin,
+    quote: token.address,
+    quoteKind: "erc20" as const,
+  };
+  expect(supportedLaunch(erc20, LOCAL_INSTANCES, LOCAL_QUOTES)).toBe(true);
+  expect(supportedLaunch(erc20, LOCAL_INSTANCES, [])).toBe(false);
   expect(
-    supportedInstances([{ ...native, quoteRuntime: weth.quoteRuntime }], true),
-  ).toEqual([]);
-  expect(
-    supportedLaunch({ ...weth, quoteKind: "native" }, LOCAL_INSTANCES),
+    supportedLaunch(
+      { ...erc20, quote: `0x${"e".repeat(40)}` },
+      LOCAL_INSTANCES,
+      LOCAL_QUOTES,
+    ),
   ).toBe(false);
+  expect(
+    supportedLaunch(
+      { ...erc20, chainId: "1" },
+      [{ ...pin, chainId: "1" }],
+      LOCAL_QUOTES,
+    ),
+  ).toBe(false);
+  // relabelling either kind is refused
+  expect(
+    supportedLaunch(
+      { ...erc20, quoteKind: "native" },
+      LOCAL_INSTANCES,
+      LOCAL_QUOTES,
+    ),
+  ).toBe(false);
+  expect(
+    supportedLaunch(
+      { ...pin, quote: NATIVE, quoteKind: "erc20" },
+      LOCAL_INSTANCES,
+      [{ ...token, address: NATIVE }],
+    ),
+  ).toBe(false);
+});
+
+test("supply: 0 < installed <= requested and sink = requested - installed, else refused", () => {
+  const requested = 10n ** 27n;
+  expect(
+    launchSupply({
+      requested,
+      installed: 999999999999999999999999422n,
+      sink: 578n,
+    }),
+  ).toEqual({
+    requested: "1000000000000000000000000000",
+    installed: "999999999999999999999999422",
+    sink: "578",
+    sink_holder: NATIVE,
+  });
+  expect(launchSupply({ requested, installed: requested, sink: 0n }).sink).toBe(
+    "0",
+  );
+  const max = (1n << 127n) - 1n;
+  expect(
+    launchSupply({ requested: max, installed: 1n, sink: max - 1n }),
+  ).toEqual({
+    requested: max.toString(),
+    installed: "1",
+    sink: (max - 1n).toString(),
+    sink_holder: NATIVE,
+  });
+  for (const bad of [
+    { requested, installed: 0n, sink: requested },
+    { requested, installed: -1n, sink: requested + 1n },
+    { requested, installed: requested + 1n, sink: -1n },
+    { requested, installed: requested - 578n, sink: 577n },
+    { requested, installed: requested - 578n, sink: 579n },
+    { requested: max + 1n, installed: 1n, sink: max },
+    { requested: 0n, installed: 0n, sink: 0n },
+  ])
+    expect(() => launchSupply(bad)).toThrow(/Invalid indexed launch supply/);
 });
 
 const input = {
@@ -197,7 +273,7 @@ test("invalid indexed domains fail, never coerce or overflow", () => {
 
 test("frozen schemas expose no staged status/stats/exhausted or decay-factor fields", () => {
   const empty = {
-    schema_version: "zero-seed-launch-api/v3",
+    schema_version: "zero-seed-launch-api/v4",
     as_of: {
       block_number: "1",
       block_hash: `0x${"a".repeat(64)}`,
@@ -210,7 +286,7 @@ test("frozen schemas expose no staged status/stats/exhausted or decay-factor fie
   expect(
     LaunchList.safeParse({
       ...empty,
-      schema_version: "zero-seed-launch-api/v2",
+      schema_version: "zero-seed-launch-api/v3",
     }).success,
   ).toBe(false);
   expect(LaunchList.safeParse({ ...empty, status: "ended" }).success).toBe(
@@ -232,4 +308,36 @@ test("frozen schemas expose no staged status/stats/exhausted or decay-factor fie
   expect(Object.keys(LaunchDetail.shape.fee_schedule.shape)).not.toContain(
     "decay_factor",
   );
+});
+
+test("v4 supply is on every summary and replaces principal.installed_supply", () => {
+  expect(Object.keys(LaunchSummary.shape)).toContain("supply");
+  expect(Object.keys(LaunchSummary.shape.supply.shape)).toEqual([
+    "requested",
+    "installed",
+    "sink",
+    "sink_holder",
+  ]);
+  expect(Object.keys(LaunchDetail.shape.principal.shape)).not.toContain(
+    "installed_supply",
+  );
+  expect(Object.keys(LaunchDetail.shape.principal.shape)).toContain(
+    "liquidity",
+  );
+  const supply = LaunchSummary.shape.supply;
+  const ok = {
+    requested: "1000000000000000000000000000",
+    installed: "999999999999999999999999210",
+    sink: "790",
+    sink_holder: NATIVE,
+  };
+  expect(supply.safeParse(ok).success).toBe(true);
+  for (const bad of [
+    { ...ok, sink: 790 },
+    { ...ok, requested: "1e27" },
+    { ...ok, installed: "-1" },
+    { ...ok, sink_holder: `0x${"1".repeat(40)}` },
+    { ...ok, burned: "790" },
+  ])
+    expect(supply.safeParse(bad).success).toBe(false);
 });

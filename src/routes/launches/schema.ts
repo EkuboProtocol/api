@@ -1,7 +1,7 @@
 import { z } from "@hono/zod-openapi";
 
-// v3: native ETH quote kind, fixed-base fee table, periphery owner identity.
-export const SCHEMA_VERSION = "zero-seed-launch-api/v3" as const;
+// v4: requested/installed/sink supply, per-launch quote.
+export const SCHEMA_VERSION = "zero-seed-launch-api/v4" as const;
 export const SchemaVersion = z.literal(SCHEMA_VERSION);
 const U = z.string().regex(/^(0|[1-9][0-9]*)$/);
 const I = z.string().regex(/^(0|-?[1-9][0-9]*)$/);
@@ -52,13 +52,25 @@ export const FeeSchedule = z.strictObject({
   fee_rate: U,
   evaluated_at: Seconds,
 });
+// Raw launch-token units. requested is LaunchParameters.supply and the
+// token's totalSupply; installed is what Core took into the position at
+// creation (all circulating inventory); sink = requested - installed was
+// minted to address 0 and can never move. It is not a burn.
+const Supply = z.strictObject({
+  requested: U,
+  installed: U,
+  sink: U,
+  sink_holder: z.literal("0x0000000000000000000000000000000000000000"),
+});
 export const LaunchSummary = z.strictObject({
   schema_version: SchemaVersion,
   chain_id: U,
   pool_id: Bytes32,
   pool_key: PoolKey,
   token: Token,
+  // The launch's own quote, LaunchParameters.quoteToken.
   quote_token: QuoteToken,
+  supply: Supply,
   launch_token_is_token1: z.boolean(),
   // The locker that forwarded the creation: the instance's periphery.
   controller: Address,
@@ -80,7 +92,6 @@ export const LaunchDetail = LaunchSummary.extend({
     tick_lower: z.number().int(),
     tick_upper: z.number().int(),
     liquidity: U,
-    installed_supply: U,
     locked: z.literal(true),
     withdrawable: z.literal(false),
     pool_reserves: SideAmounts,

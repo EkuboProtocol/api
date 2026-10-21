@@ -6,11 +6,11 @@
       WHERE indexer_cursor.chain_id = ${CHAIN_ID}`;
   }
 
-  test("API actual handlers: emitted-state golden, owners, native quote, screening, pages, ledgers, reorg and repair", async () => {
+  test("API actual handlers: emitted-state golden, supply, owners, per-launch quotes, screening, pages, ledgers, reorg and repair", async () => {
     const db = await freshDb();
     const processors = LAUNCH_ON();
     const reader = new LaunchQueries(db.sql as never, {
-      localHarness: true, instances: LOCAL_INSTANCES, maxIndexAgeSeconds: 60,
+      localHarness: true, instances: LOCAL_INSTANCES, quotes: LOCAL_QUOTES, maxIndexAgeSeconds: 60,
     });
     const spies = [
       spyOn(Queries.prototype, "readZeroSeedList").mockImplementation((input) => reader.list(input)),
@@ -35,20 +35,34 @@
       const chain = state.pools.find((p: any) => p.label === label);
       const body = await get(path(label));
       const install = full.installations[label];
+      const launch = full.launches[label];
       const instance = full.instances.find((i: any) => i.label === install.instance);
       const launchIs1 = body.launch_token_is_token1;
-      expect(body.schema_version).toBe("zero-seed-launch-api/v3");
-      expect(body.principal.installed_supply).toBe(install.actualInstalledSupply);
-      expect(body.principal.liquidity).toBe(install.actualLiquidity);
+      expect(body.schema_version).toBe("zero-seed-launch-api/v4");
+      // requested = totalSupply, installed = Core's position delta, sink = balanceOf(0)
+      expect(body.supply).toEqual({
+        requested: launch.requestedSupply, installed: launch.installedSupply, sink: launch.sinkSupply,
+        sink_holder: "0x0000000000000000000000000000000000000000",
+      });
+      expect([body.supply.requested, body.supply.sink]).toEqual([chain.totalSupply, chain.sinkBalance]);
+      expect([body.supply.installed, body.supply.installed]).toEqual([install.coreInstalledDelta, install.installation.installedSupply]);
+      expect(BigInt(body.supply.sink) > 0n).toBe(true);
+      expect(body.principal).not.toHaveProperty("installed_supply");
+      expect(body.principal.liquidity).toBe(install.liquidity);
+      expect(body.principal.liquidity).toBe(install.coreLiquidityDelta);
+      expect((await get(`/launches?chainId=${CHAIN_ID}`)).data.find((l: any) => l.pool_id === body.pool_id).supply).toEqual(body.supply);
       expect(body.fee_ledger.launch_token.unclaimed).toBe(chain.creatorFees[launchIs1 ? 1 : 0]);
       expect(body.fee_ledger.quote_token.unclaimed).toBe(chain.creatorFees[launchIs1 ? 0 : 1]);
       expect(body.fee_ledger.transferable).toBe(true);
       expect([body.owner, body.fee_ledger.holder, body.creator, body.controller]).toEqual(
         [lower(chain.launchOwner), lower(chain.launchOwner), lower(install.owner), lower(chain.controller)]);
       expect(body.controller).toBe(lower(instance.periphery));
-      expect(body.quote_token.kind).toBe(instance.quoteKind);
-      expect(body.quote_token.address).toBe(lower(instance.quote));
-      if (instance.quoteKind === "native") {
+      expect(body.pool_key.extension).toBe(lower(instance.extension));
+      // the launch's own quote, LaunchParameters.quoteToken
+      expect(body.quote_token.kind).toBe(install.quoteKind);
+      expect(body.quote_token.address).toBe(lower(install.quote));
+      expect(launchIs1).toBe(launch.tokenIsToken1);
+      if (install.quoteKind === "native") {
         expect([body.quote_token.decimals, body.quote_token.name, body.quote_token.symbol, launchIs1]).toEqual([18, null, null, true]);
         expect(body.pool_key.token0).toBe("0x0000000000000000000000000000000000000000");
       }
@@ -151,15 +165,66 @@
       }
       // native buys pay ETH in: quote delta positive on buys
       expect(swaps.data.filter((s: any) => s.direction === "buy").every((s: any) => BigInt(s.quote_token_delta) > 0n)).toBe(true);
+      // native token1 and ERC-20 token0 launches share the one extension
+      const l2 = await get(path("l2"));
+      expect([detail.pool_key.extension, detail.launch_token_is_token1, detail.quote_token.kind, detail.supply.sink]).toEqual(
+        [lower(full.instances[0].extension), true, "native", "578"]);
+      expect([l2.pool_key.extension, l2.launch_token_is_token1, l2.quote_token.kind, l2.supply.sink]).toEqual(
+        [lower(full.instances[0].extension), false, "erc20", "790"]);
+      // no ERC-20 metadata is indexed for the local quote
+      expect(l2.quote_token).toEqual({ address: "0xffffffffffffffffffffffffffffffffffffffff", name: null, symbol: null, decimals: null, kind: "erc20" });
+      // l2 ownership: creator, transferred to newOwner on the prefix branch
+      const l2Owners = await get(`${path("l2")}/owners`);
+      expect(l2Owners.data.map((o: any) => [o.previous_owner, o.new_owner])).toEqual([
+        [null, lower(creator)], [lower(creator), lower(newOwner)]]);
+      expect([l2.creator, l2.owner]).toEqual([lower(creator), lower(newOwner)]);
+      const l2Swaps = await get(`${path("l2")}/swaps`);
+      expect(l2Swaps.data.length).toBe(l2.fee_ledger.swap_count);
+      // ERC-20 quote launches are served only while their quote is reviewed
+      const nativeOnly = (quotes: unknown[]) => new LaunchQueries(db.sql as never, {
+        localHarness: true, instances: LOCAL_INSTANCES, quotes: quotes as never, maxIndexAgeSeconds: 60,
+      });
+      for (const quotes of [[], LOCAL_QUOTES.map((q) => ({ ...q, runtime: `0x${"0".repeat(64)}` })), LOCAL_QUOTES.map((q) => ({ ...q, chainId: "1" }))]) {
+        const restricted = nativeOnly(quotes);
+        const spy = [
+          spyOn(Queries.prototype, "readZeroSeedList").mockImplementation((input) => restricted.list(input)),
+          spyOn(Queries.prototype, "readZeroSeedDetail").mockImplementation((chain, pool) => restricted.detail(chain, pool)),
+          spyOn(Queries.prototype, "readZeroSeedSwaps").mockImplementation((input) => restricted.swaps(input)),
+          spyOn(Queries.prototype, "readZeroSeedClaims").mockImplementation((input) => restricted.claims(input)),
+          spyOn(Queries.prototype, "readZeroSeedOwners").mockImplementation((input) => restricted.owners(input)),
+        ];
+        try {
+          // screened before pagination: the native launch fills the page
+          const page = await get(`/launches?chainId=${CHAIN_ID}&limit=1`);
+          expect(page.data.map((l: any) => l.pool_id)).toEqual([fixture.launches.l1!.poolId]);
+          expect(page.next_cursor).toBeNull();
+          for (const label of ["l2", "l4"])
+            for (const suffix of ["", "/swaps", "/claims", "/owners"]) {
+              const body = await get(`${path(label)}${suffix}`, 404);
+              expect(body).toEqual({ status: 404, error: "Launch not found" });
+            }
+          expect(await get(path("l1"))).toEqual(detail);
+        } finally {
+          spy.forEach((s) => s.mockRestore());
+        }
+      }
+      spies.forEach((s) => s.mockRestore());
+      spies.splice(0, spies.length,
+        spyOn(Queries.prototype, "readZeroSeedList").mockImplementation((input) => reader.list(input)),
+        spyOn(Queries.prototype, "readZeroSeedDetail").mockImplementation((chain, pool) => reader.detail(chain, pool)),
+        spyOn(Queries.prototype, "readZeroSeedSwaps").mockImplementation((input) => reader.swaps(input)),
+        spyOn(Queries.prototype, "readZeroSeedClaims").mockImplementation((input) => reader.claims(input)),
+        spyOn(Queries.prototype, "readZeroSeedOwners").mockImplementation((input) => reader.owners(input)),
+      );
+      expect(await get(path("l2"))).toEqual(l2);
       if (process.env.LAUNCH_GOLDEN_DIR) {
-        const l2 = await get(path("l2"));
         const l2Claims = await get(`${path("l2")}/claims`);
-        const l2Owners = await get(`${path("l2")}/owners`);
+        const l4 = await get(path("l4"));
         await Bun.write(resolve(process.env.LAUNCH_GOLDEN_DIR, "actual-handler-golden.json"), JSON.stringify({
-          schema_version: "zero-seed-launch-api/v3",
+          schema_version: "zero-seed-launch-api/v4",
           source: { fixture: "indexer tests/fixtures/zero-seed-launch/local-chain.json", chain_id: String(CHAIN_ID) },
           list, second, canonicalList, nativeDetail: detail, nativeSwaps: swaps, nativeClaims: claims, nativeOwners: owners,
-          erc20Detail: l2, erc20Claims: l2Claims, erc20Owners: l2Owners,
+          erc20Detail: l2, erc20Swaps: l2Swaps, erc20Claims: l2Claims, erc20Owners: l2Owners, erc20TraderOwnedDetail: l4,
         }, null, 2));
       }
       const before = await get(path("l1"));
@@ -172,6 +237,23 @@
       await get(path("l1"), 500);
       await db.sql`SELECT recompute_zero_seed_launch_state(pool_key_id) FROM zero_seed_launch_created`;
       expect(await get(path("l1"))).toEqual(before);
+      // Malformed indexed supply fails as 500 on detail and list, never served.
+      const [check] = await db.sql<{ name: string; def: string }[]>`
+        SELECT conname AS name, pg_get_constraintdef(oid) AS def FROM pg_constraint
+        WHERE conrelid = 'zero_seed_launch_created'::regclass AND contype = 'c'
+          AND pg_get_constraintdef(oid) LIKE '%installed_supply%'`;
+      await db.sql.unsafe(`ALTER TABLE zero_seed_launch_created DROP CONSTRAINT "${check!.name}"`);
+      await db.sql`ALTER TABLE zero_seed_launch_created DISABLE TRIGGER no_updates_zero_seed_launch_created`;
+      const l1Pool = num(fixture.launches.l1!.poolId);
+      for (const installed of ["0", "1000000000000000000000000001"]) {
+        await db.sql`UPDATE zero_seed_launch_created SET installed_supply = ${installed}::numeric WHERE pool_id = ${l1Pool}::numeric`;
+        await get(path("l1"), 500);
+        await get(`/launches?chainId=${CHAIN_ID}`, 500);
+      }
+      await db.sql`UPDATE zero_seed_launch_created SET installed_supply = ${before.supply.installed}::numeric WHERE pool_id = ${l1Pool}::numeric`;
+      await db.sql`ALTER TABLE zero_seed_launch_created ENABLE TRIGGER no_updates_zero_seed_launch_created`;
+      await db.sql.unsafe(`ALTER TABLE zero_seed_launch_created ADD CONSTRAINT "${check!.name}" ${check!.def}`);
+      expect(await get(path("l1"))).toEqual(before);
       await db.sql`UPDATE indexer_cursor SET last_updated = NOW() - INTERVAL '2 minutes' WHERE chain_id=${CHAIN_ID}`;
       await get(path("l1"), 503);
       await apiHead(db);
@@ -182,6 +264,7 @@
       const unpinned = new LaunchQueries(db.sql as never, {
         localHarness: true,
         instances: LOCAL_INSTANCES.map((p) => ({ ...p, periphery: "0x0000000000000000000000000000000000000001" })),
+        quotes: LOCAL_QUOTES,
         maxIndexAgeSeconds: 60,
       });
       await expect(unpinned.detail(CHAIN_ID, BigInt(fixture.launches.l1!.poolId))).rejects.toThrow(/disabled/);

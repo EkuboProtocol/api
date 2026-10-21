@@ -2,7 +2,14 @@ import type postgres from "postgres";
 import type { Sql } from "postgres";
 import { z } from "@hono/zod-openapi";
 import { StatusError } from "../../shared/errors";
-import { feeSchedule, supportedInstances, type LaunchInstance } from "./policy";
+import {
+  feeSchedule,
+  launchSupply,
+  supportedInstances,
+  supportedQuotes,
+  type LaunchInstance,
+  type LaunchQuote,
+} from "./policy";
 import {
   BlockRef,
   ClaimPage,
@@ -57,7 +64,9 @@ interface LaunchRow extends EventRow {
   tick_lower: number;
   tick_upper: number;
   liquidity: Numeric;
-  supply: Numeric;
+  requested_supply: Numeric;
+  installed_supply: Numeric;
+  sink_supply: Numeric;
   balance0: Numeric;
   balance1: Numeric;
   tick: number;
@@ -118,6 +127,11 @@ function summary(row: LaunchRow, asOf: z.infer<typeof BlockRef>) {
       decimals: row.decimals,
     },
     quote_token: quoteToken(row),
+    supply: launchSupply({
+      requested: BigInt(row.requested_supply),
+      installed: BigInt(row.installed_supply),
+      sink: BigInt(row.sink_supply),
+    }),
     launch_token_is_token1: row.token_is_token1,
     controller: hex(row.controller, 20),
     creator: hex(row.initial_owner, 20),
@@ -172,7 +186,6 @@ function detail(row: LaunchRow, asOf: z.infer<typeof BlockRef>) {
       tick_lower: row.tick_lower,
       tick_upper: row.tick_upper,
       liquidity: decimal(row.liquidity),
-      installed_supply: decimal(row.supply),
       locked: true,
       withdrawable: false,
       pool_reserves: {
@@ -212,15 +225,23 @@ export interface LaunchReadOptions {
 /** All constituent reads share a read-only repeatable-read snapshot. */
 export class LaunchQueries {
   private readonly enabled: readonly LaunchInstance[];
+  private readonly quotes: readonly LaunchQuote[];
   constructor(
     private readonly sql: DB,
     options: {
       localHarness: boolean;
       instances: readonly LaunchInstance[];
+      quotes: readonly LaunchQuote[];
       maxIndexAgeSeconds: number;
-    } = { localHarness: false, instances: [], maxIndexAgeSeconds: 60 },
+    } = {
+      localHarness: false,
+      instances: [],
+      quotes: [],
+      maxIndexAgeSeconds: 60,
+    },
   ) {
     this.enabled = supportedInstances(options.instances, options.localHarness);
+    this.quotes = supportedQuotes(options.quotes, options.localHarness);
     this.maxAge = options.maxIndexAgeSeconds;
     if (!Number.isFinite(this.maxAge) || this.maxAge <= 0) {
       throw new Error("Invalid local index freshness bound");
@@ -273,20 +294,29 @@ export class LaunchQueries {
   }
 
   private rows(tx: DB, chainId: bigint, filter: postgres.Fragment) {
-    // Screening occurs in SQL BEFORE cursor/limit; no arbitrary quote can
+    // Screening occurs in SQL BEFORE cursor/limit; no unsupported quote can
     // occupy a page or be served by detail/history.
-    const pins = this.enabled.filter((p) => p.chainId === chainId.toString());
+    const chain = chainId.toString();
+    const pins = this.enabled.filter((p) => p.chainId === chain);
     // Only launches created through the instance's periphery have an owner.
-    const checks = pins.map(
-      (p) => tx`
+    const instance = pins
+      .map(
+        (p) => tx`
       (c.emitter = ${BigInt(p.address).toString()}::numeric
        AND c.controller = ${BigInt(p.periphery).toString()}::numeric
-       AND c.quote_token = ${BigInt(p.quote).toString()}::numeric
-       AND c.quote_kind = ${p.quoteKind}
        AND pk.core_address = ${BigInt(p.core).toString()}::numeric)
     `,
-    );
-    const supported = checks.reduce((a, b) => tx`${a} OR ${b}`);
+      )
+      .reduce((a, b) => tx`${a} OR ${b}`);
+    // The launch's own quote: native ETH, or a reviewed ERC-20 of the chain.
+    const erc20 = this.quotes
+      .filter((q) => q.chainId === chain)
+      .map((q) => tx`c.quote_token = ${BigInt(q.address).toString()}::numeric`)
+      .reduce((a, b) => tx`${a} OR ${b}`, tx`FALSE`);
+    const quote = tx`
+      ((c.quote_kind = 'native' AND c.quote_token = 0)
+       OR (c.quote_kind = 'erc20' AND c.quote_token <> 0 AND (${erc20})))
+    `;
     return tx<LaunchRow[]>`
       SELECT c.*, b.block_hash, b.block_time, pk.core_address, pk.token0, pk.token1,
              qt.token_name AS quote_name, qt.token_symbol AS quote_symbol,
@@ -309,7 +339,7 @@ export class LaunchQueries {
         AND pk.token1 = GREATEST(c.token, c.quote_token)
         AND pk.tick_spacing = c.tick_spacing
         AND s.current_owner IS NOT NULL AND s.initial_owner IS NOT NULL
-        AND (${supported}) AND ${filter}
+        AND (${instance}) AND ${quote} AND ${filter}
     `;
   }
 

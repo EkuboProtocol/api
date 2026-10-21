@@ -1,16 +1,19 @@
 import { z } from "@hono/zod-openapi";
 import { FeeSchedule } from "./schema";
 
-// sha256 of `jq -cS .abi` (no trailing newline) of the evm-contracts 4f1a3060
+// sha256 of `jq -cS .abi` (no trailing newline) of the evm-contracts 40af6cb
 // build, as in the protocol manifest.
 export const ABI_SHA256 =
-  "21f9e2c0166ab28ce8573c481de5b0fc2f37dd7595d496d326f0a2d1a544254e";
+  "999068f8e41867e972f4485c0105f584a2c10d7537615e6b4517807548fcd4bf";
 export const PERIPHERY_ABI_SHA256 =
-  "5c563488b843aee923d0d819a66489eeee543dd20d1582de1f5df643f5d08a75";
-const CORE = "0x00000000000014aa86c5d3c41765bb24e11bd701";
-const WETH_RUNTIME =
-  "0x8a3a1f6a9f9dce633117adee5b458245835a8645a8c8726a26382a4622508b1c";
+  "df24d9f07d45323da7e46c0f6e64ce24f8f522442d60cb07880ddf742ebe7305";
+const NATIVE = "0x0000000000000000000000000000000000000000" as const;
 
+/**
+ * An extension and the periphery that forwards to it. An instance has no
+ * quote: every launch names its own (LaunchParameters.quoteToken), and one
+ * instance serves native ETH and ERC-20 quotes alike.
+ */
 export interface LaunchInstance {
   chainId: string;
   address: string;
@@ -18,82 +21,139 @@ export interface LaunchInstance {
   periphery: string;
   peripheryRuntime: string;
   core: string;
-  quote: string;
-  quoteKind: "native" | "erc20";
-  /** null for native ETH, which has no code. */
-  quoteRuntime: string | null;
   abiSha256: string;
   peripheryAbiSha256: string;
 }
 
-// Constructor-executed LOCAL instances of the indexer replay fixture
-// (evm-contracts 4f1a3060, anvil, no fork): native ETH and relocated plain
-// WETH. No live instance exists. Never enable these via a hosted
+/** A reviewed ERC-20 quote. Native ETH (address 0) needs no entry. */
+export interface LaunchQuote {
+  chainId: string;
+  address: string;
+  runtime: string;
+}
+
+// The constructor-executed LOCAL instance of the indexer replay fixture
+// (evm-contracts 40af6cb, anvil, no fork), serving native-ETH and ERC-20
+// quote launches. No live instance exists. Never enable it via a hosted
 // configuration.
 export const LOCAL_INSTANCES: readonly LaunchInstance[] = [
   {
     chainId: "31337",
-    address: "0x5114703a4cf4256f0acb68f992c861d8c4d1b173",
+    address: "0x519ddb6580e97e08e639d601dc6e378285c3ef34",
     runtime:
-      "0x846786a63ba1a2c976f748fdc94b8cbc8f76dc64f07452333d36ff564f281bf7",
-    periphery: "0xb27e16c3d01850191c1e027f7a3372cd2e1fb324",
+      "0x32160cd19576b73812a6c557ca8f9697ac1c3cd821576afc70e9a9b00bf888be",
+    periphery: "0x094511cf93e73feca154da35a2404e8bde1111b4",
     peripheryRuntime:
-      "0x57d0ee27c634ac08d08b60bf8e6c2f185c7e9444613ccfde5ac9bbb5e3f84f2a",
-    core: CORE,
-    quote: "0x0000000000000000000000000000000000000000",
-    quoteKind: "native",
-    quoteRuntime: null,
-    abiSha256: ABI_SHA256,
-    peripheryAbiSha256: PERIPHERY_ABI_SHA256,
-  },
-  {
-    chainId: "31337",
-    address: "0x519435a42752da78e395999218d0ecc4fdcbcf4b",
-    runtime:
-      "0x56e32aeac03464c3babd754fc21e0594c42d82db9d9c0cc3dd1ce1ec20273750",
-    periphery: "0x94e1b338def908449e6ea7c7d254630b45d27562",
-    peripheryRuntime:
-      "0xb78ea649f2e1817c851f7417a604d1565a346c6bec022abc821e3f1110739ac8",
-    core: CORE,
-    quote: "0xffffffffffffffffffffffffffffffffffffffff",
-    quoteKind: "erc20",
-    quoteRuntime: WETH_RUNTIME,
+      "0x91a98d2669389244ad8553d84f5c7e3c2947d5d4b5abb519be93d68142cce7c1",
+    core: "0x00000000000014aa86c5d3c41765bb24e11bd701",
     abiSha256: ABI_SHA256,
     peripheryAbiSha256: PERIPHERY_ABI_SHA256,
   },
 ];
 
-/** An explicit local harness manifest, never an address-only allowlist. */
-export function supportedInstances(
-  requested: readonly LaunchInstance[],
+// The fixture's plain 18-decimal test ERC-20 (evm-contracts
+// test/TestToken.sol), relocated to the highest address so the launch token
+// is token0. Local only; the hosted quote list is empty.
+export const LOCAL_QUOTES: readonly LaunchQuote[] = [
+  {
+    chainId: "31337",
+    address: "0xffffffffffffffffffffffffffffffffffffffff",
+    runtime:
+      "0xe8ccd7c4eb891208d5e04a27a31dfaf2b9bce01e083d7b36f10b6dd6ea643e63",
+  },
+];
+
+function reviewed<T extends object>(
+  requested: readonly T[],
+  pins: readonly T[],
   localHarness: boolean,
-): readonly LaunchInstance[] {
+): readonly T[] {
   if (!localHarness) return [];
   return requested.filter((request) =>
-    LOCAL_INSTANCES.some((pin) =>
-      (Object.keys(pin) as (keyof LaunchInstance)[]).every(
+    pins.some((pin) =>
+      (Object.keys(pin) as (keyof T)[]).every(
         (key) => pin[key] === request[key],
       ),
     ),
   );
 }
 
-export function supportedLaunch(
-  row: Pick<
-    LaunchInstance,
-    "chainId" | "address" | "periphery" | "core" | "quote" | "quoteKind"
-  >,
-  enabled: readonly LaunchInstance[],
+/** An explicit local harness manifest, never an address-only allowlist. */
+export function supportedInstances(
+  requested: readonly LaunchInstance[],
+  localHarness: boolean,
+): readonly LaunchInstance[] {
+  return reviewed(requested, LOCAL_INSTANCES, localHarness);
+}
+
+/** ERC-20 quotes bound by chain, address and runtime; empty when hosted. */
+export function supportedQuotes(
+  requested: readonly LaunchQuote[],
+  localHarness: boolean,
+): readonly LaunchQuote[] {
+  return reviewed(requested, LOCAL_QUOTES, localHarness);
+}
+
+/** Native ETH, or an ERC-20 in the enabled quote list of the chain. */
+export function supportedQuote(
+  row: { chainId: string; quote: string; quoteKind: "native" | "erc20" },
+  quotes: readonly LaunchQuote[],
 ): boolean {
-  return enabled.some(
-    (pin) =>
-      pin.chainId === row.chainId &&
-      pin.address === row.address &&
-      pin.periphery === row.periphery &&
-      pin.core === row.core &&
-      pin.quote === row.quote &&
-      pin.quoteKind === row.quoteKind,
+  if (row.quoteKind === "native") return row.quote === NATIVE;
+  return (
+    row.quote !== NATIVE &&
+    quotes.some((q) => q.chainId === row.chainId && q.address === row.quote)
   );
+}
+
+export function supportedLaunch(
+  row: Pick<LaunchInstance, "chainId" | "address" | "periphery" | "core"> & {
+    quote: string;
+    quoteKind: "native" | "erc20";
+  },
+  enabled: readonly LaunchInstance[],
+  quotes: readonly LaunchQuote[],
+): boolean {
+  return (
+    enabled.some(
+      (pin) =>
+        pin.chainId === row.chainId &&
+        pin.address === row.address &&
+        pin.periphery === row.periphery &&
+        pin.core === row.core,
+    ) && supportedQuote(row, quotes)
+  );
+}
+
+const INT128_MAX = (1n << 127n) - 1n;
+export const SINK_HOLDER = NATIVE;
+
+/**
+ * The launch-token supply split: requested (LaunchParameters.supply, the
+ * token's totalSupply), installed (in the position) and sink (minted to
+ * address 0). Anything outside 0 < installed <= requested <= int128 max with
+ * sink = requested - installed is malformed indexed data.
+ */
+export function launchSupply(input: {
+  requested: bigint;
+  installed: bigint;
+  sink: bigint;
+}) {
+  const { requested, installed, sink } = input;
+  if (
+    installed <= 0n ||
+    installed > requested ||
+    requested > INT128_MAX ||
+    sink !== requested - installed
+  ) {
+    throw new Error("Invalid indexed launch supply");
+  }
+  return {
+    requested: requested.toString(),
+    installed: installed.toString(),
+    sink: sink.toString(),
+    sink_holder: SINK_HOLDER,
+  };
 }
 
 const UINT64_MAX = (1n << 64n) - 1n;

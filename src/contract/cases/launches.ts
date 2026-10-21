@@ -1,17 +1,19 @@
 import { ContractCase, stubQuery } from "../harness";
 import { LOCAL_INSTANCES } from "../../routes/launches/policy";
 
+const NATIVE = "0x0000000000000000000000000000000000000000" as const;
+
 const pin = LOCAL_INSTANCES[0];
 const owner = `0x${"2".repeat(40)}`;
 const zero = `0x${"0".repeat(64)}`;
 const as_of = { block_number: "1", block_hash: zero, block_time: 1000 };
 const summary = {
-  schema_version: "zero-seed-launch-api/v3" as const,
+  schema_version: "zero-seed-launch-api/v4" as const,
   chain_id: "31337",
   pool_id: zero,
   pool_key: {
     core_address: pin.core,
-    token0: pin.quote,
+    token0: NATIVE,
     token1: `0x${"1".repeat(40)}`,
     config: zero,
     fee: "0" as const,
@@ -25,11 +27,17 @@ const summary = {
     decimals: 18,
   },
   quote_token: {
-    address: pin.quote,
+    address: NATIVE,
     name: null,
     symbol: null,
     decimals: 18,
     kind: "native" as const,
+  },
+  supply: {
+    requested: "1000000000000000000000000000",
+    installed: "999999999999999999999999422",
+    sink: "578",
+    sink_holder: NATIVE,
   },
   launch_token_is_token1: true,
   controller: pin.periphery,
@@ -62,7 +70,7 @@ const summary = {
 };
 const ledger = { accrued: "0", claimed: "0", unclaimed: "0" };
 const identity = {
-  schema_version: "zero-seed-launch-api/v3" as const,
+  schema_version: "zero-seed-launch-api/v4" as const,
   chain_id: "31337",
   pool_id: zero,
   as_of,
@@ -75,7 +83,7 @@ export const launchesCases: ContractCase[] = [
     request: "/launches?chainId=31337",
     stub: () =>
       stubQuery("readZeroSeedList", {
-        schema_version: "zero-seed-launch-api/v3",
+        schema_version: "zero-seed-launch-api/v4",
         data: [summary],
         as_of,
         next_cursor: null,
@@ -92,7 +100,6 @@ export const launchesCases: ContractCase[] = [
           tick_lower: 0,
           tick_upper: 100,
           liquidity: "100",
-          installed_supply: "1000",
           locked: true,
           withdrawable: false,
           pool_reserves: { launch_token: "1000", quote_token: "0" },

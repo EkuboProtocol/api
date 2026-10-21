@@ -5,8 +5,7 @@ import { resolve, dirname } from "node:path";
 import { mkdir } from "node:fs/promises";
 
 const root = process.env.ZERO_SEED_INDEXER_WORKTREE;
-const scratch =
-  process.env.PAPERCLIP_RUN_SCRATCH_DIR ?? process.env.PAPERCLIP_SCRATCH_DIR;
+const scratch = process.env.LAUNCH_REPLAY_SCRATCH_DIR;
 const pg = process.env.TEST_PG_CONNECTION_STRING;
 if (!root || !scratch || !pg)
   throw new Error(
@@ -17,7 +16,7 @@ if (!["127.0.0.1", "localhost"].includes(url.hostname))
   throw new Error("Only loopback test Postgres is permitted");
 const head = Bun.spawnSync(["git", "-C", root, "rev-parse", "HEAD"]);
 if (
-  head.stdout.toString().trim() !== "200684630121eef0ce18c649cd5035f9b57cef60"
+  head.stdout.toString().trim() !== "d783593ea71371acc1851b9e887b064026d83609"
 )
   throw new Error("Indexer source pin mismatch");
 const clean = Bun.spawnSync([
@@ -38,7 +37,7 @@ const fixturePath = resolve(
 const fixtureBytes = await Bun.file(fixturePath).arrayBuffer();
 if (
   new Bun.CryptoHasher("sha256").update(fixtureBytes).digest("hex") !==
-  "c4cea4e1d1accf56fcf7beb90743321cd6b1c4761e304651c3636dc9136d482b"
+  "5dd281b580fb68dfaba00778d2241adf42c7b64ec5e8a70bfab8c9111ecf0ebb"
 )
   throw new Error("Emitted fixture pin mismatch");
 const original = resolve(root, "src/evm/zeroSeedLaunchReplay.postgres.test.ts");
@@ -60,7 +59,7 @@ const extra = await Bun.file(
 ).text();
 source = `import { spyOn } from "bun:test";
 import { LaunchQueries } from ${JSON.stringify(resolve(api, "routes/launches/queries"))};
-import { LOCAL_INSTANCES } from ${JSON.stringify(resolve(api, "routes/launches/policy"))};
+import { LOCAL_INSTANCES, LOCAL_QUOTES } from ${JSON.stringify(resolve(api, "routes/launches/policy"))};
 import { Queries } from ${JSON.stringify(resolve(api, "queries"))};
 import { app } from ${JSON.stringify(resolve(api, "router"))};
 ${source}`;
