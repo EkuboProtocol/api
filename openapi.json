@@ -8176,6 +8176,16 @@
                                   "type": "string",
                                   "pattern": "^\\d+$",
                                   "description": "A decimal number"
+                                },
+                                "amount_sold_checkpoint": {
+                                  "type": "string",
+                                  "pattern": "^\\d+$",
+                                  "description": "Amount sold up to amount_sold_checkpoint_time. It only changes when the order is updated; after that time the order sells at sale_rate, so amount sold at time t is amount_sold_checkpoint + floor((min(t, end_time) - amount_sold_checkpoint_time) * sale_rate / 2**32)"
+                                },
+                                "amount_sold_checkpoint_time": {
+                                  "type": "integer",
+                                  "minimum": 0,
+                                  "description": "The epoch time in seconds up to which amount_sold_checkpoint is accounted, between start_time and end_time"
                                 }
                               },
                               "required": [
@@ -8183,7 +8193,9 @@
                                 "total_proceeds_withdrawn",
                                 "sale_rate",
                                 "last_collect_proceeds",
-                                "total_amount_sold"
+                                "total_amount_sold",
+                                "amount_sold_checkpoint",
+                                "amount_sold_checkpoint_time"
                               ]
                             }
                           }
@@ -8455,6 +8467,16 @@
                                   "type": "string",
                                   "pattern": "^\\d+$",
                                   "description": "A decimal number"
+                                },
+                                "amount_sold_checkpoint": {
+                                  "type": "string",
+                                  "pattern": "^\\d+$",
+                                  "description": "Amount sold up to amount_sold_checkpoint_time. It only changes when the order is updated; after that time the order sells at sale_rate, so amount sold at time t is amount_sold_checkpoint + floor((min(t, end_time) - amount_sold_checkpoint_time) * sale_rate / 2**32)"
+                                },
+                                "amount_sold_checkpoint_time": {
+                                  "type": "integer",
+                                  "minimum": 0,
+                                  "description": "The epoch time in seconds up to which amount_sold_checkpoint is accounted, between start_time and end_time"
                                 }
                               },
                               "required": [
@@ -8462,7 +8484,9 @@
                                 "total_proceeds_withdrawn",
                                 "sale_rate",
                                 "last_collect_proceeds",
-                                "total_amount_sold"
+                                "total_amount_sold",
+                                "amount_sold_checkpoint",
+                                "amount_sold_checkpoint_time"
                               ]
                             }
                           }
