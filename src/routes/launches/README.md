@@ -5,8 +5,8 @@ Draft response contract: `zero-seed-launch-api/v4`, for the forward-only
 `43d6628841b3ce91dafa048b7ceef64bed55fc8e` (ABI sha256 of `jq -cS .abi`:
 ZeroSeedLaunch `efae9388aa6b1342479204ddf436fd2a310df16bf06c80c990b2d22c90d1e41e`,
 periphery `df24d9f07d45323da7e46c0f6e64ce24f8f522442d60cb07880ddf742ebe7305`).
-Indexer schema `zero-seed-launch-index/v3` (migration 00139). Live instance
-and quote lists are empty.
+Indexer schema `zero-seed-launch-index/v3` (migration 00140, after main's
+`00139_mev_capture_v21`). Live instance and quote lists are empty.
 
 Changes from v3:
 
@@ -136,7 +136,7 @@ regenerates `openapi.json`.
 
 For actual emitted-state/Postgres/handler replay, provide the exact pinned
 indexer checkout (EkuboProtocol/indexer
-`91a70364ecb06a2aef107261aee323f65890c0f5`, fixture
+`03e95fd8a457a8e5aa24799f4d5242a5fff66a22`, fixture
 `tests/fixtures/zero-seed-launch/local-chain.json` sha256
 `ec308953b8412e3ad76e7b6bf74b1e3ae56f6cbe0798032dbc6673bfedfae7d9`), a
 disposable loopback Postgres 18 and a scratch directory:

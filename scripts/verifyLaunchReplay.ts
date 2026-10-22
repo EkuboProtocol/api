@@ -16,7 +16,7 @@ if (!["127.0.0.1", "localhost"].includes(url.hostname))
   throw new Error("Only loopback test Postgres is permitted");
 const head = Bun.spawnSync(["git", "-C", root, "rev-parse", "HEAD"]);
 if (
-  head.stdout.toString().trim() !== "91a70364ecb06a2aef107261aee323f65890c0f5"
+  head.stdout.toString().trim() !== "03e95fd8a457a8e5aa24799f4d5242a5fff66a22"
 )
   throw new Error("Indexer source pin mismatch");
 const clean = Bun.spawnSync([
