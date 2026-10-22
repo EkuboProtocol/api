@@ -22,6 +22,8 @@ test("the emitted-state golden responses parse with the v4 schemas", () => {
     golden.erc20TraderOwnedDetail,
     golden.maxNativeDetail,
     golden.maxErc20Detail,
+    golden.lowPriceErc20Detail,
+    golden.fullWidthErc20Detail,
   ])
     LaunchDetail.parse(detail);
   for (const swaps of [
@@ -160,4 +162,45 @@ test("launches created at the maximum rate 2^64 - 1 are served exactly, never as
       ).toBe(accrued);
     }
   }
+});
+
+test("low-price ERC-20 token0 launches serve the exact installation, including an empty sink", () => {
+  const sinkHolder = "0x0000000000000000000000000000000000000000";
+  const l7 = golden.lowPriceErc20Detail;
+  const l8 = golden.fullWidthErc20Detail;
+  // 1e30 over ticks -88080384..-85983232 at spacing 524288: the largest
+  // affordable liquidity, 115073586432 (the shared helper gave 106052588672)
+  expect([
+    l7.supply,
+    l7.principal.liquidity,
+    l7.launch_token_is_token1,
+  ]).toEqual([
+    {
+      requested: "1000000000000000000000000000000",
+      installed: "999999999991410763432286846442",
+      sink: "8589236567713153558",
+      sink_holder: sinkHolder,
+    },
+    "115073586432",
+    false,
+  ]);
+  // an int128-scale supply over the full width at spacing 1 installs exactly
+  expect([
+    l8.supply,
+    l8.principal.liquidity,
+    l8.launch_token_is_token1,
+  ]).toEqual([
+    {
+      requested: "170141183460469231694794709727778658247",
+      installed: "170141183460469231694794709727778658247",
+      sink: "0",
+      sink_holder: sinkHolder,
+    },
+    "9223595582101085260",
+    false,
+  ]);
+  for (const detail of [l7, l8])
+    expect(BigInt(detail.supply.installed) + BigInt(detail.supply.sink)).toBe(
+      BigInt(detail.supply.requested),
+    );
 });

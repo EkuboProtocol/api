@@ -2,7 +2,7 @@
 
 Draft response contract: `zero-seed-launch-api/v4`, for the forward-only
 `ZeroSeedLaunch` and its separate `ZeroSeedLaunchPeriphery` of evm-contracts
-`550afc40280423128c02eb5ffd213aa959b34e2a` (ABI sha256 of `jq -cS .abi`:
+`43d6628841b3ce91dafa048b7ceef64bed55fc8e` (ABI sha256 of `jq -cS .abi`:
 ZeroSeedLaunch `efae9388aa6b1342479204ddf436fd2a310df16bf06c80c990b2d22c90d1e41e`,
 periphery `df24d9f07d45323da7e46c0f6e64ce24f8f522442d60cb07880ddf742ebe7305`).
 Indexer schema `zero-seed-launch-index/v3` (migration 00139). Live instance
@@ -38,6 +38,13 @@ is no ceiling below 2^64 - 1 and no `FeeTooHigh` error. The API refuses (500) an
 indexed fee above 2^64 - 1 instead of wrapping, truncating or serving it.
 The response shape is unchanged, so the contract stays v4.
 
+At `43d6628` the extension installs the exact largest token0 liquidity the
+requested supply pays for (an ERC-20 quote above the launch token), where it
+previously installed less at low prices and sank the difference. The API
+serves the indexed liquidity and Core's position delta and never recomputes
+the installation, so nothing here changes; `sink` can now be `"0"` when the
+requested supply is exactly installable (no mint to address 0 happens).
+
 Unchanged from v3: the fixed-base fee table (`fee_schedule.decay` is
 `{ kind: "fixed_base_q128", half_life_seconds: 600 }` and `fee_rate` the
 contract's `feeAt` at the indexed block time, checked in `policy.test.ts`
@@ -53,7 +60,12 @@ a native-ETH (launch token1, sink 578) and two ERC-20 (launch token0, sink 790)
 launches on one extension, ownership transfers, claims, swaps and a reorg,
 plus two launches created at the maximum rate: `maxNativeDetail` (native,
 2^64 - 1 decaying to 0.3% over 3600 s) and `maxErc20Detail` (ERC-20, flat at
-2^64 - 1), with their exact-input, exact-output and decayed swaps and claims.
+2^64 - 1), with their exact-input, exact-output and decayed swaps and claims,
+and two ERC-20 launches at low-price token0 geometry: `lowPriceErc20Detail`
+(1e30 over ticks -88080384..-85983232 at spacing 524288; liquidity
+115073586432, sink 8589236567713153558) and `fullWidthErc20Detail` (an
+int128-scale supply over the full width at spacing 1 that installs all of it,
+sink `"0"`).
 
 ## Requests
 
@@ -124,9 +136,9 @@ regenerates `openapi.json`.
 
 For actual emitted-state/Postgres/handler replay, provide the exact pinned
 indexer checkout (EkuboProtocol/indexer
-`c78a48e3aff1df7a8e3298545eee8be04474063d`, fixture
+`91a70364ecb06a2aef107261aee323f65890c0f5`, fixture
 `tests/fixtures/zero-seed-launch/local-chain.json` sha256
-`09d7745740af507a02304e26c0e20d6f27b1047fd707c056ef4d936c67a74fcc`), a
+`ec308953b8412e3ad76e7b6bf74b1e3ae56f6cbe0798032dbc6673bfedfae7d9`), a
 disposable loopback Postgres 18 and a scratch directory:
 
 ```sh

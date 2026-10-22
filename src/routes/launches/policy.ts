@@ -1,7 +1,7 @@
 import { z } from "@hono/zod-openapi";
 import { FeeSchedule } from "./schema";
 
-// sha256 of `jq -cS .abi` (no trailing newline) of the evm-contracts 550afc4
+// sha256 of `jq -cS .abi` (no trailing newline) of the evm-contracts 43d6628
 // build, as in the protocol manifest.
 export const ABI_SHA256 =
   "efae9388aa6b1342479204ddf436fd2a310df16bf06c80c990b2d22c90d1e41e";
@@ -33,18 +33,18 @@ export interface LaunchQuote {
 }
 
 // The constructor-executed LOCAL instance of the indexer replay fixture
-// (evm-contracts 550afc4, anvil, no fork), serving native-ETH and ERC-20
+// (evm-contracts 43d6628, anvil, no fork), serving native-ETH and ERC-20
 // quote launches. No live instance exists. Never enable it via a hosted
 // configuration.
 export const LOCAL_INSTANCES: readonly LaunchInstance[] = [
   {
     chainId: "31337",
-    address: "0x511b4327c2a2b6fd803b4ae85f2f9d831e046d8b",
+    address: "0x519c5f793d3f6cf9ee439e4cc38d8285cf08211f",
     runtime:
-      "0xb8c6d15f45c41e9dc43ac0e6ab8ea941dc833514cdb0b82f381c65f42f73a858",
-    periphery: "0x2f0be2fc5a2825cecd23dbf6ed33ed8ff823ef64",
+      "0xd6b4c7ce8da56e9948fdb004a035d9b52dbd3690bcb03c1269bbf2a9981d8ed5",
+    periphery: "0x0df4e2a76640b52e51479b435f52d0eb0e7e8ef4",
     peripheryRuntime:
-      "0x49988478ba70cc8d2587eb63141b333c7ef0a67c4639c3a2ee25de4c4597999e",
+      "0x2a9329dbb064a2c031115c7c120c8b6a1f31de167f33374180e4dc73d975974b",
     core: "0x00000000000014aa86c5d3c41765bb24e11bd701",
     abiSha256: ABI_SHA256,
     peripheryAbiSha256: PERIPHERY_ABI_SHA256,

@@ -53,7 +53,8 @@
       });
       expect([body.supply.requested, body.supply.sink]).toEqual([chain.totalSupply, chain.sinkBalance]);
       expect([body.supply.installed, body.supply.installed]).toEqual([install.coreInstalledDelta, install.installation.installedSupply]);
-      expect(BigInt(body.supply.sink) > 0n).toBe(true);
+      // every launch sinks a remainder except l8, whose int128-scale supply installs exactly
+      expect(BigInt(body.supply.sink) > 0n).toBe(label !== "l8");
       expect(body.principal).not.toHaveProperty("installed_supply");
       expect(body.principal.liquidity).toBe(install.liquidity);
       expect(body.principal.liquidity).toBe(install.coreLiquidityDelta);
@@ -130,20 +131,32 @@
       });
       const canonicalList = await get(`/launches?chainId=${CHAIN_ID}`);
       expect(canonicalList.data.map((l: any) => l.pool_id)).toEqual(
-        ["l6", "l5", "l4", "l2", "l1"].map((l) => fixture.launches[l]!.poolId));
+        ["l8", "l7", "l6", "l5", "l4", "l2", "l1"].map((l) => fixture.launches[l]!.poolId));
       expect(canonicalList.next_cursor).toBeNull();
+      // Low-price token0 launches serve the exact installation the chain recorded: l7 sinks the
+      // remainder of the largest affordable liquidity, l8 installs its whole supply.
+      const l7 = await get(path("l7"));
+      const l8 = await get(path("l8"));
+      expect([l7.supply, l7.principal.liquidity, l7.launch_token_is_token1, l7.quote_token.kind]).toEqual([
+        { requested: "1000000000000000000000000000000", installed: "999999999991410763432286846442",
+          sink: "8589236567713153558", sink_holder: "0x0000000000000000000000000000000000000000" },
+        "115073586432", false, "erc20"]);
+      expect([l8.supply, l8.principal.liquidity, l8.launch_token_is_token1]).toEqual([
+        { requested: "170141183460469231694794709727778658247", installed: "170141183460469231694794709727778658247",
+          sink: "0", sink_holder: "0x0000000000000000000000000000000000000000" },
+        "9223595582101085260", false]);
       for (const suffix of ["", "/swaps", "/claims", "/owners"])
         await get(`${path("l3")}${suffix}`, 404);
       // creator (owner at creation) and current owner filters
       expect((await get(`/launches?chainId=${CHAIN_ID}&creator=${creator}`)).data.map((l: any) => l.pool_id)).toEqual(
-        ["l5", "l2", "l1"].map((l) => fixture.launches[l]!.poolId));
+        ["l7", "l5", "l2", "l1"].map((l) => fixture.launches[l]!.poolId));
       expect((await get(`/launches?chainId=${CHAIN_ID}&owner=${feeRecipient}`)).data.map((l: any) => l.pool_id)).toEqual(
         [fixture.launches.l1!.poolId]);
       expect((await get(`/launches?chainId=${CHAIN_ID}&owner=${BigInt(trader).toString()}`)).data.map((l: any) => l.pool_id)).toEqual(
-        ["l6", "l4"].map((l) => fixture.launches[l]!.poolId));
-      // the creator still owns only l5 (l1 and l2 were transferred)
+        ["l8", "l6", "l4"].map((l) => fixture.launches[l]!.poolId));
+      // the creator still owns only l7 and l5 (l1 and l2 were transferred)
       expect((await get(`/launches?chainId=${CHAIN_ID}&owner=${creator}`)).data.map((l: any) => l.pool_id)).toEqual(
-        [fixture.launches.l5!.poolId]);
+        ["l7", "l5"].map((l) => fixture.launches[l]!.poolId));
       const owners = await get(`${path("l1")}/owners`);
       expect(owners.data.map((o: any) => [o.previous_owner, o.new_owner])).toEqual([
         [null, lower(creator)], [lower(creator), lower(newOwner)], [lower(newOwner), lower(feeRecipient)]]);
@@ -249,7 +262,7 @@
           const page = await get(`/launches?chainId=${CHAIN_ID}&limit=2`);
           expect(page.data.map((l: any) => l.pool_id)).toEqual(["l5", "l1"].map((l) => fixture.launches[l]!.poolId));
           expect(page.next_cursor).toBeNull();
-          for (const label of ["l2", "l4", "l6"])
+          for (const label of ["l2", "l4", "l6", "l7", "l8"])
             for (const suffix of ["", "/swaps", "/claims", "/owners"]) {
               const body = await get(`${path(label)}${suffix}`, 404);
               expect(body).toEqual({ status: 404, error: "Launch not found" });
@@ -279,6 +292,7 @@
           erc20Detail: l2, erc20Swaps: l2Swaps, erc20Claims: l2Claims, erc20Owners: l2Owners, erc20TraderOwnedDetail: l4,
           maxNativeDetail: l5, maxNativeSwaps: l5Swaps, maxNativeClaims: l5Claims,
           maxErc20Detail: l6, maxErc20Swaps: l6Swaps, maxErc20Claims: l6Claims,
+          lowPriceErc20Detail: l7, fullWidthErc20Detail: l8,
         }, null, 2));
       }
       const before = await get(path("l1"));

@@ -16,7 +16,7 @@ if (!["127.0.0.1", "localhost"].includes(url.hostname))
   throw new Error("Only loopback test Postgres is permitted");
 const head = Bun.spawnSync(["git", "-C", root, "rev-parse", "HEAD"]);
 if (
-  head.stdout.toString().trim() !== "c78a48e3aff1df7a8e3298545eee8be04474063d"
+  head.stdout.toString().trim() !== "91a70364ecb06a2aef107261aee323f65890c0f5"
 )
   throw new Error("Indexer source pin mismatch");
 const clean = Bun.spawnSync([
@@ -37,7 +37,7 @@ const fixturePath = resolve(
 const fixtureBytes = await Bun.file(fixturePath).arrayBuffer();
 if (
   new Bun.CryptoHasher("sha256").update(fixtureBytes).digest("hex") !==
-  "09d7745740af507a02304e26c0e20d6f27b1047fd707c056ef4d936c67a74fcc"
+  "ec308953b8412e3ad76e7b6bf74b1e3ae56f6cbe0798032dbc6673bfedfae7d9"
 )
   throw new Error("Emitted fixture pin mismatch");
 const original = resolve(root, "src/evm/zeroSeedLaunchReplay.postgres.test.ts");
