@@ -10218,11 +10218,15 @@
                               },
                               "initial_fee": {
                                 "type": "string",
-                                "pattern": "^(0|[1-9][0-9]*)$"
+                                "maxLength": 20,
+                                "pattern": "^(0|[1-9][0-9]*)$",
+                                "description": "Q0.64 fee rate as a canonical decimal uint64 (0 to 18446744073709551615): the fee fraction is value / 2^64, so the maximum is just under 100%"
                               },
                               "final_fee": {
                                 "type": "string",
-                                "pattern": "^(0|[1-9][0-9]*)$"
+                                "maxLength": 20,
+                                "pattern": "^(0|[1-9][0-9]*)$",
+                                "description": "Q0.64 fee rate as a canonical decimal uint64 (0 to 18446744073709551615): the fee fraction is value / 2^64, so the maximum is just under 100%"
                               },
                               "decay": {
                                 "type": "object",
@@ -10256,7 +10260,9 @@
                               },
                               "fee_rate": {
                                 "type": "string",
-                                "pattern": "^(0|[1-9][0-9]*)$"
+                                "maxLength": 20,
+                                "pattern": "^(0|[1-9][0-9]*)$",
+                                "description": "Q0.64 fee rate as a canonical decimal uint64 (0 to 18446744073709551615): the fee fraction is value / 2^64, so the maximum is just under 100%"
                               },
                               "evaluated_at": {
                                 "type": "integer",
@@ -11110,7 +11116,9 @@
                           },
                           "fee_rate": {
                             "type": "string",
-                            "pattern": "^(0|[1-9][0-9]*)$"
+                            "maxLength": 20,
+                            "pattern": "^(0|[1-9][0-9]*)$",
+                            "description": "Q0.64 fee rate as a canonical decimal uint64 (0 to 18446744073709551615): the fee fraction is value / 2^64, so the maximum is just under 100%"
                           },
                           "fee_amount": {
                             "type": "string",
@@ -11449,11 +11457,15 @@
                         },
                         "initial_fee": {
                           "type": "string",
-                          "pattern": "^(0|[1-9][0-9]*)$"
+                          "maxLength": 20,
+                          "pattern": "^(0|[1-9][0-9]*)$",
+                          "description": "Q0.64 fee rate as a canonical decimal uint64 (0 to 18446744073709551615): the fee fraction is value / 2^64, so the maximum is just under 100%"
                         },
                         "final_fee": {
                           "type": "string",
-                          "pattern": "^(0|[1-9][0-9]*)$"
+                          "maxLength": 20,
+                          "pattern": "^(0|[1-9][0-9]*)$",
+                          "description": "Q0.64 fee rate as a canonical decimal uint64 (0 to 18446744073709551615): the fee fraction is value / 2^64, so the maximum is just under 100%"
                         },
                         "decay": {
                           "type": "object",
@@ -11487,7 +11499,9 @@
                         },
                         "fee_rate": {
                           "type": "string",
-                          "pattern": "^(0|[1-9][0-9]*)$"
+                          "maxLength": 20,
+                          "pattern": "^(0|[1-9][0-9]*)$",
+                          "description": "Q0.64 fee rate as a canonical decimal uint64 (0 to 18446744073709551615): the fee fraction is value / 2^64, so the maximum is just under 100%"
                         },
                         "evaluated_at": {
                           "type": "integer",

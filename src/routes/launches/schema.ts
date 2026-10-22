@@ -5,6 +5,17 @@ export const SCHEMA_VERSION = "zero-seed-launch-api/v4" as const;
 export const SchemaVersion = z.literal(SCHEMA_VERSION);
 const U = z.string().regex(/^(0|[1-9][0-9]*)$/);
 const I = z.string().regex(/^(0|-?[1-9][0-9]*)$/);
+// A Q0.64 fee rate: every uint64, 0 to 2^64 - 1. The fee fraction is
+// value / 2^64, so the maximum is just under 100%, never exactly 100%.
+const UINT64_MAX = (1n << 64n) - 1n;
+const Q64 = U.max(20)
+  .refine(
+    (value) => /^(0|[1-9][0-9]*)$/.test(value) && BigInt(value) <= UINT64_MAX,
+  )
+  .openapi({
+    description:
+      "Q0.64 fee rate as a canonical decimal uint64 (0 to 18446744073709551615): the fee fraction is value / 2^64, so the maximum is just under 100%",
+  });
 const Address = z.string().regex(/^0x[0-9a-f]{40}$/);
 const Bytes32 = z.string().regex(/^0x[0-9a-f]{64}$/);
 const Seconds = z.number().int().nonnegative();
@@ -41,15 +52,15 @@ export const FeeSchedule = z.strictObject({
   trading_start: Seconds,
   fee_duration: z.number().int().positive(),
   fee_end: Seconds,
-  initial_fee: U,
-  final_fee: U,
+  initial_fee: Q64,
+  final_fee: Q64,
   // 2^(-t/600) from a fixed Q128 table, rescaled to reach final_fee at fee_end.
   decay: z.strictObject({
     kind: z.literal("fixed_base_q128"),
     half_life_seconds: z.literal(600),
   }),
   phase: z.enum(["before_trading_start", "fee_decay", "final_fee"]),
-  fee_rate: U,
+  fee_rate: Q64,
   evaluated_at: Seconds,
 });
 // Raw launch-token units. requested is LaunchParameters.supply and the
@@ -125,7 +136,7 @@ export const Swap = z.strictObject({
   direction: z.enum(["buy", "sell", "zero_fill"]),
   launch_token_delta: I,
   quote_token_delta: I,
-  fee_rate: U,
+  fee_rate: Q64,
   fee_amount: U,
   fee_asset: z.enum(["launch_token", "quote_token"]),
 });

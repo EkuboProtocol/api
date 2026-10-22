@@ -177,7 +177,8 @@ const vectorsDir = resolve(import.meta.dir, "vectors");
 
 // The protocol's independent vectors (250-digit Decimal generator, not this
 // code): every second 0..D of 12 curves, rates 5/50/75/90/99/max% and
-// durations 600/3600 s, [initial, final, duration, elapsed, fee].
+// durations 600/3600 s, [initial, final, duration, elapsed, fee]. These are
+// study rates, not limits: every uint64 rate is valid and max is 2^64 - 1.
 test("decayedFee reproduces all 25,212 independent all-second vectors and the manifest digests", () => {
   const rows = JSON.parse(
     gunzipSync(
@@ -255,6 +256,113 @@ test("decayedFee reproduces all 25,212 independent all-second vectors and the ma
     ).toBe(r.fee);
 });
 
+const MAX = (1n << 64n) - 1n;
+test("the whole uint64 fee range is served exactly; 2^64 - 1 is the maximum, not a cap below it", () => {
+  // l5 of the local fixture: max -> 0.3% over 3600 s, trading from 1800001400
+  const l5 = {
+    start: 1800001400n,
+    duration: 3600n,
+    initial: MAX,
+    final: 55340232221128654n,
+  };
+  const at = (indexedTime: bigint) => feeSchedule({ ...l5, indexedTime });
+  expect(at(1800001399n)).toMatchObject({
+    phase: "before_trading_start",
+    initial_fee: "18446744073709551615",
+    fee_rate: "18446744073709551615",
+  });
+  expect(at(1800001400n).fee_rate).toBe("18446744073709551615");
+  // the rate the contract applied to the fixture swap 1400 s in
+  expect(at(1800002800n)).toMatchObject({
+    phase: "fee_decay",
+    fee_rate: "3470655575073783216",
+  });
+  expect(at(1800005000n)).toMatchObject({
+    phase: "final_fee",
+    fee_rate: "55340232221128654",
+  });
+  // l6: flat at the maximum
+  expect(
+    feeSchedule({
+      start: 1800001400n,
+      duration: 1n,
+      initial: MAX,
+      final: MAX,
+      indexedTime: 2115361000n,
+    }),
+  ).toMatchObject({
+    initial_fee: MAX.toString(),
+    final_fee: MAX.toString(),
+    phase: "final_fee",
+    fee_rate: MAX.toString(),
+  });
+  // rates above floor(2^64 * 99 / 100) are ordinary rates; zero is valid too
+  for (const [initial, final] of [
+    [MAX, 0n],
+    [18262276632972456100n, 18262276632972456099n],
+    [0n, 0n],
+  ])
+    expect(
+      feeSchedule({ ...l5, initial, final, indexedTime: 1800001400n })
+        .initial_fee,
+    ).toBe(initial.toString());
+});
+
+test("fee fields are canonical decimal uint64 strings; 2^64 and malformed encodings are never served", () => {
+  const schedule = LaunchDetail.shape.fee_schedule;
+  const ok = feeSchedule({ ...input, indexedTime: 1000n });
+  expect(schedule.safeParse(ok).success).toBe(true);
+  for (const field of ["initial_fee", "final_fee", "fee_rate"] as const) {
+    expect(schedule.safeParse({ ...ok, [field]: MAX.toString() }).success).toBe(
+      true,
+    );
+    for (const bad of [
+      "18446744073709551616",
+      "36893488147419103231",
+      "100000000000000000000",
+      "018446744073709551615",
+      "01",
+      "-1",
+      "+1",
+      " 1",
+      "1 ",
+      "0x1",
+      "1e18",
+      "1.0",
+      "",
+      Number(MAX),
+      1,
+    ])
+      expect(schedule.safeParse({ ...ok, [field]: bad }).success).toBe(false);
+  }
+  const swap = SwapPage.shape.data.element;
+  const row = {
+    event: {
+      block_number: "1",
+      block_hash: `0x${"a".repeat(64)}`,
+      block_time: 1000,
+      event_id: "1",
+      transaction_index: 0,
+      event_index: 0,
+      transaction_hash: `0x${"b".repeat(64)}`,
+    },
+    forwarding_locker: `0x${"c".repeat(40)}`,
+    direction: "buy",
+    launch_token_delta: "-54160",
+    quote_token_delta: "1000000000000000000",
+    fee_rate: MAX.toString(),
+    fee_amount: "999083373736809197195735",
+    fee_asset: "launch_token",
+  };
+  expect(swap.safeParse(row).success).toBe(true);
+  for (const fee_rate of ["18446744073709551616", "01", "1e3", Number(MAX)])
+    expect(swap.safeParse({ ...row, fee_rate }).success).toBe(false);
+  // fee amounts are token units, not rates: they may exceed 2^64
+  expect(
+    swap.safeParse({ ...row, fee_amount: (1n << 100n).toString() }).success,
+  ).toBe(true);
+});
+
 test("invalid indexed domains fail, never coerce or overflow", () => {
   for (const change of [
     { start: -1n },
@@ -262,6 +370,8 @@ test("invalid indexed domains fail, never coerce or overflow", () => {
     { duration: 1n << 32n },
     { final: input.initial + 1n },
     { initial: 1n << 64n },
+    { initial: 1n << 64n, final: 1n << 64n },
+    { initial: 1n << 64n, final: MAX },
     { indexedTime: -1n },
     { start: (1n << 64n) - 1n },
     { indexedTime: BigInt(Number.MAX_SAFE_INTEGER) + 1n },

@@ -10,18 +10,18 @@
       {
         "schema_version": "zero-seed-launch-api/v4",
         "chain_id": "31337",
-        "pool_id": "0xeaede813919244a048fb74e7d5aaae13714f8c0919ee578d9b21c13d6ddef612",
+        "pool_id": "0xf03731816bad65fe90b668df070664d89a72452ac47622c34228b51fcefa97b6",
         "pool_key": {
           "core_address": "0x00000000000014aa86c5d3c41765bb24e11bd701",
           "token0": "0x0000000000000000000000000000000000000000",
-          "token1": "0x00f65546aad85b256b946eaa4268ac0a54f9527f",
-          "config": "0x519ddb6580e97e08e639d601dc6e378285c3ef34000000000000000080000064",
+          "token1": "0x9417527c774454cb137497120651a1396cb46e39",
+          "config": "0x511b4327c2a2b6fd803b4ae85f2f9d831e046d8b000000000000000080000064",
           "fee": "0",
           "tick_spacing": 100,
-          "extension": "0x519ddb6580e97e08e639d601dc6e378285c3ef34"
+          "extension": "0x511b4327c2a2b6fd803b4ae85f2f9d831e046d8b"
         },
         "token": {
-          "address": "0x00f65546aad85b256b946eaa4268ac0a54f9527f",
+          "address": "0x9417527c774454cb137497120651a1396cb46e39",
           "name": "Zero Seed l3",
           "symbol": "L3",
           "decimals": 18
@@ -40,7 +40,7 @@
           "sink_holder": "0x0000000000000000000000000000000000000000"
         },
         "launch_token_is_token1": true,
-        "controller": "0x094511cf93e73feca154da35a2404e8bde1111b4",
+        "controller": "0x2f0be2fc5a2825cecd23dbf6ed33ed8ff823ef64",
         "creator": "0x90f79bf6eb2c4f870365e785982e1f101e93b906",
         "owner": "0x90f79bf6eb2c4f870365e785982e1f101e93b906",
         "ask_tick": -13815500,
@@ -61,16 +61,16 @@
         },
         "created": {
           "block_number": "8",
-          "block_hash": "0xb10d7fdd9e697c098f838e7651efb5c609eef3fbb69f2d465ad2baca47a4d6eb",
+          "block_hash": "0xa34547d55cdf18b5d6cd1017f08159bbf4ace82afd4348e3a1905129d603b60a",
           "block_time": 1800001300,
           "event_id": "-9223372002494906358",
           "transaction_index": 2,
           "event_index": 9,
-          "transaction_hash": "0xdd2f935e81b85959edb01732c55dae213da72e4780ee03c0cb53ed2cfb0e428d"
+          "transaction_hash": "0x154cf448eada43524c2f317ad1f3e0e505d5e99ced13aaf91e3d0e52cb21eb7b"
         },
         "as_of": {
           "block_number": "9",
-          "block_hash": "0xa09b98786e7f3e4a6a190a02730a39b5b1789adf205f22887e2d27bb4f54c842",
+          "block_hash": "0x53bbaf6dad79712ccd58286076842d50bbeb8f69a57f5f937cb898aba09cbb12",
           "block_time": 1800001360
         }
       }
@@ -78,7 +78,7 @@
     "next_cursor": "-9223372002494906358",
     "as_of": {
       "block_number": "9",
-      "block_hash": "0xa09b98786e7f3e4a6a190a02730a39b5b1789adf205f22887e2d27bb4f54c842",
+      "block_hash": "0x53bbaf6dad79712ccd58286076842d50bbeb8f69a57f5f937cb898aba09cbb12",
       "block_time": 1800001360
     }
   },
@@ -88,18 +88,18 @@
       {
         "schema_version": "zero-seed-launch-api/v4",
         "chain_id": "31337",
-        "pool_id": "0x4c069ac95e8be8e3122e8fef35ce64947aaa0c63c2dc869c21a5deb60b120e06",
+        "pool_id": "0x28597e873304c98eb0af47f51451f78729fdc6b4d80e27e475ac1299797f30aa",
         "pool_key": {
           "core_address": "0x00000000000014aa86c5d3c41765bb24e11bd701",
-          "token0": "0xf4d27a0a5195f911cdc5730d34f60fee98e55c29",
+          "token0": "0x1b381d0316bb19d36bf3e7c2482737ab8c211be9",
           "token1": "0xffffffffffffffffffffffffffffffffffffffff",
-          "config": "0x519ddb6580e97e08e639d601dc6e378285c3ef34000000000000000080000064",
+          "config": "0x511b4327c2a2b6fd803b4ae85f2f9d831e046d8b000000000000000080000064",
           "fee": "0",
           "tick_spacing": 100,
-          "extension": "0x519ddb6580e97e08e639d601dc6e378285c3ef34"
+          "extension": "0x511b4327c2a2b6fd803b4ae85f2f9d831e046d8b"
         },
         "token": {
-          "address": "0xf4d27a0a5195f911cdc5730d34f60fee98e55c29",
+          "address": "0x1b381d0316bb19d36bf3e7c2482737ab8c211be9",
           "name": "Zero Seed l2",
           "symbol": "L2",
           "decimals": 18
@@ -118,7 +118,7 @@
           "sink_holder": "0x0000000000000000000000000000000000000000"
         },
         "launch_token_is_token1": false,
-        "controller": "0x094511cf93e73feca154da35a2404e8bde1111b4",
+        "controller": "0x2f0be2fc5a2825cecd23dbf6ed33ed8ff823ef64",
         "creator": "0x70997970c51812dc3a010c7d01b50e0d17dc79c8",
         "owner": "0x70997970c51812dc3a010c7d01b50e0d17dc79c8",
         "ask_tick": -13815500,
@@ -139,34 +139,34 @@
         },
         "created": {
           "block_number": "3",
-          "block_hash": "0x50fbee48c437582d1aa4283fa37001d89021690e795a7df18b73c5169d3c5488",
+          "block_hash": "0xb5f9178ecc38a3c552046f2b80e31c97ede2d7ff3ce23ff205a5412995eff43e",
           "block_time": 1800000020,
           "event_id": "-9223372023969873913",
           "transaction_index": 0,
           "event_index": 6,
-          "transaction_hash": "0x9b5d5e578839239bc9f340547f9b9eb9eb5acf732db64ecfbfd2ce1bc24c575c"
+          "transaction_hash": "0xe4e9265446f36310c0345b028d33bf7d501eb81b1972134057a3b0a9ef15d725"
         },
         "as_of": {
           "block_number": "9",
-          "block_hash": "0xa09b98786e7f3e4a6a190a02730a39b5b1789adf205f22887e2d27bb4f54c842",
+          "block_hash": "0x53bbaf6dad79712ccd58286076842d50bbeb8f69a57f5f937cb898aba09cbb12",
           "block_time": 1800001360
         }
       },
       {
         "schema_version": "zero-seed-launch-api/v4",
         "chain_id": "31337",
-        "pool_id": "0xf25a6d9d7ebcce22f88bd2da99e0ba098e5b81aa9d0e59d5e2058a50417f144b",
+        "pool_id": "0x131336bd4d4640da92257f5592dc397c0b5ef043ce9c931b85db7f20a05e793b",
         "pool_key": {
           "core_address": "0x00000000000014aa86c5d3c41765bb24e11bd701",
           "token0": "0x0000000000000000000000000000000000000000",
-          "token1": "0xf3f802e8826977ff3af68c6747daf11118685836",
-          "config": "0x519ddb6580e97e08e639d601dc6e378285c3ef34000000000000000080000064",
+          "token1": "0xf4cbadf1173d5e80e826a42dfc83fd56a6c6d7d1",
+          "config": "0x511b4327c2a2b6fd803b4ae85f2f9d831e046d8b000000000000000080000064",
           "fee": "0",
           "tick_spacing": 100,
-          "extension": "0x519ddb6580e97e08e639d601dc6e378285c3ef34"
+          "extension": "0x511b4327c2a2b6fd803b4ae85f2f9d831e046d8b"
         },
         "token": {
-          "address": "0xf3f802e8826977ff3af68c6747daf11118685836",
+          "address": "0xf4cbadf1173d5e80e826a42dfc83fd56a6c6d7d1",
           "name": "Zero Seed l1",
           "symbol": "L1",
           "decimals": 18
@@ -185,7 +185,7 @@
           "sink_holder": "0x0000000000000000000000000000000000000000"
         },
         "launch_token_is_token1": true,
-        "controller": "0x094511cf93e73feca154da35a2404e8bde1111b4",
+        "controller": "0x2f0be2fc5a2825cecd23dbf6ed33ed8ff823ef64",
         "creator": "0x70997970c51812dc3a010c7d01b50e0d17dc79c8",
         "owner": "0x90f79bf6eb2c4f870365e785982e1f101e93b906",
         "ask_tick": -13815500,
@@ -206,16 +206,16 @@
         },
         "created": {
           "block_number": "2",
-          "block_hash": "0x02a4be6c4181e7dbfd929b596ffa629ce40079428de4c790460638b389ad69fb",
+          "block_hash": "0x1a8ab4b053e2145ed8be760d9cbf82e94f7adbb9637649073d3c74bb7ae35bc1",
           "block_time": 1800000010,
           "event_id": "-9223372028264710136",
           "transaction_index": 2,
           "event_index": 7,
-          "transaction_hash": "0xd7040ae49f820983ab5e5e52f40210bda17ad50afa7efec67b85eb270eeb5717"
+          "transaction_hash": "0x4487e737dd2908e11d356a3a2b22bda10de0256118dee4deac7134d8d74276f1"
         },
         "as_of": {
           "block_number": "9",
-          "block_hash": "0xa09b98786e7f3e4a6a190a02730a39b5b1789adf205f22887e2d27bb4f54c842",
+          "block_hash": "0x53bbaf6dad79712ccd58286076842d50bbeb8f69a57f5f937cb898aba09cbb12",
           "block_time": 1800001360
         }
       }
@@ -223,7 +223,7 @@
     "next_cursor": null,
     "as_of": {
       "block_number": "9",
-      "block_hash": "0xa09b98786e7f3e4a6a190a02730a39b5b1789adf205f22887e2d27bb4f54c842",
+      "block_hash": "0x53bbaf6dad79712ccd58286076842d50bbeb8f69a57f5f937cb898aba09cbb12",
       "block_time": 1800001360
     }
   },
@@ -233,18 +233,152 @@
       {
         "schema_version": "zero-seed-launch-api/v4",
         "chain_id": "31337",
-        "pool_id": "0xfae7fde391805bfe23cfa7670cd3a9bcb21cbc542ef0659f3a630bf9efb89f59",
+        "pool_id": "0xa650e97fa2f14e8d301a8f6e94b27c196a01bbd37d3f295a7408640c1cbaeba2",
         "pool_key": {
           "core_address": "0x00000000000014aa86c5d3c41765bb24e11bd701",
-          "token0": "0x98730fb771aeb50970e91097b5819bde61a607ae",
+          "token0": "0xc8131d1b2f2597c1237ff5583f34f80a4cfef135",
           "token1": "0xffffffffffffffffffffffffffffffffffffffff",
-          "config": "0x519ddb6580e97e08e639d601dc6e378285c3ef34000000000000000080000064",
+          "config": "0x511b4327c2a2b6fd803b4ae85f2f9d831e046d8b000000000000000080000064",
           "fee": "0",
           "tick_spacing": 100,
-          "extension": "0x519ddb6580e97e08e639d601dc6e378285c3ef34"
+          "extension": "0x511b4327c2a2b6fd803b4ae85f2f9d831e046d8b"
         },
         "token": {
-          "address": "0x98730fb771aeb50970e91097b5819bde61a607ae",
+          "address": "0xc8131d1b2f2597c1237ff5583f34f80a4cfef135",
+          "name": "Zero Seed l6",
+          "symbol": "L6",
+          "decimals": 18
+        },
+        "quote_token": {
+          "address": "0xffffffffffffffffffffffffffffffffffffffff",
+          "name": null,
+          "symbol": null,
+          "decimals": null,
+          "kind": "erc20"
+        },
+        "supply": {
+          "requested": "1000000000000000000000000000",
+          "installed": "999999999999999999999999210",
+          "sink": "790",
+          "sink_holder": "0x0000000000000000000000000000000000000000"
+        },
+        "launch_token_is_token1": false,
+        "controller": "0x2f0be2fc5a2825cecd23dbf6ed33ed8ff823ef64",
+        "creator": "0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266",
+        "owner": "0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266",
+        "ask_tick": -13815500,
+        "upper_tick": -9210300,
+        "fee_schedule": {
+          "trading_start": 1800001400,
+          "fee_duration": 1,
+          "fee_end": 1800001401,
+          "initial_fee": "18446744073709551615",
+          "final_fee": "18446744073709551615",
+          "decay": {
+            "kind": "fixed_base_q128",
+            "half_life_seconds": 600
+          },
+          "phase": "final_fee",
+          "fee_rate": "18446744073709551615",
+          "evaluated_at": 2115361000
+        },
+        "created": {
+          "block_number": "8",
+          "block_hash": "0x437d4bcc7f2bab89a697f821fc4c2e6ae730cecd093460e28e030efa3da0950d",
+          "block_time": 1800001310,
+          "event_id": "-9223372002494775266",
+          "transaction_index": 4,
+          "event_index": 29,
+          "transaction_hash": "0x183728b1a3e44504363c9de57e8e3da1c44db6537a97828107e7b0657cecbd14"
+        },
+        "as_of": {
+          "block_number": "16",
+          "block_hash": "0x49a48e5916e64df7f10ae074c24e7c43e107cfa46aa3729d32c38837a46fae6a",
+          "block_time": 2115361000
+        }
+      },
+      {
+        "schema_version": "zero-seed-launch-api/v4",
+        "chain_id": "31337",
+        "pool_id": "0x28d10d8cd13e6244f1d9cec40bf4698d89503f4810549e622de36a06ceaa127c",
+        "pool_key": {
+          "core_address": "0x00000000000014aa86c5d3c41765bb24e11bd701",
+          "token0": "0x0000000000000000000000000000000000000000",
+          "token1": "0x5db261b7a2a3405df25bf0258516cd66d2c5b5f4",
+          "config": "0x511b4327c2a2b6fd803b4ae85f2f9d831e046d8b000000000000000080000064",
+          "fee": "0",
+          "tick_spacing": 100,
+          "extension": "0x511b4327c2a2b6fd803b4ae85f2f9d831e046d8b"
+        },
+        "token": {
+          "address": "0x5db261b7a2a3405df25bf0258516cd66d2c5b5f4",
+          "name": "Zero Seed l5",
+          "symbol": "L5",
+          "decimals": 18
+        },
+        "quote_token": {
+          "address": "0x0000000000000000000000000000000000000000",
+          "name": null,
+          "symbol": null,
+          "decimals": 18,
+          "kind": "native"
+        },
+        "supply": {
+          "requested": "1000000000000000000000000000",
+          "installed": "999999999999999999999999422",
+          "sink": "578",
+          "sink_holder": "0x0000000000000000000000000000000000000000"
+        },
+        "launch_token_is_token1": true,
+        "controller": "0x2f0be2fc5a2825cecd23dbf6ed33ed8ff823ef64",
+        "creator": "0x70997970c51812dc3a010c7d01b50e0d17dc79c8",
+        "owner": "0x70997970c51812dc3a010c7d01b50e0d17dc79c8",
+        "ask_tick": -13815500,
+        "upper_tick": -9210300,
+        "fee_schedule": {
+          "trading_start": 1800001400,
+          "fee_duration": 3600,
+          "fee_end": 1800005000,
+          "initial_fee": "18446744073709551615",
+          "final_fee": "55340232221128654",
+          "decay": {
+            "kind": "fixed_base_q128",
+            "half_life_seconds": 600
+          },
+          "phase": "final_fee",
+          "fee_rate": "55340232221128654",
+          "evaluated_at": 2115361000
+        },
+        "created": {
+          "block_number": "8",
+          "block_hash": "0x437d4bcc7f2bab89a697f821fc4c2e6ae730cecd093460e28e030efa3da0950d",
+          "block_time": 1800001310,
+          "event_id": "-9223372002494840810",
+          "transaction_index": 3,
+          "event_index": 21,
+          "transaction_hash": "0x64bbf42368abd232d30334ff37fcc33c510daee65a974356c5bd06af39773380"
+        },
+        "as_of": {
+          "block_number": "16",
+          "block_hash": "0x49a48e5916e64df7f10ae074c24e7c43e107cfa46aa3729d32c38837a46fae6a",
+          "block_time": 2115361000
+        }
+      },
+      {
+        "schema_version": "zero-seed-launch-api/v4",
+        "chain_id": "31337",
+        "pool_id": "0x0a4ffce27d439f707aaee89bd3ef673e6f0f7fed91b8cc0155de093fde32f6b3",
+        "pool_key": {
+          "core_address": "0x00000000000014aa86c5d3c41765bb24e11bd701",
+          "token0": "0xd69e1589aa5f8e9a7eb66d1dbeb2cbd761c7c51d",
+          "token1": "0xffffffffffffffffffffffffffffffffffffffff",
+          "config": "0x511b4327c2a2b6fd803b4ae85f2f9d831e046d8b000000000000000080000064",
+          "fee": "0",
+          "tick_spacing": 100,
+          "extension": "0x511b4327c2a2b6fd803b4ae85f2f9d831e046d8b"
+        },
+        "token": {
+          "address": "0xd69e1589aa5f8e9a7eb66d1dbeb2cbd761c7c51d",
           "name": "Zero Seed l4",
           "symbol": "L4",
           "decimals": 18
@@ -263,7 +397,7 @@
           "sink_holder": "0x0000000000000000000000000000000000000000"
         },
         "launch_token_is_token1": false,
-        "controller": "0x094511cf93e73feca154da35a2404e8bde1111b4",
+        "controller": "0x2f0be2fc5a2825cecd23dbf6ed33ed8ff823ef64",
         "creator": "0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266",
         "owner": "0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266",
         "ask_tick": -13815500,
@@ -284,34 +418,34 @@
         },
         "created": {
           "block_number": "8",
-          "block_hash": "0x7c14221aec8026b38e8931e21203f70c86190936046f4637aab96c66a568ad26",
+          "block_hash": "0x437d4bcc7f2bab89a697f821fc4c2e6ae730cecd093460e28e030efa3da0950d",
           "block_time": 1800001310,
           "event_id": "-9223372002494906354",
           "transaction_index": 2,
           "event_index": 13,
-          "transaction_hash": "0xb12debf1dec2c43a557a5758e6a2081d10f7b3e6dfc054ea6cc5437eb0d72687"
+          "transaction_hash": "0xf6161759835347763d4d5ca093b5956e6e5777f095a6502ee501e4b04c83f712"
         },
         "as_of": {
-          "block_number": "15",
-          "block_hash": "0xcfce944e46417fb32963e5a464f5f01175d1c54cadaffdb3ef3bcee02e45cf36",
+          "block_number": "16",
+          "block_hash": "0x49a48e5916e64df7f10ae074c24e7c43e107cfa46aa3729d32c38837a46fae6a",
           "block_time": 2115361000
         }
       },
       {
         "schema_version": "zero-seed-launch-api/v4",
         "chain_id": "31337",
-        "pool_id": "0x4c069ac95e8be8e3122e8fef35ce64947aaa0c63c2dc869c21a5deb60b120e06",
+        "pool_id": "0x28597e873304c98eb0af47f51451f78729fdc6b4d80e27e475ac1299797f30aa",
         "pool_key": {
           "core_address": "0x00000000000014aa86c5d3c41765bb24e11bd701",
-          "token0": "0xf4d27a0a5195f911cdc5730d34f60fee98e55c29",
+          "token0": "0x1b381d0316bb19d36bf3e7c2482737ab8c211be9",
           "token1": "0xffffffffffffffffffffffffffffffffffffffff",
-          "config": "0x519ddb6580e97e08e639d601dc6e378285c3ef34000000000000000080000064",
+          "config": "0x511b4327c2a2b6fd803b4ae85f2f9d831e046d8b000000000000000080000064",
           "fee": "0",
           "tick_spacing": 100,
-          "extension": "0x519ddb6580e97e08e639d601dc6e378285c3ef34"
+          "extension": "0x511b4327c2a2b6fd803b4ae85f2f9d831e046d8b"
         },
         "token": {
-          "address": "0xf4d27a0a5195f911cdc5730d34f60fee98e55c29",
+          "address": "0x1b381d0316bb19d36bf3e7c2482737ab8c211be9",
           "name": "Zero Seed l2",
           "symbol": "L2",
           "decimals": 18
@@ -330,7 +464,7 @@
           "sink_holder": "0x0000000000000000000000000000000000000000"
         },
         "launch_token_is_token1": false,
-        "controller": "0x094511cf93e73feca154da35a2404e8bde1111b4",
+        "controller": "0x2f0be2fc5a2825cecd23dbf6ed33ed8ff823ef64",
         "creator": "0x70997970c51812dc3a010c7d01b50e0d17dc79c8",
         "owner": "0x90f79bf6eb2c4f870365e785982e1f101e93b906",
         "ask_tick": -13815500,
@@ -351,34 +485,34 @@
         },
         "created": {
           "block_number": "3",
-          "block_hash": "0x50fbee48c437582d1aa4283fa37001d89021690e795a7df18b73c5169d3c5488",
+          "block_hash": "0xb5f9178ecc38a3c552046f2b80e31c97ede2d7ff3ce23ff205a5412995eff43e",
           "block_time": 1800000020,
           "event_id": "-9223372023969873913",
           "transaction_index": 0,
           "event_index": 6,
-          "transaction_hash": "0x9b5d5e578839239bc9f340547f9b9eb9eb5acf732db64ecfbfd2ce1bc24c575c"
+          "transaction_hash": "0xe4e9265446f36310c0345b028d33bf7d501eb81b1972134057a3b0a9ef15d725"
         },
         "as_of": {
-          "block_number": "15",
-          "block_hash": "0xcfce944e46417fb32963e5a464f5f01175d1c54cadaffdb3ef3bcee02e45cf36",
+          "block_number": "16",
+          "block_hash": "0x49a48e5916e64df7f10ae074c24e7c43e107cfa46aa3729d32c38837a46fae6a",
           "block_time": 2115361000
         }
       },
       {
         "schema_version": "zero-seed-launch-api/v4",
         "chain_id": "31337",
-        "pool_id": "0xf25a6d9d7ebcce22f88bd2da99e0ba098e5b81aa9d0e59d5e2058a50417f144b",
+        "pool_id": "0x131336bd4d4640da92257f5592dc397c0b5ef043ce9c931b85db7f20a05e793b",
         "pool_key": {
           "core_address": "0x00000000000014aa86c5d3c41765bb24e11bd701",
           "token0": "0x0000000000000000000000000000000000000000",
-          "token1": "0xf3f802e8826977ff3af68c6747daf11118685836",
-          "config": "0x519ddb6580e97e08e639d601dc6e378285c3ef34000000000000000080000064",
+          "token1": "0xf4cbadf1173d5e80e826a42dfc83fd56a6c6d7d1",
+          "config": "0x511b4327c2a2b6fd803b4ae85f2f9d831e046d8b000000000000000080000064",
           "fee": "0",
           "tick_spacing": 100,
-          "extension": "0x519ddb6580e97e08e639d601dc6e378285c3ef34"
+          "extension": "0x511b4327c2a2b6fd803b4ae85f2f9d831e046d8b"
         },
         "token": {
-          "address": "0xf3f802e8826977ff3af68c6747daf11118685836",
+          "address": "0xf4cbadf1173d5e80e826a42dfc83fd56a6c6d7d1",
           "name": "Zero Seed l1",
           "symbol": "L1",
           "decimals": 18
@@ -397,7 +531,7 @@
           "sink_holder": "0x0000000000000000000000000000000000000000"
         },
         "launch_token_is_token1": true,
-        "controller": "0x094511cf93e73feca154da35a2404e8bde1111b4",
+        "controller": "0x2f0be2fc5a2825cecd23dbf6ed33ed8ff823ef64",
         "creator": "0x70997970c51812dc3a010c7d01b50e0d17dc79c8",
         "owner": "0x3c44cdddb6a900fa2b585dd299e03d12fa4293bc",
         "ask_tick": -13815500,
@@ -418,42 +552,42 @@
         },
         "created": {
           "block_number": "2",
-          "block_hash": "0x02a4be6c4181e7dbfd929b596ffa629ce40079428de4c790460638b389ad69fb",
+          "block_hash": "0x1a8ab4b053e2145ed8be760d9cbf82e94f7adbb9637649073d3c74bb7ae35bc1",
           "block_time": 1800000010,
           "event_id": "-9223372028264710136",
           "transaction_index": 2,
           "event_index": 7,
-          "transaction_hash": "0xd7040ae49f820983ab5e5e52f40210bda17ad50afa7efec67b85eb270eeb5717"
+          "transaction_hash": "0x4487e737dd2908e11d356a3a2b22bda10de0256118dee4deac7134d8d74276f1"
         },
         "as_of": {
-          "block_number": "15",
-          "block_hash": "0xcfce944e46417fb32963e5a464f5f01175d1c54cadaffdb3ef3bcee02e45cf36",
+          "block_number": "16",
+          "block_hash": "0x49a48e5916e64df7f10ae074c24e7c43e107cfa46aa3729d32c38837a46fae6a",
           "block_time": 2115361000
         }
       }
     ],
     "next_cursor": null,
     "as_of": {
-      "block_number": "15",
-      "block_hash": "0xcfce944e46417fb32963e5a464f5f01175d1c54cadaffdb3ef3bcee02e45cf36",
+      "block_number": "16",
+      "block_hash": "0x49a48e5916e64df7f10ae074c24e7c43e107cfa46aa3729d32c38837a46fae6a",
       "block_time": 2115361000
     }
   },
   "nativeDetail": {
     "schema_version": "zero-seed-launch-api/v4",
     "chain_id": "31337",
-    "pool_id": "0xf25a6d9d7ebcce22f88bd2da99e0ba098e5b81aa9d0e59d5e2058a50417f144b",
+    "pool_id": "0x131336bd4d4640da92257f5592dc397c0b5ef043ce9c931b85db7f20a05e793b",
     "pool_key": {
       "core_address": "0x00000000000014aa86c5d3c41765bb24e11bd701",
       "token0": "0x0000000000000000000000000000000000000000",
-      "token1": "0xf3f802e8826977ff3af68c6747daf11118685836",
-      "config": "0x519ddb6580e97e08e639d601dc6e378285c3ef34000000000000000080000064",
+      "token1": "0xf4cbadf1173d5e80e826a42dfc83fd56a6c6d7d1",
+      "config": "0x511b4327c2a2b6fd803b4ae85f2f9d831e046d8b000000000000000080000064",
       "fee": "0",
       "tick_spacing": 100,
-      "extension": "0x519ddb6580e97e08e639d601dc6e378285c3ef34"
+      "extension": "0x511b4327c2a2b6fd803b4ae85f2f9d831e046d8b"
     },
     "token": {
-      "address": "0xf3f802e8826977ff3af68c6747daf11118685836",
+      "address": "0xf4cbadf1173d5e80e826a42dfc83fd56a6c6d7d1",
       "name": "Zero Seed l1",
       "symbol": "L1",
       "decimals": 18
@@ -472,7 +606,7 @@
       "sink_holder": "0x0000000000000000000000000000000000000000"
     },
     "launch_token_is_token1": true,
-    "controller": "0x094511cf93e73feca154da35a2404e8bde1111b4",
+    "controller": "0x2f0be2fc5a2825cecd23dbf6ed33ed8ff823ef64",
     "creator": "0x70997970c51812dc3a010c7d01b50e0d17dc79c8",
     "owner": "0x3c44cdddb6a900fa2b585dd299e03d12fa4293bc",
     "ask_tick": -13815500,
@@ -493,16 +627,16 @@
     },
     "created": {
       "block_number": "2",
-      "block_hash": "0x02a4be6c4181e7dbfd929b596ffa629ce40079428de4c790460638b389ad69fb",
+      "block_hash": "0x1a8ab4b053e2145ed8be760d9cbf82e94f7adbb9637649073d3c74bb7ae35bc1",
       "block_time": 1800000010,
       "event_id": "-9223372028264710136",
       "transaction_index": 2,
       "event_index": 7,
-      "transaction_hash": "0xd7040ae49f820983ab5e5e52f40210bda17ad50afa7efec67b85eb270eeb5717"
+      "transaction_hash": "0x4487e737dd2908e11d356a3a2b22bda10de0256118dee4deac7134d8d74276f1"
     },
     "as_of": {
-      "block_number": "15",
-      "block_hash": "0xcfce944e46417fb32963e5a464f5f01175d1c54cadaffdb3ef3bcee02e45cf36",
+      "block_number": "16",
+      "block_hash": "0x49a48e5916e64df7f10ae074c24e7c43e107cfa46aa3729d32c38837a46fae6a",
       "block_time": 2115361000
     },
     "principal": {
@@ -534,7 +668,7 @@
       "swap_count": 10,
       "claim_count": 4,
       "owner_change_count": 3,
-      "last_event_id": "-9223371972430135288"
+      "last_event_id": "-9223371968135167992"
     },
     "inventory": {
       "trading_open": true,
@@ -545,23 +679,23 @@
   "nativeSwaps": {
     "schema_version": "zero-seed-launch-api/v4",
     "chain_id": "31337",
-    "pool_id": "0xf25a6d9d7ebcce22f88bd2da99e0ba098e5b81aa9d0e59d5e2058a50417f144b",
+    "pool_id": "0x131336bd4d4640da92257f5592dc397c0b5ef043ce9c931b85db7f20a05e793b",
     "next_cursor": null,
     "as_of": {
-      "block_number": "15",
-      "block_hash": "0xcfce944e46417fb32963e5a464f5f01175d1c54cadaffdb3ef3bcee02e45cf36",
+      "block_number": "16",
+      "block_hash": "0x49a48e5916e64df7f10ae074c24e7c43e107cfa46aa3729d32c38837a46fae6a",
       "block_time": 2115361000
     },
     "data": [
       {
         "event": {
           "block_number": "5",
-          "block_hash": "0xb741a993cbd99ae11127fcb9bb28234e04532f31a679f03c836197f1dc93565e",
+          "block_hash": "0x8d42cab5d9761d793843f65144fd4aa7bc278d987b043f8880c24251dcd484a7",
           "block_time": 1800001000,
           "event_id": "-9223372015379939327",
           "transaction_index": 0,
           "event_index": 0,
-          "transaction_hash": "0x9708d7f0d99e081fa4be5c2e2ec58be0cc10260d8efdb3740217e781694674c1"
+          "transaction_hash": "0x9b60bd3704ec2424597faae581e3068b4cb8faf171d716843acf3451f9f60699"
         },
         "forwarding_locker": "0x5fbdb2315678afecb367f032d93f642f64180aa3",
         "direction": "zero_fill",
@@ -574,12 +708,12 @@
       {
         "event": {
           "block_number": "5",
-          "block_hash": "0xb741a993cbd99ae11127fcb9bb28234e04532f31a679f03c836197f1dc93565e",
+          "block_hash": "0x8d42cab5d9761d793843f65144fd4aa7bc278d987b043f8880c24251dcd484a7",
           "block_time": 1800001000,
           "event_id": "-9223372015379873789",
           "transaction_index": 1,
           "event_index": 2,
-          "transaction_hash": "0x8ded8b7580791d6d4ed503d8e6898a190df449b5d55b90213da6a8f1276912ed"
+          "transaction_hash": "0xcba53ebcd987cc8ddd85345d300532606e053df74c935f35699e896f5087b85e"
         },
         "forwarding_locker": "0x5fbdb2315678afecb367f032d93f642f64180aa3",
         "direction": "buy",
@@ -592,12 +726,12 @@
       {
         "event": {
           "block_number": "6",
-          "block_hash": "0x01c3e2e4596b56af7f6133347b2672e7be2f1f6d632512c0c0ea53b1b49b3530",
+          "block_hash": "0xda9ea329b1ae6a9acc463b106424e2956348b9eec00c943256b6cd53fb5844d7",
           "block_time": 1800001060,
           "event_id": "-9223372011084972030",
           "transaction_index": 0,
           "event_index": 1,
-          "transaction_hash": "0x1bd89ad947ad1e7829428f7ea17d10090960c4d5965e78cea72f3a2a3d7e964b"
+          "transaction_hash": "0xf6c61efadcd163f35b2de1be77f5be89a8e2a7aed5be35ebbf68bd41aecf8950"
         },
         "forwarding_locker": "0x5fbdb2315678afecb367f032d93f642f64180aa3",
         "direction": "buy",
@@ -610,12 +744,12 @@
       {
         "event": {
           "block_number": "6",
-          "block_hash": "0x01c3e2e4596b56af7f6133347b2672e7be2f1f6d632512c0c0ea53b1b49b3530",
+          "block_hash": "0xda9ea329b1ae6a9acc463b106424e2956348b9eec00c943256b6cd53fb5844d7",
           "block_time": 1800001060,
           "event_id": "-9223372011084906491",
           "transaction_index": 1,
           "event_index": 4,
-          "transaction_hash": "0xc006a7b2373e3a990507edce1633dc961bb410cf33bfcd73565b48bb47d24f92"
+          "transaction_hash": "0xa0f80fe18b87ea86598786d6ee43e1303090b049a0c8231b3b0163eb52ed4e62"
         },
         "forwarding_locker": "0x5fbdb2315678afecb367f032d93f642f64180aa3",
         "direction": "sell",
@@ -628,12 +762,12 @@
       {
         "event": {
           "block_number": "8",
-          "block_hash": "0x7c14221aec8026b38e8931e21203f70c86190936046f4637aab96c66a568ad26",
+          "block_hash": "0x437d4bcc7f2bab89a697f821fc4c2e6ae730cecd093460e28e030efa3da0950d",
           "block_time": 1800001310,
           "event_id": "-9223372002495037438",
           "transaction_index": 0,
           "event_index": 1,
-          "transaction_hash": "0x7df0eb3faffd65a19798f5997f594149161fbb55f690b48da2cbdf6953ad8b1f"
+          "transaction_hash": "0x4aa5aa59453fc2f6c03c1f5703e8cad2b51fbdf1c6ddd694f319868f096f9dbc"
         },
         "forwarding_locker": "0x5fbdb2315678afecb367f032d93f642f64180aa3",
         "direction": "buy",
@@ -646,12 +780,12 @@
       {
         "event": {
           "block_number": "11",
-          "block_hash": "0x1a69c81dee7f058c093171599388168f8532a99859d079396b3f6c379896c981",
+          "block_hash": "0x337614e1d72935cec1f18d71ccc21a8f34c3d8eb8a4c8f347c0bd945c178c5eb",
           "block_time": 1800001756,
           "event_id": "-9223371989610135550",
           "transaction_index": 0,
           "event_index": 1,
-          "transaction_hash": "0x4745307dc6a809bcea741a4a83405b50badf44d179c092cc121b611e7eacbf22"
+          "transaction_hash": "0x7f5d3dede97bd4c4e8708e1e335164c5e2b3b917a94ce717ee0d393e01fa6899"
         },
         "forwarding_locker": "0x5fbdb2315678afecb367f032d93f642f64180aa3",
         "direction": "buy",
@@ -664,12 +798,12 @@
       {
         "event": {
           "block_number": "12",
-          "block_hash": "0xe90ec094b4fc8bad141075e242bc96a025091d064cdf458d779f43bc6cc5a5a1",
+          "block_hash": "0xa856d45a5c31925b222c100e1b8c74fec2234c3057a982dd3828f2119af7c5c0",
           "block_time": 1800002800,
           "event_id": "-9223371985315168254",
           "transaction_index": 0,
           "event_index": 1,
-          "transaction_hash": "0x25fff11db3ba53c8d82b6ab2e6d722e79126d869cd7a4087bc8442667cf0ecbb"
+          "transaction_hash": "0xc26dd317b4e548ec29284a5727a4d7324470c001cb76bf6cc29dbe4936bda49f"
         },
         "forwarding_locker": "0x5fbdb2315678afecb367f032d93f642f64180aa3",
         "direction": "buy",
@@ -682,12 +816,12 @@
       {
         "event": {
           "block_number": "13",
-          "block_hash": "0x08282b9a2a600de126d2cc6db1068d1c656f31c314a5f7223fa75572d2f0ed90",
+          "block_hash": "0xb6f8390364d32a5ada052833408e1d6667194ce8787d927bbed408364e1ecf8d",
           "block_time": 1800004599,
           "event_id": "-9223371981020200958",
           "transaction_index": 0,
           "event_index": 1,
-          "transaction_hash": "0xf45e7869162ea1b208d7074069e74da24e4e5e4a1e084c793f20420a188c636c"
+          "transaction_hash": "0x8dbc15287d2b9d87305a5b7e4c9a2c64e4f9a43c2f694b4d104dacf2b3810de1"
         },
         "forwarding_locker": "0x5fbdb2315678afecb367f032d93f642f64180aa3",
         "direction": "buy",
@@ -700,12 +834,12 @@
       {
         "event": {
           "block_number": "14",
-          "block_hash": "0x21f5448b2e2b66fd73b3e8f91d94c2b319ea9707e04d37c9e195a86ee376867d",
+          "block_hash": "0xb9cff80895c3c2a933f0553a8bd5b6f53450163c53d94dcd23060f2ef5d9e8a5",
           "block_time": 1800004600,
           "event_id": "-9223371976725233662",
           "transaction_index": 0,
           "event_index": 1,
-          "transaction_hash": "0x8c1e82c6ced397e8ffb2096fbc6f2f7fe8f5fb3a12c2cfd92decbd3d31d3759f"
+          "transaction_hash": "0xd042c39b6f458c6be0858843678b6d3e571bf52d93702103e1f13df7ab5af790"
         },
         "forwarding_locker": "0x5fbdb2315678afecb367f032d93f642f64180aa3",
         "direction": "buy",
@@ -717,13 +851,13 @@
       },
       {
         "event": {
-          "block_number": "15",
-          "block_hash": "0xcfce944e46417fb32963e5a464f5f01175d1c54cadaffdb3ef3bcee02e45cf36",
+          "block_number": "16",
+          "block_hash": "0x49a48e5916e64df7f10ae074c24e7c43e107cfa46aa3729d32c38837a46fae6a",
           "block_time": 2115361000,
-          "event_id": "-9223371972430266366",
+          "event_id": "-9223371968135299070",
           "transaction_index": 0,
           "event_index": 1,
-          "transaction_hash": "0x60bb0cbe48eb8de8260e95d0382c47043156a0312c161711d5dfa1afe60fc1e5"
+          "transaction_hash": "0xd1d7ffbdbbc5f5d36c671d1d0c0f4ef1e5811351abb9c37d613755f422ec1a23"
         },
         "forwarding_locker": "0x5fbdb2315678afecb367f032d93f642f64180aa3",
         "direction": "sell",
@@ -738,23 +872,23 @@
   "nativeClaims": {
     "schema_version": "zero-seed-launch-api/v4",
     "chain_id": "31337",
-    "pool_id": "0xf25a6d9d7ebcce22f88bd2da99e0ba098e5b81aa9d0e59d5e2058a50417f144b",
+    "pool_id": "0x131336bd4d4640da92257f5592dc397c0b5ef043ce9c931b85db7f20a05e793b",
     "next_cursor": null,
     "as_of": {
-      "block_number": "15",
-      "block_hash": "0xcfce944e46417fb32963e5a464f5f01175d1c54cadaffdb3ef3bcee02e45cf36",
+      "block_number": "16",
+      "block_hash": "0x49a48e5916e64df7f10ae074c24e7c43e107cfa46aa3729d32c38837a46fae6a",
       "block_time": 2115361000
     },
     "data": [
       {
         "event": {
           "block_number": "6",
-          "block_hash": "0x01c3e2e4596b56af7f6133347b2672e7be2f1f6d632512c0c0ea53b1b49b3530",
+          "block_hash": "0xda9ea329b1ae6a9acc463b106424e2956348b9eec00c943256b6cd53fb5844d7",
           "block_time": 1800001060,
           "event_id": "-9223372011084775411",
           "transaction_index": 3,
           "event_index": 12,
-          "transaction_hash": "0x5e46ec4c91f3e21746c4efe74c978cae36409a6a3108c8120f80b22438a33fb6"
+          "transaction_hash": "0x26a54a1867ab551a062c62bff50eb6a18e1caafa0f0adb8352f8877b843257ae"
         },
         "ledger_event_id": "-9223372011084775413",
         "owner": "0x70997970c51812dc3a010c7d01b50e0d17dc79c8",
@@ -765,12 +899,12 @@
       {
         "event": {
           "block_number": "12",
-          "block_hash": "0xe90ec094b4fc8bad141075e242bc96a025091d064cdf458d779f43bc6cc5a5a1",
+          "block_hash": "0xa856d45a5c31925b222c100e1b8c74fec2234c3057a982dd3828f2119af7c5c0",
           "block_time": 1800002800,
           "event_id": "-9223371985315037174",
           "transaction_index": 2,
           "event_index": 9,
-          "transaction_hash": "0xf8afbe837ae5e7c7599dc2427eae78af2b72ab08986812ed37d27109f847303c"
+          "transaction_hash": "0x050d4bcf62c12351ac16c66ab7b839f048b4c913f8cf05a9d4ec3ab4221fd3e2"
         },
         "ledger_event_id": "-9223371985315037176",
         "owner": "0x3c44cdddb6a900fa2b585dd299e03d12fa4293bc",
@@ -780,15 +914,15 @@
       },
       {
         "event": {
-          "block_number": "15",
-          "block_hash": "0xcfce944e46417fb32963e5a464f5f01175d1c54cadaffdb3ef3bcee02e45cf36",
+          "block_number": "16",
+          "block_hash": "0x49a48e5916e64df7f10ae074c24e7c43e107cfa46aa3729d32c38837a46fae6a",
           "block_time": 2115361000,
-          "event_id": "-9223371972430200826",
+          "event_id": "-9223371968135233530",
           "transaction_index": 1,
           "event_index": 5,
-          "transaction_hash": "0x3599b7df8c3d82c60994f1686e0ed5782c67e16665dacbcc73148ab98cf65ebf"
+          "transaction_hash": "0xc36d9d6bc2ec2d0e0d0e1e203c529c01a2839cbeb356cc931f7ceadd956242c5"
         },
-        "ledger_event_id": "-9223371972430200828",
+        "ledger_event_id": "-9223371968135233532",
         "owner": "0x3c44cdddb6a900fa2b585dd299e03d12fa4293bc",
         "recipient": "0x90f79bf6eb2c4f870365e785982e1f101e93b906",
         "launch_token_amount": "5849077212047475495852",
@@ -796,15 +930,15 @@
       },
       {
         "event": {
-          "block_number": "15",
-          "block_hash": "0xcfce944e46417fb32963e5a464f5f01175d1c54cadaffdb3ef3bcee02e45cf36",
+          "block_number": "16",
+          "block_hash": "0x49a48e5916e64df7f10ae074c24e7c43e107cfa46aa3729d32c38837a46fae6a",
           "block_time": 2115361000,
-          "event_id": "-9223371972430135288",
+          "event_id": "-9223371968135167992",
           "transaction_index": 2,
           "event_index": 7,
-          "transaction_hash": "0x642169c64dba21fb1701328774d97b241730756a486b5c08336dccd8232a262e"
+          "transaction_hash": "0xa6d80d862539cbcd6d28348c674ad575d83b9da3a73dcd1aa46be86d1d8bf247"
         },
-        "ledger_event_id": "-9223371972430135289",
+        "ledger_event_id": "-9223371968135167993",
         "owner": "0x3c44cdddb6a900fa2b585dd299e03d12fa4293bc",
         "recipient": "0x90f79bf6eb2c4f870365e785982e1f101e93b906",
         "launch_token_amount": "0",
@@ -815,23 +949,23 @@
   "nativeOwners": {
     "schema_version": "zero-seed-launch-api/v4",
     "chain_id": "31337",
-    "pool_id": "0xf25a6d9d7ebcce22f88bd2da99e0ba098e5b81aa9d0e59d5e2058a50417f144b",
+    "pool_id": "0x131336bd4d4640da92257f5592dc397c0b5ef043ce9c931b85db7f20a05e793b",
     "next_cursor": null,
     "as_of": {
-      "block_number": "15",
-      "block_hash": "0xcfce944e46417fb32963e5a464f5f01175d1c54cadaffdb3ef3bcee02e45cf36",
+      "block_number": "16",
+      "block_hash": "0x49a48e5916e64df7f10ae074c24e7c43e107cfa46aa3729d32c38837a46fae6a",
       "block_time": 2115361000
     },
     "data": [
       {
         "event": {
           "block_number": "2",
-          "block_hash": "0x02a4be6c4181e7dbfd929b596ffa629ce40079428de4c790460638b389ad69fb",
+          "block_hash": "0x1a8ab4b053e2145ed8be760d9cbf82e94f7adbb9637649073d3c74bb7ae35bc1",
           "block_time": 1800000010,
           "event_id": "-9223372028264710135",
           "transaction_index": 2,
           "event_index": 8,
-          "transaction_hash": "0xd7040ae49f820983ab5e5e52f40210bda17ad50afa7efec67b85eb270eeb5717"
+          "transaction_hash": "0x4487e737dd2908e11d356a3a2b22bda10de0256118dee4deac7134d8d74276f1"
         },
         "previous_owner": null,
         "new_owner": "0x70997970c51812dc3a010c7d01b50e0d17dc79c8"
@@ -839,12 +973,12 @@
       {
         "event": {
           "block_number": "10",
-          "block_hash": "0x5a776223d6ae2f50072e6c96d9d2aa8e30e531ad1d2d83b5beec273f7f562f4b",
+          "block_hash": "0x07601d853abadc6ece2e5a9c4dd0bdfbdba5d9b4161df116c63abbabc1810a6f",
           "block_time": 1800001700,
           "event_id": "-9223371993904971767",
           "transaction_index": 2,
           "event_index": 8,
-          "transaction_hash": "0x787ab24441fae7bb3b0835e29b8d942142c0d47445c0a539963caa14683317ab"
+          "transaction_hash": "0x1b9be8d1b1f03634f57be21492b10be90846b178218f1bdff679c86d63a79a6e"
         },
         "previous_owner": "0x70997970c51812dc3a010c7d01b50e0d17dc79c8",
         "new_owner": "0x90f79bf6eb2c4f870365e785982e1f101e93b906"
@@ -852,12 +986,12 @@
       {
         "event": {
           "block_number": "11",
-          "block_hash": "0x1a69c81dee7f058c093171599388168f8532a99859d079396b3f6c379896c981",
+          "block_hash": "0x337614e1d72935cec1f18d71ccc21a8f34c3d8eb8a4c8f347c0bd945c178c5eb",
           "block_time": 1800001756,
           "event_id": "-9223371989610070012",
           "transaction_index": 1,
           "event_index": 3,
-          "transaction_hash": "0xdc53fc5509baf5e0338b3a2c8b0cc1bcb2a06a84c4810efbdbd51ed7f02e3511"
+          "transaction_hash": "0xb27bb2f30760241ff30b5b65985a4017344c635b5dc1a47cc166c7f7a5763a0e"
         },
         "previous_owner": "0x90f79bf6eb2c4f870365e785982e1f101e93b906",
         "new_owner": "0x3c44cdddb6a900fa2b585dd299e03d12fa4293bc"
@@ -867,18 +1001,18 @@
   "erc20Detail": {
     "schema_version": "zero-seed-launch-api/v4",
     "chain_id": "31337",
-    "pool_id": "0x4c069ac95e8be8e3122e8fef35ce64947aaa0c63c2dc869c21a5deb60b120e06",
+    "pool_id": "0x28597e873304c98eb0af47f51451f78729fdc6b4d80e27e475ac1299797f30aa",
     "pool_key": {
       "core_address": "0x00000000000014aa86c5d3c41765bb24e11bd701",
-      "token0": "0xf4d27a0a5195f911cdc5730d34f60fee98e55c29",
+      "token0": "0x1b381d0316bb19d36bf3e7c2482737ab8c211be9",
       "token1": "0xffffffffffffffffffffffffffffffffffffffff",
-      "config": "0x519ddb6580e97e08e639d601dc6e378285c3ef34000000000000000080000064",
+      "config": "0x511b4327c2a2b6fd803b4ae85f2f9d831e046d8b000000000000000080000064",
       "fee": "0",
       "tick_spacing": 100,
-      "extension": "0x519ddb6580e97e08e639d601dc6e378285c3ef34"
+      "extension": "0x511b4327c2a2b6fd803b4ae85f2f9d831e046d8b"
     },
     "token": {
-      "address": "0xf4d27a0a5195f911cdc5730d34f60fee98e55c29",
+      "address": "0x1b381d0316bb19d36bf3e7c2482737ab8c211be9",
       "name": "Zero Seed l2",
       "symbol": "L2",
       "decimals": 18
@@ -897,7 +1031,7 @@
       "sink_holder": "0x0000000000000000000000000000000000000000"
     },
     "launch_token_is_token1": false,
-    "controller": "0x094511cf93e73feca154da35a2404e8bde1111b4",
+    "controller": "0x2f0be2fc5a2825cecd23dbf6ed33ed8ff823ef64",
     "creator": "0x70997970c51812dc3a010c7d01b50e0d17dc79c8",
     "owner": "0x90f79bf6eb2c4f870365e785982e1f101e93b906",
     "ask_tick": -13815500,
@@ -918,16 +1052,16 @@
     },
     "created": {
       "block_number": "3",
-      "block_hash": "0x50fbee48c437582d1aa4283fa37001d89021690e795a7df18b73c5169d3c5488",
+      "block_hash": "0xb5f9178ecc38a3c552046f2b80e31c97ede2d7ff3ce23ff205a5412995eff43e",
       "block_time": 1800000020,
       "event_id": "-9223372023969873913",
       "transaction_index": 0,
       "event_index": 6,
-      "transaction_hash": "0x9b5d5e578839239bc9f340547f9b9eb9eb5acf732db64ecfbfd2ce1bc24c575c"
+      "transaction_hash": "0xe4e9265446f36310c0345b028d33bf7d501eb81b1972134057a3b0a9ef15d725"
     },
     "as_of": {
-      "block_number": "15",
-      "block_hash": "0xcfce944e46417fb32963e5a464f5f01175d1c54cadaffdb3ef3bcee02e45cf36",
+      "block_number": "16",
+      "block_hash": "0x49a48e5916e64df7f10ae074c24e7c43e107cfa46aa3729d32c38837a46fae6a",
       "block_time": 2115361000
     },
     "principal": {
@@ -970,23 +1104,23 @@
   "erc20Swaps": {
     "schema_version": "zero-seed-launch-api/v4",
     "chain_id": "31337",
-    "pool_id": "0x4c069ac95e8be8e3122e8fef35ce64947aaa0c63c2dc869c21a5deb60b120e06",
+    "pool_id": "0x28597e873304c98eb0af47f51451f78729fdc6b4d80e27e475ac1299797f30aa",
     "next_cursor": null,
     "as_of": {
-      "block_number": "15",
-      "block_hash": "0xcfce944e46417fb32963e5a464f5f01175d1c54cadaffdb3ef3bcee02e45cf36",
+      "block_number": "16",
+      "block_hash": "0x49a48e5916e64df7f10ae074c24e7c43e107cfa46aa3729d32c38837a46fae6a",
       "block_time": 2115361000
     },
     "data": [
       {
         "event": {
           "block_number": "5",
-          "block_hash": "0xb741a993cbd99ae11127fcb9bb28234e04532f31a679f03c836197f1dc93565e",
+          "block_hash": "0x8d42cab5d9761d793843f65144fd4aa7bc278d987b043f8880c24251dcd484a7",
           "block_time": 1800001000,
           "event_id": "-9223372015379808250",
           "transaction_index": 2,
           "event_index": 5,
-          "transaction_hash": "0x9725df1fe1acfc2593d258e910cc0eef090984ff6281515e8ac2efd04af0165b"
+          "transaction_hash": "0xd3f40de861118a466ce507a1e67d2578def0aab8b6d990d2cb0b053398d84424"
         },
         "forwarding_locker": "0x5fbdb2315678afecb367f032d93f642f64180aa3",
         "direction": "buy",
@@ -999,12 +1133,12 @@
       {
         "event": {
           "block_number": "6",
-          "block_hash": "0x01c3e2e4596b56af7f6133347b2672e7be2f1f6d632512c0c0ea53b1b49b3530",
+          "block_hash": "0xda9ea329b1ae6a9acc463b106424e2956348b9eec00c943256b6cd53fb5844d7",
           "block_time": 1800001060,
           "event_id": "-9223372011084840952",
           "transaction_index": 2,
           "event_index": 7,
-          "transaction_hash": "0x032a76cc6771b8369669f8629fb0289a5013d2be5af05230436c1ac2f3921c0c"
+          "transaction_hash": "0xa9bcd109b1eb193f56b3caf3ca901f3a77e6ad16a02d02b87dc1db9768e02354"
         },
         "forwarding_locker": "0x5fbdb2315678afecb367f032d93f642f64180aa3",
         "direction": "buy",
@@ -1017,12 +1151,12 @@
       {
         "event": {
           "block_number": "7",
-          "block_hash": "0x1270c2e1c5ef400e9002228de50d222f53b3d3a807ca1f00941fe067cea6a2ca",
+          "block_hash": "0x1b32c54fcc000000f5e7d1382384d0bf84613c4669c73a0132eee9b20833b1a0",
           "block_time": 1800001120,
           "event_id": "-9223372006789939197",
           "transaction_index": 1,
           "event_index": 2,
-          "transaction_hash": "0x32795fdcee3f55b41c171d5b6f2a376f328fb63203aaa93cc22206e812079d06"
+          "transaction_hash": "0xbe8d49418840c8f29e979b057ad3b2d52b4a58f4fd0a318b998cf28fb9b73793"
         },
         "forwarding_locker": "0x5fbdb2315678afecb367f032d93f642f64180aa3",
         "direction": "sell",
@@ -1035,12 +1169,12 @@
       {
         "event": {
           "block_number": "10",
-          "block_hash": "0x5a776223d6ae2f50072e6c96d9d2aa8e30e531ad1d2d83b5beec273f7f562f4b",
+          "block_hash": "0x07601d853abadc6ece2e5a9c4dd0bdfbdba5d9b4161df116c63abbabc1810a6f",
           "block_time": 1800001700,
           "event_id": "-9223371993905037306",
           "transaction_index": 1,
           "event_index": 5,
-          "transaction_hash": "0x0bfbd738e4a8b913847650fc2a4d641202be197cf85e2e8f7bc6ca893ca6b537"
+          "transaction_hash": "0x0df04a504f49df9320a2fe056382f8e7d61d09724faf975121183399f3b016d8"
         },
         "forwarding_locker": "0x5fbdb2315678afecb367f032d93f642f64180aa3",
         "direction": "buy",
@@ -1055,23 +1189,23 @@
   "erc20Claims": {
     "schema_version": "zero-seed-launch-api/v4",
     "chain_id": "31337",
-    "pool_id": "0x4c069ac95e8be8e3122e8fef35ce64947aaa0c63c2dc869c21a5deb60b120e06",
+    "pool_id": "0x28597e873304c98eb0af47f51451f78729fdc6b4d80e27e475ac1299797f30aa",
     "next_cursor": null,
     "as_of": {
-      "block_number": "15",
-      "block_hash": "0xcfce944e46417fb32963e5a464f5f01175d1c54cadaffdb3ef3bcee02e45cf36",
+      "block_number": "16",
+      "block_hash": "0x49a48e5916e64df7f10ae074c24e7c43e107cfa46aa3729d32c38837a46fae6a",
       "block_time": 2115361000
     },
     "data": [
       {
         "event": {
           "block_number": "8",
-          "block_hash": "0x7c14221aec8026b38e8931e21203f70c86190936046f4637aab96c66a568ad26",
+          "block_hash": "0x437d4bcc7f2bab89a697f821fc4c2e6ae730cecd093460e28e030efa3da0950d",
           "block_time": 1800001310,
           "event_id": "-9223372002494971897",
           "transaction_index": 1,
           "event_index": 6,
-          "transaction_hash": "0x04962c1513ebf17ca269f9012dc1bd3952af011a4b6818dfe4206e4db44dc6f1"
+          "transaction_hash": "0xc9932fbea79758476c6438b5007e2a96dceecd2fb2f3e12a2eceaabae84b1535"
         },
         "ledger_event_id": "-9223372002494971900",
         "owner": "0x90f79bf6eb2c4f870365e785982e1f101e93b906",
@@ -1084,23 +1218,23 @@
   "erc20Owners": {
     "schema_version": "zero-seed-launch-api/v4",
     "chain_id": "31337",
-    "pool_id": "0x4c069ac95e8be8e3122e8fef35ce64947aaa0c63c2dc869c21a5deb60b120e06",
+    "pool_id": "0x28597e873304c98eb0af47f51451f78729fdc6b4d80e27e475ac1299797f30aa",
     "next_cursor": null,
     "as_of": {
-      "block_number": "15",
-      "block_hash": "0xcfce944e46417fb32963e5a464f5f01175d1c54cadaffdb3ef3bcee02e45cf36",
+      "block_number": "16",
+      "block_hash": "0x49a48e5916e64df7f10ae074c24e7c43e107cfa46aa3729d32c38837a46fae6a",
       "block_time": 2115361000
     },
     "data": [
       {
         "event": {
           "block_number": "3",
-          "block_hash": "0x50fbee48c437582d1aa4283fa37001d89021690e795a7df18b73c5169d3c5488",
+          "block_hash": "0xb5f9178ecc38a3c552046f2b80e31c97ede2d7ff3ce23ff205a5412995eff43e",
           "block_time": 1800000020,
           "event_id": "-9223372023969873912",
           "transaction_index": 0,
           "event_index": 7,
-          "transaction_hash": "0x9b5d5e578839239bc9f340547f9b9eb9eb5acf732db64ecfbfd2ce1bc24c575c"
+          "transaction_hash": "0xe4e9265446f36310c0345b028d33bf7d501eb81b1972134057a3b0a9ef15d725"
         },
         "previous_owner": null,
         "new_owner": "0x70997970c51812dc3a010c7d01b50e0d17dc79c8"
@@ -1108,12 +1242,12 @@
       {
         "event": {
           "block_number": "7",
-          "block_hash": "0x1270c2e1c5ef400e9002228de50d222f53b3d3a807ca1f00941fe067cea6a2ca",
+          "block_hash": "0x1b32c54fcc000000f5e7d1382384d0bf84613c4669c73a0132eee9b20833b1a0",
           "block_time": 1800001120,
           "event_id": "-9223372006790004735",
           "transaction_index": 0,
           "event_index": 0,
-          "transaction_hash": "0xfb377b6060ef22c736c9c03587573fac7502691b6188a37ad2d3fb5b4dd065e7"
+          "transaction_hash": "0x8ea0b38e6a8f437d20b72115e05985c7f7d898b1eb050762b889029dd2c4d0fa"
         },
         "previous_owner": "0x70997970c51812dc3a010c7d01b50e0d17dc79c8",
         "new_owner": "0x90f79bf6eb2c4f870365e785982e1f101e93b906"
@@ -1123,18 +1257,18 @@
   "erc20TraderOwnedDetail": {
     "schema_version": "zero-seed-launch-api/v4",
     "chain_id": "31337",
-    "pool_id": "0xfae7fde391805bfe23cfa7670cd3a9bcb21cbc542ef0659f3a630bf9efb89f59",
+    "pool_id": "0x0a4ffce27d439f707aaee89bd3ef673e6f0f7fed91b8cc0155de093fde32f6b3",
     "pool_key": {
       "core_address": "0x00000000000014aa86c5d3c41765bb24e11bd701",
-      "token0": "0x98730fb771aeb50970e91097b5819bde61a607ae",
+      "token0": "0xd69e1589aa5f8e9a7eb66d1dbeb2cbd761c7c51d",
       "token1": "0xffffffffffffffffffffffffffffffffffffffff",
-      "config": "0x519ddb6580e97e08e639d601dc6e378285c3ef34000000000000000080000064",
+      "config": "0x511b4327c2a2b6fd803b4ae85f2f9d831e046d8b000000000000000080000064",
       "fee": "0",
       "tick_spacing": 100,
-      "extension": "0x519ddb6580e97e08e639d601dc6e378285c3ef34"
+      "extension": "0x511b4327c2a2b6fd803b4ae85f2f9d831e046d8b"
     },
     "token": {
-      "address": "0x98730fb771aeb50970e91097b5819bde61a607ae",
+      "address": "0xd69e1589aa5f8e9a7eb66d1dbeb2cbd761c7c51d",
       "name": "Zero Seed l4",
       "symbol": "L4",
       "decimals": 18
@@ -1153,7 +1287,7 @@
       "sink_holder": "0x0000000000000000000000000000000000000000"
     },
     "launch_token_is_token1": false,
-    "controller": "0x094511cf93e73feca154da35a2404e8bde1111b4",
+    "controller": "0x2f0be2fc5a2825cecd23dbf6ed33ed8ff823ef64",
     "creator": "0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266",
     "owner": "0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266",
     "ask_tick": -13815500,
@@ -1174,16 +1308,16 @@
     },
     "created": {
       "block_number": "8",
-      "block_hash": "0x7c14221aec8026b38e8931e21203f70c86190936046f4637aab96c66a568ad26",
+      "block_hash": "0x437d4bcc7f2bab89a697f821fc4c2e6ae730cecd093460e28e030efa3da0950d",
       "block_time": 1800001310,
       "event_id": "-9223372002494906354",
       "transaction_index": 2,
       "event_index": 13,
-      "transaction_hash": "0xb12debf1dec2c43a557a5758e6a2081d10f7b3e6dfc054ea6cc5437eb0d72687"
+      "transaction_hash": "0xf6161759835347763d4d5ca093b5956e6e5777f095a6502ee501e4b04c83f712"
     },
     "as_of": {
-      "block_number": "15",
-      "block_hash": "0xcfce944e46417fb32963e5a464f5f01175d1c54cadaffdb3ef3bcee02e45cf36",
+      "block_number": "16",
+      "block_hash": "0x49a48e5916e64df7f10ae074c24e7c43e107cfa46aa3729d32c38837a46fae6a",
       "block_time": 2115361000
     },
     "principal": {
@@ -1222,5 +1356,421 @@
       "no_bid": false,
       "price_tick": -13802777
     }
+  },
+  "maxNativeDetail": {
+    "schema_version": "zero-seed-launch-api/v4",
+    "chain_id": "31337",
+    "pool_id": "0x28d10d8cd13e6244f1d9cec40bf4698d89503f4810549e622de36a06ceaa127c",
+    "pool_key": {
+      "core_address": "0x00000000000014aa86c5d3c41765bb24e11bd701",
+      "token0": "0x0000000000000000000000000000000000000000",
+      "token1": "0x5db261b7a2a3405df25bf0258516cd66d2c5b5f4",
+      "config": "0x511b4327c2a2b6fd803b4ae85f2f9d831e046d8b000000000000000080000064",
+      "fee": "0",
+      "tick_spacing": 100,
+      "extension": "0x511b4327c2a2b6fd803b4ae85f2f9d831e046d8b"
+    },
+    "token": {
+      "address": "0x5db261b7a2a3405df25bf0258516cd66d2c5b5f4",
+      "name": "Zero Seed l5",
+      "symbol": "L5",
+      "decimals": 18
+    },
+    "quote_token": {
+      "address": "0x0000000000000000000000000000000000000000",
+      "name": null,
+      "symbol": null,
+      "decimals": 18,
+      "kind": "native"
+    },
+    "supply": {
+      "requested": "1000000000000000000000000000",
+      "installed": "999999999999999999999999422",
+      "sink": "578",
+      "sink_holder": "0x0000000000000000000000000000000000000000"
+    },
+    "launch_token_is_token1": true,
+    "controller": "0x2f0be2fc5a2825cecd23dbf6ed33ed8ff823ef64",
+    "creator": "0x70997970c51812dc3a010c7d01b50e0d17dc79c8",
+    "owner": "0x70997970c51812dc3a010c7d01b50e0d17dc79c8",
+    "ask_tick": -13815500,
+    "upper_tick": -9210300,
+    "fee_schedule": {
+      "trading_start": 1800001400,
+      "fee_duration": 3600,
+      "fee_end": 1800005000,
+      "initial_fee": "18446744073709551615",
+      "final_fee": "55340232221128654",
+      "decay": {
+        "kind": "fixed_base_q128",
+        "half_life_seconds": 600
+      },
+      "phase": "final_fee",
+      "fee_rate": "55340232221128654",
+      "evaluated_at": 2115361000
+    },
+    "created": {
+      "block_number": "8",
+      "block_hash": "0x437d4bcc7f2bab89a697f821fc4c2e6ae730cecd093460e28e030efa3da0950d",
+      "block_time": 1800001310,
+      "event_id": "-9223372002494840810",
+      "transaction_index": 3,
+      "event_index": 21,
+      "transaction_hash": "0x64bbf42368abd232d30334ff37fcc33c510daee65a974356c5bd06af39773380"
+    },
+    "as_of": {
+      "block_number": "16",
+      "block_hash": "0x49a48e5916e64df7f10ae074c24e7c43e107cfa46aa3729d32c38837a46fae6a",
+      "block_time": 2115361000
+    },
+    "principal": {
+      "position_id": "0x000000000000000000000000000000000000000000000000008c89bc00d2cecc",
+      "tick_lower": 9210300,
+      "tick_upper": 13815500,
+      "liquidity": "1111119116089565312898036",
+      "locked": true,
+      "withdrawable": false,
+      "pool_reserves": {
+        "launch_token": "997008130316076698400737225",
+        "quote_token": "2999999999999999984"
+      },
+      "reserves_basis": "core_pool_balance"
+    },
+    "fee_ledger": {
+      "holder": "0x70997970c51812dc3a010c7d01b50e0d17dc79c8",
+      "transferable": true,
+      "launch_token": {
+        "accrued": "1189704288668331578335754",
+        "claimed": "1189704288668331578335754",
+        "unclaimed": "0"
+      },
+      "quote_token": {
+        "accrued": "184817928874495997630716",
+        "claimed": "184817928874495997630716",
+        "unclaimed": "0"
+      },
+      "swap_count": 5,
+      "claim_count": 1,
+      "owner_change_count": 1,
+      "last_event_id": "-9223371972430135287"
+    },
+    "inventory": {
+      "trading_open": true,
+      "no_bid": false,
+      "price_tick": -13810107
+    }
+  },
+  "maxNativeSwaps": {
+    "schema_version": "zero-seed-launch-api/v4",
+    "chain_id": "31337",
+    "pool_id": "0x28d10d8cd13e6244f1d9cec40bf4698d89503f4810549e622de36a06ceaa127c",
+    "next_cursor": null,
+    "as_of": {
+      "block_number": "16",
+      "block_hash": "0x49a48e5916e64df7f10ae074c24e7c43e107cfa46aa3729d32c38837a46fae6a",
+      "block_time": 2115361000
+    },
+    "data": [
+      {
+        "event": {
+          "block_number": "9",
+          "block_hash": "0x6a50fdb9350d9aa4359ca1f2bfcab0e3b989ac714a92de765b60ed4bc32d6a13",
+          "block_time": 1800001400,
+          "event_id": "-9223371998199742454",
+          "transaction_index": 5,
+          "event_index": 9,
+          "transaction_hash": "0x94e9238f337010a600547c1e1c8ec90bba7e88f23252acfe13d2edd7ff12095f"
+        },
+        "forwarding_locker": "0x5fbdb2315678afecb367f032d93f642f64180aa3",
+        "direction": "buy",
+        "launch_token_delta": "-54160",
+        "quote_token_delta": "1000000000000000000",
+        "fee_rate": "18446744073709551615",
+        "fee_amount": "999083373736809197195735",
+        "fee_asset": "launch_token"
+      },
+      {
+        "event": {
+          "block_number": "9",
+          "block_hash": "0x6a50fdb9350d9aa4359ca1f2bfcab0e3b989ac714a92de765b60ed4bc32d6a13",
+          "block_time": 1800001400,
+          "event_id": "-9223371998199676915",
+          "transaction_index": 6,
+          "event_index": 12,
+          "transaction_hash": "0x74c42b57ecb80330b8e658f39a0fc4546a8483883e1ec3f5e5ea7f601baf138a"
+        },
+        "forwarding_locker": "0x5fbdb2315678afecb367f032d93f642f64180aa3",
+        "direction": "buy",
+        "launch_token_delta": "-10000000000",
+        "quote_token_delta": "184817928874495997640704",
+        "fee_rate": "18446744073709551615",
+        "fee_amount": "184817928874495997630685",
+        "fee_asset": "quote_token"
+      },
+      {
+        "event": {
+          "block_number": "12",
+          "block_hash": "0xa856d45a5c31925b222c100e1b8c74fec2234c3057a982dd3828f2119af7c5c0",
+          "block_time": 1800002800,
+          "event_id": "-9223371985314971636",
+          "transaction_index": 3,
+          "event_index": 11,
+          "transaction_hash": "0x36221f8b1fa47934ff42b13ed5acac3363c4611df67ded71cb16b45c9237a5f8"
+        },
+        "forwarding_locker": "0x5fbdb2315678afecb367f032d93f642f64180aa3",
+        "direction": "buy",
+        "launch_token_delta": "-809653862584492283386164",
+        "quote_token_delta": "1000000000000000000",
+        "fee_rate": "3470655575073783216",
+        "fee_amount": "187634420851270191404116",
+        "fee_asset": "launch_token"
+      },
+      {
+        "event": {
+          "block_number": "15",
+          "block_hash": "0x57f2004337e161620c18bc3f241245521153ff06a3873490ea9be08898daac41",
+          "block_time": 1800005000,
+          "event_id": "-9223371972430266366",
+          "transaction_index": 0,
+          "event_index": 1,
+          "transaction_hash": "0x65a6c51604107c08957a1ad72d9cd0212440b4164ee0470839460c5cf3b80cbb"
+        },
+        "forwarding_locker": "0x5fbdb2315678afecb367f032d93f642f64180aa3",
+        "direction": "sell",
+        "launch_token_delta": "10000000000",
+        "quote_token_delta": "-10004",
+        "fee_rate": "55340232221128654",
+        "fee_amount": "31",
+        "fee_asset": "quote_token"
+      },
+      {
+        "event": {
+          "block_number": "15",
+          "block_hash": "0x57f2004337e161620c18bc3f241245521153ff06a3873490ea9be08898daac41",
+          "block_time": 1800005000,
+          "event_id": "-9223371972430200827",
+          "transaction_index": 1,
+          "event_index": 4,
+          "transaction_hash": "0xc5d46b191849b5e2c7d6d64359740c0ead89f8cabd8daa4ac9b31d5b0ad2e0e5"
+        },
+        "forwarding_locker": "0x5fbdb2315678afecb367f032d93f642f64180aa3",
+        "direction": "buy",
+        "launch_token_delta": "-992511532670477737486119",
+        "quote_token_delta": "1000000000000000000",
+        "fee_rate": "55340232221128654",
+        "fee_amount": "2986494080252189735903",
+        "fee_asset": "launch_token"
+      }
+    ]
+  },
+  "maxNativeClaims": {
+    "schema_version": "zero-seed-launch-api/v4",
+    "chain_id": "31337",
+    "pool_id": "0x28d10d8cd13e6244f1d9cec40bf4698d89503f4810549e622de36a06ceaa127c",
+    "next_cursor": null,
+    "as_of": {
+      "block_number": "16",
+      "block_hash": "0x49a48e5916e64df7f10ae074c24e7c43e107cfa46aa3729d32c38837a46fae6a",
+      "block_time": 2115361000
+    },
+    "data": [
+      {
+        "event": {
+          "block_number": "15",
+          "block_hash": "0x57f2004337e161620c18bc3f241245521153ff06a3873490ea9be08898daac41",
+          "block_time": 1800005000,
+          "event_id": "-9223371972430135287",
+          "transaction_index": 2,
+          "event_index": 8,
+          "transaction_hash": "0x66ace5e090da8c20820023aed2c486d2c4ab255d552c703eb1ba957161b82ba5"
+        },
+        "ledger_event_id": "-9223371972430135289",
+        "owner": "0x70997970c51812dc3a010c7d01b50e0d17dc79c8",
+        "recipient": "0x3c44cdddb6a900fa2b585dd299e03d12fa4293bc",
+        "launch_token_amount": "1189704288668331578335754",
+        "quote_token_amount": "184817928874495997630716"
+      }
+    ]
+  },
+  "maxErc20Detail": {
+    "schema_version": "zero-seed-launch-api/v4",
+    "chain_id": "31337",
+    "pool_id": "0xa650e97fa2f14e8d301a8f6e94b27c196a01bbd37d3f295a7408640c1cbaeba2",
+    "pool_key": {
+      "core_address": "0x00000000000014aa86c5d3c41765bb24e11bd701",
+      "token0": "0xc8131d1b2f2597c1237ff5583f34f80a4cfef135",
+      "token1": "0xffffffffffffffffffffffffffffffffffffffff",
+      "config": "0x511b4327c2a2b6fd803b4ae85f2f9d831e046d8b000000000000000080000064",
+      "fee": "0",
+      "tick_spacing": 100,
+      "extension": "0x511b4327c2a2b6fd803b4ae85f2f9d831e046d8b"
+    },
+    "token": {
+      "address": "0xc8131d1b2f2597c1237ff5583f34f80a4cfef135",
+      "name": "Zero Seed l6",
+      "symbol": "L6",
+      "decimals": 18
+    },
+    "quote_token": {
+      "address": "0xffffffffffffffffffffffffffffffffffffffff",
+      "name": null,
+      "symbol": null,
+      "decimals": null,
+      "kind": "erc20"
+    },
+    "supply": {
+      "requested": "1000000000000000000000000000",
+      "installed": "999999999999999999999999210",
+      "sink": "790",
+      "sink_holder": "0x0000000000000000000000000000000000000000"
+    },
+    "launch_token_is_token1": false,
+    "controller": "0x2f0be2fc5a2825cecd23dbf6ed33ed8ff823ef64",
+    "creator": "0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266",
+    "owner": "0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266",
+    "ask_tick": -13815500,
+    "upper_tick": -9210300,
+    "fee_schedule": {
+      "trading_start": 1800001400,
+      "fee_duration": 1,
+      "fee_end": 1800001401,
+      "initial_fee": "18446744073709551615",
+      "final_fee": "18446744073709551615",
+      "decay": {
+        "kind": "fixed_base_q128",
+        "half_life_seconds": 600
+      },
+      "phase": "final_fee",
+      "fee_rate": "18446744073709551615",
+      "evaluated_at": 2115361000
+    },
+    "created": {
+      "block_number": "8",
+      "block_hash": "0x437d4bcc7f2bab89a697f821fc4c2e6ae730cecd093460e28e030efa3da0950d",
+      "block_time": 1800001310,
+      "event_id": "-9223372002494775266",
+      "transaction_index": 4,
+      "event_index": 29,
+      "transaction_hash": "0x183728b1a3e44504363c9de57e8e3da1c44db6537a97828107e7b0657cecbd14"
+    },
+    "as_of": {
+      "block_number": "16",
+      "block_hash": "0x49a48e5916e64df7f10ae074c24e7c43e107cfa46aa3729d32c38837a46fae6a",
+      "block_time": 2115361000
+    },
+    "principal": {
+      "position_id": "0x000000000000000000000000000000000000000000000000ff2d3134ff737644",
+      "tick_lower": -13815500,
+      "tick_upper": -9210300,
+      "liquidity": "1111119116089565312897934",
+      "locked": true,
+      "withdrawable": false,
+      "pool_reserves": {
+        "launch_token": "999000916626263180802490332",
+        "quote_token": "1000000000000010019"
+      },
+      "reserves_basis": "core_pool_balance"
+    },
+    "fee_ledger": {
+      "holder": "0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266",
+      "transferable": true,
+      "launch_token": {
+        "accrued": "999083373736809197454718",
+        "claimed": "999083373736809197454718",
+        "unclaimed": "0"
+      },
+      "quote_token": {
+        "accrued": "184817928874495997630685",
+        "claimed": "184817928874495997630685",
+        "unclaimed": "0"
+      },
+      "swap_count": 2,
+      "claim_count": 1,
+      "owner_change_count": 1,
+      "last_event_id": "-9223371985314906095"
+    },
+    "inventory": {
+      "trading_open": true,
+      "no_bid": false,
+      "price_tick": -13813701
+    }
+  },
+  "maxErc20Swaps": {
+    "schema_version": "zero-seed-launch-api/v4",
+    "chain_id": "31337",
+    "pool_id": "0xa650e97fa2f14e8d301a8f6e94b27c196a01bbd37d3f295a7408640c1cbaeba2",
+    "next_cursor": null,
+    "as_of": {
+      "block_number": "16",
+      "block_hash": "0x49a48e5916e64df7f10ae074c24e7c43e107cfa46aa3729d32c38837a46fae6a",
+      "block_time": 2115361000
+    },
+    "data": [
+      {
+        "event": {
+          "block_number": "9",
+          "block_hash": "0x6a50fdb9350d9aa4359ca1f2bfcab0e3b989ac714a92de765b60ed4bc32d6a13",
+          "block_time": 1800001400,
+          "event_id": "-9223371998199611376",
+          "transaction_index": 7,
+          "event_index": 15,
+          "transaction_hash": "0xdbedd9e1daf7b972b455b95a75fed50b61b0414833d667aafa66af20b20b8731"
+        },
+        "forwarding_locker": "0x5fbdb2315678afecb367f032d93f642f64180aa3",
+        "direction": "buy",
+        "launch_token_delta": "-54160",
+        "quote_token_delta": "1000000000000000000",
+        "fee_rate": "18446744073709551615",
+        "fee_amount": "999083373736809197454718",
+        "fee_asset": "launch_token"
+      },
+      {
+        "event": {
+          "block_number": "9",
+          "block_hash": "0x6a50fdb9350d9aa4359ca1f2bfcab0e3b989ac714a92de765b60ed4bc32d6a13",
+          "block_time": 1800001400,
+          "event_id": "-9223371998199545836",
+          "transaction_index": 8,
+          "event_index": 19,
+          "transaction_hash": "0x5d6d7dcc03eb15a3951643f978a3d469689d61383459648dbdebdfdc6d14c2fa"
+        },
+        "forwarding_locker": "0x5fbdb2315678afecb367f032d93f642f64180aa3",
+        "direction": "buy",
+        "launch_token_delta": "-10000000000",
+        "quote_token_delta": "184817928874495997640704",
+        "fee_rate": "18446744073709551615",
+        "fee_amount": "184817928874495997630685",
+        "fee_asset": "quote_token"
+      }
+    ]
+  },
+  "maxErc20Claims": {
+    "schema_version": "zero-seed-launch-api/v4",
+    "chain_id": "31337",
+    "pool_id": "0xa650e97fa2f14e8d301a8f6e94b27c196a01bbd37d3f295a7408640c1cbaeba2",
+    "next_cursor": null,
+    "as_of": {
+      "block_number": "16",
+      "block_hash": "0x49a48e5916e64df7f10ae074c24e7c43e107cfa46aa3729d32c38837a46fae6a",
+      "block_time": 2115361000
+    },
+    "data": [
+      {
+        "event": {
+          "block_number": "12",
+          "block_hash": "0xa856d45a5c31925b222c100e1b8c74fec2234c3057a982dd3828f2119af7c5c0",
+          "block_time": 1800002800,
+          "event_id": "-9223371985314906095",
+          "transaction_index": 4,
+          "event_index": 16,
+          "transaction_hash": "0x983e3ab51adc335d162a8801ee7973e29937ca95569c2bf16215bd7f391c0884"
+        },
+        "ledger_event_id": "-9223371985314906098",
+        "owner": "0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266",
+        "recipient": "0x3c44cdddb6a900fa2b585dd299e03d12fa4293bc",
+        "launch_token_amount": "999083373736809197454718",
+        "quote_token_amount": "184817928874495997630685"
+      }
+    ]
   }
 }

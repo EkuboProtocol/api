@@ -29,6 +29,13 @@
     const lower = (a: string) => a.toLowerCase();
     const full = JSON.parse(readFileSync(resolve(ROOT, "tests/fixtures/zero-seed-launch/local-chain.json"), "utf8"));
     const { creator, newOwner, feeRecipient, trader } = full.addresses;
+    // The served local instance is the fixture's, field for field.
+    expect(LOCAL_INSTANCES).toEqual(full.instances.map((i: any) => ({
+      chainId: String(CHAIN_ID), address: lower(i.extension), runtime: i.extensionRuntimeKeccak,
+      periphery: lower(i.periphery), peripheryRuntime: i.peripheryRuntimeKeccak, core: lower(full.addresses.core),
+      abiSha256: full.provenance.launchAbiSha256, peripheryAbiSha256: full.provenance.peripheryAbiSha256,
+    })));
+    expect(LOCAL_QUOTES).toEqual([{ chainId: String(CHAIN_ID), address: lower(full.addresses.erc20Quote), runtime: full.provenance.erc20QuoteRuntimeKeccak }]);
     const path = (label: string) => `/launches/${CHAIN_ID}/${fixture.launches[label]!.poolId}`;
     /** One launch at one block: API detail versus the chain state and the indexer's SQL feeAt. */
     const expectLaunch = async (state: any, label: string) => {
@@ -123,18 +130,20 @@
       });
       const canonicalList = await get(`/launches?chainId=${CHAIN_ID}`);
       expect(canonicalList.data.map((l: any) => l.pool_id)).toEqual(
-        ["l4", "l2", "l1"].map((l) => fixture.launches[l]!.poolId));
+        ["l6", "l5", "l4", "l2", "l1"].map((l) => fixture.launches[l]!.poolId));
       expect(canonicalList.next_cursor).toBeNull();
       for (const suffix of ["", "/swaps", "/claims", "/owners"])
         await get(`${path("l3")}${suffix}`, 404);
       // creator (owner at creation) and current owner filters
       expect((await get(`/launches?chainId=${CHAIN_ID}&creator=${creator}`)).data.map((l: any) => l.pool_id)).toEqual(
-        [fixture.launches.l2!.poolId, fixture.launches.l1!.poolId]);
+        ["l5", "l2", "l1"].map((l) => fixture.launches[l]!.poolId));
       expect((await get(`/launches?chainId=${CHAIN_ID}&owner=${feeRecipient}`)).data.map((l: any) => l.pool_id)).toEqual(
         [fixture.launches.l1!.poolId]);
       expect((await get(`/launches?chainId=${CHAIN_ID}&owner=${BigInt(trader).toString()}`)).data.map((l: any) => l.pool_id)).toEqual(
-        [fixture.launches.l4!.poolId]);
-      expect((await get(`/launches?chainId=${CHAIN_ID}&owner=${creator}`)).data).toEqual([]);
+        ["l6", "l4"].map((l) => fixture.launches[l]!.poolId));
+      // the creator still owns only l5 (l1 and l2 were transferred)
+      expect((await get(`/launches?chainId=${CHAIN_ID}&owner=${creator}`)).data.map((l: any) => l.pool_id)).toEqual(
+        [fixture.launches.l5!.poolId]);
       const owners = await get(`${path("l1")}/owners`);
       expect(owners.data.map((o: any) => [o.previous_owner, o.new_owner])).toEqual([
         [null, lower(creator)], [lower(creator), lower(newOwner)], [lower(newOwner), lower(feeRecipient)]]);
@@ -148,6 +157,48 @@
       const claims = await expectClaimsOnce("l1");
       await expectClaimsOnce("l2");
       await expectClaimsOnce("l4");
+      // Launches created at the maximum rate 2^64 - 1 (just under 100%) are
+      // served exactly: decimal strings, never rounded, never 2^64.
+      const MAX = (2n ** 64n - 1n).toString();
+      const l5 = await get(path("l5"));
+      const l6 = await get(path("l6"));
+      expect(l5.fee_schedule).toMatchObject({ initial_fee: MAX, final_fee: "55340232221128654", fee_duration: 3600 });
+      expect(l6.fee_schedule).toMatchObject({ initial_fee: MAX, final_fee: MAX, fee_duration: 1 });
+      // the canonical head is past both fee windows
+      expect([l5.fee_schedule.phase, l5.fee_schedule.fee_rate]).toEqual(["final_fee", "55340232221128654"]);
+      expect([l6.fee_schedule.phase, l6.fee_schedule.fee_rate]).toEqual(["final_fee", MAX]);
+      expect([l5.quote_token.kind, l5.launch_token_is_token1, l6.quote_token.kind, l6.launch_token_is_token1]).toEqual(
+        ["native", true, "erc20", false]);
+      expect([l5.creator, l5.owner, l6.creator, l6.owner]).toEqual([lower(creator), lower(creator), lower(trader), lower(trader)]);
+      const l5Swaps = await get(`${path("l5")}/swaps`);
+      const l6Swaps = await get(`${path("l6")}/swaps`);
+      const l5Claims = await expectClaimsOnce("l5");
+      const l6Claims = await expectClaimsOnce("l6");
+      // the exact-input fee differs by launch with the pool price it met
+      for (const [launch, page, exactInFee] of [[l5, l5Swaps, 999083373736809197195735n], [l6, l6Swaps, 999083373736809197454718n]] as const) {
+        expect(page.data.length).toBe(launch.fee_ledger.swap_count);
+        // every swap fee is accrued once to the creator ledger of its asset
+        for (const asset of ["launch_token", "quote_token"])
+          expect(page.data.filter((s: any) => s.fee_asset === asset).reduce((n: bigint, s: any) => n + BigInt(s.fee_amount), 0n).toString())
+            .toBe(launch.fee_ledger[asset].accrued);
+        // at the maximum: exact input nets floor(gross / 2^64) of the output; exact output pays calculated * 2^64
+        const atMax = page.data.filter((s: any) => s.fee_rate === MAX);
+        expect(atMax.map((s: any) => [s.direction, s.fee_asset])).toEqual([["buy", "launch_token"], ["buy", "quote_token"]]);
+        const [exactIn, exactOut] = atMax;
+        const net = -BigInt(exactIn.launch_token_delta);
+        expect([net, BigInt(exactIn.quote_token_delta)]).toEqual([54160n, 10n ** 18n]);
+        expect(BigInt(exactIn.fee_amount)).toBe(exactInFee);
+        expect((net + BigInt(exactIn.fee_amount)) / 2n ** 64n).toBe(net);
+        expect([BigInt(exactOut.launch_token_delta), BigInt(exactOut.quote_token_delta)]).toEqual(
+          [-(10n ** 10n), 184817928874495997640704n]);
+        expect(BigInt(exactOut.quote_token_delta)).toBe(10019n * 2n ** 64n);
+        expect(BigInt(exactOut.fee_amount)).toBe(184817928874495997630685n);
+        expect(BigInt(exactOut.quote_token_delta) - BigInt(exactOut.fee_amount)).toBe(10019n);
+      }
+      // l5 decays from the maximum: one swap mid-window, then at the final fee
+      expect(l5Swaps.data.map((s: any) => s.fee_rate)).toEqual(
+        [MAX, MAX, "3470655575073783216", "55340232221128654", "55340232221128654"]);
+      expect(l6Swaps.data.map((s: any) => s.fee_rate)).toEqual([MAX, MAX]);
       // l1 claims: by the creator, by the recipient-owner after two transfers, then twice at zero
       expect(claims.data.map((c: any) => c.owner)).toEqual(
         [lower(creator), lower(feeRecipient), lower(feeRecipient), lower(feeRecipient)]);
@@ -195,15 +246,16 @@
         ];
         try {
           // screened before pagination: the native launch fills the page
-          const page = await get(`/launches?chainId=${CHAIN_ID}&limit=1`);
-          expect(page.data.map((l: any) => l.pool_id)).toEqual([fixture.launches.l1!.poolId]);
+          const page = await get(`/launches?chainId=${CHAIN_ID}&limit=2`);
+          expect(page.data.map((l: any) => l.pool_id)).toEqual(["l5", "l1"].map((l) => fixture.launches[l]!.poolId));
           expect(page.next_cursor).toBeNull();
-          for (const label of ["l2", "l4"])
+          for (const label of ["l2", "l4", "l6"])
             for (const suffix of ["", "/swaps", "/claims", "/owners"]) {
               const body = await get(`${path(label)}${suffix}`, 404);
               expect(body).toEqual({ status: 404, error: "Launch not found" });
             }
           expect(await get(path("l1"))).toEqual(detail);
+          expect(await get(path("l5"))).toEqual(l5);
         } finally {
           spy.forEach((s) => s.mockRestore());
         }
@@ -225,6 +277,8 @@
           source: { fixture: "indexer tests/fixtures/zero-seed-launch/local-chain.json", chain_id: String(CHAIN_ID) },
           list, second, canonicalList, nativeDetail: detail, nativeSwaps: swaps, nativeClaims: claims, nativeOwners: owners,
           erc20Detail: l2, erc20Swaps: l2Swaps, erc20Claims: l2Claims, erc20Owners: l2Owners, erc20TraderOwnedDetail: l4,
+          maxNativeDetail: l5, maxNativeSwaps: l5Swaps, maxNativeClaims: l5Claims,
+          maxErc20Detail: l6, maxErc20Swaps: l6Swaps, maxErc20Claims: l6Claims,
         }, null, 2));
       }
       const before = await get(path("l1"));
@@ -254,6 +308,26 @@
       await db.sql`ALTER TABLE zero_seed_launch_created ENABLE TRIGGER no_updates_zero_seed_launch_created`;
       await db.sql.unsafe(`ALTER TABLE zero_seed_launch_created ADD CONSTRAINT "${check!.name}" ${check!.def}`);
       expect(await get(path("l1"))).toEqual(before);
+      // A stored fee above uint64 (2^64, exactly 100%) fails as 500 on every
+      // read that serves it, never wrapped, truncated or served.
+      const l6Before = await get(path("l6"));
+      const l6SwapsBefore = await get(`${path("l6")}/swaps`);
+      const l6Pool = num(fixture.launches.l6!.poolId);
+      const Q64 = (2n ** 64n).toString();
+      await db.sql`ALTER TABLE zero_seed_launch_created DISABLE TRIGGER no_updates_zero_seed_launch_created`;
+      await db.sql`UPDATE zero_seed_launch_created SET initial_fee = ${Q64}::numeric WHERE pool_id = ${l6Pool}::numeric`;
+      await get(path("l6"), 500);
+      await get(`/launches?chainId=${CHAIN_ID}`, 500);
+      await db.sql`UPDATE zero_seed_launch_created SET initial_fee = ${MAX}::numeric WHERE pool_id = ${l6Pool}::numeric`;
+      await db.sql`ALTER TABLE zero_seed_launch_created ENABLE TRIGGER no_updates_zero_seed_launch_created`;
+      await db.sql`ALTER TABLE zero_seed_launch_swapped DISABLE TRIGGER no_updates_zero_seed_launch_swapped`;
+      const l6Swap = BigInt(l6SwapsBefore.data[0].event.event_id);
+      await db.sql`UPDATE zero_seed_launch_swapped SET fee_rate = ${Q64}::numeric WHERE chain_id = ${CHAIN_ID} AND event_id = ${l6Swap}`;
+      await get(`${path("l6")}/swaps`, 500);
+      await db.sql`UPDATE zero_seed_launch_swapped SET fee_rate = ${MAX}::numeric WHERE chain_id = ${CHAIN_ID} AND event_id = ${l6Swap}`;
+      await db.sql`ALTER TABLE zero_seed_launch_swapped ENABLE TRIGGER no_updates_zero_seed_launch_swapped`;
+      expect(await get(path("l6"))).toEqual(l6Before);
+      expect(await get(`${path("l6")}/swaps`)).toEqual(l6SwapsBefore);
       await db.sql`UPDATE indexer_cursor SET last_updated = NOW() - INTERVAL '2 minutes' WHERE chain_id=${CHAIN_ID}`;
       await get(path("l1"), 503);
       await apiHead(db);

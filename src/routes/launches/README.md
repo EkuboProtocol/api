@@ -2,8 +2,8 @@
 
 Draft response contract: `zero-seed-launch-api/v4`, for the forward-only
 `ZeroSeedLaunch` and its separate `ZeroSeedLaunchPeriphery` of evm-contracts
-`40af6cb359b0de2f61f15e47b6622a00c48b5b08` (ABI sha256 of `jq -cS .abi`:
-ZeroSeedLaunch `999068f8e41867e972f4485c0105f584a2c10d7537615e6b4517807548fcd4bf`,
+`550afc40280423128c02eb5ffd213aa959b34e2a` (ABI sha256 of `jq -cS .abi`:
+ZeroSeedLaunch `efae9388aa6b1342479204ddf436fd2a310df16bf06c80c990b2d22c90d1e41e`,
 periphery `df24d9f07d45323da7e46c0f6e64ce24f8f522442d60cb07880ddf742ebe7305`).
 Indexer schema `zero-seed-launch-index/v3` (migration 00139). Live instance
 and quote lists are empty.
@@ -29,6 +29,15 @@ Changes from v3:
   (the launch token is token1), 18 decimals, null name and symbol. An ERC-20
   quote above the launch token's address makes the launch token token0.
 
+Creator fees span the whole uint64 range. `initial_fee`, `final_fee` and
+both `fee_rate`s are Q0.64 rates as canonical decimal strings from `0` to
+`18446744073709551615` (2^64 - 1, the maximum, just under 100%; the fee
+fraction is value / 2^64, never exactly 100%), never JSON numbers. The
+contract checks only `final_fee <= initial_fee` and a nonzero duration; there
+is no ceiling below 2^64 - 1 and no `FeeTooHigh` error. The API refuses (500) an
+indexed fee above 2^64 - 1 instead of wrapping, truncating or serving it.
+The response shape is unchanged, so the contract stays v4.
+
 Unchanged from v3: the fixed-base fee table (`fee_schedule.decay` is
 `{ kind: "fixed_base_q128", half_life_seconds: 600 }` and `fee_rate` the
 contract's `feeAt` at the indexed block time, checked in `policy.test.ts`
@@ -41,7 +50,10 @@ once, and the `/owners` history and `owner`/`creator` list filters.
 `fixtures/zero-seed-launch-api-v4.golden.json` is a machine-readable example of
 every response, written by the actual handlers over the replayed local fixture:
 a native-ETH (launch token1, sink 578) and two ERC-20 (launch token0, sink 790)
-launches on one extension, ownership transfers, claims, swaps and a reorg.
+launches on one extension, ownership transfers, claims, swaps and a reorg,
+plus two launches created at the maximum rate: `maxNativeDetail` (native,
+2^64 - 1 decaying to 0.3% over 3600 s) and `maxErc20Detail` (ERC-20, flat at
+2^64 - 1), with their exact-input, exact-output and decayed swaps and claims.
 
 ## Requests
 
@@ -112,9 +124,9 @@ regenerates `openapi.json`.
 
 For actual emitted-state/Postgres/handler replay, provide the exact pinned
 indexer checkout (EkuboProtocol/indexer
-`d783593ea71371acc1851b9e887b064026d83609`, fixture
+`c78a48e3aff1df7a8e3298545eee8be04474063d`, fixture
 `tests/fixtures/zero-seed-launch/local-chain.json` sha256
-`5dd281b580fb68dfaba00778d2241adf42c7b64ec5e8a70bfab8c9111ecf0ebb`), a
+`09d7745740af507a02304e26c0e20d6f27b1047fd707c056ef4d936c67a74fcc`), a
 disposable loopback Postgres 18 and a scratch directory:
 
 ```sh
@@ -140,7 +152,11 @@ checkout. The API cases check every launch's supply against the chain
 (`totalSupply`, `balanceOf(address(0))`, Core's position delta), that
 ERC-20 quote launches are 404 and absent from lists when their quote is not
 in the reviewed list (empty, wrong runtime or wrong chain) while the native
-launch is served, and that a malformed indexed supply fails as 500. Test-only query-method spies wire
+launches are served, that the local instance and quote pins equal the
+fixture's, that the maximum-rate launches serve 2^64 - 1 exactly (schedule,
+swap rates, exact-input net floor(gross / 2^64), exact-output paid
+calculated * 2^64, ledgers), and that a malformed indexed supply or an indexed
+fee of 2^64 fails as 500. Test-only query-method spies wire
 the actual HTTP handlers to real local SQL with the reviewed local manifest;
 they do not stub response rows. All temporary databases are dropped by the
 harness. No RPC, fork URL, provider/secret read or production migration is used.
