@@ -30,8 +30,9 @@
     const full = JSON.parse(readFileSync(resolve(ROOT, "tests/fixtures/zero-seed-launch/local-chain.json"), "utf8"));
     const { creator, newOwner, feeRecipient, trader } = full.addresses;
     // The served local instance is the fixture's, field for field.
-    expect(LOCAL_INSTANCES).toEqual(full.instances.map((i: any) => ({
-      chainId: String(CHAIN_ID), address: lower(i.extension), runtime: i.extensionRuntimeKeccak,
+    // This fixture is the fixed-base (43d6628) instance; the tick-rate one has its own harness.
+    expect(LOCAL_INSTANCES.filter((p) => p.feeModel === "fixed_base_duration_v1")).toEqual(full.instances.map((i: any) => ({
+      chainId: String(CHAIN_ID), feeModel: "fixed_base_duration_v1", address: lower(i.extension), runtime: i.extensionRuntimeKeccak,
       periphery: lower(i.periphery), peripheryRuntime: i.peripheryRuntimeKeccak, core: lower(full.addresses.core),
       abiSha256: full.provenance.launchAbiSha256, peripheryAbiSha256: full.provenance.peripheryAbiSha256,
     })));
@@ -45,7 +46,7 @@
       const launch = full.launches[label];
       const instance = full.instances.find((i: any) => i.label === install.instance);
       const launchIs1 = body.launch_token_is_token1;
-      expect(body.schema_version).toBe("zero-seed-launch-api/v4");
+      expect(body.schema_version).toBe("zero-seed-launch-api/v5");
       // requested = totalSupply, installed = Core's position delta, sink = balanceOf(0)
       expect(body.supply).toEqual({
         requested: launch.requestedSupply, installed: launch.installedSupply, sink: launch.sinkSupply,
@@ -77,6 +78,7 @@
       const tick = decodePoolState(chain.poolStateWord).tick;
       expect(body.inventory.price_tick).toBe(launchIs1 ? -tick : tick);
       expect(body.fee_schedule.evaluated_at).toBe(body.as_of.block_time);
+      expect(body.fee_schedule.model).toBe("fixed_base_duration_v1");
       expect(body.fee_schedule.decay).toEqual({ kind: "fixed_base_q128", half_life_seconds: 600 });
       expect(body.fee_schedule).not.toHaveProperty("decay_factor");
       // The API's TypeScript schedule equals the indexer's SQL feeAt and the contract's feeAt.
@@ -286,7 +288,7 @@
         const l2Claims = await get(`${path("l2")}/claims`);
         const l4 = await get(path("l4"));
         await Bun.write(resolve(process.env.LAUNCH_GOLDEN_DIR, "actual-handler-golden.json"), JSON.stringify({
-          schema_version: "zero-seed-launch-api/v4",
+          schema_version: "zero-seed-launch-api/v5",
           source: { fixture: "indexer tests/fixtures/zero-seed-launch/local-chain.json", chain_id: String(CHAIN_ID) },
           list, second, canonicalList, nativeDetail: detail, nativeSwaps: swaps, nativeClaims: claims, nativeOwners: owners,
           erc20Detail: l2, erc20Swaps: l2Swaps, erc20Claims: l2Claims, erc20Owners: l2Owners, erc20TraderOwnedDetail: l4,

@@ -1,7 +1,9 @@
 import { z } from "@hono/zod-openapi";
 
+// v5: fee_schedule is a union on `model`, the deployment's fee model
+// (fixed_base_duration_v1, evm-contracts 43d6628; tick_rate_v2, 3d6378f).
 // v4: requested/installed/sink supply, per-launch quote.
-export const SCHEMA_VERSION = "zero-seed-launch-api/v4" as const;
+export const SCHEMA_VERSION = "zero-seed-launch-api/v5" as const;
 export const SchemaVersion = z.literal(SCHEMA_VERSION);
 const U = z.string().regex(/^(0|[1-9][0-9]*)$/);
 const I = z.string().regex(/^(0|-?[1-9][0-9]*)$/);
@@ -48,13 +50,16 @@ const PoolKey = z.strictObject({
   tick_spacing: z.number().int().positive(),
   extension: Address,
 });
-export const FeeSchedule = z.strictObject({
+// fixed_base_duration_v1 (evm-contracts 43d6628): unchanged from v4 apart from
+// the discriminator. 2^(-t/600) from a fixed Q128 table, rescaled to reach
+// final_fee at fee_end.
+const FixedBaseDurationSchedule = z.strictObject({
+  model: z.literal("fixed_base_duration_v1"),
   trading_start: Seconds,
   fee_duration: z.number().int().positive(),
   fee_end: Seconds,
   initial_fee: Q64,
   final_fee: Q64,
-  // 2^(-t/600) from a fixed Q128 table, rescaled to reach final_fee at fee_end.
   decay: z.strictObject({
     kind: z.literal("fixed_base_q128"),
     half_life_seconds: z.literal(600),
@@ -63,6 +68,56 @@ export const FeeSchedule = z.strictObject({
   fee_rate: Q64,
   evaluated_at: Seconds,
 });
+// A canonical decimal uint64 that is not a fee: the Q32.32 decay rate.
+const Uint64 = U.max(20)
+  .refine(
+    (value) => /^(0|[1-9][0-9]*)$/.test(value) && BigInt(value) <= UINT64_MAX,
+  )
+  .openapi({
+    description:
+      "Canonical decimal uint64 (0 to 18446744073709551615), never a JSON number",
+  });
+// tick_rate_v2 (evm-contracts 3d6378f): final_fee is the long-run floor the
+// fee approaches, reached only by rounding or numerical saturation; there is
+// no end time. fee = final + floor((initial - final) *
+// toFixed(tickToSqrtRatio(-m)) / 2^128), m = floor(rate * elapsed / 2^32).
+const TickRateSchedule = z.strictObject({
+  model: z.literal("tick_rate_v2"),
+  trading_start: Seconds,
+  initial_fee: Q64,
+  final_fee: Q64.openapi({
+    description:
+      "Q0.64 long-run floor as a canonical decimal uint64: approached, not scheduled",
+  }),
+  decay_rate_x32: Uint64.openapi({
+    description:
+      "decayRateX32: unsigned Q32.32 ticks per second (2^32 = 1 tick/s) as a canonical decimal uint64; 0 keeps initial_fee",
+  }),
+  // floor(HALF_LIFE_X32_E30 * 10^6 / (rate * 10^30)) microseconds, display
+  // only; null for rate 0.
+  half_life_seconds: z
+    .string()
+    .regex(/^(0|[1-9][0-9]*)\.[0-9]{6}$/)
+    .nullable()
+    .openapi({
+      description:
+        "Half-life of the excess over the floor, seconds with 6 decimals (floored), from the exact integer HALF_LIFE_X32_E30 = 5954091920683119788732747343471285361579197626; null for rate 0. Display only",
+    }),
+  // floor(381061679028371455 / rate): the last elapsed second the curve is
+  // evaluated at; from the next one the fee is exactly final_fee. Not an end
+  // of fees.
+  saturation_elapsed_seconds: U.nullable().openapi({
+    description:
+      "floor(381061679028371455 / decay_rate_x32): after this many elapsed seconds the fee is exactly final_fee by numerical saturation; null for rate 0. Not a schedule end",
+  }),
+  phase: z.enum(["before_trading_start", "decaying", "at_floor", "constant"]),
+  fee_rate: Q64,
+  evaluated_at: Seconds,
+});
+export const FeeSchedule = z.discriminatedUnion("model", [
+  FixedBaseDurationSchedule,
+  TickRateSchedule,
+]);
 // Raw launch-token units. requested is LaunchParameters.supply and the
 // token's totalSupply; installed is what Core took into the position at
 // creation (all circulating inventory); sink = requested - installed was

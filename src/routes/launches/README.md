@@ -1,14 +1,48 @@
 # Zero-seed launch reads (draft/local)
 
-Draft response contract: `zero-seed-launch-api/v4`, for the forward-only
+Draft response contract: `zero-seed-launch-api/v5`, for the forward-only
 `ZeroSeedLaunch` and its separate `ZeroSeedLaunchPeriphery` of evm-contracts
 `43d6628841b3ce91dafa048b7ceef64bed55fc8e` (ABI sha256 of `jq -cS .abi`:
 ZeroSeedLaunch `efae9388aa6b1342479204ddf436fd2a310df16bf06c80c990b2d22c90d1e41e`,
 periphery `df24d9f07d45323da7e46c0f6e64ce24f8f522442d60cb07880ddf742ebe7305`).
-Indexer schema `zero-seed-launch-index/v3` (migration 00140, after main's
-`00139_mev_capture_v21`). Live instance and quote lists are empty.
+Since v5 it also serves the tick-rate revision,
+`3d6378f585591dc7eabeea6976932c30524bb8ea` (ABI sha256 `89ff4d15…aadd` and
+`a6d43b36…db07`). Indexer schema `zero-seed-launch-index/v4` (migration 00140,
+after main's `00139_mev_capture_v21`). Live instance and quote lists are empty.
 
-Changes from v3:
+Changes from v4:
+
+- `fee_schedule` is a union on `model`, the fee model of the launch's
+  deployment, bound to the instance pin (`LaunchInstance.feeModel`) and never
+  inferred from a row. List and detail SQL screen `fee_model` with the rest of
+  the instance, so a reader with the other model for a deployment serves none
+  of its launches.
+- `model: "fixed_base_duration_v1"` (43d6628, the earlier revision): the v4
+  schedule unchanged (`fee_duration`, `fee_end`, `decay`, phases
+  `before_trading_start | fee_decay | final_fee`).
+- `model: "tick_rate_v2"` (3d6378f): `trading_start`, `initial_fee`,
+  `final_fee` (the long-run floor), `decay_rate_x32` (canonical decimal
+  uint64, unsigned Q32.32 ticks per second, never a JSON number),
+  `half_life_seconds` (display: 6 fractional digits, floored, from the exact
+  integer `HALF_LIFE_X32_E30 = 5954091920683119788732747343471285361579197626`;
+  `null` for rate 0), `saturation_elapsed_seconds` (`floor(381061679028371455 /
+  rate)`, after which the fee is exactly the floor by numerical saturation;
+  `null` for rate 0; not an end), `phase` (`before_trading_start | decaying |
+  at_floor | constant`), `fee_rate` (the contract's `feeAt` at the indexed block
+  time) and `evaluated_at`. There is no `fee_end`, `fee_duration` or `decay`.
+  `fee_rate = final + floor((initial - final) * toFixed(tickToSqrtRatio(-m)) /
+  2^128)`, `m = floor(rate * elapsed / 2^32)`, with saturation checked first;
+  `policy.test.ts` checks it against the contract's frozen vectors v7
+  (`vectors/zero-seed-launch-v2-vectors.json`, verbatim: fee rows, curve
+  tables, tick steps, saturation seconds and the five SHA-256 chains).
+- Malformed indexed schedules fail as 500: an unknown model, a v2 row with a
+  duration or without a rate, a rate outside uint64, a v1 row with a rate.
+- Golden examples: `fixtures/zero-seed-launch-api-v5.golden.json` (fixed-base
+  fixture, previously the v4 golden) and
+  `fixtures/zero-seed-launch-api-v5-tick-rate.golden.json` (tick-rate fixture:
+  rates 0, 1, one day, 600 s and 2^64 - 1).
+
+Changes from v3 (v4):
 
 - Every `LaunchSummary` (list and detail) has
   `supply: { requested, installed, sink, sink_holder }`, decimal strings of
@@ -54,7 +88,7 @@ transferable holder of unclaimed and future fees) and `controller` (the
 periphery), periphery claim payouts linked by `ledger_event_id` and counted
 once, and the `/owners` history and `owner`/`creator` list filters.
 
-`fixtures/zero-seed-launch-api-v4.golden.json` is a machine-readable example of
+`fixtures/zero-seed-launch-api-v5.golden.json` is a machine-readable example of
 every response, written by the actual handlers over the replayed local fixture:
 a native-ETH (launch token1, sink 578) and two ERC-20 (launch token0, sink 790)
 launches on one extension, ownership transfers, claims, swaps and a reorg,
@@ -136,9 +170,11 @@ regenerates `openapi.json`.
 
 For actual emitted-state/Postgres/handler replay, provide the exact pinned
 indexer checkout (EkuboProtocol/indexer
-`03e95fd8a457a8e5aa24799f4d5242a5fff66a22`, fixture
+`7f373e59ca79eadb5d7ce47a29eb7f02decf31da`, fixtures
 `tests/fixtures/zero-seed-launch/local-chain.json` sha256
-`ec308953b8412e3ad76e7b6bf74b1e3ae56f6cbe0798032dbc6673bfedfae7d9`), a
+`ec308953b8412e3ad76e7b6bf74b1e3ae56f6cbe0798032dbc6673bfedfae7d9` and
+`local-chain-v2.json` sha256
+`52377ccd26930d893aa656d7835375536c7e13375faa437d1b8d220f1b1d1d2f`), a
 disposable loopback Postgres 18 and a scratch directory:
 
 ```sh
@@ -153,8 +189,10 @@ bun scripts/verifyLaunchReplay.ts
 docker stop launch-replay-pg
 ```
 
-With `LAUNCH_GOLDEN_DIR` set, the run writes `actual-handler-golden.json`;
-copy it to `fixtures/zero-seed-launch-api-v4.golden.json` and run
+The runner runs both fee models' harnesses. With `LAUNCH_GOLDEN_DIR` set, it
+writes `actual-handler-golden.json` and `actual-handler-golden-tick-rate.json`;
+copy them to `fixtures/zero-seed-launch-api-v5.golden.json` and
+`fixtures/zero-seed-launch-api-v5-tick-rate.golden.json` and run
 `bun run format`.
 
 The runner checks source/fixture pins, creates a scratch copy of the reviewed

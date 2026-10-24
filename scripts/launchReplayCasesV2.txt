@@ -1,0 +1,152 @@
+
+  // ----- API cases for the tick-rate fee model, appended by scripts/verifyLaunchReplay.ts -----
+
+  async function apiHead(db: Db) {
+    await db.sql`UPDATE indexer_cursor SET
+      head_block_number = b.block_number, head_block_hash = b.block_hash,
+      head_block_time = b.block_time, last_updated = NOW()
+      FROM (SELECT * FROM blocks WHERE chain_id = ${CHAIN_ID} ORDER BY block_number DESC LIMIT 1) b
+      WHERE indexer_cursor.chain_id = ${CHAIN_ID}`;
+  }
+
+  test("API actual handlers, tick-rate model: schedules, rates, feeAt, swaps, claims, model screening and malformed rows", async () => {
+    const db = await freshDb();
+    const reader = new LaunchQueries(db.sql as never, {
+      localHarness: true, instances: LOCAL_INSTANCES, quotes: LOCAL_QUOTES, maxIndexAgeSeconds: 60,
+    });
+    const spies = [
+      spyOn(Queries.prototype, "readZeroSeedList").mockImplementation((input) => reader.list(input)),
+      spyOn(Queries.prototype, "readZeroSeedDetail").mockImplementation((chain, pool) => reader.detail(chain, pool)),
+      spyOn(Queries.prototype, "readZeroSeedSwaps").mockImplementation((input) => reader.swaps(input)),
+      spyOn(Queries.prototype, "readZeroSeedClaims").mockImplementation((input) => reader.claims(input)),
+      spyOn(Queries.prototype, "readZeroSeedOwners").mockImplementation((input) => reader.owners(input)),
+    ];
+    const get = async (path: string, status = 200) => {
+      const response = await app.fetch(new Request(`http://localhost${path}`), { PG_CONNECTION_STRING: urlFor(db.name) });
+      const body = await response.json() as any;
+      expect(response.status).toBe(status);
+      if (response.status !== status) throw new Error(JSON.stringify(body));
+      return body;
+    };
+    const lower = (a: string) => a.toLowerCase();
+    const full = JSON.parse(readFileSync(resolve(ROOT, "tests/fixtures/zero-seed-launch/local-chain-v2.json"), "utf8"));
+    expect(full.feeModel).toBe("tick_rate_v2");
+    // The served tick-rate instance is the fixture's, field for field.
+    expect(LOCAL_INSTANCES.filter((p) => p.feeModel === "tick_rate_v2")).toEqual(full.instances.map((i: any) => ({
+      chainId: String(CHAIN_ID), feeModel: "tick_rate_v2", address: lower(i.extension), runtime: i.extensionRuntimeKeccak,
+      periphery: lower(i.periphery), peripheryRuntime: i.peripheryRuntimeKeccak, core: lower(full.addresses.core),
+      abiSha256: full.provenance.launchAbiSha256, peripheryAbiSha256: full.provenance.peripheryAbiSha256,
+    })));
+    const path = (label: string) => `/launches/${CHAIN_ID}/${fixture.launches[label]!.poolId}`;
+    const MAX = 2n ** 64n - 1n;
+    /** One launch at one block: the served schedule versus the chain's feeAt and the indexer's SQL. */
+    const expectLaunch = async (pool: any) => {
+      const body = await get(path(pool.label));
+      const schedule = body.fee_schedule;
+      expect(body.schema_version).toBe("zero-seed-launch-api/v5");
+      expect(schedule.model).toBe("tick_rate_v2");
+      expect(schedule).not.toHaveProperty("fee_end");
+      expect(schedule).not.toHaveProperty("fee_duration");
+      expect(schedule).not.toHaveProperty("decay");
+      expect(schedule.evaluated_at).toBe(body.as_of.block_time);
+      const [row] = await db.sql<{ rate: string; fee: string; start: string }[]>`
+        SELECT decay_rate_x32::TEXT AS rate, trading_start::TEXT AS start,
+               zero_seed_launch_model_fee_at(fee_model, trading_start, fee_duration, decay_rate_x32,
+                                             initial_fee, final_fee, ${body.as_of.block_time}::int8)::TEXT AS fee
+        FROM zero_seed_launch_created WHERE pool_id = ${num(pool.poolId)}::numeric`;
+      expect(schedule.decay_rate_x32).toBe(row!.rate);
+      // TypeScript schedule = indexer SQL = the contract's feeAt at the block
+      expect(schedule.fee_rate).toBe(row!.fee);
+      expect(schedule.fee_rate).toBe(pool.feeAtBlockTime);
+      const rate = BigInt(schedule.decay_rate_x32);
+      expect(schedule.half_life_seconds).toBe(halfLifeSeconds(rate));
+      expect(schedule.saturation_elapsed_seconds).toBe(rate === 0n ? null : ((((88722835n + 1n) << 32n) - 1n) / rate).toString());
+      const expectedPhase = body.as_of.block_time < schedule.trading_start ? "before_trading_start"
+        : schedule.fee_rate === schedule.final_fee ? "at_floor" : rate === 0n ? "constant" : "decaying";
+      expect(schedule.phase).toBe(expectedPhase);
+      expect(body.owner).toBe(lower(pool.launchOwner));
+      expect(body.controller).toBe(lower(pool.controller));
+      const launchIs1 = body.launch_token_is_token1;
+      expect(body.fee_ledger.launch_token.unclaimed).toBe(pool.creatorFees[launchIs1 ? 1 : 0]);
+      expect(body.fee_ledger.quote_token.unclaimed).toBe(pool.creatorFees[launchIs1 ? 0 : 1]);
+      expect([body.supply.requested, body.supply.sink]).toEqual([pool.totalSupply, pool.sinkBalance]);
+      return body;
+    };
+    const golden: Record<string, unknown> = {};
+    try {
+      for (const branch of [prefix, canonical])
+        await replay(db, branch, async (state) => {
+          await apiHead(db);
+          for (const pool of state.pools) await expectLaunch(pool);
+        });
+      const list = await get(`/launches?chainId=${CHAIN_ID}`);
+      expect(list.data.every((l: any) => l.fee_schedule.model === "tick_rate_v2")).toBe(true);
+      // rates 0, 1, the default, the 600 s rate and 2^64 - 1, served as decimal strings
+      expect(new Set(list.data.map((l: any) => l.fee_schedule.decay_rate_x32))).toEqual(
+        new Set(["0", "1", "68913100933", "9923486534471", MAX.toString()]));
+      golden.list = list;
+      for (const label of ["l1", "l2", "l4", "l5", "l6"]) {
+        const detail = await get(path(label));
+        const swaps = await get(`${path(label)}/swaps`);
+        const claims = await get(`${path(label)}/claims`);
+        expect(swaps.data.length).toBe(detail.fee_ledger.swap_count);
+        // every swap's served rate is the indexed LaunchSwapped.feeRate, the
+        // contract's feeAt at its block, which the SQL mirror reproduces
+        const rows = await db.sql<{ ok: boolean }[]>`
+          SELECT w.fee_rate = zero_seed_launch_model_fee_at(c.fee_model, c.trading_start, c.fee_duration, c.decay_rate_x32,
+                                                            c.initial_fee, c.final_fee, EXTRACT(EPOCH FROM b.block_time)::int8) AS ok
+          FROM zero_seed_launch_swapped w JOIN zero_seed_launch_created c USING (pool_key_id)
+          JOIN blocks b ON b.chain_id = w.chain_id AND b.block_number = w.block_number
+          WHERE c.pool_id = ${num(fixture.launches[label]!.poolId)}::numeric`;
+        expect(rows.every((r) => r.ok)).toBe(true);
+        for (const asset of ["launch_token", "quote_token"]) {
+          expect(swaps.data.filter((s: any) => s.fee_asset === asset).reduce((n: bigint, s: any) => n + BigInt(s.fee_amount), 0n).toString())
+            .toBe(detail.fee_ledger[asset].accrued);
+          expect(claims.data.reduce((n: bigint, c: any) => n + BigInt(c[`${asset}_amount`]), 0n).toString())
+            .toBe(detail.fee_ledger[asset].claimed);
+        }
+        golden[label] = { detail, swaps, claims };
+      }
+      // l4 (rate 0) never decays; l5 (2^64 - 1) is at the floor after its start
+      const l4 = golden.l4 as any;
+      expect(l4.detail.fee_schedule).toMatchObject({ decay_rate_x32: "0", phase: "constant", half_life_seconds: null, saturation_elapsed_seconds: null });
+      expect(l4.swaps.data.every((s: any) => s.fee_rate === l4.detail.fee_schedule.initial_fee)).toBe(true);
+      const l5 = golden.l5 as any;
+      expect(l5.detail.fee_schedule).toMatchObject({ decay_rate_x32: MAX.toString(), phase: "at_floor", saturation_elapsed_seconds: "0" });
+      // A reader whose pin has the other fee model for this deployment serves nothing.
+      const wrongModel = new LaunchQueries(db.sql as never, {
+        localHarness: true,
+        instances: LOCAL_INSTANCES.map((p) => ({ ...p, feeModel: p.feeModel === "tick_rate_v2" ? "fixed_base_duration_v1" as const : "tick_rate_v2" as const })),
+        quotes: LOCAL_QUOTES, maxIndexAgeSeconds: 60,
+      });
+      await expect(wrongModel.detail(CHAIN_ID, BigInt(fixture.launches.l1!.poolId))).rejects.toThrow(/disabled|not found/);
+      // A malformed indexed schedule fails as 500, never served: a v2 row with
+      // a duration (the CHECK is lifted to simulate corruption).
+      const before = await get(path("l1"));
+      const [check] = await db.sql<{ name: string; def: string }[]>`
+        SELECT conname AS name, pg_get_constraintdef(oid) AS def FROM pg_constraint
+        WHERE conrelid = 'zero_seed_launch_created'::regclass AND contype = 'c'
+          AND pg_get_constraintdef(oid) LIKE '%decay_rate_x32%'`;
+      await db.sql.unsafe(`ALTER TABLE zero_seed_launch_created DROP CONSTRAINT "${check!.name}"`);
+      await db.sql`ALTER TABLE zero_seed_launch_created DISABLE TRIGGER no_updates_zero_seed_launch_created`;
+      const l1Pool = num(fixture.launches.l1!.poolId);
+      for (const [duration, rate] of [["3600", before.fee_schedule.decay_rate_x32], [null, (2n ** 64n).toString()], [null, null]] as const) {
+        await db.sql`UPDATE zero_seed_launch_created SET fee_duration = ${duration}::int8, decay_rate_x32 = ${rate}::numeric WHERE pool_id = ${l1Pool}::numeric`;
+        await get(path("l1"), 500);
+        await get(`/launches?chainId=${CHAIN_ID}`, 500);
+      }
+      await db.sql`UPDATE zero_seed_launch_created SET fee_duration = NULL, decay_rate_x32 = ${before.fee_schedule.decay_rate_x32}::numeric WHERE pool_id = ${l1Pool}::numeric`;
+      await db.sql`ALTER TABLE zero_seed_launch_created ENABLE TRIGGER no_updates_zero_seed_launch_created`;
+      await db.sql.unsafe(`ALTER TABLE zero_seed_launch_created ADD CONSTRAINT "${check!.name}" ${check!.def}`);
+      expect(await get(path("l1"))).toEqual(before);
+      if (process.env.LAUNCH_GOLDEN_DIR)
+        await Bun.write(resolve(process.env.LAUNCH_GOLDEN_DIR, "actual-handler-golden-tick-rate.json"), JSON.stringify({
+          schema_version: "zero-seed-launch-api/v5",
+          source: { fixture: "indexer tests/fixtures/zero-seed-launch/local-chain-v2.json", chain_id: String(CHAIN_ID), fee_model: "tick_rate_v2" },
+          ...golden,
+        }, null, 2));
+    } finally {
+      spies.forEach((s) => s.mockRestore());
+      await db.sql.end();
+    }
+  }, 300_000);

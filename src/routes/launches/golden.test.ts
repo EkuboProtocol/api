@@ -1,5 +1,7 @@
 import { expect, test } from "bun:test";
-import golden from "./fixtures/zero-seed-launch-api-v4.golden.json";
+import golden from "./fixtures/zero-seed-launch-api-v5.golden.json";
+import tickRate from "./fixtures/zero-seed-launch-api-v5-tick-rate.golden.json";
+import { halfLifeSeconds, MAX_DECAY_PRODUCT } from "./policy";
 import {
   ClaimPage,
   LaunchDetail,
@@ -10,9 +12,9 @@ import {
 } from "./schema";
 
 // Written by scripts/verifyLaunchReplay.ts (LAUNCH_GOLDEN_DIR) from the actual
-// handlers over the indexer's replayed local fixture; a machine-readable
-// example of every v4 response for integrators.
-test("the emitted-state golden responses parse with the v4 schemas", () => {
+// handlers over the indexer's replayed local fixtures; a machine-readable
+// example of every v5 response for integrators, per fee model.
+test("the emitted-state golden responses parse with the v5 schemas", () => {
   expect(golden.schema_version).toBe(SCHEMA_VERSION);
   for (const list of [golden.list, golden.second, golden.canonicalList])
     LaunchList.parse(list);
@@ -109,6 +111,7 @@ test("launches created at the maximum rate 2^64 - 1 are served exactly, never as
     false,
   ]);
   expect(l5.fee_schedule).toMatchObject({
+    model: "fixed_base_duration_v1",
     initial_fee: MAX,
     final_fee: FINAL,
     fee_duration: 3600,
@@ -203,4 +206,61 @@ test("low-price ERC-20 token0 launches serve the exact installation, including a
     expect(BigInt(detail.supply.installed) + BigInt(detail.supply.sink)).toBe(
       BigInt(detail.supply.requested),
     );
+});
+
+test("tick-rate golden: every response parses, rates are decimal strings and schedules have a floor, not an end", () => {
+  expect(tickRate.schema_version).toBe(SCHEMA_VERSION);
+  expect(tickRate.source.fee_model).toBe("tick_rate_v2");
+  LaunchList.parse(tickRate.list);
+  const launches = [
+    tickRate.l1,
+    tickRate.l2,
+    tickRate.l4,
+    tickRate.l5,
+    tickRate.l6,
+  ];
+  for (const { detail, swaps, claims } of launches) {
+    LaunchDetail.parse(detail);
+    SwapPage.parse(swaps);
+    ClaimPage.parse(claims);
+  }
+  for (const launch of [
+    ...tickRate.list.data,
+    ...launches.map((l) => l.detail),
+  ]) {
+    const schedule = launch.fee_schedule;
+    expect(schedule.model).toBe("tick_rate_v2");
+    expect(schedule).not.toHaveProperty("fee_end");
+    expect(schedule).not.toHaveProperty("fee_duration");
+    if (schedule.model !== "tick_rate_v2") throw new Error("model");
+    const rate = BigInt(schedule.decay_rate_x32);
+    expect(schedule.half_life_seconds).toBe(halfLifeSeconds(rate));
+    expect(schedule.saturation_elapsed_seconds).toBe(
+      rate === 0n ? null : (MAX_DECAY_PRODUCT / rate).toString(),
+    );
+  }
+  expect(
+    tickRate.list.data.map((l) => l.fee_schedule.decay_rate_x32).sort(),
+  ).toEqual(
+    [
+      "0",
+      "1",
+      "68913100933",
+      "68913100933",
+      "68913100933",
+      "9923486534471",
+      MAX,
+    ].sort(),
+  );
+  // rate 0 is flat at the initial fee; every other launch is at its floor by the head
+  expect(tickRate.l4.detail.fee_schedule).toMatchObject({
+    decay_rate_x32: "0",
+    phase: "constant",
+    half_life_seconds: null,
+  });
+  expect(tickRate.l1.detail.fee_schedule).toMatchObject({
+    decay_rate_x32: "9923486534471",
+    half_life_seconds: "600.000000",
+    phase: "at_floor",
+  });
 });

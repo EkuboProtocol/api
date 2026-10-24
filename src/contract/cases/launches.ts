@@ -8,7 +8,7 @@ const owner = `0x${"2".repeat(40)}`;
 const zero = `0x${"0".repeat(64)}`;
 const as_of = { block_number: "1", block_hash: zero, block_time: 1000 };
 const summary = {
-  schema_version: "zero-seed-launch-api/v4" as const,
+  schema_version: "zero-seed-launch-api/v5" as const,
   chain_id: "31337",
   pool_id: zero,
   pool_key: {
@@ -46,6 +46,7 @@ const summary = {
   ask_tick: 0,
   upper_tick: 100,
   fee_schedule: {
+    model: "fixed_base_duration_v1" as const,
     trading_start: 1000,
     fee_duration: 3600,
     fee_end: 4600,
@@ -68,9 +69,28 @@ const summary = {
   },
   as_of,
 };
+// The same launch shape on the tick-rate instance: a floor, never an end.
+const tickRatePin = LOCAL_INSTANCES[1];
+const tickRateSummary = {
+  ...summary,
+  pool_key: { ...summary.pool_key, extension: tickRatePin.address },
+  controller: tickRatePin.periphery,
+  fee_schedule: {
+    model: "tick_rate_v2" as const,
+    trading_start: 1000,
+    initial_fee: "9223372036854775808",
+    final_fee: "55340232221128654",
+    decay_rate_x32: "68913100933",
+    half_life_seconds: "86400.000001",
+    saturation_elapsed_seconds: "5529597",
+    phase: "decaying" as const,
+    fee_rate: "9223372036854775808",
+    evaluated_at: 1000,
+  },
+};
 const ledger = { accrued: "0", claimed: "0", unclaimed: "0" };
 const identity = {
-  schema_version: "zero-seed-launch-api/v4" as const,
+  schema_version: "zero-seed-launch-api/v5" as const,
   chain_id: "31337",
   pool_id: zero,
   as_of,
@@ -83,8 +103,8 @@ export const launchesCases: ContractCase[] = [
     request: "/launches?chainId=31337",
     stub: () =>
       stubQuery("readZeroSeedList", {
-        schema_version: "zero-seed-launch-api/v4",
-        data: [summary],
+        schema_version: "zero-seed-launch-api/v5",
+        data: [tickRateSummary, summary],
         as_of,
         next_cursor: null,
       }),

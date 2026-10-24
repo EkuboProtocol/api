@@ -57,7 +57,9 @@ interface LaunchRow extends EventRow {
   upper_tick: number;
   tick_spacing: bigint;
   trading_start: bigint;
-  fee_duration: bigint;
+  fee_model: string;
+  fee_duration: bigint | null;
+  decay_rate_x32: Numeric | null;
   initial_fee: Numeric;
   final_fee: Numeric;
   position_id: Numeric;
@@ -139,8 +141,8 @@ function summary(row: LaunchRow, asOf: z.infer<typeof BlockRef>) {
     ask_tick: row.ask_tick,
     upper_tick: row.upper_tick,
     fee_schedule: feeSchedule({
+      ...feeDecay(row),
       start: row.trading_start,
-      duration: row.fee_duration,
       initial: BigInt(row.initial_fee),
       final: BigInt(row.final_fee),
       indexedTime: BigInt(asOf.block_time),
@@ -148,6 +150,28 @@ function summary(row: LaunchRow, asOf: z.infer<typeof BlockRef>) {
     created: event(row),
     as_of: asOf,
   };
+}
+// Exactly the row's model parameter; anything else is malformed indexed data.
+function feeDecay(row: LaunchRow) {
+  if (
+    row.fee_model === "fixed_base_duration_v1" &&
+    row.fee_duration !== null &&
+    row.decay_rate_x32 === null
+  )
+    return {
+      model: "fixed_base_duration_v1" as const,
+      duration: BigInt(row.fee_duration),
+    };
+  if (
+    row.fee_model === "tick_rate_v2" &&
+    row.fee_duration === null &&
+    row.decay_rate_x32 !== null
+  )
+    return {
+      model: "tick_rate_v2" as const,
+      rate: BigInt(row.decay_rate_x32),
+    };
+  throw new Error("Invalid indexed fee model");
 }
 // Native ETH has no token contract: 18 decimals, no ERC-20 metadata.
 function quoteToken(row: LaunchRow) {
@@ -303,6 +327,7 @@ export class LaunchQueries {
       .map(
         (p) => tx`
       (c.emitter = ${BigInt(p.address).toString()}::numeric
+       AND c.fee_model = ${p.feeModel}
        AND c.controller = ${BigInt(p.periphery).toString()}::numeric
        AND pk.core_address = ${BigInt(p.core).toString()}::numeric)
     `,
