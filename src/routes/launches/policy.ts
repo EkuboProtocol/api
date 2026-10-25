@@ -1,34 +1,22 @@
 import { z } from "@hono/zod-openapi";
 import { FeeSchedule } from "./schema";
 
-// sha256 of `jq -cS .abi` (no trailing newline) of the evm-contracts 43d6628
-// build, as in the protocol manifest.
+// sha256 of the compiled ABI JSON files of the final source freeze,
+// evm-contracts 853b608ec26d4c80bdad6e394cb8ba686e1ae615 (SHA256SUMS.json of
+// the freeze; copies in ./vectors/PROVENANCE.md).
+export const SOURCE_COMMIT = "853b608ec26d4c80bdad6e394cb8ba686e1ae615";
 export const ABI_SHA256 =
-  "efae9388aa6b1342479204ddf436fd2a310df16bf06c80c990b2d22c90d1e41e";
+  "6a131c2d2f70f85a5e2a54395b9d77c4dd5028a7a4bbf632f3d3364ac61e56eb";
 export const PERIPHERY_ABI_SHA256 =
-  "df24d9f07d45323da7e46c0f6e64ce24f8f522442d60cb07880ddf742ebe7305";
-// The same of the tick-rate revision, evm-contracts 3d6378f.
-export const V2_ABI_SHA256 =
-  "89ff4d15e5e8b4f044c4804d460df915e9206bbdbdcef22cf4afe0fbbf4eaadd";
-export const V2_PERIPHERY_ABI_SHA256 =
-  "a6d43b362d04eeb4e636ee32a031fc06995a2fd8bb71fb63750f27836a0ddb07";
-
-/**
- * The fee math of a deployment's contract revision, fixed for its life and
- * never inferred from a row: fixed_base_duration_v1 is evm-contracts 43d6628
- * (uint32 feeDuration), tick_rate_v2 is 3d6378f (uint64 decayRateX32).
- */
-export type FeeModel = "fixed_base_duration_v1" | "tick_rate_v2";
+  "5d05426f8190cb0bcd6a021e7aceb46f468708cb36bd5a5d818548650499c839";
 const NATIVE = "0x0000000000000000000000000000000000000000" as const;
 
 /**
  * An extension and the periphery that forwards to it. An instance has no
- * quote: every launch names its own (LaunchParameters.quoteToken), and one
- * instance serves native ETH and ERC-20 quotes alike.
+ * quote: every launch names its own (LaunchParameters.quoteToken).
  */
 export interface LaunchInstance {
   chainId: string;
-  feeModel: FeeModel;
   address: string;
   runtime: string;
   periphery: string;
@@ -45,37 +33,22 @@ export interface LaunchQuote {
   runtime: string;
 }
 
-// The constructor-executed LOCAL instances of the indexer replay fixtures
-// (anvil, no fork), one per fee model: evm-contracts 43d6628
-// (local-chain.json) and 3d6378f (local-chain-v2.json), each serving native-ETH
-// and ERC-20 quote launches. No live instance exists. Never enable them via a
+// The final contract has no deployment, so no hosted instance exists. These
+// are the LOCAL instances of the indexer's replay fixture (anvil, no fork),
+// accepted only by the explicit local harness. Never enable them through a
 // hosted configuration.
 export const LOCAL_INSTANCES: readonly LaunchInstance[] = [
   {
     chainId: "31337",
-    feeModel: "fixed_base_duration_v1",
-    address: "0x519c5f793d3f6cf9ee439e4cc38d8285cf08211f",
+    address: "0x51c4ad945fbef67859d92f1690cbf86df12e3b7c",
     runtime:
-      "0xd6b4c7ce8da56e9948fdb004a035d9b52dbd3690bcb03c1269bbf2a9981d8ed5",
-    periphery: "0x0df4e2a76640b52e51479b435f52d0eb0e7e8ef4",
+      "0xa66e365089d80b017edeb98237831260bf9e1b7d5f3965d42be5672de6b0d70e",
+    periphery: "0x6963de1652c96fb0eaeaf5167de3c89e187284f2",
     peripheryRuntime:
-      "0x2a9329dbb064a2c031115c7c120c8b6a1f31de167f33374180e4dc73d975974b",
+      "0x208c314d799d9898e145881eefdf715d0620f13cfb343951987aba8fb8ba8363",
     core: "0x00000000000014aa86c5d3c41765bb24e11bd701",
     abiSha256: ABI_SHA256,
     peripheryAbiSha256: PERIPHERY_ABI_SHA256,
-  },
-  {
-    chainId: "31337",
-    feeModel: "tick_rate_v2",
-    address: "0x5135fd3e9a6056937eaf6b99454bbc2198c2263d",
-    runtime:
-      "0xe08ad382497fc9825956c2b4e9ccf463014c4ed65baf50c0a59db8d7b7aedfc3",
-    periphery: "0xfb2e7927d3e4984dca3e390526d43c6f5a3461e9",
-    peripheryRuntime:
-      "0xf72d3cd6b99e1b64f0b08c0f6933b4f8adb92464ded48c51bfb7d2805c09d667",
-    core: "0x00000000000014aa86c5d3c41765bb24e11bd701",
-    abiSha256: V2_ABI_SHA256,
-    peripheryAbiSha256: V2_PERIPHERY_ABI_SHA256,
   },
 ];
 
@@ -110,16 +83,18 @@ function reviewed<T extends object>(
 export function supportedInstances(
   requested: readonly LaunchInstance[],
   localHarness: boolean,
+  pins: readonly LaunchInstance[] = LOCAL_INSTANCES,
 ): readonly LaunchInstance[] {
-  return reviewed(requested, LOCAL_INSTANCES, localHarness);
+  return reviewed(requested, pins, localHarness);
 }
 
 /** ERC-20 quotes bound by chain, address and runtime; empty when hosted. */
 export function supportedQuotes(
   requested: readonly LaunchQuote[],
   localHarness: boolean,
+  pins: readonly LaunchQuote[] = LOCAL_QUOTES,
 ): readonly LaunchQuote[] {
-  return reviewed(requested, LOCAL_QUOTES, localHarness);
+  return reviewed(requested, pins, localHarness);
 }
 
 /** Native ETH, or an ERC-20 in the enabled quote list of the chain. */
@@ -134,37 +109,14 @@ export function supportedQuote(
   );
 }
 
-export function supportedLaunch(
-  row: Pick<
-    LaunchInstance,
-    "chainId" | "feeModel" | "address" | "periphery" | "core"
-  > & {
-    quote: string;
-    quoteKind: "native" | "erc20";
-  },
-  enabled: readonly LaunchInstance[],
-  quotes: readonly LaunchQuote[],
-): boolean {
-  return (
-    enabled.some(
-      (pin) =>
-        pin.chainId === row.chainId &&
-        pin.feeModel === row.feeModel &&
-        pin.address === row.address &&
-        pin.periphery === row.periphery &&
-        pin.core === row.core,
-    ) && supportedQuote(row, quotes)
-  );
-}
-
-const INT128_MAX = (1n << 127n) - 1n;
 export const SINK_HOLDER = NATIVE;
+const MAX_SUPPLY = 10n ** 30n;
 
 /**
- * The launch-token supply split: requested (LaunchParameters.supply, the
- * token's totalSupply), installed (in the position) and sink (minted to
- * address 0). Anything outside 0 < installed <= requested <= int128 max with
- * sink = requested - installed is malformed indexed data.
+ * requested (LaunchParameters.supply, totalSupply), installed (in the
+ * position) and sink (minted to address 0). Anything outside
+ * 0 < installed <= requested <= 10^30 with sink = requested - installed is
+ * malformed indexed data.
  */
 export function launchSupply(input: {
   requested: bigint;
@@ -175,7 +127,7 @@ export function launchSupply(input: {
   if (
     installed <= 0n ||
     installed > requested ||
-    requested > INT128_MAX ||
+    requested > MAX_SUPPLY ||
     sink !== requested - installed
   ) {
     throw new Error("Invalid indexed launch supply");
@@ -188,6 +140,48 @@ export function launchSupply(input: {
   };
 }
 
+/**
+ * The content of a canonical LibString.packOne word: byte 0 is the length
+ * (1..31), then the content, then zeros. Returns the UTF-8 text, or null
+ * when the content is not valid UTF-8. A non-canonical word is malformed
+ * indexed data: the contract refuses it.
+ */
+export function unpackString(word: bigint): string | null {
+  if (word < 0n || word >= 1n << 256n) throw new Error("Invalid packed word");
+  const length = Number(word >> 248n);
+  const tailBits = BigInt(8 * (31 - length));
+  if (length === 0 || length > 31 || (word & ((1n << tailBits) - 1n)) !== 0n) {
+    throw new Error("Invalid indexed packed string");
+  }
+  const bytes = new Uint8Array(length);
+  for (let i = 0; i < length; i++)
+    bytes[i] = Number((word >> BigInt(8 * (30 - i))) & 0xffn);
+  return utf8OrNull(bytes);
+}
+
+/** UTF-8 text of `bytes`, null when empty or not valid UTF-8. Never rewritten. */
+export function utf8OrNull(bytes: Uint8Array): string | null {
+  if (bytes.length === 0) return null;
+  try {
+    return new TextDecoder("utf-8", { fatal: true, ignoreBOM: true }).decode(
+      bytes,
+    );
+  } catch {
+    return null;
+  }
+}
+
+/** Derived spacing and signed-aligned economic bounds of the installation. */
+export function alignedRange(ask: number, upper: number) {
+  if (!(ask < upper)) throw new Error("Invalid indexed ticks");
+  const spacing = Math.floor((upper - ask + 255) / 256);
+  return {
+    tick_spacing: spacing,
+    aligned_ask_tick: Math.ceil(ask / spacing) * spacing,
+    aligned_upper_tick: Math.floor(upper / spacing) * spacing,
+  };
+}
+
 const UINT64_MAX = (1n << 64n) - 1n;
 function uint64(value: bigint) {
   if (value < 0n || value > UINT64_MAX) {
@@ -197,7 +191,7 @@ function uint64(value: bigint) {
 }
 
 // JSON Unix seconds must be exactly representable; never round indexed time.
-function seconds(value: bigint) {
+export function seconds(value: bigint) {
   uint64(value);
   if (value > BigInt(Number.MAX_SAFE_INTEGER)) {
     throw new Error("Indexed time exceeds exact JSON integer domain");
@@ -206,68 +200,9 @@ function seconds(value: bigint) {
 }
 
 const Q128 = 1n << 128n;
-/** Elapsed seconds from which the decay is exactly zero. */
-export const DECAY_ZERO_FROM = 131072n;
-/** round(2^128 * 2^(-2^i/600)) for bits i = 0..16 (math/feeDecay.sol). */
-export const DECAY_TABLE_Q128: readonly bigint[] = [
-  339889484297159900493648602831395569057n,
-  339497055287118257930533248299650400736n,
-  338713556013920184336129943844147573651n,
-  337151977828609613753562640265082287810n,
-  334050386396171404885545237344599070716n,
-  327932539264834336949184815807600758235n,
-  316030922441737935988095136387330274498n,
-  293507844215098455952964317090465751204n,
-  253162852354938356992240649094357060196n,
-  188347784201757897225807540435664088841n,
-  104251325552682051605813724741512712010n,
-  31939177389160626453527783486618815759n,
-  2997836947964109484105344435429137776n,
-  26410496811510722015611852309540293n,
-  2049810421099131403277778219901n,
-  12347753427443481862030n,
-  448060n,
-];
-
-/**
- * decayQ128 of the contract: 2^(-elapsed/600) in Q128. Starting at 2^128,
- * multiply by the constant of each set bit in ascending order and floor after
- * every multiply; exactly zero from 2^17 seconds. BigInt division floors for
- * these non-negative operands.
- */
-export function decayQ128(elapsed: bigint): bigint {
-  if (elapsed < 0n) throw new Error("Negative elapsed time");
-  if (elapsed >= DECAY_ZERO_FROM) return 0n;
-  let result = Q128;
-  DECAY_TABLE_Q128.forEach((constant, bit) => {
-    if ((elapsed >> BigInt(bit)) & 1n) result = (result * constant) / Q128;
-  });
-  return result;
-}
-
-/**
- * decayedFee of the contract: initial at zero elapsed, then
- * final + floor((initial - final) * (decay(t) - decay(D)) / (2^128 - decay(D))),
- * then final from the duration on.
- */
-export function decayedFee(
-  initial: bigint,
-  final: bigint,
-  duration: bigint,
-  elapsed: bigint,
-): bigint {
-  if (elapsed === 0n) return initial;
-  if (elapsed >= duration) return final;
-  const endpoint = decayQ128(duration);
-  return (
-    final +
-    ((initial - final) * (decayQ128(elapsed) - endpoint)) / (Q128 - endpoint)
-  );
-}
-
 /** Largest tick magnitude of the contracts' tick helper. */
 export const MAX_TICK_MAGNITUDE = 88722835n;
-/** (MAX_TICK_MAGNITUDE + 1) * 2^32 - 1 (math/feeDecay.sol at 3d6378f). */
+/** (MAX_TICK_MAGNITUDE + 1) * 2^32 - 1: the saturation numerator. */
 export const MAX_DECAY_PRODUCT = ((MAX_TICK_MAGNITUDE + 1n) << 32n) - 1n;
 /**
  * floor(2 * ln 2 / ln 1.000001 * 2^32 * 10^30): ticks per half-life of the
@@ -324,12 +259,12 @@ export function tickFactorQ128(magnitude: bigint): bigint {
 }
 
 /**
- * decayedFee of the tick-rate contract (evm-contracts 3d6378f) in its
- * normative order: rate 0 is initial; elapsed > MAX_DECAY_PRODUCT / rate
- * (integer division first) is final, the floor; otherwise
+ * feeAt of the contract in its normative order: initial before and at the
+ * start and for rate 0; elapsed > MAX_DECAY_PRODUCT / rate (integer division
+ * first) is final, the floor; otherwise
  * final + floor((initial - final) * tickFactorQ128(floor(rate * elapsed / 2^32)) / 2^128).
  */
-export function tickRateDecayedFee(
+export function feeAt(
   initial: bigint,
   final: bigint,
   rate: bigint,
@@ -357,66 +292,24 @@ export function halfLifeSeconds(rate: bigint): string | null {
   return `${micros / 1_000_000n}.${fraction}`;
 }
 
-type FeeScheduleInput = {
+/** The served schedule; anything outside the contract's domain is malformed (500). */
+export function feeSchedule(input: {
   start: bigint;
   initial: bigint;
   final: bigint;
-  indexedTime: bigint;
-} & (
-  | { model: "fixed_base_duration_v1"; duration: bigint }
-  | { model: "tick_rate_v2"; rate: bigint }
-);
-
-/**
- * The served schedule of an indexed launch, by its deployment's fee model.
- * Anything outside the model's domain is malformed indexed data (500).
- */
-export function feeSchedule(
-  input: FeeScheduleInput,
-): z.infer<typeof FeeSchedule> {
-  const { start, initial, final, indexedTime } = input;
-  [start, initial, final, indexedTime].forEach(uint64);
+  rate: bigint;
+  time: bigint;
+}): z.infer<typeof FeeSchedule> {
+  const { start, initial, final, rate, time } = input;
+  [start, initial, final, rate, time].forEach(uint64);
   if (final > initial) throw new Error("Invalid indexed fee schedule");
-  if (input.model === "tick_rate_v2") return tickRateSchedule(input);
-  if (input.model !== "fixed_base_duration_v1")
-    throw new Error("Invalid indexed fee model");
-  const { duration } = input;
-  uint64(duration);
-  if (duration === 0n || duration > 0xffffffffn) {
-    throw new Error("Invalid indexed fee schedule");
-  }
-  const end = uint64(start + duration);
-  const phase = feePhase(start, end, indexedTime);
-  const elapsed = indexedTime > start ? indexedTime - start : 0n;
-  const rate = decayedFee(initial, final, duration, elapsed);
-  return {
-    model: "fixed_base_duration_v1",
-    trading_start: seconds(start),
-    fee_duration: seconds(duration),
-    fee_end: seconds(end),
-    initial_fee: initial.toString(),
-    final_fee: final.toString(),
-    decay: { kind: "fixed_base_q128", half_life_seconds: 600 },
-    phase,
-    fee_rate: rate.toString(),
-    evaluated_at: seconds(indexedTime),
-  };
-}
-
-/** v2: final_fee is a floor that is approached; there is no end time. */
-function tickRateSchedule(
-  input: FeeScheduleInput & { model: "tick_rate_v2" },
-): z.infer<typeof FeeSchedule> {
-  const { start, initial, final, indexedTime, rate } = input;
-  uint64(rate);
-  const fee = tickRateDecayedFee(initial, final, rate, indexedTime - start);
-  let phase: "before_trading_start" | "at_floor" | "constant" | "decaying";
-  if (indexedTime < start) phase = "before_trading_start";
+  const fee = feeAt(initial, final, rate, time - start);
+  let phase: z.infer<typeof FeeSchedule>["phase"];
+  if (time < start) phase = "before_trading_start";
   else if (fee === final) phase = "at_floor";
   else if (rate === 0n) phase = "constant";
   else phase = "decaying";
   return {
-    model: "tick_rate_v2",
     trading_start: seconds(start),
     initial_fee: initial.toString(),
     final_fee: final.toString(),
@@ -426,12 +319,62 @@ function tickRateSchedule(
       rate === 0n ? null : (MAX_DECAY_PRODUCT / rate).toString(),
     phase,
     fee_rate: fee.toString(),
-    evaluated_at: seconds(indexedTime),
+    evaluated_at: seconds(time),
   };
 }
 
-function feePhase(start: bigint, end: bigint, time: bigint) {
-  if (time < start) return "before_trading_start";
-  if (time < end) return "fee_decay";
-  return "final_fee";
+/** upcoming before trading_start, trading from it on. */
+export function launchStatus(start: bigint, time: bigint) {
+  return time < start ? ("upcoming" as const) : ("trading" as const);
+}
+
+/**
+ * Raw quote per raw launch token times 2^128, floored, from Core's Q128
+ * sqrt ratio (token1 per token0).
+ */
+export function priceX128(sqrtRatio: bigint, launchIsToken1: boolean) {
+  if (sqrtRatio <= 0n) throw new Error("Invalid indexed sqrt ratio");
+  const square = sqrtRatio * sqrtRatio;
+  return launchIsToken1 ? (1n << 384n) / square : square >> 128n;
+}
+
+/** floor(fraction * 10^18) of numerator / denominator as "d.dddddddddddddddddd". */
+export function share18(numerator: bigint, denominator: bigint) {
+  if (denominator <= 0n || numerator < 0n || numerator > denominator)
+    throw new Error("Invalid indexed share");
+  const scaled = (numerator * 10n ** 18n) / denominator;
+  return `${scaled / 10n ** 18n}.${(scaled % 10n ** 18n).toString().padStart(18, "0")}`;
+}
+
+/**
+ * Market data from the indexed Core state: price, market cap (price times
+ * totalSupply), raised quote and the sold launch tokens.
+ */
+export function marketData(input: {
+  sqrtRatio: bigint;
+  tick: number;
+  launchIsToken1: boolean;
+  totalSupply: bigint;
+  installed: bigint;
+  tokenReserve: bigint;
+  quoteReserve: bigint;
+  marketCapUsd: string | null;
+  tradeCount: bigint;
+}) {
+  const price = priceX128(input.sqrtRatio, input.launchIsToken1);
+  const left =
+    input.tokenReserve > input.installed ? input.installed : input.tokenReserve;
+  if (input.tokenReserve < 0n || input.quoteReserve < 0n)
+    throw new Error("Invalid indexed reserves");
+  const sold = input.installed - left;
+  return {
+    price_tick: input.launchIsToken1 ? -input.tick : input.tick,
+    price_x128: price.toString(),
+    market_cap: ((price * input.totalSupply) >> 128n).toString(),
+    market_cap_usd: input.marketCapUsd,
+    raised: input.quoteReserve.toString(),
+    sold: sold.toString(),
+    sold_share: share18(sold, input.installed),
+    trade_count: Number(input.tradeCount),
+  };
 }

@@ -1,46 +1,59 @@
 import { z } from "@hono/zod-openapi";
 
-// v5: fee_schedule is a union on `model`, the deployment's fee model
-// (fixed_base_duration_v1, evm-contracts 43d6628; tick_rate_v2, 3d6378f).
-// v4: requested/installed/sink supply, per-launch quote.
-export const SCHEMA_VERSION = "zero-seed-launch-api/v5" as const;
+// v6: the final zero-seed launch (evm-contracts 853b608) only. One fee model,
+// so the schedule has no discriminator; launches carry their logo, every
+// LaunchParameters field, the derived spacing and aligned bounds, a status
+// and market data, and the list spans chains with status/owner filters,
+// market-cap ordering and totals.
+export const SCHEMA_VERSION = "zero-seed-launch-api/v6" as const;
 export const SchemaVersion = z.literal(SCHEMA_VERSION);
+const UINT64_MAX = (1n << 64n) - 1n;
 const U = z.string().regex(/^(0|[1-9][0-9]*)$/);
 const I = z.string().regex(/^(0|-?[1-9][0-9]*)$/);
-// A Q0.64 fee rate: every uint64, 0 to 2^64 - 1. The fee fraction is
-// value / 2^64, so the maximum is just under 100%, never exactly 100%.
-const UINT64_MAX = (1n << 64n) - 1n;
-const Q64 = U.max(20)
-  .refine(
-    (value) => /^(0|[1-9][0-9]*)$/.test(value) && BigInt(value) <= UINT64_MAX,
-  )
-  .openapi({
-    description:
-      "Q0.64 fee rate as a canonical decimal uint64 (0 to 18446744073709551615): the fee fraction is value / 2^64, so the maximum is just under 100%",
-  });
+const Uint64 = U.max(20).refine(
+  (value) => /^(0|[1-9][0-9]*)$/.test(value) && BigInt(value) <= UINT64_MAX,
+);
+// A Q0.64 fee rate: every uint64. The fee fraction is value / 2^64, so the
+// maximum 2^64 - 1 is just under 100%, never exactly 100%.
+const Q64 = Uint64.openapi({
+  description:
+    "Q0.64 fee rate as a canonical decimal uint64 (0 to 18446744073709551615): the fee fraction is value / 2^64",
+});
 const Address = z.string().regex(/^0x[0-9a-f]{40}$/);
 const Bytes32 = z.string().regex(/^0x[0-9a-f]{64}$/);
 const Seconds = z.number().int().nonnegative();
+const Tick = z.number().int();
 export const BlockRef = z.strictObject({
   block_number: U,
   block_hash: Bytes32,
   block_time: Seconds,
 });
+export const ChainHead = BlockRef.extend({ chain_id: U });
 export const EventRef = BlockRef.extend({
   event_id: I,
   transaction_index: z.number().int().nonnegative(),
   event_index: z.number().int().nonnegative(),
   transaction_hash: Bytes32,
 });
-const Token = z.strictObject({
+// name and symbol are decoded from the canonical LibString.packOne words in
+// parameters (length byte, then content); null when the content is not
+// valid UTF-8. Untrusted creator input: escape before display.
+const LaunchToken = z.strictObject({
+  address: Address,
+  name: z.string().nullable(),
+  symbol: z.string().nullable(),
+  decimals: z.literal(18),
+});
+// Native ETH is address 0, always token0, 18 decimals, and has no token
+// contract, so it has no ERC-20 metadata. ERC-20 metadata is null when the
+// token is not in the indexed token list.
+const QuoteToken = z.strictObject({
   address: Address,
   name: z.string().nullable(),
   symbol: z.string().nullable(),
   decimals: z.number().int().min(0).max(255).nullable(),
+  kind: z.enum(["native", "erc20"]),
 });
-// Native ETH is address 0, always token0, 18 decimals and has no token
-// contract, so no ERC-20 metadata is read for it (name and symbol are null).
-const QuoteToken = Token.extend({ kind: z.enum(["native", "erc20"]) });
 const PoolKey = z.strictObject({
   core_address: Address,
   token0: Address,
@@ -50,103 +63,121 @@ const PoolKey = z.strictObject({
   tick_spacing: z.number().int().positive(),
   extension: Address,
 });
-// fixed_base_duration_v1 (evm-contracts 43d6628): unchanged from v4 apart from
-// the discriminator. 2^(-t/600) from a fixed Q128 table, rescaled to reach
-// final_fee at fee_end.
-const FixedBaseDurationSchedule = z.strictObject({
-  model: z.literal("fixed_base_duration_v1"),
-  trading_start: Seconds,
-  fee_duration: z.number().int().positive(),
-  fee_end: Seconds,
+// LaunchParameters exactly as emitted in LaunchCreated: numbers as exact
+// decimal strings, words as 32-byte hex. ask_tick and upper_tick are the
+// requested economic ticks; salt is the owner-namespaced salt the extension
+// received.
+const Parameters = z.strictObject({
+  name: Bytes32,
+  symbol: Bytes32,
+  supply: U,
+  quote_token: Address,
+  ask_tick: I,
+  upper_tick: I,
+  trading_start: Uint64,
+  decay_rate_x32: Uint64,
   initial_fee: Q64,
   final_fee: Q64,
-  decay: z.strictObject({
-    kind: z.literal("fixed_base_q128"),
-    half_life_seconds: z.literal(600),
-  }),
-  phase: z.enum(["before_trading_start", "fee_decay", "final_fee"]),
-  fee_rate: Q64,
-  evaluated_at: Seconds,
+  salt: Bytes32,
 });
-// A canonical decimal uint64 that is not a fee: the Q32.32 decay rate.
-const Uint64 = U.max(20)
-  .refine(
-    (value) => /^(0|[1-9][0-9]*)$/.test(value) && BigInt(value) <= UINT64_MAX,
-  )
-  .openapi({
-    description:
-      "Canonical decimal uint64 (0 to 18446744073709551615), never a JSON number",
-  });
-// tick_rate_v2 (evm-contracts 3d6378f): final_fee is the long-run floor the
-// fee approaches, reached only by rounding or numerical saturation; there is
-// no end time. fee = final + floor((initial - final) *
-// toFixed(tickToSqrtRatio(-m)) / 2^128), m = floor(rate * elapsed / 2^32).
-const TickRateSchedule = z.strictObject({
-  model: z.literal("tick_rate_v2"),
+// spacing = ceil((upper - ask) / 256); the installed economic bounds are
+// ceil(ask / s) * s and floor(upper / s) * s; pool ticks are those bounds,
+// negated and swapped when the launch token is token1.
+const Range = z.strictObject({
+  tick_spacing: z.number().int().positive(),
+  aligned_ask_tick: Tick,
+  aligned_upper_tick: Tick,
+  pool_tick_lower: Tick,
+  pool_tick_upper: Tick,
+});
+// final_fee is the long-run floor the fee approaches; there is no end time.
+// fee = final + floor((initial - final) * toFixed(tickToSqrtRatio(-m)) /
+// 2^128), m = floor(rate * elapsed / 2^32), initial before and at the start.
+export const FeeSchedule = z.strictObject({
   trading_start: Seconds,
   initial_fee: Q64,
-  final_fee: Q64.openapi({
-    description:
-      "Q0.64 long-run floor as a canonical decimal uint64: approached, not scheduled",
-  }),
+  final_fee: Q64,
   decay_rate_x32: Uint64.openapi({
     description:
-      "decayRateX32: unsigned Q32.32 ticks per second (2^32 = 1 tick/s) as a canonical decimal uint64; 0 keeps initial_fee",
+      "decayRateX32: unsigned Q32.32 ticks per second as a canonical decimal uint64; 0 keeps initial_fee",
   }),
-  // floor(HALF_LIFE_X32_E30 * 10^6 / (rate * 10^30)) microseconds, display
-  // only; null for rate 0.
   half_life_seconds: z
     .string()
     .regex(/^(0|[1-9][0-9]*)\.[0-9]{6}$/)
     .nullable()
     .openapi({
       description:
-        "Half-life of the excess over the floor, seconds with 6 decimals (floored), from the exact integer HALF_LIFE_X32_E30 = 5954091920683119788732747343471285361579197626; null for rate 0. Display only",
+        "Half-life of the excess over the floor, seconds with 6 decimals (floored); null for rate 0. Display only",
     }),
-  // floor(381061679028371455 / rate): the last elapsed second the curve is
-  // evaluated at; from the next one the fee is exactly final_fee. Not an end
-  // of fees.
   saturation_elapsed_seconds: U.nullable().openapi({
     description:
-      "floor(381061679028371455 / decay_rate_x32): after this many elapsed seconds the fee is exactly final_fee by numerical saturation; null for rate 0. Not a schedule end",
+      "floor(381061679028371455 / decay_rate_x32): after this many seconds the fee is exactly final_fee; null for rate 0",
   }),
   phase: z.enum(["before_trading_start", "decaying", "at_floor", "constant"]),
   fee_rate: Q64,
   evaluated_at: Seconds,
 });
-export const FeeSchedule = z.discriminatedUnion("model", [
-  FixedBaseDurationSchedule,
-  TickRateSchedule,
-]);
 // Raw launch-token units. requested is LaunchParameters.supply and the
-// token's totalSupply; installed is what Core took into the position at
-// creation (all circulating inventory); sink = requested - installed was
-// minted to address 0 and can never move. It is not a burn.
+// token's totalSupply; installed went into the position; sink = requested -
+// installed was minted to address 0. The sink is not a burn.
 const Supply = z.strictObject({
   requested: U,
   installed: U,
   sink: U,
   sink_holder: z.literal("0x0000000000000000000000000000000000000000"),
 });
+// Computed from the indexed Core pool state and balances. Raw units; price
+// is raw quote per raw launch token, times 2^128 and floored.
+const Market = z.strictObject({
+  price_tick: Tick,
+  price_x128: U,
+  market_cap: U.openapi({
+    description:
+      "floor(price * totalSupply) in raw quote units; totalSupply includes the sink",
+  }),
+  market_cap_usd: z.string().nullable().openapi({
+    description:
+      "market_cap in USD from the indexed quote price, 6 decimals; null without a price",
+  }),
+  raised: U.openapi({
+    description: "Quote held by the launch pool (buyers' net input)",
+  }),
+  sold: U.openapi({
+    description: "installed - launch tokens left in the pool",
+  }),
+  sold_share: z
+    .string()
+    .regex(/^[01]\.[0-9]{18}$/)
+    .openapi({ description: "sold / installed, 18 decimals, floored" }),
+  trade_count: z.number().int().nonnegative(),
+});
 export const LaunchSummary = z.strictObject({
   schema_version: SchemaVersion,
   chain_id: U,
   pool_id: Bytes32,
   pool_key: PoolKey,
-  token: Token,
-  // The launch's own quote, LaunchParameters.quoteToken.
+  token: LaunchToken,
   quote_token: QuoteToken,
-  supply: Supply,
   launch_token_is_token1: z.boolean(),
   // The locker that forwarded the creation: the instance's periphery.
   controller: Address,
-  // Owner at creation (LaunchOwnerChanged from the zero address); never changes.
+  // Owner at creation (LaunchOwnerChanged from the zero address).
   creator: Address,
-  // Current owner: holds the unclaimed and future creator fees; transferable.
+  // Current owner: holds the unclaimed and future creator fees.
   owner: Address,
-  ask_tick: z.number().int(),
-  upper_tick: z.number().int(),
+  logo_url: z.string().nullable().openapi({
+    description:
+      "LaunchCreated.logoUrl exactly as emitted; null when empty or not valid UTF-8. Untrusted: never fetched or rewritten here",
+  }),
+  parameters: Parameters,
+  range: Range,
+  supply: Supply,
+  trading_start: Seconds,
+  status: z.enum(["upcoming", "trading"]).openapi({
+    description: "upcoming while evaluated_at < trading_start, else trading",
+  }),
   fee_schedule: FeeSchedule,
+  market: Market,
   created: EventRef,
   as_of: BlockRef,
 });
@@ -155,17 +186,13 @@ const LedgerSide = z.strictObject({ accrued: U, claimed: U, unclaimed: U });
 export const LaunchDetail = LaunchSummary.extend({
   principal: z.strictObject({
     position_id: Bytes32,
-    tick_lower: z.number().int(),
-    tick_upper: z.number().int(),
     liquidity: U,
     locked: z.literal(true),
     withdrawable: z.literal(false),
     pool_reserves: SideAmounts,
-    reserves_basis: z.literal("core_pool_balance"),
   }),
   fee_ledger: z.strictObject({
     holder: Address,
-    transferable: z.literal(true),
     launch_token: LedgerSide,
     quote_token: LedgerSide,
     swap_count: z.number().int().nonnegative(),
@@ -173,17 +200,21 @@ export const LaunchDetail = LaunchSummary.extend({
     owner_change_count: z.number().int().positive(),
     last_event_id: I,
   }),
-  inventory: z.strictObject({
-    trading_open: z.boolean(),
-    no_bid: z.boolean(),
-    price_tick: z.number().int(),
-  }),
+});
+const Totals = z.strictObject({
+  all: z.number().int().nonnegative(),
+  trading: z.number().int().nonnegative(),
+  upcoming: z.number().int().nonnegative(),
 });
 export const LaunchList = z.strictObject({
   schema_version: SchemaVersion,
   data: z.array(LaunchSummary),
-  next_cursor: z.string().nullable(),
-  as_of: BlockRef,
+  // launches matching every filter, and by status matching the others
+  total: z.number().int().nonnegative(),
+  totals: Totals,
+  next_offset: z.number().int().positive().nullable(),
+  evaluated_at: Seconds,
+  heads: z.array(ChainHead),
 });
 export const Swap = z.strictObject({
   event: EventRef,
@@ -195,11 +226,11 @@ export const Swap = z.strictObject({
   fee_amount: U,
   fee_asset: z.enum(["launch_token", "quote_token"]),
 });
-// One claim: the periphery payout event, linked to the extension ledger
-// event of the same transaction. The amounts are counted once.
+// One claim, keyed on the extension's CreatorFeesClaimed; the periphery's
+// LaunchFeesClaimed of the same transaction supplies owner and recipient.
 export const Claim = z.strictObject({
   event: EventRef,
-  ledger_event_id: I,
+  payout_event_id: I,
   owner: Address,
   recipient: Address,
   launch_token_amount: U,
@@ -219,5 +250,8 @@ const PageIdentity = z.strictObject({
   as_of: BlockRef,
 });
 export const SwapPage = PageIdentity.extend({ data: z.array(Swap) });
-export const ClaimPage = PageIdentity.extend({ data: z.array(Claim) });
+export const ClaimPage = PageIdentity.extend({
+  data: z.array(Claim),
+  totals: SideAmounts,
+});
 export const OwnerPage = PageIdentity.extend({ data: z.array(OwnerChange) });

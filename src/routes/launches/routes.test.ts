@@ -15,7 +15,9 @@ const request = (path: string, env = {}) =>
 
 test("hosted launch entrypoints stay disabled without database or live pins", async () => {
   for (const path of [
+    "/launches",
     "/launches?chainId=31337",
+    "/launches?status=upcoming&owner=0x1",
     base,
     `${base}/swaps`,
     `${base}/claims`,
@@ -38,10 +40,12 @@ test("the hosted reader enables no instance and no ERC-20 quote", async () => {
   }) as never);
   expect(Reflect.get(hosted, "enabled")).toEqual([]);
   expect(Reflect.get(hosted, "quotes")).toEqual([]);
-  const refused = await hosted.list({ chainId: 31337n, limit: 1 }).then(
-    () => undefined,
-    (error: unknown) => error,
-  );
+  const refused = await hosted
+    .list({ status: "all", orderBy: "market_cap", offset: 0, limit: 1 })
+    .then(
+      () => undefined,
+      (error: unknown) => error,
+    );
   expect(refused).toBeInstanceOf(StatusError);
   expect(refused).toMatchObject({ status: 404 });
   // even a harness that passes the reviewed lists is refused when not local
@@ -55,22 +59,32 @@ test("the hosted reader enables no instance and no ERC-20 quote", async () => {
   expect(Reflect.get(notLocal, "quotes")).toEqual([]);
 });
 
-test("invalid arguments return 400 and the removed stats route returns 404", async () => {
-  for (const path of [
-    "/launches",
-    "/launches?chainId=-1",
-    "/launches?chainId=31337&limit=0",
-    "/launches?chainId=31337&before_event_id=9223372036854775808",
-    `${base}/swaps?after_event_id=-9223372036854775809`,
-    `${base}/owners?limit=201`,
-    `/launches?chainId=31337&owner=0x1${"0".repeat(40)}`,
-    "/launches?chainId=31337&creator=owner",
-    `/launches/31337/0x1${"0".repeat(64)}`,
-    "/launches/31337/NaN",
-  ]) {
+test("invalid arguments return 400 naming the parameter", async () => {
+  for (const [path, parameter] of [
+    ["/launches?chainId=-1", "chainId"],
+    ["/launches?chainId=abc", "chainId"],
+    ["/launches?limit=0", "limit"],
+    ["/launches?limit=201", "limit"],
+    ["/launches?offset=-1", "offset"],
+    ["/launches?offset=1.5", "offset"],
+    ["/launches?status=live", "status"],
+    ["/launches?status=", "status"],
+    ["/launches?order_by=volume", "order_by"],
+    [`/launches?owner=0x1${"0".repeat(40)}`, "owner"],
+    ["/launches?owner=alice", "owner"],
+    ["/launches?creator=owner", "creator"],
+    [`${base}/swaps?after_event_id=-9223372036854775809`, "after_event_id"],
+    [`${base}/claims?after_event_id=01`, "after_event_id"],
+    [`${base}/owners?limit=201`, "limit"],
+    [`/launches/31337/0x1${"0".repeat(64)}`, "poolId"],
+    ["/launches/31337/NaN", "poolId"],
+    [`/launches/x/${pool}`, "chainId"],
+  ] as const) {
     const response = await request(path);
     expect(response.status).toBe(400);
-    expect(await response.json()).toMatchObject({ status: 400 });
+    const body = (await response.json()) as { status: number; error: string };
+    expect(body.status).toBe(400);
+    expect(body.error).toContain(parameter);
   }
   expect((await request(`${base}/stats`)).status).toBe(404);
 });

@@ -2,6 +2,7 @@ import postgres, { type Sql } from "postgres";
 import { Env } from "./env";
 import {
   LaunchQueries,
+  type LaunchListOptions,
   type LaunchReadOptions,
 } from "./routes/launches/queries";
 
@@ -201,9 +202,7 @@ export class Queries {
     this.sql = sql;
   }
 
-  public readZeroSeedList(
-    input: LaunchReadOptions & { creator?: bigint; owner?: bigint },
-  ) {
+  public readZeroSeedList(input: LaunchListOptions) {
     return new LaunchQueries(this.sql).list(input);
   }
 

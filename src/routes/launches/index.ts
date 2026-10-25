@@ -76,30 +76,35 @@ export const ListLaunches = defineRoute(
     path: "/launches",
     tags: ["Launches"],
     operationId: "get_ListLaunches",
-    summary: "List supported zero-seed launches at one indexed head",
+    summary:
+      "List supported zero-seed launches across chains, with status, owner and creator filters",
     request: {
       query: z.object({
-        chainId,
-        before_event_id: cursor.optional(),
-        limit,
-        // owner at creation
-        creator: address.optional(),
+        // omitted: every chain with launch support
+        chainId: chainId.optional(),
+        status: z.enum(["all", "trading", "upcoming"]).default("all"),
         // current owner
         owner: address.optional(),
+        // owner at creation
+        creator: address.optional(),
+        order_by: z.enum(["market_cap", "created"]).default("market_cap"),
+        offset: z.coerce.number().int().min(0).max(100_000).default(0),
+        limit,
       }),
     },
     responses: { 200: response(LaunchList), ...errors },
   }),
   async (c) => {
-    const { chainId, before_event_id, limit, creator, owner } =
-      c.req.valid("query");
+    const query = c.req.valid("query");
     const q = await launchQueries(c.env);
     const data = await q.readZeroSeedList({
-      chainId,
-      cursor: before_event_id,
-      limit,
-      creator: creator === undefined ? undefined : BigInt(creator),
-      owner: owner === undefined ? undefined : BigInt(owner),
+      chainId: query.chainId,
+      status: query.status,
+      orderBy: query.order_by,
+      offset: query.offset,
+      limit: query.limit,
+      creator: query.creator === undefined ? undefined : BigInt(query.creator),
+      owner: query.owner === undefined ? undefined : BigInt(query.owner),
     });
     return c.json(data, 200, headers);
   },
@@ -160,7 +165,7 @@ export const ListLaunchClaims = defineRoute(
     tags: ["Launches"],
     operationId: "get_ListLaunchClaims",
     summary:
-      "List atomic full two-asset creator fee claims, each paid out once by the periphery",
+      "List creator fee claims, one row per claim (extension event, periphery owner and recipient)",
     request: { params, query: page },
     responses: { 200: response(ClaimPage), ...errors },
   }),
