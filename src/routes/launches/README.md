@@ -1,224 +1,146 @@
 # Zero-seed launch reads (draft/local)
 
-Draft response contract: `zero-seed-launch-api/v5`, for the forward-only
-`ZeroSeedLaunch` and its separate `ZeroSeedLaunchPeriphery` of evm-contracts
-`43d6628841b3ce91dafa048b7ceef64bed55fc8e` (ABI sha256 of `jq -cS .abi`:
-ZeroSeedLaunch `efae9388aa6b1342479204ddf436fd2a310df16bf06c80c990b2d22c90d1e41e`,
-periphery `df24d9f07d45323da7e46c0f6e64ce24f8f522442d60cb07880ddf742ebe7305`).
-Since v5 it also serves the tick-rate revision,
-`3d6378f585591dc7eabeea6976932c30524bb8ea` (ABI sha256 `89ff4d15…aadd` and
-`a6d43b36…db07`). Indexer schema `zero-seed-launch-index/v4` (migration 00140,
-after main's `00139_mev_capture_v21`). Live instance and quote lists are empty.
+Response contract `zero-seed-launch-api/v6`, for the final `ZeroSeedLaunch`
+and `ZeroSeedLaunchPeriphery` of the evm-contracts source freeze
+`853b608ec26d4c80bdad6e394cb8ba686e1ae615` (compiled ABI file sha256
+`6a131c2d…56eb` and `5d05426f…c839`). It reads the indexer's
+`zero_seed_launch_*` tables of migration `00140_zero_seed_launch` (final-only).
+No deployment of the final contract exists, so the hosted instance and quote
+lists are empty and every launch route answers 404 when hosted.
 
-Changes from v4:
+## Changes from v5
 
-- `fee_schedule` is a union on `model`, the fee model of the launch's
-  deployment, bound to the instance pin (`LaunchInstance.feeModel`) and never
-  inferred from a row. List and detail SQL screen `fee_model` with the rest of
-  the instance, so a reader with the other model for a deployment serves none
-  of its launches.
-- `model: "fixed_base_duration_v1"` (43d6628, the earlier revision): the v4
-  schedule unchanged (`fee_duration`, `fee_end`, `decay`, phases
-  `before_trading_start | fee_decay | final_fee`).
-- `model: "tick_rate_v2"` (3d6378f): `trading_start`, `initial_fee`,
-  `final_fee` (the long-run floor), `decay_rate_x32` (canonical decimal
-  uint64, unsigned Q32.32 ticks per second, never a JSON number),
-  `half_life_seconds` (display: 6 fractional digits, floored, from the exact
-  integer `HALF_LIFE_X32_E30 = 5954091920683119788732747343471285361579197626`;
-  `null` for rate 0), `saturation_elapsed_seconds` (`floor(381061679028371455 /
-  rate)`, after which the fee is exactly the floor by numerical saturation;
-  `null` for rate 0; not an end), `phase` (`before_trading_start | decaying |
-  at_floor | constant`), `fee_rate` (the contract's `feeAt` at the indexed block
-  time) and `evaluated_at`. There is no `fee_end`, `fee_duration` or `decay`.
-  `fee_rate = final + floor((initial - final) * toFixed(tickToSqrtRatio(-m)) /
-  2^128)`, `m = floor(rate * elapsed / 2^32)`, with saturation checked first;
-  `policy.test.ts` checks it against the contract's frozen vectors v7
-  (`vectors/zero-seed-launch-v2-vectors.json`, verbatim: fee rows, curve
-  tables, tick steps, saturation seconds and the five SHA-256 chains).
-- Malformed indexed schedules fail as 500: an unknown model, a v2 row with a
-  duration or without a rate, a rate outside uint64, a v1 row with a rate.
-- Golden examples: `fixtures/zero-seed-launch-api-v5.golden.json` (fixed-base
-  fixture, previously the v4 golden) and
-  `fixtures/zero-seed-launch-api-v5-tick-rate.golden.json` (tick-rate fixture:
-  rates 0, 1, one day, 600 s and 2^64 - 1).
+- Final model only. The fixed-base (`fixed_base_duration_v1`) and earlier
+  tick-rate drafts, the `fee_schedule.model` discriminator, their pins,
+  vectors and goldens are removed. There is one fee curve: the shifted
+  exponential of `decayRateX32` toward the `final_fee` floor.
+- New on every launch: `logo_url`, `parameters` (every `LaunchParameters`
+  field: numbers as exact decimal strings, words as 32-byte hex), `range`
+  (derived `tick_spacing`, `aligned_ask_tick`, `aligned_upper_tick`, pool
+  ticks), `trading_start`, `status`, `market`. `token.name`/`symbol` are
+  decoded from the packed words and `token.decimals` is always 18.
+  Top-level `ask_tick`/`upper_tick` moved into `parameters` as strings.
+- Removed: `inventory` (see `status` and `market`), `principal.tick_*`,
+  `principal.reserves_basis`, `fee_ledger.transferable`.
+- Claims are one row per claim keyed on the extension's `CreatorFeesClaimed`
+  (`event`), with the periphery `LaunchFeesClaimed` of the same transaction
+  as `payout_event_id`, `owner` and `recipient`; the page has `totals`
+  (claimed per asset, from the ledger). `ledger_event_id` is gone.
+- The list spans chains (`chainId` optional), filters `status`, `owner`
+  (current) and `creator` (original), orders by `market_cap` (default) or
+  `created`, pages by `offset`, and reports `total`, `totals`,
+  `next_offset`, `evaluated_at` and one head per chain (`heads`).
 
-Changes from v3 (v4):
+## Shapes
 
-- Every `LaunchSummary` (list and detail) has
-  `supply: { requested, installed, sink, sink_holder }`, decimal strings of
-  raw launch-token units. `requested` is `LaunchParameters.supply` as
-  submitted and the token's `totalSupply`; `installed` is what Core took into
-  the position at creation (the launch-token delta of Core's
-  `PositionUpdated`), all of the circulating inventory; `sink` is
-  `requested - installed`, minted to `sink_holder` (address 0) and never
-  spendable. It is not a burn: `totalSupply` stays `requested`. The API
-  refuses (500) indexed rows outside `0 < installed <= requested` or with
-  `sink != requested - installed`.
-- `principal.installed_supply` is removed (use `supply.installed`);
-  `principal.liquidity` is the liquidity the extension computed and
-  installed.
-- The quote is per launch (`LaunchParameters.quoteToken`): one extension and
-  periphery serve native ETH and ERC-20 quotes. `quote_token` is the launch's
-  own quote; an instance has no quote. Native ETH is address 0, always token0
-  (the launch token is token1), 18 decimals, null name and symbol. An ERC-20
-  quote above the launch token's address makes the launch token token0.
+`LaunchSummary` (list item; `LaunchDetail` adds `principal` and `fee_ledger`):
 
-Creator fees span the whole uint64 range. `initial_fee`, `final_fee` and
-both `fee_rate`s are Q0.64 rates as canonical decimal strings from `0` to
-`18446744073709551615` (2^64 - 1, the maximum, just under 100%; the fee
-fraction is value / 2^64, never exactly 100%), never JSON numbers. The
-contract checks only `final_fee <= initial_fee` and a nonzero duration; there
-is no ceiling below 2^64 - 1 and no `FeeTooHigh` error. The API refuses (500) an
-indexed fee above 2^64 - 1 instead of wrapping, truncating or serving it.
-The response shape is unchanged, so the contract stays v4.
+```text
+schema_version   "zero-seed-launch-api/v6"
+chain_id         decimal string
+pool_id          0x + 64 hex
+pool_key         { core_address, token0, token1, config: bytes32, fee: "0", tick_spacing: int, extension }
+token            { address, name: string|null, symbol: string|null, decimals: 18 }
+quote_token      { address, name|null, symbol|null, decimals: int|null, kind: "native"|"erc20" }
+launch_token_is_token1  bool
+controller       address (the periphery)
+creator          address (owner at creation)
+owner            address (current owner; holds unclaimed and future fees)
+logo_url         string|null (null when "" or not valid UTF-8; otherwise exactly as emitted)
+parameters       { name: bytes32, symbol: bytes32, supply, quote_token: address, ask_tick, upper_tick,
+                   trading_start, decay_rate_x32, initial_fee, final_fee: decimal strings, salt: bytes32 }
+range            { tick_spacing, aligned_ask_tick, aligned_upper_tick, pool_tick_lower, pool_tick_upper: int }
+supply           { requested, installed, sink: decimal strings, sink_holder: 0x0…0 }
+trading_start    int (unix seconds)
+status           "upcoming" (evaluated_at < trading_start) | "trading"
+fee_schedule     { trading_start: int, initial_fee, final_fee, decay_rate_x32: decimal strings,
+                   half_life_seconds: "s.uuuuuu"|null, saturation_elapsed_seconds: string|null,
+                   phase: before_trading_start|decaying|at_floor|constant, fee_rate: decimal string,
+                   evaluated_at: int }
+market           { price_tick: int, price_x128, market_cap: decimal strings, market_cap_usd: string|null,
+                   raised, sold: decimal strings, sold_share: "d.dddddddddddddddddd", trade_count: int }
+created          { block_number, block_hash, block_time, event_id, transaction_index, event_index, transaction_hash }
+as_of            { block_number, block_hash, block_time } (the launch chain's indexed head)
+principal        { position_id, liquidity, locked: true, withdrawable: false,
+                   pool_reserves: { launch_token, quote_token } }
+fee_ledger       { holder, launch_token: { accrued, claimed, unclaimed }, quote_token: {…},
+                   swap_count, claim_count, owner_change_count: int, last_event_id }
+```
 
-At `43d6628` the extension installs the exact largest token0 liquidity the
-requested supply pays for (an ERC-20 quote above the launch token), where it
-previously installed less at low prices and sank the difference. The API
-serves the indexed liquidity and Core's position delta and never recomputes
-the installation, so nothing here changes; `sink` can now be `"0"` when the
-requested supply is exactly installable (no mint to address 0 happens).
+`LaunchList`: `{ schema_version, data: LaunchSummary[], total, totals: { all,
+trading, upcoming }, next_offset: int|null, evaluated_at: int, heads: [{
+chain_id, block_number, block_hash, block_time }] }`. `total` counts every
+filter; `totals` counts the non-status filters by status.
 
-Unchanged from v3: the fixed-base fee table (`fee_schedule.decay` is
-`{ kind: "fixed_base_q128", half_life_seconds: 600 }` and `fee_rate` the
-contract's `feeAt` at the indexed block time, checked in `policy.test.ts`
-against all 25,212 rows of the protocol's independent all-second vectors),
-`creator` (owner at creation, never changes) versus `owner` (current,
-transferable holder of unclaimed and future fees) and `controller` (the
-periphery), periphery claim payouts linked by `ledger_event_id` and counted
-once, and the `/owners` history and `owner`/`creator` list filters.
+Market: `price_x128` is raw quote per raw launch token times 2^128, floored,
+from Core's sqrt ratio; `market_cap = floor(price * totalSupply)` in raw quote
+units (the sink is not a burn and is included); `market_cap_usd` uses the
+indexed quote price (6 decimals) and is null without one; `raised` is the
+quote the pool holds; `sold = installed - launch tokens in the pool`;
+`trade_count` counts `LaunchSwapped`, including zero fills.
 
-`fixtures/zero-seed-launch-api-v5.golden.json` is a machine-readable example of
-every response, written by the actual handlers over the replayed local fixture:
-a native-ETH (launch token1, sink 578) and two ERC-20 (launch token0, sink 790)
-launches on one extension, ownership transfers, claims, swaps and a reorg,
-plus two launches created at the maximum rate: `maxNativeDetail` (native,
-2^64 - 1 decaying to 0.3% over 3600 s) and `maxErc20Detail` (ERC-20, flat at
-2^64 - 1), with their exact-input, exact-output and decayed swaps and claims,
-and two ERC-20 launches at low-price token0 geometry: `lowPriceErc20Detail`
-(1e30 over ticks -88080384..-85983232 at spacing 524288; liquidity
-115073586432, sink 8589236567713153558) and `fullWidthErc20Detail` (an
-int128-scale supply over the full width at spacing 1 that installs all of it,
-sink `"0"`).
+Status and `fee_rate` are evaluated at the request's wall-clock second
+(`evaluated_at`); `as_of`/`heads` are the indexed heads. Fee math:
+`fee = final + floor((initial - final) * toFixed(tickToSqrtRatio(-m)) / 2^128)`,
+`m = floor(rate * elapsed / 2^32)`, initial before and at the start and for
+rate 0, `final` once `elapsed > 381061679028371455 / rate`; checked against the
+freeze's fee rows, curve tables, tick steps, saturation seconds and SHA-256
+chains (`policy.test.ts`).
 
 ## Requests
 
-- `GET /launches?chainId=31337&limit=50&before_event_id=...&creator=0x...&owner=0x...`
+- `GET /launches?chainId=&status=all|trading|upcoming&owner=&creator=&order_by=market_cap|created&offset=0&limit=50`
 - `GET /launches/{chainId}/{poolId}`
-- `GET /launches/{chainId}/{poolId}/swaps?limit=50&after_event_id=...`
-- `GET /launches/{chainId}/{poolId}/claims?limit=50&after_event_id=...`
-- `GET /launches/{chainId}/{poolId}/owners?limit=50&after_event_id=...`
+- `GET /launches/{chainId}/{poolId}/swaps?limit=50&after_event_id=…`
+- `GET /launches/{chainId}/{poolId}/claims?limit=50&after_event_id=…`
+- `GET /launches/{chainId}/{poolId}/owners?limit=50&after_event_id=…`
 
-One chain per list request gives an unambiguous indexed `as_of`. Pool IDs are
-32-byte hex. Cursors are signed decimal event IDs: newest-first creations use
-`before_event_id`; oldest-first swaps/claims/owners use `after_event_id`.
-Limits are 1–200. A non-null `next_cursor` means another row was observed in
-that snapshot. Cursor continuation is not a frozen historical snapshot: reorgs
-may change pages.
-
-No stats, lifecycle status, staged funding, advances, terminal migration, user
-counts or connected-wallet analytics exist. Forwarding lockers are contracts,
-not traders. Fee phases are schedule labels, not completion/exhaustion states.
+Limits are 1–200, offsets 0–100000. Histories are oldest first with signed
+decimal event-id cursors. Validation errors are 400 and name the parameter
+(`Invalid query: status: …`). Missing/unsupported launches are 404; a missing,
+mismatched or stale head of a chain in scope is 503 naming the chain;
+malformed indexed rows (non-canonical packed name, inconsistent range or
+supply, fee outside uint64, claim without its payout) fail as 500.
 
 ## Supported instances and consistency
 
-All hosted query delegates construct a reader with **no enabled instances**.
-They refuse launch reads with 404 without querying Postgres; missing database
-configuration also returns 404. There is no environment-binding enable switch.
-Only the explicit local test harness can pass the full reviewed instance
-manifest and quote list. Extension and periphery addresses and runtimes, Core
-and both ABIs must match an instance together. Quote support is per launch:
-native ETH is always eligible; an ERC-20 quote only if it is in the reviewed
-quote list by chain, address and runtime codehash. The local list holds only
-the fixture's plain test ERC-20 (evm-contracts `test/TestToken.sol`,
-relocated to `0xff…ff`); the hosted list is empty, so no ERC-20 quote launch
-can be served there even if launch reads were enabled.
+Hosted readers enable no instance and no ERC-20 quote. Only the explicit local
+harness may pass the reviewed local manifest (`LOCAL_INSTANCES`, the
+indexer fixture's instance, and `LOCAL_QUOTES`, its relocated test ERC-20).
+SQL screens chain, extension, periphery controller, Core, ordered pair, zero
+fee, spacing and the launch's own quote before ordering and paging. Each read
+is one read-only repeatable-read transaction. Responses are `no-store`.
+Logos and names are untrusted creator input: they are never fetched,
+rewritten or sanitized here; clients must escape them and must not fetch
+logo URLs unsafely.
 
-List SQL screens the extension, controller (periphery), Core, the launch's own
-quote and kind against the supported quote list, ordered pair, zero Core fee
-and spacing before pagination, so an unsupported quote never occupies a page.
-Detail and all histories use that same selection: an unsupported launch is 404.
-Missing/unsupported launches return 404. A missing, mismatched or stale cursor
-head returns 503. Parameters return 400; malformed internal indexed output
-fails as 500, never a success or client-validation fallback.
+## Local verification
 
-Each read uses one read-only repeatable-read transaction for the coherent head,
-configuration, current Core balance, creator ledger and event page. Responses
-are `no-store`. Local test freshness is 60 seconds from cursor `last_updated`;
-this is not an approved live/hosted parameter. Fee rates and phases depend only
-on the indexed block timestamp. HTTP does not accept a wall-clock fee override.
+`bun run format:check`, `bun run lint`, `bun run typecheck`, `bun test`.
+`bun run openapi` regenerates `openapi.json`.
 
-Principal is the immutable installed liquidity and Core event-accounted pool
-reserves (including rounding dust). Creator accrued/claimed/unclaimed ledgers
-are separate, per asset. Upper-bound leftover token residue and Core unowned
-token/quote dust are different quantities; no shared <=90 bound or fabricated
-claimable-funds estimate is exposed. Both assets are claimed atomically in full.
-
-The installed supply is not emitted by `LaunchCreated`; the indexer takes it
-from Core's position update of the creation and refuses a creation without
-exactly one consistent update. Build/expiry times are not emitted onchain and
-are not served. Producer/owner surfaces separately bind a preview's
-requested supply and computed installation, 31 UTF-8 byte metadata, all
-calldata and start/expiry constraints; this read API does not.
-
-## Local verification and stop/reset
-
-Run `bun run format:check`, `bun run lint`, `bun run typecheck` and
-`bun test` (or `bun test src/routes/launches src/responseSchemas.test.ts
-src/openapiSnapshot.test.ts` for the launch routes). `bun run openapi`
-regenerates `openapi.json`.
-
-For actual emitted-state/Postgres/handler replay, provide the exact pinned
-indexer checkout (EkuboProtocol/indexer
-`7f373e59ca79eadb5d7ce47a29eb7f02decf31da`, fixtures
-`tests/fixtures/zero-seed-launch/local-chain.json` sha256
-`ec308953b8412e3ad76e7b6bf74b1e3ae56f6cbe0798032dbc6673bfedfae7d9` and
-`local-chain-v2.json` sha256
-`52377ccd26930d893aa656d7835375536c7e13375faa437d1b8d220f1b1d1d2f`), a
-disposable loopback Postgres 18 and a scratch directory:
+`replay.postgres.test.ts` populates a disposable loopback Postgres through the
+indexer's own migrations, stream grouping, processors and DAO from its local
+anvil chain (`tests/fixtures/zero-seed-launch/local-chain.json`, sha256
+pinned in the test) and reads every route through the app:
 
 ```sh
-docker run -d --rm --name launch-replay-pg -p 127.0.0.1:55453:5432 \
-  --tmpfs /var/lib/postgresql:rw \
-  -e POSTGRES_USER=fixture -e POSTGRES_PASSWORD=fixture postgres:18
-ZERO_SEED_INDEXER_WORKTREE=/path/to/pinned/indexer \
-TEST_PG_CONNECTION_STRING=postgres://fixture:fixture@127.0.0.1:55453/postgres \
-LAUNCH_REPLAY_SCRATCH_DIR=/path/to/scratch \
-LAUNCH_GOLDEN_DIR=/path/to/scratch \
-bun scripts/verifyLaunchReplay.ts
-docker stop launch-replay-pg
+docker run -d --rm --name launch-api-pg -p 127.0.0.1:55491:5432 \
+  -e POSTGRES_PASSWORD=postgres postgres:18
+ZERO_SEED_INDEXER_WORKTREE=/path/to/indexer \
+TEST_PG_CONNECTION_STRING=postgres://postgres:postgres@127.0.0.1:55491/postgres \
+bun test src/routes/launches/replay.postgres.test.ts
 ```
 
-The runner runs both fee models' harnesses. With `LAUNCH_GOLDEN_DIR` set, it
-writes `actual-handler-golden.json` and `actual-handler-golden-tick-rate.json`;
-copy them to `fixtures/zero-seed-launch-api-v5.golden.json` and
-`fixtures/zero-seed-launch-api-v5-tick-rate.golden.json` and run
+It checks after every block each launch's parameters and packed metadata
+against the raw `LaunchCreated` log, logo, range, supply, ledger, owner,
+creator, controller and `feeAt` against the chain state; claims once per
+extension claim (counts and sums equal both the extension and the periphery
+logs); owner history and paging; list filters, totals, offsets, market-cap
+order and quote screening; a reorg; and that a second straight replay and a
+redelivery serve identical bodies. With `LAUNCH_GOLDEN_DIR` set it writes
+`zero-seed-launch-api-v6.golden.json`; copy it to `fixtures/` and run
 `bun run format`.
 
-The runner checks source/fixture pins, creates a scratch copy of the reviewed
-indexer test harness, appends API tests (`scripts/launchReplayCases.txt`),
-and executes actual stream/DAO/SQL replay without editing the indexer
-checkout. The API cases check every launch's supply against the chain
-(`totalSupply`, `balanceOf(address(0))`, Core's position delta), that
-ERC-20 quote launches are 404 and absent from lists when their quote is not
-in the reviewed list (empty, wrong runtime or wrong chain) while the native
-launches are served, that the local instance and quote pins equal the
-fixture's, that the maximum-rate launches serve 2^64 - 1 exactly (schedule,
-swap rates, exact-input net floor(gross / 2^64), exact-output paid
-calculated * 2^64, ledgers), and that a malformed indexed supply or an indexed
-fee of 2^64 fails as 500. Test-only query-method spies wire
-the actual HTTP handlers to real local SQL with the reviewed local manifest;
-they do not stub response rows. All temporary databases are dropped by the
-harness. No RPC, fork URL, provider/secret read or production migration is used.
-
-Safe stop is launch support OFF. A pre-issuance source rollback to the PR base
-without launch routes is safe; the old staged, constructor-quote or
-arbitrary-quote drafts are not. Reset only the dedicated disposable local test databases/container.
-Application rollback cannot refund, withdraw, rebalance or migrate immutable
-principal. No merge/deploy/live issuance or authority change is authorized.
-
-Live provenance/registration/state, production query performance/capacity/costs,
-served artifacts, mined UserOps, ERC-20 quote metadata (not indexed for the
-local quote, so its name, symbol and decimals are null), downstream
-whole-stack QA/Sage, external audit and legal/provider/wallet/board/release
-controls remain NOT PROVEN/HOLD.
+Safe stop is launch support off. No deployment, live database, merge or
+release is authorized by this draft.
