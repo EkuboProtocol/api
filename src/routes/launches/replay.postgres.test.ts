@@ -22,7 +22,7 @@ import { LaunchQueries } from "./queries";
 const ROOT = process.env.ZERO_SEED_INDEXER_WORKTREE;
 const SERVER = process.env.TEST_PG_CONNECTION_STRING;
 // The indexer revision and fixture this replay was written against.
-export const INDEXER_COMMIT = "942a060da475039518a471c0ac02fe200a69fe2d";
+export const INDEXER_COMMIT = "2435c89bb52fdcc7f1660031f16b8d11b8d9ffdd";
 export const FIXTURE_SHA256 =
   "b818cb5a4d939a67bd91a672f394ff32146edb9557cdf597e02ecad04d9a64d6";
 
