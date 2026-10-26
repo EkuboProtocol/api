@@ -9941,7 +9941,7 @@
           "Launches"
         ],
         "operationId": "get_ListLaunches",
-        "summary": "List supported zero-seed launches across chains, with status, owner and creator filters",
+        "summary": "List supported zero-seed launches across chains, with status, owner and creator filters, ordering and market aggregates",
         "parameters": [
           {
             "schema": {
@@ -10015,11 +10015,16 @@
               "type": "string",
               "enum": [
                 "market_cap",
+                "volume",
+                "sold_share",
+                "trade_count",
                 "created"
               ],
-              "default": "market_cap"
+              "default": "market_cap",
+              "description": "Descending, over every launch matching the filters before offset and limit; ties newest first. market_cap and volume rank launches with a USD value first, by USD, then the rest by whole quote units (raw / 10^decimals); created is newest first"
             },
             "required": false,
+            "description": "Descending, over every launch matching the filters before offset and limit; ties newest first. market_cap and volume rank launches with a USD value first, by USD, then the rest by whole quote units (raw / 10^decimals); created is newest first",
             "name": "order_by",
             "in": "query"
           },
@@ -10060,7 +10065,7 @@
                     "schema_version": {
                       "type": "string",
                       "enum": [
-                        "zero-seed-launch-api/v6"
+                        "zero-seed-launch-api/v7"
                       ]
                     },
                     "data": {
@@ -10071,7 +10076,7 @@
                           "schema_version": {
                             "type": "string",
                             "enum": [
-                              "zero-seed-launch-api/v6"
+                              "zero-seed-launch-api/v7"
                             ]
                           },
                           "chain_id": {
@@ -10461,7 +10466,8 @@
                                   "string",
                                   "null"
                                 ],
-                                "description": "market_cap in USD from the indexed quote price, 6 decimals; null without a price"
+                                "pattern": "^(0|[1-9][0-9]*)\\.[0-9]{6}$",
+                                "description": "market_cap / 10^quote decimals * the indexed quote USD price, rounded to 6 decimals; null when the quote has no indexed price or no known decimals"
                               },
                               "raised": {
                                 "type": "string",
@@ -10480,7 +10486,21 @@
                               },
                               "trade_count": {
                                 "type": "integer",
-                                "minimum": 0
+                                "minimum": 0,
+                                "description": "LaunchSwapped events of the launch, zero fills included"
+                              },
+                              "volume": {
+                                "type": "string",
+                                "pattern": "^(0|[1-9][0-9]*)$",
+                                "description": "Sum of |quote delta| over every LaunchSwapped of the launch, buys and sells, fee-inclusive, in raw quote base units"
+                              },
+                              "volume_usd": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ],
+                                "pattern": "^(0|[1-9][0-9]*)\\.[0-9]{6}$",
+                                "description": "volume / 10^quote decimals * the indexed quote USD price, rounded to 6 decimals; null exactly when market_cap_usd is"
                               }
                             },
                             "required": [
@@ -10491,7 +10511,9 @@
                               "raised",
                               "sold",
                               "sold_share",
-                              "trade_count"
+                              "trade_count",
+                              "volume",
+                              "volume_usd"
                             ],
                             "additionalProperties": false
                           },
@@ -10614,6 +10636,128 @@
                       ],
                       "additionalProperties": false
                     },
+                    "aggregates": {
+                      "type": "object",
+                      "properties": {
+                        "launch_count": {
+                          "type": "integer",
+                          "minimum": 0
+                        },
+                        "trade_count": {
+                          "type": "integer",
+                          "minimum": 0
+                        },
+                        "by_quote": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "chain_id": {
+                                "type": "string",
+                                "pattern": "^(0|[1-9][0-9]*)$"
+                              },
+                              "quote_token": {
+                                "type": "string",
+                                "pattern": "^0x[0-9a-f]{40}$"
+                              },
+                              "launch_count": {
+                                "type": "integer",
+                                "minimum": 0
+                              },
+                              "trade_count": {
+                                "type": "integer",
+                                "minimum": 0
+                              },
+                              "volume": {
+                                "type": "string",
+                                "pattern": "^(0|[1-9][0-9]*)$",
+                                "description": "Sum of market.volume, raw quote units"
+                              },
+                              "market_cap": {
+                                "type": "string",
+                                "pattern": "^(0|[1-9][0-9]*)$",
+                                "description": "Sum of market.market_cap, raw quote units"
+                              },
+                              "usd_priced": {
+                                "type": "boolean",
+                                "description": "The quote has an indexed USD price and known decimals"
+                              },
+                              "volume_usd": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ],
+                                "pattern": "^(0|[1-9][0-9]*)\\.[0-9]{6}$"
+                              },
+                              "market_cap_usd": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ],
+                                "pattern": "^(0|[1-9][0-9]*)\\.[0-9]{6}$"
+                              }
+                            },
+                            "required": [
+                              "chain_id",
+                              "quote_token",
+                              "launch_count",
+                              "trade_count",
+                              "volume",
+                              "market_cap",
+                              "usd_priced",
+                              "volume_usd",
+                              "market_cap_usd"
+                            ],
+                            "additionalProperties": false
+                          }
+                        },
+                        "usd": {
+                          "type": "object",
+                          "properties": {
+                            "volume": {
+                              "type": [
+                                "string",
+                                "null"
+                              ],
+                              "pattern": "^(0|[1-9][0-9]*)\\.[0-9]{6}$",
+                              "description": "Sum of market.volume_usd over priced launches; null when none is priced"
+                            },
+                            "market_cap": {
+                              "type": [
+                                "string",
+                                "null"
+                              ],
+                              "pattern": "^(0|[1-9][0-9]*)\\.[0-9]{6}$",
+                              "description": "Sum of market.market_cap_usd over priced launches; null when none is priced"
+                            },
+                            "priced_launch_count": {
+                              "type": "integer",
+                              "minimum": 0
+                            },
+                            "excluded_launch_count": {
+                              "type": "integer",
+                              "minimum": 0,
+                              "description": "Launches left out of the USD sums because their quote has no indexed price"
+                            }
+                          },
+                          "required": [
+                            "volume",
+                            "market_cap",
+                            "priced_launch_count",
+                            "excluded_launch_count"
+                          ],
+                          "additionalProperties": false
+                        }
+                      },
+                      "required": [
+                        "launch_count",
+                        "trade_count",
+                        "by_quote",
+                        "usd"
+                      ],
+                      "additionalProperties": false,
+                      "description": "Over every launch matching all filters (the set total counts), not one page. by_quote is ordered by chain_id, then quote_token"
+                    },
                     "next_offset": {
                       "type": [
                         "integer",
@@ -10662,6 +10806,7 @@
                     "data",
                     "total",
                     "totals",
+                    "aggregates",
                     "next_offset",
                     "evaluated_at",
                     "heads"
@@ -10784,7 +10929,7 @@
                     "schema_version": {
                       "type": "string",
                       "enum": [
-                        "zero-seed-launch-api/v6"
+                        "zero-seed-launch-api/v7"
                       ]
                     },
                     "chain_id": {
@@ -11050,7 +11195,7 @@
                     "schema_version": {
                       "type": "string",
                       "enum": [
-                        "zero-seed-launch-api/v6"
+                        "zero-seed-launch-api/v7"
                       ]
                     },
                     "chain_id": {
@@ -11285,7 +11430,7 @@
                     "schema_version": {
                       "type": "string",
                       "enum": [
-                        "zero-seed-launch-api/v6"
+                        "zero-seed-launch-api/v7"
                       ]
                     },
                     "chain_id": {
@@ -11532,7 +11677,7 @@
                     "schema_version": {
                       "type": "string",
                       "enum": [
-                        "zero-seed-launch-api/v6"
+                        "zero-seed-launch-api/v7"
                       ]
                     },
                     "chain_id": {
@@ -11922,7 +12067,8 @@
                             "string",
                             "null"
                           ],
-                          "description": "market_cap in USD from the indexed quote price, 6 decimals; null without a price"
+                          "pattern": "^(0|[1-9][0-9]*)\\.[0-9]{6}$",
+                          "description": "market_cap / 10^quote decimals * the indexed quote USD price, rounded to 6 decimals; null when the quote has no indexed price or no known decimals"
                         },
                         "raised": {
                           "type": "string",
@@ -11941,7 +12087,21 @@
                         },
                         "trade_count": {
                           "type": "integer",
-                          "minimum": 0
+                          "minimum": 0,
+                          "description": "LaunchSwapped events of the launch, zero fills included"
+                        },
+                        "volume": {
+                          "type": "string",
+                          "pattern": "^(0|[1-9][0-9]*)$",
+                          "description": "Sum of |quote delta| over every LaunchSwapped of the launch, buys and sells, fee-inclusive, in raw quote base units"
+                        },
+                        "volume_usd": {
+                          "type": [
+                            "string",
+                            "null"
+                          ],
+                          "pattern": "^(0|[1-9][0-9]*)\\.[0-9]{6}$",
+                          "description": "volume / 10^quote decimals * the indexed quote USD price, rounded to 6 decimals; null exactly when market_cap_usd is"
                         }
                       },
                       "required": [
@@ -11952,7 +12112,9 @@
                         "raised",
                         "sold",
                         "sold_share",
-                        "trade_count"
+                        "trade_count",
+                        "volume",
+                        "volume_usd"
                       ],
                       "additionalProperties": false
                     },

@@ -77,7 +77,7 @@ export const ListLaunches = defineRoute(
     tags: ["Launches"],
     operationId: "get_ListLaunches",
     summary:
-      "List supported zero-seed launches across chains, with status, owner and creator filters",
+      "List supported zero-seed launches across chains, with status, owner and creator filters, ordering and market aggregates",
     request: {
       query: z.object({
         // omitted: every chain with launch support
@@ -87,7 +87,19 @@ export const ListLaunches = defineRoute(
         owner: address.optional(),
         // owner at creation
         creator: address.optional(),
-        order_by: z.enum(["market_cap", "created"]).default("market_cap"),
+        order_by: z
+          .enum([
+            "market_cap",
+            "volume",
+            "sold_share",
+            "trade_count",
+            "created",
+          ])
+          .default("market_cap")
+          .openapi({
+            description:
+              "Descending, over every launch matching the filters before offset and limit; ties newest first. market_cap and volume rank launches with a USD value first, by USD, then the rest by whole quote units (raw / 10^decimals); created is newest first",
+          }),
         offset: z.coerce.number().int().min(0).max(100_000).default(0),
         limit,
       }),

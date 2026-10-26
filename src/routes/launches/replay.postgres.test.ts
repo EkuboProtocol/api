@@ -26,6 +26,15 @@ export const INDEXER_COMMIT = "2435c89bb52fdcc7f1660031f16b8d11b8d9ffdd";
 export const FIXTURE_SHA256 =
   "b818cb5a4d939a67bd91a672f394ff32146edb9557cdf597e02ecad04d9a64d6";
 
+const ORDERS = [
+  "market_cap",
+  "volume",
+  "sold_share",
+  "trade_count",
+  "created",
+] as const;
+const cmpBigint = (a: bigint, b: bigint) => (a < b ? -1 : a > b ? 1 : 0);
+
 type Hex = `0x${string}`;
 type Body = Record<string, any>;
 interface RawLog {
@@ -395,7 +404,7 @@ describe.skipIf(!ROOT || !SERVER)(
       const body = await get(path(pool.label));
       const [log] = logsOf(branches, T.created, launch.poolId);
       const d = log.data;
-      expect(body.schema_version).toBe("zero-seed-launch-api/v6");
+      expect(body.schema_version).toBe("zero-seed-launch-api/v7");
       expect(body.token.address).toBe(lower(addr(log.topics[2])));
       expect(body.controller).toBe(lower(addr(log.topics[3])));
       expect(body.parameters).toEqual({
@@ -511,6 +520,168 @@ describe.skipIf(!ROOT || !SERVER)(
       return claims;
     }
 
+    // The interface's launch-list ranking, recomputed from served fields:
+    // descending; for market cap and volume, launches with a USD value
+    // first by USD, then the rest by whole quote units; ties newest first.
+    const micros = (usd: string) => BigInt(usd.replace(".", ""));
+    function rankCompare(key: string, created: string[]) {
+      const quoteUnits = (l: Body, field: string) =>
+        l.quote_token.decimals === null
+          ? null
+          : { raw: BigInt(l.market[field]), decimals: l.quote_token.decimals };
+      const cmpBig = (a: bigint, b: bigint) => (a > b ? -1 : a < b ? 1 : 0);
+      const byUsdThenQuote = (field: string) => (a: Body, b: Body) => {
+        const [ua, ub] = [a.market[`${field}_usd`], b.market[`${field}_usd`]];
+        if ((ua === null) !== (ub === null)) return ua === null ? 1 : -1;
+        if (ua !== null) return cmpBig(micros(ua), micros(ub));
+        const [qa, qb] = [quoteUnits(a, field), quoteUnits(b, field)];
+        if (qa === null || qb === null)
+          return qa === qb ? 0 : qa === null ? 1 : -1;
+        return cmpBig(
+          qa.raw * 10n ** BigInt(qb.decimals),
+          qb.raw * 10n ** BigInt(qa.decimals),
+        );
+      };
+      const primary: Record<string, (a: Body, b: Body) => number> = {
+        market_cap: byUsdThenQuote("market_cap"),
+        volume: byUsdThenQuote("volume"),
+        sold_share: (a, b) =>
+          a.market.sold_share < b.market.sold_share
+            ? 1
+            : a.market.sold_share > b.market.sold_share
+              ? -1
+              : 0,
+        trade_count: (a, b) => b.market.trade_count - a.market.trade_count,
+        created: () => 0,
+      };
+      return (a: Body, b: Body) =>
+        primary[key](a, b) ||
+        created.indexOf(a.pool_id) - created.indexOf(b.pool_id);
+    }
+
+    function expectedAggregates(data: Body[]) {
+      const groups = new Map<string, Body[]>();
+      for (const l of data) {
+        const k = `${l.chain_id}:${l.quote_token.address}`;
+        groups.set(k, [...(groups.get(k) ?? []), l]);
+      }
+      const sum = (ls: Body[], f: (l: Body) => bigint) =>
+        ls.reduce((n, l) => n + f(l), 0n);
+      const usd = (v: bigint | null) =>
+        v === null
+          ? null
+          : `${v / 1_000_000n}.${(v % 1_000_000n).toString().padStart(6, "0")}`;
+      const usdSum = (ls: Body[], field: string) =>
+        ls.some((l) => l.market[field] === null)
+          ? null
+          : sum(ls, (l) => micros(l.market[field]));
+      const byQuote = [...groups.entries()]
+        .sort(([a], [b]) => {
+          const [ca, qa] = a.split(":");
+          const [cb, qb] = b.split(":");
+          return (
+            cmpBigint(BigInt(ca), BigInt(cb)) ||
+            cmpBigint(BigInt(qa), BigInt(qb))
+          );
+        })
+        .map(([, ls]) => ({
+          chain_id: ls[0].chain_id,
+          quote_token: ls[0].quote_token.address,
+          launch_count: ls.length,
+          trade_count: ls.reduce((n, l) => n + l.market.trade_count, 0),
+          volume: sum(ls, (l) => BigInt(l.market.volume)).toString(),
+          market_cap: sum(ls, (l) => BigInt(l.market.market_cap)).toString(),
+          usd_priced: ls[0].market.volume_usd !== null,
+          volume_usd: usd(usdSum(ls, "volume_usd")),
+          market_cap_usd: usd(usdSum(ls, "market_cap_usd")),
+        }));
+      const priced = data.filter((l) => l.market.volume_usd !== null);
+      return {
+        launch_count: data.length,
+        trade_count: data.reduce((n, l) => n + l.market.trade_count, 0),
+        by_quote: byQuote,
+        usd: {
+          volume: priced.length
+            ? usd(sum(priced, (l) => micros(l.market.volume_usd)))
+            : null,
+          market_cap: priced.length
+            ? usd(sum(priced, (l) => micros(l.market.market_cap_usd)))
+            : null,
+          priced_launch_count: priced.length,
+          excluded_launch_count: data.length - priced.length,
+        },
+      };
+    }
+
+    async function expectOrdersAndAggregates(
+      get: ReturnType<typeof serve>["get"],
+      label: string,
+    ) {
+      const creator = fx.addresses.creator;
+      for (const filter of [
+        "",
+        "&status=trading",
+        "&status=upcoming",
+        `&owner=${creator}`,
+        `&creator=${creator}`,
+      ]) {
+        const created = (
+          await get(`/launches?order_by=created&limit=200${filter}`)
+        ).data.map((l: Body) => l.pool_id);
+        let aggregates: unknown;
+        for (const key of ORDERS) {
+          const full = await get(
+            `/launches?order_by=${key}&limit=200${filter}`,
+          );
+          const ctx = `${label} ${key}${filter}`;
+          expect([ctx, full.data.length]).toEqual([ctx, full.total]);
+          // the order is the interface ranking over the whole filtered set
+          expect([ctx, full.data.map((l: Body) => l.pool_id)]).toEqual([
+            ctx,
+            [...full.data]
+              .sort(rankCompare(key, created))
+              .map((l: Body) => l.pool_id),
+          ]);
+          // pages concatenate to the full order: ordered before offset/limit
+          const pages: Body[] = [];
+          let offset: number | null = 0;
+          while (offset !== null) {
+            const page = await get(
+              `/launches?order_by=${key}&limit=2&offset=${offset}${filter}`,
+            );
+            expect(page.aggregates).toEqual(full.aggregates);
+            pages.push(...page.data);
+            offset = page.next_offset;
+          }
+          expect(pages).toEqual(full.data);
+          // aggregates cover the filtered set, never one page
+          expect([ctx, full.aggregates]).toEqual([
+            ctx,
+            expectedAggregates(full.data),
+          ]);
+          aggregates ??= full.aggregates;
+          expect(full.aggregates).toEqual(aggregates);
+        }
+      }
+      // volume and trade count equal the launch's served swaps
+      const all = await get(`/launches?order_by=created&limit=200`);
+      for (const l of all.data) {
+        const swaps = await get(
+          `/launches/${l.chain_id}/${l.pool_id}/swaps?limit=200`,
+        );
+        expect(swaps.next_cursor).toBeNull();
+        expect(swaps.data.length).toBe(l.market.trade_count);
+        const volume = swaps.data.reduce((n: bigint, s: Body) => {
+          const d = BigInt(s.quote_token_delta);
+          return n + (d < 0n ? -d : d);
+        }, 0n);
+        expect(l.market.volume).toBe(volume.toString());
+        expect(l.market.volume_usd === null).toBe(
+          l.market.market_cap_usd === null,
+        );
+      }
+    }
+
     async function everyResponse(get: ReturnType<typeof serve>["get"]) {
       const out: Record<string, unknown> = {
         list: await get(`/launches?order_by=created&limit=200`),
@@ -531,6 +702,7 @@ describe.skipIf(!ROOT || !SERVER)(
       let time = 0n;
       const { get, stop } = serve(db, () => time);
       const { prefix, alternate, canonical } = fx.branches;
+      let pricedList: Body | undefined;
       try {
         const at =
           (branches: Branch[]) =>
@@ -719,7 +891,36 @@ describe.skipIf(!ROOT || !SERVER)(
             0,
           );
         }
+        await expectOrdersAndAggregates(get, "native priced");
+        pricedList = await get(`/launches?order_by=volume&limit=200`);
+        expect(pricedList.aggregates.usd.excluded_launch_count).toBe(
+          pricedList.data.length - native.length,
+        );
         await db.sql`DELETE FROM erc20_tokens_latest_price WHERE source = 'tst'`;
+        await expectOrdersAndAggregates(get, "unpriced");
+        // mixed quote decimals: unpriced launches rank by whole quote units
+        const erc20 = BigInt(LOCAL_QUOTES[0].address).toString();
+        await db.sql`INSERT INTO erc20_tokens (chain_id, token_address, token_symbol, token_name, token_decimals, visibility_priority, sort_order)
+                   VALUES (${CHAIN.toString()}, ${erc20}, 'TQ', 'Test quote', 6, 0, 0)`;
+        await expectOrdersAndAggregates(get, "6-decimal erc20 unpriced");
+        // both quotes priced: one USD total, raw amounts still per quote
+        await db.sql`INSERT INTO erc20_tokens_latest_price (chain_id, token_address, source, "timestamp", value, confidence, valid_until)
+                   VALUES (${CHAIN.toString()}, 0, 'tst', NOW(), 2000, 100, NOW() + INTERVAL '1 hour'),
+                          (${CHAIN.toString()}, ${erc20}, 'tst', NOW(), 0.5, 100, NOW() + INTERVAL '1 hour')`;
+        await expectOrdersAndAggregates(get, "both priced");
+        const mixed = (await get(`/launches?limit=200`)).aggregates;
+        expect(mixed.by_quote.map((g: Body) => g.usd_priced)).toEqual([
+          true,
+          true,
+        ]);
+        expect(mixed.usd.excluded_launch_count).toBe(0);
+        expect(
+          micros(mixed.usd.volume) ===
+            micros(mixed.by_quote[0].volume_usd) +
+              micros(mixed.by_quote[1].volume_usd),
+        ).toBe(true);
+        await db.sql`DELETE FROM erc20_tokens_latest_price WHERE source = 'tst'`;
+        await db.sql`DELETE FROM erc20_tokens WHERE chain_id = ${CHAIN.toString()} AND token_address = ${erc20}`;
         // unsupported ERC-20 quotes are screened before paging
         await stop();
         const nativeOnly = serve(db, () => time, []);
@@ -740,7 +941,7 @@ describe.skipIf(!ROOT || !SERVER)(
           await Bun.write(
             resolve(
               process.env.LAUNCH_GOLDEN_DIR,
-              "zero-seed-launch-api-v6.golden.json",
+              "zero-seed-launch-api-v7.golden.json",
             ),
             `${JSON.stringify(
               {
@@ -750,6 +951,7 @@ describe.skipIf(!ROOT || !SERVER)(
                   evaluated_at: Number(time),
                 },
                 ...first1,
+                list_by_volume_native_priced: pricedList,
               },
               null,
               2,

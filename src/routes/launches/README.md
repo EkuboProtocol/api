@@ -1,12 +1,37 @@
 # Zero-seed launch reads (draft/local)
 
-Response contract `zero-seed-launch-api/v6`, for the final `ZeroSeedLaunch`
+Response contract `zero-seed-launch-api/v7`, for the final `ZeroSeedLaunch`
 and `ZeroSeedLaunchPeriphery` of the evm-contracts source freeze
 `853b608ec26d4c80bdad6e394cb8ba686e1ae615` (compiled ABI file sha256
 `6a131c2d…56eb` and `5d05426f…c839`). It reads the indexer's
 `zero_seed_launch_*` tables of migration `00140_zero_seed_launch` (final-only).
 No deployment of the final contract exists, so the hosted instance and quote
 lists are empty and every launch route answers 404 when hosted.
+
+## Changes from v6
+
+- `market.volume` (sum of |quote delta| over every `LaunchSwapped`, buys and
+  sells, fee-inclusive, raw quote base units) and `market.volume_usd`
+  (`volume / 10^decimals * indexed quote price`, 6 decimals, null without a
+  price or known decimals, exactly when `market_cap_usd` is null).
+  `market_cap_usd` is now constrained to the same 6-decimal format.
+- `order_by` adds `volume`, `sold_share` and `trade_count` to `market_cap`
+  (default) and `created`. Every order is descending and applied in SQL to
+  the whole filtered set before `offset`/`limit`; ties are newest first
+  (`block_time DESC, chain_id, event_id DESC`). `market_cap` and `volume`
+  rank launches with a USD value first by USD, then the others by whole
+  quote units (`raw / 10^decimals`; unknown decimals last), as the interface
+  does. `market_cap` previously put every unpriced launch last in creation
+  order.
+- `aggregates` on the list, over the same set `total` counts (all filters,
+  status included, never one page):
+  `{ launch_count, trade_count, by_quote: [{ chain_id, quote_token,
+  launch_count, trade_count, volume, market_cap, usd_priced, volume_usd,
+  market_cap_usd }], usd: { volume, market_cap, priced_launch_count,
+  excluded_launch_count } }`. Raw amounts are summed per (chain, quote
+  token) only; the USD sums add the served per-launch USD values of priced
+  launches and are null when none is priced; `excluded_launch_count` counts
+  launches without a USD value.
 
 ## Changes from v5
 
@@ -36,7 +61,7 @@ lists are empty and every launch route answers 404 when hosted.
 `LaunchSummary` (list item; `LaunchDetail` adds `principal` and `fee_ledger`):
 
 ```text
-schema_version   "zero-seed-launch-api/v6"
+schema_version   "zero-seed-launch-api/v7"
 chain_id         decimal string
 pool_id          0x + 64 hex
 pool_key         { core_address, token0, token1, config: bytes32, fee: "0", tick_spacing: int, extension }
@@ -58,7 +83,8 @@ fee_schedule     { trading_start: int, initial_fee, final_fee, decay_rate_x32: d
                    phase: before_trading_start|decaying|at_floor|constant, fee_rate: decimal string,
                    evaluated_at: int }
 market           { price_tick: int, price_x128, market_cap: decimal strings, market_cap_usd: string|null,
-                   raised, sold: decimal strings, sold_share: "d.dddddddddddddddddd", trade_count: int }
+                   raised, sold: decimal strings, sold_share: "d.dddddddddddddddddd", trade_count: int,
+                   volume: decimal string, volume_usd: "d.dddddd"|null }
 created          { block_number, block_hash, block_time, event_id, transaction_index, event_index, transaction_hash }
 as_of            { block_number, block_hash, block_time } (the launch chain's indexed head)
 principal        { position_id, liquidity, locked: true, withdrawable: false,
@@ -68,16 +94,18 @@ fee_ledger       { holder, launch_token: { accrued, claimed, unclaimed }, quote_
 ```
 
 `LaunchList`: `{ schema_version, data: LaunchSummary[], total, totals: { all,
-trading, upcoming }, next_offset: int|null, evaluated_at: int, heads: [{
-chain_id, block_number, block_hash, block_time }] }`. `total` counts every
-filter; `totals` counts the non-status filters by status.
+trading, upcoming }, aggregates, next_offset: int|null, evaluated_at: int,
+heads: [{ chain_id, block_number, block_hash, block_time }] }`. `total` counts
+every filter; `totals` counts the non-status filters by status; `aggregates`
+(see Changes from v6) covers the same set as `total`.
 
 Market: `price_x128` is raw quote per raw launch token times 2^128, floored,
 from Core's sqrt ratio; `market_cap = floor(price * totalSupply)` in raw quote
 units (the sink is not a burn and is included); `market_cap_usd` uses the
 indexed quote price (6 decimals) and is null without one; `raised` is the
 quote the pool holds; `sold = installed - launch tokens in the pool`;
-`trade_count` counts `LaunchSwapped`, including zero fills.
+`trade_count` counts `LaunchSwapped`, including zero fills; `volume` sums
+`|quote delta|` over them (fee-inclusive, raw quote units).
 
 Status and `fee_rate` are evaluated at the request's wall-clock second
 (`evaluated_at`); `as_of`/`heads` are the indexed heads. Fee math:
@@ -89,7 +117,7 @@ chains (`policy.test.ts`).
 
 ## Requests
 
-- `GET /launches?chainId=&status=all|trading|upcoming&owner=&creator=&order_by=market_cap|created&offset=0&limit=50`
+- `GET /launches?chainId=&status=all|trading|upcoming&owner=&creator=&order_by=market_cap|volume|sold_share|trade_count|created&offset=0&limit=50`
 - `GET /launches/{chainId}/{poolId}`
 - `GET /launches/{chainId}/{poolId}/swaps?limit=50&after_event_id=…`
 - `GET /launches/{chainId}/{poolId}/claims?limit=50&after_event_id=…`
@@ -137,9 +165,12 @@ against the raw `LaunchCreated` log, logo, range, supply, ledger, owner,
 creator, controller and `feeAt` against the chain state; claims once per
 extension claim (counts and sums equal both the extension and the periphery
 logs); owner history and paging; list filters, totals, offsets, market-cap
-order and quote screening; a reorg; and that a second straight replay and a
+order, every `order_by` against the interface ranking across offset pages,
+aggregates against the served launches for each filter (no price, native
+priced, mixed quote decimals, both quotes priced), volume and trade count
+against each launch's swaps, and quote screening; a reorg; and that a second straight replay and a
 redelivery serve identical bodies. With `LAUNCH_GOLDEN_DIR` set it writes
-`zero-seed-launch-api-v6.golden.json`; copy it to `fixtures/` and run
+`zero-seed-launch-api-v7.golden.json`; copy it to `fixtures/` and run
 `bun run format`.
 
 Safe stop is launch support off. No deployment, live database, merge or

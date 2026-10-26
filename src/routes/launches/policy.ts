@@ -360,6 +360,8 @@ export function marketData(input: {
   quoteReserve: bigint;
   marketCapUsd: string | null;
   tradeCount: bigint;
+  volume: bigint;
+  volumeUsd: string | null;
 }) {
   const price = priceX128(input.sqrtRatio, input.launchIsToken1);
   const left =
@@ -376,5 +378,7 @@ export function marketData(input: {
     sold: sold.toString(),
     sold_share: share18(sold, input.installed),
     trade_count: Number(input.tradeCount),
+    volume: input.volume.toString(),
+    volume_usd: input.volumeUsd,
   };
 }

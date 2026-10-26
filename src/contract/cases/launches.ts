@@ -2,7 +2,7 @@ import { ContractCase, stubQuery } from "../harness";
 import { LOCAL_INSTANCES } from "../../routes/launches/policy";
 
 const NATIVE = "0x0000000000000000000000000000000000000000" as const;
-const VERSION = "zero-seed-launch-api/v6" as const;
+const VERSION = "zero-seed-launch-api/v7" as const;
 
 const pin = LOCAL_INSTANCES[0];
 const owner = `0x${"2".repeat(40)}`;
@@ -88,6 +88,8 @@ const summary = {
     sold: "0",
     sold_share: "0.000000000000000000",
     trade_count: 0,
+    volume: "0",
+    volume_usd: null,
   },
   created: {
     ...as_of,
@@ -124,6 +126,29 @@ export const launchesCases: ContractCase[] = [
         ],
         total: 2,
         totals: { all: 2, trading: 1, upcoming: 1 },
+        aggregates: {
+          launch_count: 2,
+          trade_count: 0,
+          by_quote: [
+            {
+              chain_id: "31337",
+              quote_token: NATIVE,
+              launch_count: 2,
+              trade_count: 0,
+              volume: "0",
+              market_cap: "2000000000000000000000",
+              usd_priced: false,
+              volume_usd: null,
+              market_cap_usd: null,
+            },
+          ],
+          usd: {
+            volume: null,
+            market_cap: null,
+            priced_launch_count: 0,
+            excluded_launch_count: 2,
+          },
+        },
         next_offset: null,
         evaluated_at: 1000,
         heads: [{ chain_id: "31337", ...as_of }],

@@ -412,6 +412,8 @@ test("market data: exact price, market cap, raised and sold share", () => {
     quoteReserve: 77n,
     marketCapUsd: null,
     tradeCount: 3n,
+    volume: 154n,
+    volumeUsd: null,
   });
   expect(market).toEqual({
     price_tick: -1386295,
@@ -422,6 +424,8 @@ test("market data: exact price, market cap, raised and sold share", () => {
     sold: "300",
     sold_share: "0.333333333333333333",
     trade_count: 3,
+    volume: "154",
+    volume_usd: null,
   });
   // dust above the installed amount never makes sold negative
   expect(
@@ -432,11 +436,13 @@ test("market data: exact price, market cap, raised and sold share", () => {
       quoteReserve: 0n,
       marketCapUsd: "1.000000",
       tradeCount: 0n,
+      volume: 0n,
+      volumeUsd: "0.000000",
     }).sold,
   ).toBe("0");
 });
 
-test("v6 schemas are final-only and closed", () => {
+test("v7 schemas are final-only and closed", () => {
   const keys = Object.keys(LaunchSummary.shape);
   for (const key of [
     "logo_url",
@@ -458,6 +464,7 @@ test("v6 schemas are final-only and closed", () => {
       "data",
       "total",
       "totals",
+      "aggregates",
       "next_offset",
       "evaluated_at",
       "heads",

@@ -89,6 +89,8 @@ interface LaunchRow extends EventRow {
   claim_count: bigint;
   last_event_id: bigint;
   market_cap_usd: string | null;
+  volume: Numeric;
+  volume_usd: string | null;
 }
 const decimal = (n: Numeric) => n.toString();
 const hex = (n: Numeric, width: number) =>
@@ -204,6 +206,8 @@ function summary(row: LaunchRow, asOf: Head, time: bigint) {
       quoteReserve: BigInt(quoteReserve),
       marketCapUsd: row.market_cap_usd,
       tradeCount: row.swap_count,
+      volume: BigInt(row.volume),
+      volumeUsd: row.volume_usd,
     }),
     created: event(row),
     as_of: asOf,
@@ -267,7 +271,12 @@ function detail(row: LaunchRow, asOf: Head, time: bigint) {
 }
 
 export type LaunchStatusFilter = "all" | "trading" | "upcoming";
-export type LaunchOrder = "market_cap" | "created";
+export type LaunchOrder =
+  | "market_cap"
+  | "volume"
+  | "sold_share"
+  | "trade_count"
+  | "created";
 
 export interface LaunchReadOptions {
   chainId: bigint;
@@ -421,14 +430,22 @@ export class LaunchQueries {
        OR (c.quote_kind = 'erc20' AND c.quote_token <> 0 AND (${erc20})))
     `;
     // price_x128 = raw quote per raw launch token * 2^128 (Core's sqrt ratio
-    // is Q128 token1 per token0); market cap = price * totalSupply, in USD
-    // when the quote has an indexed price.
+    // is Q128 token1 per token0); market cap = price * totalSupply. volume is
+    // |quote delta| summed over every LaunchSwapped, fee-inclusive. The USD
+    // values use the indexed quote price; the *_quote columns (whole quote
+    // units) and sold_share_e18 exist only to order by.
     return tx<LaunchRow[]>`
-      SELECT l.*,
+      SELECT l.*, m.market_cap::text AS market_cap,
              CASE WHEN l.quote_price IS NULL THEN NULL
-                  ELSE ROUND(DIV(l.price_x128 * l.requested_supply, 340282366920938463463374607431768211456)
-                             / POWER(10::numeric, l.quote_decimals_effective)
-                             * l.quote_price::numeric, 6)::text END AS market_cap_usd
+                  ELSE ROUND(m.market_cap / POWER(10::numeric, l.quote_decimals_effective)
+                             * l.quote_price::numeric, 6)::text END AS market_cap_usd,
+             CASE WHEN l.quote_price IS NULL THEN NULL
+                  ELSE ROUND(l.volume / POWER(10::numeric, l.quote_decimals_effective)
+                             * l.quote_price::numeric, 6)::text END AS volume_usd,
+             m.market_cap / POWER(10::numeric, l.quote_decimals_effective) AS market_cap_quote,
+             l.volume / POWER(10::numeric, l.quote_decimals_effective) AS volume_quote,
+             DIV((l.installed_supply - LEAST(l.token_reserve, l.installed_supply))
+                 * 1000000000000000000, NULLIF(l.installed_supply, 0)) AS sold_share_e18
       FROM (
         SELECT c.*, b.block_hash, b.block_time, pk.core_address, pk.token0, pk.token1,
                qt.token_name AS quote_name, qt.token_symbol AS quote_symbol,
@@ -437,7 +454,8 @@ export class LaunchQueries {
                qp.value AS quote_price,
                s.accrued0, s.accrued1, s.claimed0, s.claimed1, s.swap_count, s.claim_count,
                s.last_event_id, s.initial_owner, s.current_owner, s.owner_change_count,
-               pt.balance0, pt.balance1, ps.tick, ps.sqrt_ratio,
+               pt.balance0, pt.balance1, ps.tick, ps.sqrt_ratio, v.volume,
+               CASE WHEN c.token_is_token1 THEN pt.balance1 ELSE pt.balance0 END AS token_reserve,
                CASE WHEN c.token_is_token1
                     THEN DIV(POWER(2::numeric, 384), ps.sqrt_ratio * ps.sqrt_ratio)
                     ELSE DIV(ps.sqrt_ratio * ps.sqrt_ratio, 340282366920938463463374607431768211456) END AS price_x128
@@ -451,6 +469,10 @@ export class LaunchQueries {
         LEFT JOIN erc20_tokens qt ON qt.chain_id = c.chain_id AND qt.token_address = c.quote_token
                                   AND c.quote_kind = 'erc20'
         LEFT JOIN erc20_tokens_latest_price qp ON qp.chain_id = c.chain_id AND qp.token_address = c.quote_token
+        CROSS JOIN LATERAL (
+          SELECT COALESCE(SUM(ABS(CASE WHEN c.token_is_token1 THEN w.delta0 ELSE w.delta1 END)), 0) AS volume
+          FROM zero_seed_launch_swapped w WHERE w.pool_key_id = c.pool_key_id
+        ) v
         WHERE c.chain_id IN (${chainList}) AND pk.chain_id = c.chain_id
           AND pk.pool_extension = c.emitter AND pk.fee = 0
           AND pk.token0 = LEAST(c.token, c.quote_token)
@@ -459,6 +481,9 @@ export class LaunchQueries {
           AND s.current_owner IS NOT NULL AND s.initial_owner IS NOT NULL
           AND (${instance}) AND ${quote} AND ${filter}
       ) l
+      CROSS JOIN LATERAL (
+        SELECT DIV(l.price_x128 * l.requested_supply, 340282366920938463463374607431768211456) AS market_cap
+      ) m
     `;
   }
 
@@ -477,10 +502,6 @@ export class LaunchQueries {
         trading: tx`l.trading_start <= ${now}::numeric`,
         upcoming: tx`l.trading_start > ${now}::numeric`,
       }[input.status];
-      const order =
-        input.orderBy === "market_cap"
-          ? tx`(market_cap_usd)::numeric DESC NULLS LAST, block_time DESC, chain_id, event_id DESC`
-          : tx`block_time DESC, chain_id, event_id DESC`;
       const [counts] = await tx<
         { all: number; trading: number; upcoming: number }[]
       >`
@@ -489,10 +510,23 @@ export class LaunchQueries {
                (COUNT(*) FILTER (WHERE l.trading_start > ${now}::numeric))::int AS upcoming
         FROM (${this.rows(tx, chains, filter)}) l
       `;
+      const groups = await tx<QuoteGroup[]>`
+        SELECT l.chain_id, l.quote_token, COUNT(*)::int AS launch_count,
+               SUM(l.swap_count)::text AS trade_count, SUM(l.volume)::text AS volume,
+               SUM(l.market_cap::numeric)::text AS market_cap,
+               SUM(l.volume_usd::numeric)::text AS volume_usd,
+               SUM(l.market_cap_usd::numeric)::text AS market_cap_usd
+        FROM (${this.rows(tx, chains, filter)}) l
+        WHERE ${status}
+        GROUP BY l.chain_id, l.quote_token ORDER BY l.chain_id, l.quote_token
+      `;
+      // The whole filtered set is ordered before the page is cut; the
+      // creation order breaks ties.
       const rows = await tx<LaunchRow[]>`
         SELECT * FROM (${this.rows(tx, chains, filter)}) l
         WHERE ${status}
-        ORDER BY ${order} OFFSET ${input.offset} LIMIT ${input.limit + 1}
+        ORDER BY ${orderBy(tx, input.orderBy)}, block_time DESC, chain_id, event_id DESC
+        OFFSET ${input.offset} LIMIT ${input.limit + 1}
       `;
       const page = rows.slice(0, input.limit);
       return parseIndexed(LaunchList, {
@@ -502,6 +536,7 @@ export class LaunchQueries {
         ),
         total: counts[input.status],
         totals: counts,
+        aggregates: aggregates(groups),
         next_offset:
           rows.length > input.limit ? input.offset + input.limit : null,
         evaluated_at: seconds(time),
@@ -694,6 +729,69 @@ export class LaunchQueries {
       );
     });
   }
+}
+
+// Launches without a USD value rank after those with one, by whole quote
+// units, so launches on different quotes still compare.
+function orderBy(tx: DB, key: LaunchOrder) {
+  return {
+    market_cap: tx`(market_cap_usd IS NULL), market_cap_usd::numeric DESC, market_cap_quote DESC NULLS LAST`,
+    volume: tx`(volume_usd IS NULL), volume_usd::numeric DESC, volume_quote DESC NULLS LAST`,
+    sold_share: tx`sold_share_e18 DESC NULLS LAST`,
+    trade_count: tx`swap_count DESC`,
+    created: tx`block_time DESC`,
+  }[key];
+}
+
+interface QuoteGroup {
+  chain_id: bigint;
+  quote_token: Numeric;
+  launch_count: number;
+  trade_count: string;
+  volume: string;
+  market_cap: string;
+  volume_usd: string | null;
+  market_cap_usd: string | null;
+}
+
+const sumUsd = (values: (string | null)[]) => {
+  const priced = values.filter((v): v is string => v !== null);
+  if (priced.length === 0) return null;
+  const micros = priced.reduce(
+    (sum, v) => sum + BigInt(v.replace(".", "")),
+    0n,
+  );
+  return `${micros / 1_000_000n}.${(micros % 1_000_000n).toString().padStart(6, "0")}`;
+};
+
+// Per-quote sums and USD sums over priced quotes only: raw amounts of
+// different quote tokens are never added together.
+function aggregates(groups: QuoteGroup[]) {
+  const byQuote = groups.map((g) => ({
+    chain_id: decimal(g.chain_id),
+    quote_token: hex(g.quote_token, 20),
+    launch_count: g.launch_count,
+    trade_count: Number(g.trade_count),
+    volume: g.volume,
+    market_cap: g.market_cap,
+    usd_priced: g.volume_usd !== null,
+    volume_usd: g.volume_usd,
+    market_cap_usd: g.market_cap_usd,
+  }));
+  const count = (rows: typeof byQuote) =>
+    rows.reduce((n, g) => n + g.launch_count, 0);
+  const priced = byQuote.filter((g) => g.usd_priced);
+  return {
+    launch_count: count(byQuote),
+    trade_count: byQuote.reduce((n, g) => n + g.trade_count, 0),
+    by_quote: byQuote,
+    usd: {
+      volume: sumUsd(priced.map((g) => g.volume_usd)),
+      market_cap: sumUsd(priced.map((g) => g.market_cap_usd)),
+      priced_launch_count: count(priced),
+      excluded_launch_count: count(byQuote) - count(priced),
+    },
+  };
 }
 
 function swapDirection(token: bigint, quote: bigint) {

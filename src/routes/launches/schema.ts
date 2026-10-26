@@ -1,11 +1,12 @@
 import { z } from "@hono/zod-openapi";
 
-// v6: the final zero-seed launch (evm-contracts 853b608) only. One fee model,
+// v7: the final zero-seed launch (evm-contracts 853b608) only. One fee model,
 // so the schedule has no discriminator; launches carry their logo, every
 // LaunchParameters field, the derived spacing and aligned bounds, a status
-// and market data, and the list spans chains with status/owner filters,
-// market-cap ordering and totals.
-export const SCHEMA_VERSION = "zero-seed-launch-api/v6" as const;
+// and market data with volume, and the list spans chains with status/owner
+// filters, market-cap, volume, sold-share, trade-count and creation order,
+// totals and market aggregates.
+export const SCHEMA_VERSION = "zero-seed-launch-api/v7" as const;
 export const SchemaVersion = z.literal(SCHEMA_VERSION);
 const UINT64_MAX = (1n << 64n) - 1n;
 const U = z.string().regex(/^(0|[1-9][0-9]*)$/);
@@ -126,8 +127,11 @@ const Supply = z.strictObject({
   sink: U,
   sink_holder: z.literal("0x0000000000000000000000000000000000000000"),
 });
-// Computed from the indexed Core pool state and balances. Raw units; price
-// is raw quote per raw launch token, times 2^128 and floored.
+// USD with exactly 6 decimals, from the indexed quote price.
+const Usd = z.string().regex(/^(0|[1-9][0-9]*)\.[0-9]{6}$/);
+// Computed from the indexed Core pool state, balances and LaunchSwapped
+// events. Raw units; price is raw quote per raw launch token, times 2^128
+// and floored.
 const Market = z.strictObject({
   price_tick: Tick,
   price_x128: U,
@@ -135,9 +139,9 @@ const Market = z.strictObject({
     description:
       "floor(price * totalSupply) in raw quote units; totalSupply includes the sink",
   }),
-  market_cap_usd: z.string().nullable().openapi({
+  market_cap_usd: Usd.nullable().openapi({
     description:
-      "market_cap in USD from the indexed quote price, 6 decimals; null without a price",
+      "market_cap / 10^quote decimals * the indexed quote USD price, rounded to 6 decimals; null when the quote has no indexed price or no known decimals",
   }),
   raised: U.openapi({
     description: "Quote held by the launch pool (buyers' net input)",
@@ -149,7 +153,17 @@ const Market = z.strictObject({
     .string()
     .regex(/^[01]\.[0-9]{18}$/)
     .openapi({ description: "sold / installed, 18 decimals, floored" }),
-  trade_count: z.number().int().nonnegative(),
+  trade_count: z.number().int().nonnegative().openapi({
+    description: "LaunchSwapped events of the launch, zero fills included",
+  }),
+  volume: U.openapi({
+    description:
+      "Sum of |quote delta| over every LaunchSwapped of the launch, buys and sells, fee-inclusive, in raw quote base units",
+  }),
+  volume_usd: Usd.nullable().openapi({
+    description:
+      "volume / 10^quote decimals * the indexed quote USD price, rounded to 6 decimals; null exactly when market_cap_usd is",
+  }),
 });
 export const LaunchSummary = z.strictObject({
   schema_version: SchemaVersion,
@@ -206,12 +220,56 @@ const Totals = z.strictObject({
   trading: z.number().int().nonnegative(),
   upcoming: z.number().int().nonnegative(),
 });
+const Count = z.number().int().nonnegative();
+// One row per (chain, quote token): amounts of different quote tokens are
+// never added together.
+const QuoteAggregate = z.strictObject({
+  chain_id: U,
+  quote_token: Address,
+  launch_count: Count,
+  trade_count: Count,
+  volume: U.openapi({ description: "Sum of market.volume, raw quote units" }),
+  market_cap: U.openapi({
+    description: "Sum of market.market_cap, raw quote units",
+  }),
+  usd_priced: z.boolean().openapi({
+    description: "The quote has an indexed USD price and known decimals",
+  }),
+  volume_usd: Usd.nullable(),
+  market_cap_usd: Usd.nullable(),
+});
+export const Aggregates = z
+  .strictObject({
+    launch_count: Count,
+    trade_count: Count,
+    by_quote: z.array(QuoteAggregate),
+    usd: z.strictObject({
+      volume: Usd.nullable().openapi({
+        description:
+          "Sum of market.volume_usd over priced launches; null when none is priced",
+      }),
+      market_cap: Usd.nullable().openapi({
+        description:
+          "Sum of market.market_cap_usd over priced launches; null when none is priced",
+      }),
+      priced_launch_count: Count,
+      excluded_launch_count: Count.openapi({
+        description:
+          "Launches left out of the USD sums because their quote has no indexed price",
+      }),
+    }),
+  })
+  .openapi({
+    description:
+      "Over every launch matching all filters (the set total counts), not one page. by_quote is ordered by chain_id, then quote_token",
+  });
 export const LaunchList = z.strictObject({
   schema_version: SchemaVersion,
   data: z.array(LaunchSummary),
   // launches matching every filter, and by status matching the others
   total: z.number().int().nonnegative(),
   totals: Totals,
+  aggregates: Aggregates,
   next_offset: z.number().int().positive().nullable(),
   evaluated_at: Seconds,
   heads: z.array(ChainHead),

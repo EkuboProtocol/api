@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import golden from "./fixtures/zero-seed-launch-api-v6.golden.json";
+import golden from "./fixtures/zero-seed-launch-api-v7.golden.json";
 import {
   ClaimPage,
   LaunchDetail,
@@ -11,14 +11,15 @@ import {
 
 // Written by replay.postgres.test.ts (LAUNCH_GOLDEN_DIR) from the actual
 // handlers over the indexer's replayed local chain: a machine-readable
-// example of every v6 response for integrators.
+// example of every v7 response for integrators.
 const responses = golden as unknown as Record<string, unknown>;
 
-test("every golden response parses with the closed v6 schemas", () => {
+test("every golden response parses with the closed v7 schemas", () => {
   LaunchList.parse(golden.list);
+  LaunchList.parse(golden.list_by_volume_native_priced);
   expect(golden.list.data.length).toBe(7);
   for (const [key, body] of Object.entries(responses)) {
-    if (key === "source" || key === "list") continue;
+    if (key === "source" || key.startsWith("list")) continue;
     const schema = key.endsWith("/swaps?limit=200")
       ? SwapPage
       : key.endsWith("/claims?limit=200")
@@ -49,4 +50,32 @@ test("golden: logos, statuses and claims as served", () => {
       quote_token: detail.fee_ledger.quote_token.claimed,
     });
   }
+});
+
+test("golden: list aggregates never add different quote tokens", () => {
+  for (const list of [golden.list, golden.list_by_volume_native_priced]) {
+    const { aggregates } = list;
+    expect(aggregates.launch_count).toBe(list.total);
+    expect(aggregates.by_quote.map((g) => g.quote_token)).toEqual([
+      "0x0000000000000000000000000000000000000000",
+      "0xffffffffffffffffffffffffffffffffffffffff",
+    ]);
+    for (const group of aggregates.by_quote) {
+      const launches = list.data.filter(
+        (l) => l.quote_token.address === group.quote_token,
+      );
+      expect(group.volume).toBe(
+        launches.reduce((n, l) => n + BigInt(l.market.volume), 0n).toString(),
+      );
+    }
+  }
+  // native priced, the ERC-20 not: USD covers the native launches only
+  const priced = LaunchList.parse(
+    golden.list_by_volume_native_priced,
+  ).aggregates;
+  expect(priced.usd.volume).toBe(priced.by_quote[0].volume_usd);
+  expect(priced.usd.excluded_launch_count).toBe(
+    priced.by_quote[1].launch_count,
+  );
+  expect(golden.list.aggregates.usd.volume).toBeNull();
 });
