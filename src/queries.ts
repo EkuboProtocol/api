@@ -402,6 +402,68 @@ export class Queries {
     `;
   }
 
+  public async getTokenNetFlow({
+    chainId,
+    tokenAddress,
+    start,
+    end,
+    intervalSeconds,
+  }: {
+    chainId: bigint;
+    tokenAddress: bigint;
+    start: Date;
+    end: Date;
+    intervalSeconds: number;
+  }) {
+    return this.sql<
+      {
+        start: Date;
+        bought: string;
+        sold: string;
+        swap_count: number;
+      }[]
+    >`
+      WITH token_pools AS MATERIALIZED (
+        SELECT pool_key_id, token0 = ${tokenAddress.toString()} AS is_token0
+        FROM pool_keys
+        WHERE chain_id = ${chainId}
+          AND (
+            token0 = ${tokenAddress.toString()}
+            OR token1 = ${tokenAddress.toString()}
+          )
+      ),
+      token_deltas AS (
+        SELECT
+          date_bin(
+            ${intervalSeconds} * INTERVAL '1 second',
+            s.block_time,
+            TIMESTAMPTZ '2000-01-01 00:00:00+00'
+          ) AS bucket_start,
+          -- Deltas are the pool's balance change: positive means the swapper
+          -- paid the token into the pool.
+          CASE WHEN tp.is_token0 THEN s.delta0 ELSE s.delta1 END AS delta
+        FROM token_pools tp
+        -- Per pool, so each lookup is an index-only range scan of
+        -- swaps_pool_key_id_block_time_ohlc_idx, which carries both deltas.
+        CROSS JOIN LATERAL (
+          SELECT block_time, delta0, delta1
+          FROM swaps
+          WHERE swaps.pool_key_id = tp.pool_key_id
+            AND swaps.block_time >= ${start}
+            AND swaps.block_time <= ${end}
+        ) AS s
+      )
+      SELECT
+        bucket_start AS start,
+        COALESCE(SUM(-delta) FILTER (WHERE delta < 0), 0)::TEXT AS bought,
+        COALESCE(SUM(delta) FILTER (WHERE delta > 0), 0)::TEXT AS sold,
+        COUNT(*)::INT4 AS swap_count
+      FROM token_deltas
+      GROUP BY bucket_start
+      ORDER BY bucket_start
+    `;
+  }
+
   public async getErc20TokensByIds(
     ids: { chainId: bigint; tokenAddress: bigint }[],
   ) {

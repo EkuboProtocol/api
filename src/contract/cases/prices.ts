@@ -148,6 +148,39 @@ export const pricesCases: ContractCase[] = [
       ]);
     },
   })),
+  ...[
+    ["day", 1_800, 86_400],
+    ["week", 14_400, 604_800],
+    ["month", 43_200, 2_592_000],
+  ].map(([range, interval, duration]): ContractCase => ({
+    operation: "/tokens/{chainId}/{tokenAddress}/net-flow",
+    name: `/tokens/{chainId}/{tokenAddress}/net-flow ${range}`,
+    request: `/tokens/1/${USDC}/net-flow?interval=${interval}&duration=${duration}`,
+    stub: () => {
+      stubQuery("getTokenNetFlow", [
+        {
+          start: at(START),
+          bought: "1250000000",
+          sold: "400000000",
+          swap_count: 7,
+        },
+        {
+          start: at(START + Number(interval)),
+          bought: "0",
+          sold: "35000000",
+          swap_count: 1,
+        },
+      ]);
+    },
+  })),
+  {
+    operation: "/tokens/{chainId}/{tokenAddress}/net-flow",
+    name: "/tokens/{chainId}/{tokenAddress}/net-flow unknown token",
+    request: "/tokens/1/0x1234/net-flow",
+    stub: () => {
+      stubQuery("getTokenNetFlow", []);
+    },
+  },
   {
     operation: "/price/{chainId}/{baseToken}/{quoteToken}/history",
     request: `/price/1/0x0/${USDC}/history?interval=3600`,

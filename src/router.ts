@@ -32,6 +32,7 @@ import {
   GetPoolPriceHistory,
   GetTokenUsdPriceHistory,
 } from "./routes/prices";
+import { GetTokenNetFlow } from "./routes/prices/netFlow";
 import {
   BatchListPositionsByAddress,
   GetPositionNftImage,
@@ -92,6 +93,7 @@ const routes: readonly ApiRoute[] = [
   GetPairInfoVolume,
   GetPairInfoPools,
   GetTokenUsdPriceHistory,
+  GetTokenNetFlow,
   GetPairPriceHistory,
   GetPairOhlcHistory,
   GetPoolPriceHistory,

@@ -24,14 +24,14 @@ describe("Hono app integration", () => {
       ),
     );
 
-    expect(Object.keys(schema.paths ?? {})).toHaveLength(59);
-    expect(operations).toHaveLength(59);
+    expect(Object.keys(schema.paths ?? {})).toHaveLength(60);
+    expect(operations).toHaveLength(60);
     expect(
       operations.reduce(
         (count, operation) => count + (operation.parameters?.length ?? 0),
         0,
       ),
-    ).toBe(198);
+    ).toBe(202);
 
     const getToken = operations.find(
       (operation) =>
@@ -168,6 +168,17 @@ describe("Hono app integration", () => {
         )
       ).status,
     ).toBe(400);
+
+    for (const query of [
+      "interval=59",
+      "duration=3599",
+      "duration=2592001",
+      "interval=60&duration=60060",
+    ]) {
+      expect((await fetchPath(`/tokens/1/0x1/net-flow?${query}`)).status).toBe(
+        400,
+      );
+    }
   });
 
   test("rejects numeric path parameters that do not parse", async () => {

@@ -3057,6 +3057,174 @@
         }
       }
     },
+    "/tokens/{chainId}/{tokenAddress}/net-flow": {
+      "get": {
+        "tags": [
+          "Prices"
+        ],
+        "summary": "Get token net buy and sell flow",
+        "description": "Returns how much of a token traders bought from and sold into Ekubo pools in each interval, across every pool on the chain that holds the token, including TWAMM and limit order execution. Buckets use the same boundaries as the token price history and only buckets with at least one swap are returned; an unknown token returns no buckets. A multi-hop route that passes through the token adds the same amount to both bought and sold, so the net flow is exact while the gross amounts include that routing.",
+        "operationId": "get_GetTokenNetFlow",
+        "parameters": [
+          {
+            "schema": {
+              "type": "integer",
+              "title": "Chain ID",
+              "description": "The ID of the network that is being fetched",
+              "format": "int64",
+              "minimum": 1,
+              "maximum": 9223372036854776000
+            },
+            "required": true,
+            "description": "The ID of the network that is being fetched",
+            "name": "chainId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "pattern": "^0x[a-fA-F0-9]+$",
+                  "description": "A hexadecimal number"
+                },
+                {
+                  "type": "string",
+                  "pattern": "^\\d+$",
+                  "description": "A decimal number"
+                }
+              ],
+              "title": "Address",
+              "description": "An address on the specified blockchain network"
+            },
+            "required": true,
+            "description": "An address on the specified blockchain network",
+            "name": "tokenAddress",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "integer",
+              "minimum": 60,
+              "maximum": 86400,
+              "default": 900,
+              "description": "Bucket size in seconds"
+            },
+            "required": false,
+            "description": "Bucket size in seconds",
+            "name": "interval",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "integer",
+              "minimum": 3600,
+              "maximum": 2592000,
+              "default": 86400,
+              "description": "History duration in seconds ending now, up to 30 days and at most 1000 intervals"
+            },
+            "required": false,
+            "description": "History duration in seconds ending now, up to 30 days and at most 1000 intervals",
+            "name": "duration",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The token's bought and sold amounts per interval",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "timestamp": {
+                      "type": "integer",
+                      "description": "Response time, unix seconds"
+                    },
+                    "start": {
+                      "type": "integer",
+                      "description": "Start of the window, unix seconds"
+                    },
+                    "end": {
+                      "type": "integer",
+                      "description": "End of the window, unix seconds"
+                    },
+                    "interval": {
+                      "type": "integer"
+                    },
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "start": {
+                            "anyOf": [
+                              {
+                                "type": "string"
+                              },
+                              {
+                                "type": "string",
+                                "format": "date-time"
+                              }
+                            ],
+                            "description": "Bucket start time"
+                          },
+                          "bought": {
+                            "type": "string",
+                            "description": "Raw token units that left Ekubo pools to traders in the bucket, as a decimal string"
+                          },
+                          "sold": {
+                            "type": "string",
+                            "description": "Raw token units traders paid into Ekubo pools in the bucket, as a decimal string"
+                          },
+                          "swap_count": {
+                            "type": "integer",
+                            "description": "Number of swaps in the bucket that touched the token"
+                          }
+                        },
+                        "required": [
+                          "start",
+                          "bought",
+                          "sold",
+                          "swap_count"
+                        ]
+                      }
+                    }
+                  },
+                  "required": [
+                    "timestamp",
+                    "start",
+                    "end",
+                    "interval",
+                    "data"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The request parameters are invalid",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "An unexpected server error occurred",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/price/{chainId}/{baseToken}/{quoteToken}/history": {
       "get": {
         "tags": [
