@@ -3,5 +3,5 @@
   "trailingComma": "all",
   "printWidth": 80,
   "sortPackageJson": false,
-  "ignorePatterns": ["openapi.json"]
+  "ignorePatterns": ["openapi.json", "src/routes/launches/vectors/**"]
 }

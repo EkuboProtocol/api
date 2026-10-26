@@ -9935,6 +9935,2460 @@
         }
       }
     },
+    "/launches": {
+      "get": {
+        "tags": [
+          "Launches"
+        ],
+        "operationId": "get_ListLaunches",
+        "summary": "List supported zero-seed launches across chains, with status, owner and creator filters, ordering and market aggregates",
+        "parameters": [
+          {
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            },
+            "required": false,
+            "name": "chainId",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "enum": [
+                "all",
+                "trading",
+                "upcoming"
+              ],
+              "default": "all"
+            },
+            "required": false,
+            "name": "status",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "pattern": "^0x[a-fA-F0-9]+$",
+                  "description": "A hexadecimal number"
+                },
+                {
+                  "type": "string",
+                  "pattern": "^\\d+$",
+                  "description": "A decimal number"
+                }
+              ],
+              "title": "Address",
+              "description": "An address on the specified blockchain network"
+            },
+            "required": false,
+            "description": "An address on the specified blockchain network",
+            "name": "owner",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "pattern": "^0x[a-fA-F0-9]+$",
+                  "description": "A hexadecimal number"
+                },
+                {
+                  "type": "string",
+                  "pattern": "^\\d+$",
+                  "description": "A decimal number"
+                }
+              ],
+              "title": "Address",
+              "description": "An address on the specified blockchain network"
+            },
+            "required": false,
+            "description": "An address on the specified blockchain network",
+            "name": "creator",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "enum": [
+                "market_cap",
+                "volume",
+                "sold_share",
+                "trade_count",
+                "created"
+              ],
+              "default": "market_cap",
+              "description": "Descending, over every launch matching the filters before offset and limit; ties newest first. market_cap and volume rank launches with a USD value first, by USD, then the rest by whole quote units (raw / 10^decimals); created is newest first"
+            },
+            "required": false,
+            "description": "Descending, over every launch matching the filters before offset and limit; ties newest first. market_cap and volume rank launches with a USD value first, by USD, then the rest by whole quote units (raw / 10^decimals); created is newest first",
+            "name": "order_by",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": [
+                "integer",
+                "null"
+              ],
+              "minimum": 0,
+              "maximum": 100000,
+              "default": 0
+            },
+            "required": false,
+            "name": "offset",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 200,
+              "default": 50
+            },
+            "required": false,
+            "name": "limit",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Indexed zero-seed launch data",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "schema_version": {
+                      "type": "string",
+                      "enum": [
+                        "zero-seed-launch-api/v7"
+                      ]
+                    },
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "schema_version": {
+                            "type": "string",
+                            "enum": [
+                              "zero-seed-launch-api/v7"
+                            ]
+                          },
+                          "chain_id": {
+                            "type": "string",
+                            "pattern": "^(0|[1-9][0-9]*)$"
+                          },
+                          "pool_id": {
+                            "type": "string",
+                            "pattern": "^0x[0-9a-f]{64}$"
+                          },
+                          "pool_key": {
+                            "type": "object",
+                            "properties": {
+                              "core_address": {
+                                "type": "string",
+                                "pattern": "^0x[0-9a-f]{40}$"
+                              },
+                              "token0": {
+                                "type": "string",
+                                "pattern": "^0x[0-9a-f]{40}$"
+                              },
+                              "token1": {
+                                "type": "string",
+                                "pattern": "^0x[0-9a-f]{40}$"
+                              },
+                              "config": {
+                                "type": "string",
+                                "pattern": "^0x[0-9a-f]{64}$"
+                              },
+                              "fee": {
+                                "type": "string",
+                                "enum": [
+                                  "0"
+                                ]
+                              },
+                              "tick_spacing": {
+                                "type": "integer",
+                                "exclusiveMinimum": 0
+                              },
+                              "extension": {
+                                "type": "string",
+                                "pattern": "^0x[0-9a-f]{40}$"
+                              }
+                            },
+                            "required": [
+                              "core_address",
+                              "token0",
+                              "token1",
+                              "config",
+                              "fee",
+                              "tick_spacing",
+                              "extension"
+                            ],
+                            "additionalProperties": false
+                          },
+                          "token": {
+                            "type": "object",
+                            "properties": {
+                              "address": {
+                                "type": "string",
+                                "pattern": "^0x[0-9a-f]{40}$"
+                              },
+                              "name": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "symbol": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "decimals": {
+                                "type": "number",
+                                "enum": [
+                                  18
+                                ]
+                              }
+                            },
+                            "required": [
+                              "address",
+                              "name",
+                              "symbol",
+                              "decimals"
+                            ],
+                            "additionalProperties": false
+                          },
+                          "quote_token": {
+                            "type": "object",
+                            "properties": {
+                              "address": {
+                                "type": "string",
+                                "pattern": "^0x[0-9a-f]{40}$"
+                              },
+                              "name": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "symbol": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "decimals": {
+                                "type": [
+                                  "integer",
+                                  "null"
+                                ],
+                                "minimum": 0,
+                                "maximum": 255
+                              },
+                              "kind": {
+                                "type": "string",
+                                "enum": [
+                                  "native",
+                                  "erc20"
+                                ]
+                              }
+                            },
+                            "required": [
+                              "address",
+                              "name",
+                              "symbol",
+                              "decimals",
+                              "kind"
+                            ],
+                            "additionalProperties": false
+                          },
+                          "launch_token_is_token1": {
+                            "type": "boolean"
+                          },
+                          "controller": {
+                            "type": "string",
+                            "pattern": "^0x[0-9a-f]{40}$"
+                          },
+                          "creator": {
+                            "type": "string",
+                            "pattern": "^0x[0-9a-f]{40}$"
+                          },
+                          "owner": {
+                            "type": "string",
+                            "pattern": "^0x[0-9a-f]{40}$"
+                          },
+                          "logo_url": {
+                            "type": [
+                              "string",
+                              "null"
+                            ],
+                            "description": "LaunchCreated.logoUrl exactly as emitted; null when empty or not valid UTF-8. Untrusted: never fetched or rewritten here"
+                          },
+                          "parameters": {
+                            "type": "object",
+                            "properties": {
+                              "name": {
+                                "type": "string",
+                                "pattern": "^0x[0-9a-f]{64}$"
+                              },
+                              "symbol": {
+                                "type": "string",
+                                "pattern": "^0x[0-9a-f]{64}$"
+                              },
+                              "supply": {
+                                "type": "string",
+                                "pattern": "^(0|[1-9][0-9]*)$"
+                              },
+                              "quote_token": {
+                                "type": "string",
+                                "pattern": "^0x[0-9a-f]{40}$"
+                              },
+                              "ask_tick": {
+                                "type": "string",
+                                "pattern": "^(0|-?[1-9][0-9]*)$"
+                              },
+                              "upper_tick": {
+                                "type": "string",
+                                "pattern": "^(0|-?[1-9][0-9]*)$"
+                              },
+                              "trading_start": {
+                                "type": "string",
+                                "maxLength": 20,
+                                "pattern": "^(0|[1-9][0-9]*)$"
+                              },
+                              "decay_rate_x32": {
+                                "type": "string",
+                                "maxLength": 20,
+                                "pattern": "^(0|[1-9][0-9]*)$"
+                              },
+                              "initial_fee": {
+                                "type": "string",
+                                "maxLength": 20,
+                                "pattern": "^(0|[1-9][0-9]*)$",
+                                "description": "Q0.64 fee rate as a canonical decimal uint64 (0 to 18446744073709551615): the fee fraction is value / 2^64"
+                              },
+                              "final_fee": {
+                                "type": "string",
+                                "maxLength": 20,
+                                "pattern": "^(0|[1-9][0-9]*)$",
+                                "description": "Q0.64 fee rate as a canonical decimal uint64 (0 to 18446744073709551615): the fee fraction is value / 2^64"
+                              },
+                              "salt": {
+                                "type": "string",
+                                "pattern": "^0x[0-9a-f]{64}$"
+                              }
+                            },
+                            "required": [
+                              "name",
+                              "symbol",
+                              "supply",
+                              "quote_token",
+                              "ask_tick",
+                              "upper_tick",
+                              "trading_start",
+                              "decay_rate_x32",
+                              "initial_fee",
+                              "final_fee",
+                              "salt"
+                            ],
+                            "additionalProperties": false
+                          },
+                          "range": {
+                            "type": "object",
+                            "properties": {
+                              "tick_spacing": {
+                                "type": "integer",
+                                "exclusiveMinimum": 0
+                              },
+                              "aligned_ask_tick": {
+                                "type": "integer"
+                              },
+                              "aligned_upper_tick": {
+                                "type": "integer"
+                              },
+                              "pool_tick_lower": {
+                                "type": "integer"
+                              },
+                              "pool_tick_upper": {
+                                "type": "integer"
+                              }
+                            },
+                            "required": [
+                              "tick_spacing",
+                              "aligned_ask_tick",
+                              "aligned_upper_tick",
+                              "pool_tick_lower",
+                              "pool_tick_upper"
+                            ],
+                            "additionalProperties": false
+                          },
+                          "supply": {
+                            "type": "object",
+                            "properties": {
+                              "requested": {
+                                "type": "string",
+                                "pattern": "^(0|[1-9][0-9]*)$"
+                              },
+                              "installed": {
+                                "type": "string",
+                                "pattern": "^(0|[1-9][0-9]*)$"
+                              },
+                              "sink": {
+                                "type": "string",
+                                "pattern": "^(0|[1-9][0-9]*)$"
+                              },
+                              "sink_holder": {
+                                "type": "string",
+                                "enum": [
+                                  "0x0000000000000000000000000000000000000000"
+                                ]
+                              }
+                            },
+                            "required": [
+                              "requested",
+                              "installed",
+                              "sink",
+                              "sink_holder"
+                            ],
+                            "additionalProperties": false
+                          },
+                          "trading_start": {
+                            "type": "integer",
+                            "minimum": 0
+                          },
+                          "status": {
+                            "type": "string",
+                            "enum": [
+                              "upcoming",
+                              "trading"
+                            ],
+                            "description": "upcoming while evaluated_at < trading_start, else trading"
+                          },
+                          "fee_schedule": {
+                            "type": "object",
+                            "properties": {
+                              "trading_start": {
+                                "type": "integer",
+                                "minimum": 0
+                              },
+                              "initial_fee": {
+                                "type": "string",
+                                "maxLength": 20,
+                                "pattern": "^(0|[1-9][0-9]*)$",
+                                "description": "Q0.64 fee rate as a canonical decimal uint64 (0 to 18446744073709551615): the fee fraction is value / 2^64"
+                              },
+                              "final_fee": {
+                                "type": "string",
+                                "maxLength": 20,
+                                "pattern": "^(0|[1-9][0-9]*)$",
+                                "description": "Q0.64 fee rate as a canonical decimal uint64 (0 to 18446744073709551615): the fee fraction is value / 2^64"
+                              },
+                              "decay_rate_x32": {
+                                "type": "string",
+                                "maxLength": 20,
+                                "pattern": "^(0|[1-9][0-9]*)$",
+                                "description": "decayRateX32: unsigned Q32.32 ticks per second as a canonical decimal uint64; 0 keeps initial_fee"
+                              },
+                              "half_life_seconds": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ],
+                                "pattern": "^(0|[1-9][0-9]*)\\.[0-9]{6}$",
+                                "description": "Half-life of the excess over the floor, seconds with 6 decimals (floored); null for rate 0. Display only"
+                              },
+                              "saturation_elapsed_seconds": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ],
+                                "pattern": "^(0|[1-9][0-9]*)$",
+                                "description": "floor(381061679028371455 / decay_rate_x32): after this many seconds the fee is exactly final_fee; null for rate 0"
+                              },
+                              "phase": {
+                                "type": "string",
+                                "enum": [
+                                  "before_trading_start",
+                                  "decaying",
+                                  "at_floor",
+                                  "constant"
+                                ]
+                              },
+                              "fee_rate": {
+                                "type": "string",
+                                "maxLength": 20,
+                                "pattern": "^(0|[1-9][0-9]*)$",
+                                "description": "Q0.64 fee rate as a canonical decimal uint64 (0 to 18446744073709551615): the fee fraction is value / 2^64"
+                              },
+                              "evaluated_at": {
+                                "type": "integer",
+                                "minimum": 0
+                              }
+                            },
+                            "required": [
+                              "trading_start",
+                              "initial_fee",
+                              "final_fee",
+                              "decay_rate_x32",
+                              "half_life_seconds",
+                              "saturation_elapsed_seconds",
+                              "phase",
+                              "fee_rate",
+                              "evaluated_at"
+                            ],
+                            "additionalProperties": false
+                          },
+                          "market": {
+                            "type": "object",
+                            "properties": {
+                              "price_tick": {
+                                "type": "integer"
+                              },
+                              "price_x128": {
+                                "type": "string",
+                                "pattern": "^(0|[1-9][0-9]*)$"
+                              },
+                              "market_cap": {
+                                "type": "string",
+                                "pattern": "^(0|[1-9][0-9]*)$",
+                                "description": "floor(price * totalSupply) in raw quote units; totalSupply includes the sink"
+                              },
+                              "market_cap_usd": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ],
+                                "pattern": "^(0|[1-9][0-9]*)\\.[0-9]{6}$",
+                                "description": "market_cap / 10^quote decimals * the indexed quote USD price, rounded to 6 decimals; null when the quote has no indexed price or no known decimals"
+                              },
+                              "raised": {
+                                "type": "string",
+                                "pattern": "^(0|[1-9][0-9]*)$",
+                                "description": "Quote held by the launch pool (buyers' net input)"
+                              },
+                              "sold": {
+                                "type": "string",
+                                "pattern": "^(0|[1-9][0-9]*)$",
+                                "description": "installed - launch tokens left in the pool"
+                              },
+                              "sold_share": {
+                                "type": "string",
+                                "pattern": "^[01]\\.[0-9]{18}$",
+                                "description": "sold / installed, 18 decimals, floored"
+                              },
+                              "trade_count": {
+                                "type": "integer",
+                                "minimum": 0,
+                                "description": "LaunchSwapped events of the launch, zero fills included"
+                              },
+                              "volume": {
+                                "type": "string",
+                                "pattern": "^(0|[1-9][0-9]*)$",
+                                "description": "Sum of |quote delta| over every LaunchSwapped of the launch, buys and sells, fee-inclusive, in raw quote base units"
+                              },
+                              "volume_usd": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ],
+                                "pattern": "^(0|[1-9][0-9]*)\\.[0-9]{6}$",
+                                "description": "volume / 10^quote decimals * the indexed quote USD price, rounded to 6 decimals; null exactly when market_cap_usd is"
+                              }
+                            },
+                            "required": [
+                              "price_tick",
+                              "price_x128",
+                              "market_cap",
+                              "market_cap_usd",
+                              "raised",
+                              "sold",
+                              "sold_share",
+                              "trade_count",
+                              "volume",
+                              "volume_usd"
+                            ],
+                            "additionalProperties": false
+                          },
+                          "created": {
+                            "type": "object",
+                            "properties": {
+                              "block_number": {
+                                "type": "string",
+                                "pattern": "^(0|[1-9][0-9]*)$"
+                              },
+                              "block_hash": {
+                                "type": "string",
+                                "pattern": "^0x[0-9a-f]{64}$"
+                              },
+                              "block_time": {
+                                "type": "integer",
+                                "minimum": 0
+                              },
+                              "event_id": {
+                                "type": "string",
+                                "pattern": "^(0|-?[1-9][0-9]*)$"
+                              },
+                              "transaction_index": {
+                                "type": "integer",
+                                "minimum": 0
+                              },
+                              "event_index": {
+                                "type": "integer",
+                                "minimum": 0
+                              },
+                              "transaction_hash": {
+                                "type": "string",
+                                "pattern": "^0x[0-9a-f]{64}$"
+                              }
+                            },
+                            "required": [
+                              "block_number",
+                              "block_hash",
+                              "block_time",
+                              "event_id",
+                              "transaction_index",
+                              "event_index",
+                              "transaction_hash"
+                            ],
+                            "additionalProperties": false
+                          },
+                          "as_of": {
+                            "type": "object",
+                            "properties": {
+                              "block_number": {
+                                "type": "string",
+                                "pattern": "^(0|[1-9][0-9]*)$"
+                              },
+                              "block_hash": {
+                                "type": "string",
+                                "pattern": "^0x[0-9a-f]{64}$"
+                              },
+                              "block_time": {
+                                "type": "integer",
+                                "minimum": 0
+                              }
+                            },
+                            "required": [
+                              "block_number",
+                              "block_hash",
+                              "block_time"
+                            ],
+                            "additionalProperties": false
+                          }
+                        },
+                        "required": [
+                          "schema_version",
+                          "chain_id",
+                          "pool_id",
+                          "pool_key",
+                          "token",
+                          "quote_token",
+                          "launch_token_is_token1",
+                          "controller",
+                          "creator",
+                          "owner",
+                          "logo_url",
+                          "parameters",
+                          "range",
+                          "supply",
+                          "trading_start",
+                          "status",
+                          "fee_schedule",
+                          "market",
+                          "created",
+                          "as_of"
+                        ],
+                        "additionalProperties": false
+                      }
+                    },
+                    "total": {
+                      "type": "integer",
+                      "minimum": 0
+                    },
+                    "totals": {
+                      "type": "object",
+                      "properties": {
+                        "all": {
+                          "type": "integer",
+                          "minimum": 0
+                        },
+                        "trading": {
+                          "type": "integer",
+                          "minimum": 0
+                        },
+                        "upcoming": {
+                          "type": "integer",
+                          "minimum": 0
+                        }
+                      },
+                      "required": [
+                        "all",
+                        "trading",
+                        "upcoming"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "aggregates": {
+                      "type": "object",
+                      "properties": {
+                        "launch_count": {
+                          "type": "integer",
+                          "minimum": 0
+                        },
+                        "trade_count": {
+                          "type": "integer",
+                          "minimum": 0
+                        },
+                        "by_quote": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "chain_id": {
+                                "type": "string",
+                                "pattern": "^(0|[1-9][0-9]*)$"
+                              },
+                              "quote_token": {
+                                "type": "string",
+                                "pattern": "^0x[0-9a-f]{40}$"
+                              },
+                              "launch_count": {
+                                "type": "integer",
+                                "minimum": 0
+                              },
+                              "trade_count": {
+                                "type": "integer",
+                                "minimum": 0
+                              },
+                              "volume": {
+                                "type": "string",
+                                "pattern": "^(0|[1-9][0-9]*)$",
+                                "description": "Sum of market.volume, raw quote units"
+                              },
+                              "market_cap": {
+                                "type": "string",
+                                "pattern": "^(0|[1-9][0-9]*)$",
+                                "description": "Sum of market.market_cap, raw quote units"
+                              },
+                              "usd_priced": {
+                                "type": "boolean",
+                                "description": "The quote has an indexed USD price and known decimals"
+                              },
+                              "volume_usd": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ],
+                                "pattern": "^(0|[1-9][0-9]*)\\.[0-9]{6}$"
+                              },
+                              "market_cap_usd": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ],
+                                "pattern": "^(0|[1-9][0-9]*)\\.[0-9]{6}$"
+                              }
+                            },
+                            "required": [
+                              "chain_id",
+                              "quote_token",
+                              "launch_count",
+                              "trade_count",
+                              "volume",
+                              "market_cap",
+                              "usd_priced",
+                              "volume_usd",
+                              "market_cap_usd"
+                            ],
+                            "additionalProperties": false
+                          }
+                        },
+                        "usd": {
+                          "type": "object",
+                          "properties": {
+                            "volume": {
+                              "type": [
+                                "string",
+                                "null"
+                              ],
+                              "pattern": "^(0|[1-9][0-9]*)\\.[0-9]{6}$",
+                              "description": "Sum of market.volume_usd over priced launches; null when none is priced"
+                            },
+                            "market_cap": {
+                              "type": [
+                                "string",
+                                "null"
+                              ],
+                              "pattern": "^(0|[1-9][0-9]*)\\.[0-9]{6}$",
+                              "description": "Sum of market.market_cap_usd over priced launches; null when none is priced"
+                            },
+                            "priced_launch_count": {
+                              "type": "integer",
+                              "minimum": 0
+                            },
+                            "excluded_launch_count": {
+                              "type": "integer",
+                              "minimum": 0,
+                              "description": "Launches left out of the USD sums because their quote has no indexed price"
+                            }
+                          },
+                          "required": [
+                            "volume",
+                            "market_cap",
+                            "priced_launch_count",
+                            "excluded_launch_count"
+                          ],
+                          "additionalProperties": false
+                        }
+                      },
+                      "required": [
+                        "launch_count",
+                        "trade_count",
+                        "by_quote",
+                        "usd"
+                      ],
+                      "additionalProperties": false,
+                      "description": "Over every launch matching all filters (the set total counts), not one page. by_quote is ordered by chain_id, then quote_token"
+                    },
+                    "next_offset": {
+                      "type": [
+                        "integer",
+                        "null"
+                      ],
+                      "exclusiveMinimum": 0
+                    },
+                    "evaluated_at": {
+                      "type": "integer",
+                      "minimum": 0
+                    },
+                    "heads": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "block_number": {
+                            "type": "string",
+                            "pattern": "^(0|[1-9][0-9]*)$"
+                          },
+                          "block_hash": {
+                            "type": "string",
+                            "pattern": "^0x[0-9a-f]{64}$"
+                          },
+                          "block_time": {
+                            "type": "integer",
+                            "minimum": 0
+                          },
+                          "chain_id": {
+                            "type": "string",
+                            "pattern": "^(0|[1-9][0-9]*)$"
+                          }
+                        },
+                        "required": [
+                          "block_number",
+                          "block_hash",
+                          "block_time",
+                          "chain_id"
+                        ],
+                        "additionalProperties": false
+                      }
+                    }
+                  },
+                  "required": [
+                    "schema_version",
+                    "data",
+                    "total",
+                    "totals",
+                    "aggregates",
+                    "next_offset",
+                    "evaluated_at",
+                    "heads"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The request parameters are invalid",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The requested resource was not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "An unexpected server error occurred",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "The indexed head is missing, inconsistent or stale",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/launches/{chainId}/{poolId}/claims": {
+      "get": {
+        "tags": [
+          "Launches"
+        ],
+        "operationId": "get_ListLaunchClaims",
+        "summary": "List creator fee claims, one row per claim (extension event, periphery owner and recipient)",
+        "parameters": [
+          {
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            },
+            "required": true,
+            "name": "chainId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "pattern": "^0x[a-fA-F0-9]+$",
+                  "description": "A hexadecimal number"
+                },
+                {
+                  "type": "string",
+                  "pattern": "^\\d+$",
+                  "description": "A decimal number"
+                }
+              ],
+              "title": "Numeric",
+              "description": "A number represented in hexadecimal or decimal"
+            },
+            "required": true,
+            "description": "A number represented in hexadecimal or decimal",
+            "name": "poolId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string"
+            },
+            "required": false,
+            "name": "after_event_id",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 200,
+              "default": 50
+            },
+            "required": false,
+            "name": "limit",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Indexed zero-seed launch data",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "schema_version": {
+                      "type": "string",
+                      "enum": [
+                        "zero-seed-launch-api/v7"
+                      ]
+                    },
+                    "chain_id": {
+                      "type": "string",
+                      "pattern": "^(0|[1-9][0-9]*)$"
+                    },
+                    "pool_id": {
+                      "type": "string",
+                      "pattern": "^0x[0-9a-f]{64}$"
+                    },
+                    "next_cursor": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "as_of": {
+                      "type": "object",
+                      "properties": {
+                        "block_number": {
+                          "type": "string",
+                          "pattern": "^(0|[1-9][0-9]*)$"
+                        },
+                        "block_hash": {
+                          "type": "string",
+                          "pattern": "^0x[0-9a-f]{64}$"
+                        },
+                        "block_time": {
+                          "type": "integer",
+                          "minimum": 0
+                        }
+                      },
+                      "required": [
+                        "block_number",
+                        "block_hash",
+                        "block_time"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "event": {
+                            "type": "object",
+                            "properties": {
+                              "block_number": {
+                                "type": "string",
+                                "pattern": "^(0|[1-9][0-9]*)$"
+                              },
+                              "block_hash": {
+                                "type": "string",
+                                "pattern": "^0x[0-9a-f]{64}$"
+                              },
+                              "block_time": {
+                                "type": "integer",
+                                "minimum": 0
+                              },
+                              "event_id": {
+                                "type": "string",
+                                "pattern": "^(0|-?[1-9][0-9]*)$"
+                              },
+                              "transaction_index": {
+                                "type": "integer",
+                                "minimum": 0
+                              },
+                              "event_index": {
+                                "type": "integer",
+                                "minimum": 0
+                              },
+                              "transaction_hash": {
+                                "type": "string",
+                                "pattern": "^0x[0-9a-f]{64}$"
+                              }
+                            },
+                            "required": [
+                              "block_number",
+                              "block_hash",
+                              "block_time",
+                              "event_id",
+                              "transaction_index",
+                              "event_index",
+                              "transaction_hash"
+                            ],
+                            "additionalProperties": false
+                          },
+                          "payout_event_id": {
+                            "type": "string",
+                            "pattern": "^(0|-?[1-9][0-9]*)$"
+                          },
+                          "owner": {
+                            "type": "string",
+                            "pattern": "^0x[0-9a-f]{40}$"
+                          },
+                          "recipient": {
+                            "type": "string",
+                            "pattern": "^0x[0-9a-f]{40}$"
+                          },
+                          "launch_token_amount": {
+                            "type": "string",
+                            "pattern": "^(0|[1-9][0-9]*)$"
+                          },
+                          "quote_token_amount": {
+                            "type": "string",
+                            "pattern": "^(0|[1-9][0-9]*)$"
+                          }
+                        },
+                        "required": [
+                          "event",
+                          "payout_event_id",
+                          "owner",
+                          "recipient",
+                          "launch_token_amount",
+                          "quote_token_amount"
+                        ],
+                        "additionalProperties": false
+                      }
+                    },
+                    "totals": {
+                      "type": "object",
+                      "properties": {
+                        "launch_token": {
+                          "type": "string",
+                          "pattern": "^(0|[1-9][0-9]*)$"
+                        },
+                        "quote_token": {
+                          "type": "string",
+                          "pattern": "^(0|[1-9][0-9]*)$"
+                        }
+                      },
+                      "required": [
+                        "launch_token",
+                        "quote_token"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "schema_version",
+                    "chain_id",
+                    "pool_id",
+                    "next_cursor",
+                    "as_of",
+                    "data",
+                    "totals"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The request parameters are invalid",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The requested resource was not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "An unexpected server error occurred",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "The indexed head is missing, inconsistent or stale",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/launches/{chainId}/{poolId}/owners": {
+      "get": {
+        "tags": [
+          "Launches"
+        ],
+        "operationId": "get_ListLaunchOwners",
+        "summary": "List the creation owner and every later ownership transfer",
+        "parameters": [
+          {
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            },
+            "required": true,
+            "name": "chainId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "pattern": "^0x[a-fA-F0-9]+$",
+                  "description": "A hexadecimal number"
+                },
+                {
+                  "type": "string",
+                  "pattern": "^\\d+$",
+                  "description": "A decimal number"
+                }
+              ],
+              "title": "Numeric",
+              "description": "A number represented in hexadecimal or decimal"
+            },
+            "required": true,
+            "description": "A number represented in hexadecimal or decimal",
+            "name": "poolId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string"
+            },
+            "required": false,
+            "name": "after_event_id",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 200,
+              "default": 50
+            },
+            "required": false,
+            "name": "limit",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Indexed zero-seed launch data",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "schema_version": {
+                      "type": "string",
+                      "enum": [
+                        "zero-seed-launch-api/v7"
+                      ]
+                    },
+                    "chain_id": {
+                      "type": "string",
+                      "pattern": "^(0|[1-9][0-9]*)$"
+                    },
+                    "pool_id": {
+                      "type": "string",
+                      "pattern": "^0x[0-9a-f]{64}$"
+                    },
+                    "next_cursor": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "as_of": {
+                      "type": "object",
+                      "properties": {
+                        "block_number": {
+                          "type": "string",
+                          "pattern": "^(0|[1-9][0-9]*)$"
+                        },
+                        "block_hash": {
+                          "type": "string",
+                          "pattern": "^0x[0-9a-f]{64}$"
+                        },
+                        "block_time": {
+                          "type": "integer",
+                          "minimum": 0
+                        }
+                      },
+                      "required": [
+                        "block_number",
+                        "block_hash",
+                        "block_time"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "event": {
+                            "type": "object",
+                            "properties": {
+                              "block_number": {
+                                "type": "string",
+                                "pattern": "^(0|[1-9][0-9]*)$"
+                              },
+                              "block_hash": {
+                                "type": "string",
+                                "pattern": "^0x[0-9a-f]{64}$"
+                              },
+                              "block_time": {
+                                "type": "integer",
+                                "minimum": 0
+                              },
+                              "event_id": {
+                                "type": "string",
+                                "pattern": "^(0|-?[1-9][0-9]*)$"
+                              },
+                              "transaction_index": {
+                                "type": "integer",
+                                "minimum": 0
+                              },
+                              "event_index": {
+                                "type": "integer",
+                                "minimum": 0
+                              },
+                              "transaction_hash": {
+                                "type": "string",
+                                "pattern": "^0x[0-9a-f]{64}$"
+                              }
+                            },
+                            "required": [
+                              "block_number",
+                              "block_hash",
+                              "block_time",
+                              "event_id",
+                              "transaction_index",
+                              "event_index",
+                              "transaction_hash"
+                            ],
+                            "additionalProperties": false
+                          },
+                          "previous_owner": {
+                            "type": [
+                              "string",
+                              "null"
+                            ],
+                            "pattern": "^0x[0-9a-f]{40}$"
+                          },
+                          "new_owner": {
+                            "type": "string",
+                            "pattern": "^0x[0-9a-f]{40}$"
+                          }
+                        },
+                        "required": [
+                          "event",
+                          "previous_owner",
+                          "new_owner"
+                        ],
+                        "additionalProperties": false
+                      }
+                    }
+                  },
+                  "required": [
+                    "schema_version",
+                    "chain_id",
+                    "pool_id",
+                    "next_cursor",
+                    "as_of",
+                    "data"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The request parameters are invalid",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The requested resource was not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "An unexpected server error occurred",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "The indexed head is missing, inconsistent or stale",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/launches/{chainId}/{poolId}/swaps": {
+      "get": {
+        "tags": [
+          "Launches"
+        ],
+        "operationId": "get_ListLaunchSwaps",
+        "summary": "List swaps; forwarding lockers are contracts, not users",
+        "parameters": [
+          {
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            },
+            "required": true,
+            "name": "chainId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "pattern": "^0x[a-fA-F0-9]+$",
+                  "description": "A hexadecimal number"
+                },
+                {
+                  "type": "string",
+                  "pattern": "^\\d+$",
+                  "description": "A decimal number"
+                }
+              ],
+              "title": "Numeric",
+              "description": "A number represented in hexadecimal or decimal"
+            },
+            "required": true,
+            "description": "A number represented in hexadecimal or decimal",
+            "name": "poolId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string"
+            },
+            "required": false,
+            "name": "after_event_id",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 200,
+              "default": 50
+            },
+            "required": false,
+            "name": "limit",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Indexed zero-seed launch data",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "schema_version": {
+                      "type": "string",
+                      "enum": [
+                        "zero-seed-launch-api/v7"
+                      ]
+                    },
+                    "chain_id": {
+                      "type": "string",
+                      "pattern": "^(0|[1-9][0-9]*)$"
+                    },
+                    "pool_id": {
+                      "type": "string",
+                      "pattern": "^0x[0-9a-f]{64}$"
+                    },
+                    "next_cursor": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "as_of": {
+                      "type": "object",
+                      "properties": {
+                        "block_number": {
+                          "type": "string",
+                          "pattern": "^(0|[1-9][0-9]*)$"
+                        },
+                        "block_hash": {
+                          "type": "string",
+                          "pattern": "^0x[0-9a-f]{64}$"
+                        },
+                        "block_time": {
+                          "type": "integer",
+                          "minimum": 0
+                        }
+                      },
+                      "required": [
+                        "block_number",
+                        "block_hash",
+                        "block_time"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "event": {
+                            "type": "object",
+                            "properties": {
+                              "block_number": {
+                                "type": "string",
+                                "pattern": "^(0|[1-9][0-9]*)$"
+                              },
+                              "block_hash": {
+                                "type": "string",
+                                "pattern": "^0x[0-9a-f]{64}$"
+                              },
+                              "block_time": {
+                                "type": "integer",
+                                "minimum": 0
+                              },
+                              "event_id": {
+                                "type": "string",
+                                "pattern": "^(0|-?[1-9][0-9]*)$"
+                              },
+                              "transaction_index": {
+                                "type": "integer",
+                                "minimum": 0
+                              },
+                              "event_index": {
+                                "type": "integer",
+                                "minimum": 0
+                              },
+                              "transaction_hash": {
+                                "type": "string",
+                                "pattern": "^0x[0-9a-f]{64}$"
+                              }
+                            },
+                            "required": [
+                              "block_number",
+                              "block_hash",
+                              "block_time",
+                              "event_id",
+                              "transaction_index",
+                              "event_index",
+                              "transaction_hash"
+                            ],
+                            "additionalProperties": false
+                          },
+                          "forwarding_locker": {
+                            "type": "string",
+                            "pattern": "^0x[0-9a-f]{40}$"
+                          },
+                          "direction": {
+                            "type": "string",
+                            "enum": [
+                              "buy",
+                              "sell",
+                              "zero_fill"
+                            ]
+                          },
+                          "launch_token_delta": {
+                            "type": "string",
+                            "pattern": "^(0|-?[1-9][0-9]*)$"
+                          },
+                          "quote_token_delta": {
+                            "type": "string",
+                            "pattern": "^(0|-?[1-9][0-9]*)$"
+                          },
+                          "fee_rate": {
+                            "type": "string",
+                            "maxLength": 20,
+                            "pattern": "^(0|[1-9][0-9]*)$",
+                            "description": "Q0.64 fee rate as a canonical decimal uint64 (0 to 18446744073709551615): the fee fraction is value / 2^64"
+                          },
+                          "fee_amount": {
+                            "type": "string",
+                            "pattern": "^(0|[1-9][0-9]*)$"
+                          },
+                          "fee_asset": {
+                            "type": "string",
+                            "enum": [
+                              "launch_token",
+                              "quote_token"
+                            ]
+                          }
+                        },
+                        "required": [
+                          "event",
+                          "forwarding_locker",
+                          "direction",
+                          "launch_token_delta",
+                          "quote_token_delta",
+                          "fee_rate",
+                          "fee_amount",
+                          "fee_asset"
+                        ],
+                        "additionalProperties": false
+                      }
+                    }
+                  },
+                  "required": [
+                    "schema_version",
+                    "chain_id",
+                    "pool_id",
+                    "next_cursor",
+                    "as_of",
+                    "data"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The request parameters are invalid",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The requested resource was not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "An unexpected server error occurred",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "The indexed head is missing, inconsistent or stale",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/launches/{chainId}/{poolId}": {
+      "get": {
+        "tags": [
+          "Launches"
+        ],
+        "operationId": "get_GetLaunch",
+        "summary": "Get a supported launch and separate principal/creator ledgers",
+        "parameters": [
+          {
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            },
+            "required": true,
+            "name": "chainId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "pattern": "^0x[a-fA-F0-9]+$",
+                  "description": "A hexadecimal number"
+                },
+                {
+                  "type": "string",
+                  "pattern": "^\\d+$",
+                  "description": "A decimal number"
+                }
+              ],
+              "title": "Numeric",
+              "description": "A number represented in hexadecimal or decimal"
+            },
+            "required": true,
+            "description": "A number represented in hexadecimal or decimal",
+            "name": "poolId",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Indexed zero-seed launch data",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "schema_version": {
+                      "type": "string",
+                      "enum": [
+                        "zero-seed-launch-api/v7"
+                      ]
+                    },
+                    "chain_id": {
+                      "type": "string",
+                      "pattern": "^(0|[1-9][0-9]*)$"
+                    },
+                    "pool_id": {
+                      "type": "string",
+                      "pattern": "^0x[0-9a-f]{64}$"
+                    },
+                    "pool_key": {
+                      "type": "object",
+                      "properties": {
+                        "core_address": {
+                          "type": "string",
+                          "pattern": "^0x[0-9a-f]{40}$"
+                        },
+                        "token0": {
+                          "type": "string",
+                          "pattern": "^0x[0-9a-f]{40}$"
+                        },
+                        "token1": {
+                          "type": "string",
+                          "pattern": "^0x[0-9a-f]{40}$"
+                        },
+                        "config": {
+                          "type": "string",
+                          "pattern": "^0x[0-9a-f]{64}$"
+                        },
+                        "fee": {
+                          "type": "string",
+                          "enum": [
+                            "0"
+                          ]
+                        },
+                        "tick_spacing": {
+                          "type": "integer",
+                          "exclusiveMinimum": 0
+                        },
+                        "extension": {
+                          "type": "string",
+                          "pattern": "^0x[0-9a-f]{40}$"
+                        }
+                      },
+                      "required": [
+                        "core_address",
+                        "token0",
+                        "token1",
+                        "config",
+                        "fee",
+                        "tick_spacing",
+                        "extension"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "token": {
+                      "type": "object",
+                      "properties": {
+                        "address": {
+                          "type": "string",
+                          "pattern": "^0x[0-9a-f]{40}$"
+                        },
+                        "name": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "symbol": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "decimals": {
+                          "type": "number",
+                          "enum": [
+                            18
+                          ]
+                        }
+                      },
+                      "required": [
+                        "address",
+                        "name",
+                        "symbol",
+                        "decimals"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "quote_token": {
+                      "type": "object",
+                      "properties": {
+                        "address": {
+                          "type": "string",
+                          "pattern": "^0x[0-9a-f]{40}$"
+                        },
+                        "name": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "symbol": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "decimals": {
+                          "type": [
+                            "integer",
+                            "null"
+                          ],
+                          "minimum": 0,
+                          "maximum": 255
+                        },
+                        "kind": {
+                          "type": "string",
+                          "enum": [
+                            "native",
+                            "erc20"
+                          ]
+                        }
+                      },
+                      "required": [
+                        "address",
+                        "name",
+                        "symbol",
+                        "decimals",
+                        "kind"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "launch_token_is_token1": {
+                      "type": "boolean"
+                    },
+                    "controller": {
+                      "type": "string",
+                      "pattern": "^0x[0-9a-f]{40}$"
+                    },
+                    "creator": {
+                      "type": "string",
+                      "pattern": "^0x[0-9a-f]{40}$"
+                    },
+                    "owner": {
+                      "type": "string",
+                      "pattern": "^0x[0-9a-f]{40}$"
+                    },
+                    "logo_url": {
+                      "type": [
+                        "string",
+                        "null"
+                      ],
+                      "description": "LaunchCreated.logoUrl exactly as emitted; null when empty or not valid UTF-8. Untrusted: never fetched or rewritten here"
+                    },
+                    "parameters": {
+                      "type": "object",
+                      "properties": {
+                        "name": {
+                          "type": "string",
+                          "pattern": "^0x[0-9a-f]{64}$"
+                        },
+                        "symbol": {
+                          "type": "string",
+                          "pattern": "^0x[0-9a-f]{64}$"
+                        },
+                        "supply": {
+                          "type": "string",
+                          "pattern": "^(0|[1-9][0-9]*)$"
+                        },
+                        "quote_token": {
+                          "type": "string",
+                          "pattern": "^0x[0-9a-f]{40}$"
+                        },
+                        "ask_tick": {
+                          "type": "string",
+                          "pattern": "^(0|-?[1-9][0-9]*)$"
+                        },
+                        "upper_tick": {
+                          "type": "string",
+                          "pattern": "^(0|-?[1-9][0-9]*)$"
+                        },
+                        "trading_start": {
+                          "type": "string",
+                          "maxLength": 20,
+                          "pattern": "^(0|[1-9][0-9]*)$"
+                        },
+                        "decay_rate_x32": {
+                          "type": "string",
+                          "maxLength": 20,
+                          "pattern": "^(0|[1-9][0-9]*)$"
+                        },
+                        "initial_fee": {
+                          "type": "string",
+                          "maxLength": 20,
+                          "pattern": "^(0|[1-9][0-9]*)$",
+                          "description": "Q0.64 fee rate as a canonical decimal uint64 (0 to 18446744073709551615): the fee fraction is value / 2^64"
+                        },
+                        "final_fee": {
+                          "type": "string",
+                          "maxLength": 20,
+                          "pattern": "^(0|[1-9][0-9]*)$",
+                          "description": "Q0.64 fee rate as a canonical decimal uint64 (0 to 18446744073709551615): the fee fraction is value / 2^64"
+                        },
+                        "salt": {
+                          "type": "string",
+                          "pattern": "^0x[0-9a-f]{64}$"
+                        }
+                      },
+                      "required": [
+                        "name",
+                        "symbol",
+                        "supply",
+                        "quote_token",
+                        "ask_tick",
+                        "upper_tick",
+                        "trading_start",
+                        "decay_rate_x32",
+                        "initial_fee",
+                        "final_fee",
+                        "salt"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "range": {
+                      "type": "object",
+                      "properties": {
+                        "tick_spacing": {
+                          "type": "integer",
+                          "exclusiveMinimum": 0
+                        },
+                        "aligned_ask_tick": {
+                          "type": "integer"
+                        },
+                        "aligned_upper_tick": {
+                          "type": "integer"
+                        },
+                        "pool_tick_lower": {
+                          "type": "integer"
+                        },
+                        "pool_tick_upper": {
+                          "type": "integer"
+                        }
+                      },
+                      "required": [
+                        "tick_spacing",
+                        "aligned_ask_tick",
+                        "aligned_upper_tick",
+                        "pool_tick_lower",
+                        "pool_tick_upper"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "supply": {
+                      "type": "object",
+                      "properties": {
+                        "requested": {
+                          "type": "string",
+                          "pattern": "^(0|[1-9][0-9]*)$"
+                        },
+                        "installed": {
+                          "type": "string",
+                          "pattern": "^(0|[1-9][0-9]*)$"
+                        },
+                        "sink": {
+                          "type": "string",
+                          "pattern": "^(0|[1-9][0-9]*)$"
+                        },
+                        "sink_holder": {
+                          "type": "string",
+                          "enum": [
+                            "0x0000000000000000000000000000000000000000"
+                          ]
+                        }
+                      },
+                      "required": [
+                        "requested",
+                        "installed",
+                        "sink",
+                        "sink_holder"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "trading_start": {
+                      "type": "integer",
+                      "minimum": 0
+                    },
+                    "status": {
+                      "type": "string",
+                      "enum": [
+                        "upcoming",
+                        "trading"
+                      ],
+                      "description": "upcoming while evaluated_at < trading_start, else trading"
+                    },
+                    "fee_schedule": {
+                      "type": "object",
+                      "properties": {
+                        "trading_start": {
+                          "type": "integer",
+                          "minimum": 0
+                        },
+                        "initial_fee": {
+                          "type": "string",
+                          "maxLength": 20,
+                          "pattern": "^(0|[1-9][0-9]*)$",
+                          "description": "Q0.64 fee rate as a canonical decimal uint64 (0 to 18446744073709551615): the fee fraction is value / 2^64"
+                        },
+                        "final_fee": {
+                          "type": "string",
+                          "maxLength": 20,
+                          "pattern": "^(0|[1-9][0-9]*)$",
+                          "description": "Q0.64 fee rate as a canonical decimal uint64 (0 to 18446744073709551615): the fee fraction is value / 2^64"
+                        },
+                        "decay_rate_x32": {
+                          "type": "string",
+                          "maxLength": 20,
+                          "pattern": "^(0|[1-9][0-9]*)$",
+                          "description": "decayRateX32: unsigned Q32.32 ticks per second as a canonical decimal uint64; 0 keeps initial_fee"
+                        },
+                        "half_life_seconds": {
+                          "type": [
+                            "string",
+                            "null"
+                          ],
+                          "pattern": "^(0|[1-9][0-9]*)\\.[0-9]{6}$",
+                          "description": "Half-life of the excess over the floor, seconds with 6 decimals (floored); null for rate 0. Display only"
+                        },
+                        "saturation_elapsed_seconds": {
+                          "type": [
+                            "string",
+                            "null"
+                          ],
+                          "pattern": "^(0|[1-9][0-9]*)$",
+                          "description": "floor(381061679028371455 / decay_rate_x32): after this many seconds the fee is exactly final_fee; null for rate 0"
+                        },
+                        "phase": {
+                          "type": "string",
+                          "enum": [
+                            "before_trading_start",
+                            "decaying",
+                            "at_floor",
+                            "constant"
+                          ]
+                        },
+                        "fee_rate": {
+                          "type": "string",
+                          "maxLength": 20,
+                          "pattern": "^(0|[1-9][0-9]*)$",
+                          "description": "Q0.64 fee rate as a canonical decimal uint64 (0 to 18446744073709551615): the fee fraction is value / 2^64"
+                        },
+                        "evaluated_at": {
+                          "type": "integer",
+                          "minimum": 0
+                        }
+                      },
+                      "required": [
+                        "trading_start",
+                        "initial_fee",
+                        "final_fee",
+                        "decay_rate_x32",
+                        "half_life_seconds",
+                        "saturation_elapsed_seconds",
+                        "phase",
+                        "fee_rate",
+                        "evaluated_at"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "market": {
+                      "type": "object",
+                      "properties": {
+                        "price_tick": {
+                          "type": "integer"
+                        },
+                        "price_x128": {
+                          "type": "string",
+                          "pattern": "^(0|[1-9][0-9]*)$"
+                        },
+                        "market_cap": {
+                          "type": "string",
+                          "pattern": "^(0|[1-9][0-9]*)$",
+                          "description": "floor(price * totalSupply) in raw quote units; totalSupply includes the sink"
+                        },
+                        "market_cap_usd": {
+                          "type": [
+                            "string",
+                            "null"
+                          ],
+                          "pattern": "^(0|[1-9][0-9]*)\\.[0-9]{6}$",
+                          "description": "market_cap / 10^quote decimals * the indexed quote USD price, rounded to 6 decimals; null when the quote has no indexed price or no known decimals"
+                        },
+                        "raised": {
+                          "type": "string",
+                          "pattern": "^(0|[1-9][0-9]*)$",
+                          "description": "Quote held by the launch pool (buyers' net input)"
+                        },
+                        "sold": {
+                          "type": "string",
+                          "pattern": "^(0|[1-9][0-9]*)$",
+                          "description": "installed - launch tokens left in the pool"
+                        },
+                        "sold_share": {
+                          "type": "string",
+                          "pattern": "^[01]\\.[0-9]{18}$",
+                          "description": "sold / installed, 18 decimals, floored"
+                        },
+                        "trade_count": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "description": "LaunchSwapped events of the launch, zero fills included"
+                        },
+                        "volume": {
+                          "type": "string",
+                          "pattern": "^(0|[1-9][0-9]*)$",
+                          "description": "Sum of |quote delta| over every LaunchSwapped of the launch, buys and sells, fee-inclusive, in raw quote base units"
+                        },
+                        "volume_usd": {
+                          "type": [
+                            "string",
+                            "null"
+                          ],
+                          "pattern": "^(0|[1-9][0-9]*)\\.[0-9]{6}$",
+                          "description": "volume / 10^quote decimals * the indexed quote USD price, rounded to 6 decimals; null exactly when market_cap_usd is"
+                        }
+                      },
+                      "required": [
+                        "price_tick",
+                        "price_x128",
+                        "market_cap",
+                        "market_cap_usd",
+                        "raised",
+                        "sold",
+                        "sold_share",
+                        "trade_count",
+                        "volume",
+                        "volume_usd"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "created": {
+                      "type": "object",
+                      "properties": {
+                        "block_number": {
+                          "type": "string",
+                          "pattern": "^(0|[1-9][0-9]*)$"
+                        },
+                        "block_hash": {
+                          "type": "string",
+                          "pattern": "^0x[0-9a-f]{64}$"
+                        },
+                        "block_time": {
+                          "type": "integer",
+                          "minimum": 0
+                        },
+                        "event_id": {
+                          "type": "string",
+                          "pattern": "^(0|-?[1-9][0-9]*)$"
+                        },
+                        "transaction_index": {
+                          "type": "integer",
+                          "minimum": 0
+                        },
+                        "event_index": {
+                          "type": "integer",
+                          "minimum": 0
+                        },
+                        "transaction_hash": {
+                          "type": "string",
+                          "pattern": "^0x[0-9a-f]{64}$"
+                        }
+                      },
+                      "required": [
+                        "block_number",
+                        "block_hash",
+                        "block_time",
+                        "event_id",
+                        "transaction_index",
+                        "event_index",
+                        "transaction_hash"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "as_of": {
+                      "type": "object",
+                      "properties": {
+                        "block_number": {
+                          "type": "string",
+                          "pattern": "^(0|[1-9][0-9]*)$"
+                        },
+                        "block_hash": {
+                          "type": "string",
+                          "pattern": "^0x[0-9a-f]{64}$"
+                        },
+                        "block_time": {
+                          "type": "integer",
+                          "minimum": 0
+                        }
+                      },
+                      "required": [
+                        "block_number",
+                        "block_hash",
+                        "block_time"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "principal": {
+                      "type": "object",
+                      "properties": {
+                        "position_id": {
+                          "type": "string",
+                          "pattern": "^0x[0-9a-f]{64}$"
+                        },
+                        "liquidity": {
+                          "type": "string",
+                          "pattern": "^(0|[1-9][0-9]*)$"
+                        },
+                        "locked": {
+                          "type": "boolean",
+                          "enum": [
+                            true
+                          ]
+                        },
+                        "withdrawable": {
+                          "type": "boolean",
+                          "enum": [
+                            false
+                          ]
+                        },
+                        "pool_reserves": {
+                          "type": "object",
+                          "properties": {
+                            "launch_token": {
+                              "type": "string",
+                              "pattern": "^(0|[1-9][0-9]*)$"
+                            },
+                            "quote_token": {
+                              "type": "string",
+                              "pattern": "^(0|[1-9][0-9]*)$"
+                            }
+                          },
+                          "required": [
+                            "launch_token",
+                            "quote_token"
+                          ],
+                          "additionalProperties": false
+                        }
+                      },
+                      "required": [
+                        "position_id",
+                        "liquidity",
+                        "locked",
+                        "withdrawable",
+                        "pool_reserves"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "fee_ledger": {
+                      "type": "object",
+                      "properties": {
+                        "holder": {
+                          "type": "string",
+                          "pattern": "^0x[0-9a-f]{40}$"
+                        },
+                        "launch_token": {
+                          "type": "object",
+                          "properties": {
+                            "accrued": {
+                              "type": "string",
+                              "pattern": "^(0|[1-9][0-9]*)$"
+                            },
+                            "claimed": {
+                              "type": "string",
+                              "pattern": "^(0|[1-9][0-9]*)$"
+                            },
+                            "unclaimed": {
+                              "type": "string",
+                              "pattern": "^(0|[1-9][0-9]*)$"
+                            }
+                          },
+                          "required": [
+                            "accrued",
+                            "claimed",
+                            "unclaimed"
+                          ],
+                          "additionalProperties": false
+                        },
+                        "quote_token": {
+                          "type": "object",
+                          "properties": {
+                            "accrued": {
+                              "type": "string",
+                              "pattern": "^(0|[1-9][0-9]*)$"
+                            },
+                            "claimed": {
+                              "type": "string",
+                              "pattern": "^(0|[1-9][0-9]*)$"
+                            },
+                            "unclaimed": {
+                              "type": "string",
+                              "pattern": "^(0|[1-9][0-9]*)$"
+                            }
+                          },
+                          "required": [
+                            "accrued",
+                            "claimed",
+                            "unclaimed"
+                          ],
+                          "additionalProperties": false
+                        },
+                        "swap_count": {
+                          "type": "integer",
+                          "minimum": 0
+                        },
+                        "claim_count": {
+                          "type": "integer",
+                          "minimum": 0
+                        },
+                        "owner_change_count": {
+                          "type": "integer",
+                          "exclusiveMinimum": 0
+                        },
+                        "last_event_id": {
+                          "type": "string",
+                          "pattern": "^(0|-?[1-9][0-9]*)$"
+                        }
+                      },
+                      "required": [
+                        "holder",
+                        "launch_token",
+                        "quote_token",
+                        "swap_count",
+                        "claim_count",
+                        "owner_change_count",
+                        "last_event_id"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "schema_version",
+                    "chain_id",
+                    "pool_id",
+                    "pool_key",
+                    "token",
+                    "quote_token",
+                    "launch_token_is_token1",
+                    "controller",
+                    "creator",
+                    "owner",
+                    "logo_url",
+                    "parameters",
+                    "range",
+                    "supply",
+                    "trading_start",
+                    "status",
+                    "fee_schedule",
+                    "market",
+                    "created",
+                    "as_of",
+                    "principal",
+                    "fee_ledger"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The request parameters are invalid",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The requested resource was not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "An unexpected server error occurred",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "The indexed head is missing, inconsistent or stale",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/governance/{chainId}/proposals": {
       "get": {
         "tags": [
