@@ -2,18 +2,18 @@
   "name": "@ekubo/api",
   "version": "0.0.1",
   "devDependencies": {
-    "@cloudflare/workers-types": "^5.20261019.1",
+    "@cloudflare/workers-types": "^5.20261023.1",
     "@ekubo/position-svg-generator": "^0.3.1",
     "@ekubo/sdk": "^0.0.10",
     "@hono/zod-openapi": "^1.6.3",
-    "@types/bun": "^1.4.3",
+    "@types/bun": "^1.4.4",
     "@typescript/native": "npm:typescript@^7.0.2",
     "hono": "^4.13.13",
     "oxfmt": "0.74.0",
     "oxlint": "1.89.0",
-    "oxlint-tsgolint": "^7.0.2004",
+    "oxlint-tsgolint": "^7.0.2005",
     "postgres": "^3.4.9",
-    "wrangler": "^4.151.2",
+    "wrangler": "^4.152.0",
     "zod": "^4.6.7"
   },
   "engines": {
