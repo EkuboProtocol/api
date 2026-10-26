@@ -402,6 +402,76 @@ export class Queries {
     `;
   }
 
+  public async getTokenNetFlow({
+    chainId,
+    tokenAddress,
+    start,
+    end,
+    intervalSeconds,
+  }: {
+    chainId: bigint;
+    tokenAddress: bigint;
+    start: Date;
+    end: Date;
+    intervalSeconds: number;
+  }) {
+    return this.sql<
+      {
+        start: Date;
+        bought: string;
+        sold: string;
+        swap_count: number;
+      }[]
+    >`
+      WITH token_pools AS MATERIALIZED (
+        SELECT
+          ARRAY_AGG(pool_key_id) FILTER (
+            WHERE token0 = ${tokenAddress.toString()}
+          ) AS as_token0,
+          ARRAY_AGG(pool_key_id) FILTER (
+            WHERE token1 = ${tokenAddress.toString()}
+          ) AS as_token1
+        FROM pool_keys
+        WHERE chain_id = ${chainId}
+          AND (
+            token0 = ${tokenAddress.toString()}
+            OR token1 = ${tokenAddress.toString()}
+          )
+      ),
+      -- Deltas are the pool's balance change: positive means the swapper paid
+      -- the token into the pool. Matching pool_key_id against an array keeps
+      -- each side a single index-only scan of
+      -- swaps_pool_key_id_block_time_ohlc_idx (which carries both deltas), one
+      -- range per pool; a join lets the planner misjudge tokens with
+      -- thousands of pools and scan every pool's swaps instead.
+      token_deltas AS (
+        SELECT block_time, delta0 AS delta
+        FROM swaps
+        WHERE pool_key_id = ANY ((SELECT as_token0 FROM token_pools)::INT8[])
+          AND block_time >= ${start}
+          AND block_time <= ${end}
+        UNION ALL
+        SELECT block_time, delta1 AS delta
+        FROM swaps
+        WHERE pool_key_id = ANY ((SELECT as_token1 FROM token_pools)::INT8[])
+          AND block_time >= ${start}
+          AND block_time <= ${end}
+      )
+      SELECT
+        date_bin(
+          ${intervalSeconds} * INTERVAL '1 second',
+          block_time,
+          TIMESTAMPTZ '2000-01-01 00:00:00+00'
+        ) AS start,
+        COALESCE(SUM(-delta) FILTER (WHERE delta < 0), 0)::TEXT AS bought,
+        COALESCE(SUM(delta) FILTER (WHERE delta > 0), 0)::TEXT AS sold,
+        COUNT(*)::INT4 AS swap_count
+      FROM token_deltas
+      GROUP BY 1
+      ORDER BY 1
+    `;
+  }
+
   public async getErc20TokensByIds(
     ids: { chainId: bigint; tokenAddress: bigint }[],
   ) {
