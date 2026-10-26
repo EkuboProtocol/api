@@ -22,7 +22,7 @@ import { LaunchQueries } from "./queries";
 const ROOT = process.env.ZERO_SEED_INDEXER_WORKTREE;
 const SERVER = process.env.TEST_PG_CONNECTION_STRING;
 // The indexer revision and fixture this replay was written against.
-export const INDEXER_COMMIT = "2435c89bb52fdcc7f1660031f16b8d11b8d9ffdd";
+export const INDEXER_COMMIT = "4a2587e5b733fb4f9f5c4dd185abc66493698749";
 export const FIXTURE_SHA256 =
   "b818cb5a4d939a67bd91a672f394ff32146edb9557cdf597e02ecad04d9a64d6";
 
@@ -101,6 +101,7 @@ interface Dao {
     baseFeePerGas: null;
     numEvents: number;
   }): Promise<void>;
+  loadDiscoveredAddresses(source: unknown): Promise<Hex[]>;
 }
 interface StreamBlock {
   header: { blockNumber: bigint };
@@ -124,7 +125,16 @@ interface Indexer {
     dao: Dao,
   ): Promise<number>;
   createLogProcessorsV3(config: Record<string, unknown>): Processor[];
-  groupLogsByBlock(logs: RawLog[], filters: unknown[]): StreamBlock[];
+  logStreamFilters(processors: Processor[]): unknown[];
+  loadKnownAddresses(
+    filters: unknown[],
+    load: (source: unknown) => Promise<Hex[]>,
+  ): Promise<unknown>;
+  groupLogsByBlock(
+    logs: RawLog[],
+    filters: unknown[],
+    known: unknown,
+  ): StreamBlock[];
   shift(o: { sql: unknown; path: string }): Promise<void>;
   postgres: typeof postgres;
 }
@@ -190,6 +200,7 @@ describe.skipIf(!ROOT || !SERVER)(
       const evm = await load("src/evm.ts");
       const v3 = await load("src/evm/logProcessorsV3.ts");
       const stream = await load("src/evm/logStream.ts");
+      const shared = await load("src/evm/logProcessorsShared.ts");
       const shiftModule = (await import(
         Bun.resolveSync("postgres-shift", ROOT)
       )) as { default: Indexer["shift"] };
@@ -203,7 +214,11 @@ describe.skipIf(!ROOT || !SERVER)(
           "parseEvmBlockHeader" | "processEvmBlock"
         >),
         ...(v3 as unknown as Pick<Indexer, "createLogProcessorsV3">),
-        ...(stream as unknown as Pick<Indexer, "groupLogsByBlock">),
+        ...(stream as unknown as Pick<
+          Indexer,
+          "groupLogsByBlock" | "loadKnownAddresses"
+        >),
+        ...(shared as unknown as Pick<Indexer, "logStreamFilters">),
         shift: shiftModule.default,
         postgres: pg.default,
       };
@@ -268,21 +283,19 @@ describe.skipIf(!ROOT || !SERVER)(
     }
     type Db = Awaited<ReturnType<typeof freshDb>>;
 
-    const filters = () =>
-      processors.map((p, i) => ({
-        id: i + 1,
-        address: p.address,
-        topics: p.filter.topics,
-        strict: p.filter.strict,
-      }));
-
     /** The runtime's per-block transaction, then the cursor head the API reads. */
     async function replay(
       db: Db,
       branch: Branch,
       check?: (state: Branch["states"][number], time: bigint) => Promise<void>,
     ) {
-      const blocks = ix.groupLogsByBlock(branch.logs, filters());
+      // as the stream does: the tokens already indexed, plus those the
+      // branch creates
+      const filters = ix.logStreamFilters(processors);
+      const known = await ix.loadKnownAddresses(filters, (source) =>
+        db.dao.loadDiscoveredAddresses(source),
+      );
+      const blocks = ix.groupLogsByBlock(branch.logs, filters, known);
       for (const fixtureBlock of branch.blocks) {
         const block = blocks.find(
           (b) => Number(b.header.blockNumber) === fixtureBlock.number,
