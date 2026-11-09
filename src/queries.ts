@@ -213,13 +213,11 @@ export class Queries {
     const afterTokenCondition =
       afterToken === null
         ? this.sql`TRUE`
-        : this
-            .sql`(chain_id, token_address) > (${afterToken.chainId}, ${afterToken.address.toString()})`;
+        : this.sql`(chain_id, token_address) > (${afterToken.chainId}, ${afterToken.address.toString()})`;
     const trimmedSearch = search?.trim();
     const searchCondition =
       trimmedSearch && trimmedSearch.length > 0
-        ? this
-            .sql`(token_symbol ILIKE ${trimmedSearch + "%"} OR token_symbol ILIKE ${"%" + trimmedSearch})`
+        ? this.sql`(token_symbol ILIKE ${trimmedSearch + "%"} OR token_symbol ILIKE ${"%" + trimmedSearch})`
         : this.sql`TRUE`;
 
     const chainIdCondition = chainId
@@ -1295,11 +1293,9 @@ FROM token_mint AS mint
   }) {
     const pairCondition =
       token0 !== undefined && token1 !== undefined
-        ? this
-            .sql`pk.token0 = ${token0.toString()} AND pk.token1 = ${token1.toString()}`
+        ? this.sql`pk.token0 = ${token0.toString()} AND pk.token1 = ${token1.toString()}`
         : tokenEither !== undefined
-          ? this
-              .sql`(pk.token0 = ${tokenEither.toString()} OR pk.token1 = ${tokenEither.toString()})`
+          ? this.sql`(pk.token0 = ${tokenEither.toString()} OR pk.token1 = ${tokenEither.toString()})`
           : this.sql`TRUE`;
     const extensionCondition =
       extension !== undefined
@@ -2398,8 +2394,7 @@ ORDER BY po.token_id DESC
       WHERE ${since ? this.sql`hour >= ${since}` : this.sql`true`}
         AND ${
           pair
-            ? this
-                .sql`pk.chain_id = ${pair.chainId} AND pk.token0 = ${pair.token0.toString()} AND pk.token1 = ${pair.token1.toString()}`
+            ? this.sql`pk.chain_id = ${pair.chainId} AND pk.token0 = ${pair.token0.toString()} AND pk.token1 = ${pair.token1.toString()}`
             : this.sql`true`
         }
         AND (t.visibility_priority >= 0 OR ${pair ? this.sql`TRUE` : this.sql`FALSE`})
@@ -2450,8 +2445,7 @@ ORDER BY po.token_id DESC
         AND ${chainId ? this.sql`pk.chain_id = ${chainId}` : this.sql`true`}
         AND ${
           pair
-            ? this
-                .sql`pk.chain_id = ${pair.chainId} AND pk.token0 = ${pair.token0.toString()} AND pk.token1 = ${pair.token1.toString()}`
+            ? this.sql`pk.chain_id = ${pair.chainId} AND pk.token0 = ${pair.token0.toString()} AND pk.token1 = ${pair.token1.toString()}`
             : this.sql`true`
         }
         AND (visibility_priority >= 0 OR ${pair ? this.sql`TRUE` : this.sql`FALSE`})
@@ -2871,13 +2865,10 @@ WITH base_positions AS (SELECT nfp.chain_id,
                         WHERE ${chainId ? this.sql`nfp.chain_id = ${chainId}` : this.sql`TRUE`} AND 
                         ${
                           state === "opened"
-                            ? this
-                                .sql`nfp.liquidity != 0 AND ${currentOwnerCondition}`
+                            ? this.sql`nfp.liquidity != 0 AND ${currentOwnerCondition}`
                             : state === "closed"
-                              ? this
-                                  .sql`nfp.liquidity = 0 AND (${previousOwnerCondition} OR ${currentOwnerCondition})`
-                              : this
-                                  .sql`(${currentOwnerCondition} OR ${previousOwnerCondition})`
+                              ? this.sql`nfp.liquidity = 0 AND (${previousOwnerCondition} OR ${currentOwnerCondition})`
+                              : this.sql`(${currentOwnerCondition} OR ${previousOwnerCondition})`
                         }),
      total_count AS (SELECT COUNT(*)::INT AS total_count
                      FROM base_positions),
@@ -3353,8 +3344,7 @@ ORDER BY vv.vote_weight::NUMERIC DESC NULLS LAST, vv.voter NULLS LAST
     }
 
     const pairCondition = pair
-      ? this
-          .sql`pk.token0 = ${pair.token0.toString()} AND pk.token1 = ${pair.token1.toString()}`
+      ? this.sql`pk.token0 = ${pair.token0.toString()} AND pk.token1 = ${pair.token1.toString()}`
       : this.sql`TRUE`;
     const coreAddressCondition =
       coreAddress !== undefined
