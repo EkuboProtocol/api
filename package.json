@@ -12,7 +12,7 @@
     "oxfmt": "0.78.0",
     "oxlint": "1.93.0",
     "oxlint-tsgolint": "^7.0.2006",
-    "postgres": "^3.4.9",
+    "postgres": "^4.1.0",
     "wrangler": "^4.159.0",
     "zod": "^4.6.7"
   },
