@@ -10,7 +10,7 @@
     "@typescript/native": "npm:typescript@^7.0.2",
     "hono": "^4.13.17",
     "oxfmt": "0.77.0",
-    "oxlint": "1.92.0",
+    "oxlint": "1.93.0",
     "oxlint-tsgolint": "^7.0.2006",
     "postgres": "^3.4.9",
     "wrangler": "^4.158.0",
