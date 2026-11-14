@@ -133,3 +133,34 @@ describe("createQueries", () => {
     expect(rendered).not.toContain(PARAMETER);
   });
 });
+
+describe("getPositionsByAddress", () => {
+  const pagination = { page: 1, pageSize: 10 };
+
+  test("the zero address lists no positions without querying", async () => {
+    // Every query against this server fails, so an empty result means none ran.
+    server = await startFakePostgres({ error: FAILURE });
+    const queries = await createQueries(envFor(server.url));
+
+    for (const state of [null, "opened", "closed"] as const) {
+      expect(
+        await queries.getPositionsByAddress([0n], state, null, pagination),
+      ).toEqual({ rows: [], totalCount: 0 });
+    }
+  });
+
+  test("other addresses in the same request are still queried", async () => {
+    server = await startFakePostgres({ error: FAILURE });
+    const queries = await createQueries(envFor(server.url));
+
+    const error = await queries
+      .getPositionsByAddress([0n, 1n], null, null, pagination)
+      .then(
+        () => null,
+        (e: unknown) => e,
+      );
+
+    expect(error).toBeInstanceOf(postgres.PostgresError);
+    expect((error as Error).message).toBe(FAILURE.message);
+  });
+});

@@ -2804,8 +2804,15 @@ HAVING SUM(tvl0_total / POWER(10::NUMERIC, t0.token_decimals) * COALESCE(t0p.val
     chainId: bigint | null = null,
     pagination: { page: number; pageSize: number },
   ) {
+    // The zero address never owns a position. As an owner filter it matches
+    // every burned token (current_owner) and every mint (previous_owner), so
+    // the query scans most positions and can run for minutes.
     const uniqueAddresses = Array.from(
-      new Set(addresses.map((address) => address.toString())),
+      new Set(
+        addresses
+          .filter((address) => address !== 0n)
+          .map((address) => address.toString()),
+      ),
     );
     if (uniqueAddresses.length === 0) {
       return { rows: [], totalCount: 0 };
