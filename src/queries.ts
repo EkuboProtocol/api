@@ -1,5 +1,13 @@
 import postgres, { type Sql } from "postgres";
 import { Env } from "./env";
+import {
+  queryPositionHistoryPage,
+  type HistoryPageRequest,
+} from "./routes/nft/queryPositionHistoryPage";
+
+type PositionHistoryRow = Awaited<
+  ReturnType<Queries["getPositionHistory"]>
+>[number];
 
 export type StateFilter = "opened" | "closed";
 
@@ -990,6 +998,24 @@ FROM token_mint AS mint
       ORDER BY timestamp DESC
     `;
     return rows;
+  }
+
+  public async getPositionHistoryPage(request: HistoryPageRequest) {
+    const rows = await queryPositionHistoryPage<PositionHistoryRow>(
+      this.sql,
+      request,
+    );
+    const first = rows[0];
+    if (!first) return null;
+    return {
+      snapshot: {
+        block_number: first.block_number_snapshot,
+        block_hash: first.block_hash,
+        fork_counter: first.fork_counter,
+      },
+      lastNonemptyBlock: first.last_nonempty_block,
+      rows: rows.filter((row) => row.event_id !== null),
+    };
   }
 
   public async listPositionEvents({

@@ -57,6 +57,12 @@ function normalizeRequestForCache(request: Request): URL {
   const url = new URL(request.url);
   const normalizedUrl = new URL(url.toString());
 
+  // The history page requires exact cursor text and strict decimal limits.
+  // Keep its cache key separate from invalid aliases, even on a cache hit.
+  if (/^\/positions\/[^/]+\/[^/]+\/[^/]+\/history\/page$/.test(url.pathname)) {
+    return normalizedUrl;
+  }
+
   // Canonicalize integer-like path segments, e.g. /0x123 -> /291. This is only
   // safe because every path parameter is an integer, address or enum, which
   // cacheKeyContract.test.ts enforces.

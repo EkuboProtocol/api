@@ -14,8 +14,19 @@ import {
   ChainIdStringType,
   NumericStringType,
 } from "../../shared/validation/address";
-import { createQueries, type PositionEventRow } from "../../queries";
+import {
+  createQueries,
+  type Queries,
+  type PositionEventRow,
+} from "../../queries";
 import toHex from "../../shared/toHex";
+import {
+  decodeHistoryCursor,
+  encodeHistoryCursor,
+  historyCursor,
+  historyLimit,
+  historySnapshot,
+} from "./positionHistoryCursor";
 import { NFTMetadataSchema, TokenIdType } from "./format";
 import { generatePositionNft } from "./generatePositionNft";
 import { generatePositionNftMetadata } from "../../shared/metadatas/positions";
@@ -480,6 +491,58 @@ export const GetPositionNftMetadata = defineRoute(
   },
 );
 
+type HistoryRow = Awaited<ReturnType<Queries["getPositionHistory"]>>[number];
+
+const formatHistoryEvent: (
+  row: HistoryRow,
+) => z.infer<typeof PositionEventType> = ({
+  transaction_hash,
+  block_number,
+  timestamp,
+  type,
+  from_address,
+  to_address,
+  liquidity_delta,
+  delta0,
+  delta1,
+  reward_amount,
+}) =>
+  type === 0
+    ? {
+        type: "transfer",
+        block_number: block_number.toString(),
+        transaction_hash: toHex(transaction_hash),
+        timestamp,
+        from_address: toHex(from_address),
+        to_address: toHex(to_address),
+      }
+    : type === 1
+      ? {
+          type: "update",
+          block_number: block_number.toString(),
+          transaction_hash: toHex(transaction_hash),
+          timestamp,
+          liquidity_delta,
+          delta0,
+          delta1,
+        }
+      : type === 2
+        ? {
+            type: "collect_fees",
+            block_number: block_number.toString(),
+            transaction_hash: toHex(transaction_hash),
+            timestamp,
+            delta0,
+            delta1,
+          }
+        : {
+            type: "claim_rewards",
+            block_number: block_number.toString(),
+            transaction_hash: toHex(transaction_hash),
+            timestamp,
+            reward_amount,
+          };
+
 export const ListPositionNftEvents = defineRoute(
   createRoute({
     method: "get",
@@ -528,60 +591,101 @@ export const ListPositionNftEvents = defineRoute(
 
     const response = {
       chain_id: chainIdParam,
-      events: history.map(
-        ({
-          transaction_hash,
-          block_number,
-          timestamp,
-          type,
-          from_address,
-          to_address,
-          liquidity_delta,
-          delta0,
-          delta1,
-          reward_amount,
-        }) =>
-          type === 0
-            ? {
-                type: "transfer",
-                block_number: block_number.toString(),
-                transaction_hash: toHex(transaction_hash),
-                timestamp,
-                from_address: toHex(from_address),
-                to_address: toHex(to_address),
-              }
-            : type === 1
-              ? {
-                  type: "update",
-                  block_number: block_number.toString(),
-                  transaction_hash: toHex(transaction_hash),
-                  timestamp,
-                  liquidity_delta,
-                  delta0,
-                  delta1,
-                }
-              : type === 2
-                ? {
-                    type: "collect_fees",
-                    block_number: block_number.toString(),
-                    transaction_hash: toHex(transaction_hash),
-                    timestamp,
-                    delta0,
-                    delta1,
-                  }
-                : {
-                    type: "claim_rewards",
-                    block_number: block_number.toString(),
-                    transaction_hash: toHex(transaction_hash),
-                    timestamp,
-                    reward_amount,
-                  },
-      ),
+      events: history.map(formatHistoryEvent),
     } satisfies z.infer<typeof PositionEventsResponseType>;
 
     return c.json(response, 200, {
       "cache-control": "public, max-age=60, must-revalidate",
     });
+  },
+);
+
+export const ListPositionHistoryPage = defineRoute(
+  createRoute({
+    method: "get",
+    path: "/positions/{chainId}/{lockerAddress}/{id}/history/page",
+    tags: ["Positions"],
+    summary: "Page through position history",
+    description:
+      "Returns newest events first at a fixed indexed-block snapshot. Follow next_cursor with the same limit. Restart without a cursor if the snapshot changes. For complete financial calculations, use the full history endpoint.",
+    operationId: "get_ListPositionHistoryPage",
+    request: {
+      params: ListPositionNftEvents.route.request.params,
+      query: z.object({
+        limit: historyLimit.describe("Page size, from 1 to 100 (default 25)"),
+        cursor: historyCursor.describe(
+          "Opaque next_cursor from the previous page",
+        ),
+      }),
+    },
+    responses: {
+      200: jsonResponse(
+        "A page of position history",
+        PositionEventsResponseType.extend({
+          page_info: z.object({
+            has_more: z.boolean(),
+            next_cursor: z.string().nullable(),
+            snapshot: historySnapshot,
+          }),
+        }),
+      ),
+      ...notFoundResponse,
+      ...errorResponses,
+    },
+  }),
+  async (c) => {
+    const { chainId, lockerAddress, id } = c.req.valid("param");
+    const { limit, cursor: token } = c.req.valid("query");
+    const scope = {
+      chain_id: BigInt(chainId).toString(),
+      locker: BigInt(lockerAddress).toString(),
+      id: BigInt(id).toString(),
+      limit,
+    };
+    const cursor =
+      token === undefined ? null : decodeHistoryCursor(token, scope);
+    const queries = await createQueries(c.env);
+    const page = await queries.getPositionHistoryPage({
+      chainId: BigInt(chainId),
+      locker: scope.locker,
+      id: scope.id,
+      limit,
+      cursor,
+    });
+    if (cursor && !page)
+      throw new StatusError(
+        400,
+        "History snapshot changed; restart pagination",
+      );
+    if (!page || (!cursor && page.rows.length === 0))
+      throw new StatusError(404, "Token ID not found");
+
+    const rows = page.rows.slice(0, limit);
+    const last = rows.at(-1);
+    const next_cursor =
+      last && page.rows.length > limit
+        ? encodeHistoryCursor({
+            v: 1,
+            ...scope,
+            snapshot: page.snapshot,
+            last_nonempty_block: page.lastNonemptyBlock,
+            event_id: last.event_id.toString(),
+            source_type: last.type,
+          })
+        : null;
+    return c.json(
+      {
+        chain_id: scope.chain_id,
+        events: rows.map(formatHistoryEvent),
+        page_info: {
+          has_more: next_cursor !== null,
+          next_cursor,
+          snapshot: page.snapshot,
+        },
+      },
+      200,
+      { "cache-control": "public, max-age=60, must-revalidate" },
+    );
   },
 );
 

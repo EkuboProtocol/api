@@ -311,6 +311,37 @@ export const nftCases: ContractCase[] = [
       ]),
   },
   {
+    operation: "/positions/{chainId}/{lockerAddress}/{id}/history/page",
+    request: `/positions/1/${POSITIONS}/42/history/page?limit=1`,
+    stub: () =>
+      stubQuery("getPositionHistoryPage", {
+        snapshot: {
+          block_number: "21000000",
+          block_hash: "17",
+          fork_counter: "0",
+        },
+        lastNonemptyBlock: "21000000",
+        rows: [
+          {
+            ...historyRow({ type: 2, delta0: "500", delta1: "200" }),
+            event_id: -9133177723646775807n,
+            last_nonempty_block: "21000000",
+            block_number_snapshot: "21000000",
+            block_hash: "17",
+            fork_counter: "0",
+          },
+          {
+            ...historyRow({ type: 2, delta0: "400", delta1: "100" }),
+            event_id: -9133177723646775808n,
+            last_nonempty_block: "21000000",
+            block_number_snapshot: "21000000",
+            block_hash: "17",
+            fork_counter: "0",
+          },
+        ],
+      }),
+  },
+  {
     operation: "/positions/{chainId}/{nftAddress}/{id}",
     request: `/positions/1/${NFT}/42`,
     stub: () => {

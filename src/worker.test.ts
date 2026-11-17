@@ -107,6 +107,14 @@ describe("worker cache key", () => {
     expect(computed).toBe(searches.length);
   });
 
+  it("keeps strict history-page parameters distinct on cache hits", async () => {
+    const url = "https://api.test/positions/1/10/42/history/page";
+    await run(`${url}?limit=25`);
+    const { response } = await run(`${url}?limit=0x19`);
+    expect(await body(response)).toEqual({ version: 2 });
+    expect(computed).toBe(2);
+  });
+
   it("still folds hex and decimal forms of numeric parameters", async () => {
     await run("https://api.test/tokens?chainId=1&search=eth");
     const { response } = await run(
