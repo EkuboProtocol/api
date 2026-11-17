@@ -8,9 +8,16 @@ All you need to run this API locally is a database containing the schema defined
 
 Once you have a database that is populated with data, run `bun install`, and then `bun run start`.
 
-The local connection string defaults to `postgresql://postgres:postgres@localhost:5432/postgres`
-via `[vars]` in `wrangler.toml`. Override it by putting `PG_CONNECTION_STRING`
-in a `.dev.vars` file, which is gitignored.
+Local development uses `cf` through `bun run start` and requires Node.js 22.18
+or newer. The local connection string defaults to
+`postgresql://postgres:postgres@localhost:5432/postgres` in
+`cloudflare.config.ts`. Override it by putting `PG_CONNECTION_STRING` in a
+`.dev.vars` file, which is gitignored.
+
+Run `bun run build` to build the production mode without uploading it. Generated
+build output and local types live in the gitignored `.cloudflare/` directory.
+The production mode preserves the settings in `wrangler.toml`, which remains the
+configuration used by the existing GitHub Actions deployment workflow.
 
 # Deploying your own
 
