@@ -2,18 +2,19 @@
   "name": "@ekubo/api",
   "version": "0.0.1",
   "devDependencies": {
-    "@cloudflare/workers-types": "^5.20261110.1",
+    "@cloudflare/workers-types": "5.20261114.1",
     "@ekubo/position-svg-generator": "^0.3.1",
     "@ekubo/sdk": "^0.0.10",
     "@hono/zod-openapi": "^1.6.3",
     "@types/bun": "^1.4.4",
     "@typescript/native": "npm:typescript@^7.0.2",
-    "hono": "^4.13.17",
+    "cf": "1.0.0-rc.1",
+    "hono": "4.13.18",
     "oxfmt": "0.78.0",
     "oxlint": "1.93.0",
     "oxlint-tsgolint": "^7.0.2006",
     "postgres": "^3.4.9",
-    "wrangler": "^4.159.0",
+    "wrangler": "4.163.0",
     "zod": "^4.6.7"
   },
   "engines": {
@@ -23,7 +24,8 @@
   "private": true,
   "license": "MIT",
   "scripts": {
-    "start": "wrangler dev",
+    "start": "node node_modules/cf/bin/cf dev",
+    "build": "node node_modules/cf/bin/cf build --mode prod",
     "lint": "bun scripts/lint.ts",
     "lint:prune": "bun scripts/lint.ts --prune",
     "openapi": "bun scripts/generateOpenApi.ts",
