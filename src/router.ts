@@ -38,6 +38,7 @@ import {
   GetPositionNftImage,
   GetPositionNftMetadata,
   ListPositionEvents,
+  ListPositionHistoryPage,
   ListPositionNftEvents,
   ListPositionsByAddress,
 } from "./routes/nft/positions";
@@ -108,6 +109,7 @@ const routes: readonly ApiRoute[] = [
   BatchListPositionsByAddress,
   ListPositionsByAddress,
   ListPositionEvents,
+  ListPositionHistoryPage,
   ListPositionNftEvents,
   GetPositionNftMetadata,
   GetOrderNftImage,
