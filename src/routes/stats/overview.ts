@@ -7,10 +7,12 @@ import { ChainIdType, HexStringType } from "../../shared/validation/address";
 import toHex from "../../shared/toHex";
 import {
   createTokenPricer,
+  type PricedTokenRow,
   sumFields,
   sumUsdByChain,
   utcDateString,
 } from "./usdTotals";
+import { chartWindow, toUsdChart, UsdChartType } from "./chartSeries";
 
 const TimestampType = z.union([z.date(), z.string()]);
 const TokenIdentifierSchema = z.union([z.string(), z.number()]);
@@ -211,6 +213,45 @@ const OverviewTvlResponseType = z.object({
 
 const TVL_TOTAL_FIELDS = ["tvlUsd", "tvlDeltaUsdYesterday"] as const;
 const VOLUME_TOTAL_FIELDS = ["volumeUsd24h"] as const;
+
+function volumeTotalsByChain(
+  volumeByToken_24h: { chain_id: string; token: string; volume: string }[],
+  pricedTokens: PricedTokenRow[],
+) {
+  const priceUsd = createTokenPricer(pricedTokens);
+  return sumUsdByChain(
+    VOLUME_TOTAL_FIELDS,
+    volumeByToken_24h.map((row) => ({
+      chain_id: row.chain_id,
+      usd: { volumeUsd24h: priceUsd(row.chain_id, row.token, row.volume) },
+    })),
+  );
+}
+
+function tvlTotalsByChain(
+  tvlByToken: { chain_id: bigint; token: string; balance: string }[],
+  tvlDeltaByTokenByDate: ReturnType<typeof normalizeTvlDeltaRow>[],
+  tvlDeltaDate: string,
+  pricedTokens: PricedTokenRow[],
+) {
+  const priceUsd = createTokenPricer(pricedTokens);
+  return sumUsdByChain(TVL_TOTAL_FIELDS, [
+    ...tvlByToken.map((row) => ({
+      chain_id: row.chain_id.toString(),
+      usd: {
+        tvlUsd: priceUsd(row.chain_id.toString(), row.token, row.balance),
+      },
+    })),
+    ...tvlDeltaByTokenByDate
+      .filter((row) => utcDateString(row.date) === tvlDeltaDate)
+      .map((row) => ({
+        chain_id: row.chain_id,
+        usd: {
+          tvlDeltaUsdYesterday: priceUsd(row.chain_id, row.token, row.delta),
+        },
+      })),
+  ]);
+}
 
 const MinTvlQueryParameter = z.coerce.number().min(0).default(1_000);
 
@@ -436,16 +477,7 @@ export const GetOverviewVolume = defineRoute(
       normalizeVolumeRow(row as VolumeRow),
     );
 
-    const priceUsd = createTokenPricer(pricedTokens);
-    const totalsByChain = sumUsdByChain(
-      VOLUME_TOTAL_FIELDS,
-      volumeByToken_24h.map((row) => ({
-        chain_id: row.chain_id,
-        usd: {
-          volumeUsd24h: priceUsd(row.chain_id, row.token, row.volume),
-        },
-      })),
-    );
+    const totalsByChain = volumeTotalsByChain(volumeByToken_24h, pricedTokens);
 
     const response = {
       volumeByTokenByDate: volumeByTokenByDate.map((vol) => ({
@@ -506,23 +538,12 @@ export const GetOverviewTvl = defineRoute(
       normalizeTvlDeltaRow(row as TvlDeltaRow),
     );
 
-    const priceUsd = createTokenPricer(pricedTokens);
-    const totalsByChain = sumUsdByChain(TVL_TOTAL_FIELDS, [
-      ...tvlByToken.map((row) => ({
-        chain_id: row.chain_id.toString(),
-        usd: {
-          tvlUsd: priceUsd(row.chain_id.toString(), row.token, row.balance),
-        },
-      })),
-      ...tvlDeltaByTokenByDate
-        .filter((row) => utcDateString(row.date) === tvlDeltaDate)
-        .map((row) => ({
-          chain_id: row.chain_id,
-          usd: {
-            tvlDeltaUsdYesterday: priceUsd(row.chain_id, row.token, row.delta),
-          },
-        })),
-    ]);
+    const totalsByChain = tvlTotalsByChain(
+      tvlByToken,
+      tvlDeltaByTokenByDate,
+      tvlDeltaDate,
+      pricedTokens,
+    );
 
     const response = {
       tvlByToken: tvlByToken.map((tvl) => ({
@@ -537,6 +558,124 @@ export const GetOverviewTvl = defineRoute(
       },
       totalsByChain,
     } satisfies z.infer<typeof OverviewTvlResponseType>;
+
+    return c.json(response, 200, {
+      "cache-control": OVERVIEW_CACHE_CONTROL,
+    });
+  },
+);
+
+const OverviewTvlChartResponseType = UsdChartType.extend({
+  totals: OverviewTvlResponseType.shape.totals,
+  totalsByChain: OverviewTvlResponseType.shape.totalsByChain,
+});
+
+export const GetOverviewTvlChart = defineRoute(
+  createRoute({
+    method: "get",
+    path: "/overview/tvl/chart",
+    tags: ["Stats"],
+    summary: "Get TVL chart",
+    description:
+      "Returns TVL at the close of each of the last 30 UTC days, priced at that day's closing token prices (today at the latest prices), with each network's total and its largest token symbols, with the totals of /overview/tvl",
+    operationId: "get_GetOverviewTvlChart",
+    request: {
+      query: ChainIdQuery,
+    },
+    responses: {
+      200: jsonResponse("The TVL chart", OverviewTvlChartResponseType),
+      ...errorResponses,
+    },
+  }),
+  async (c) => {
+    const timestamp = Date.now();
+    const chainId = c.req.valid("query").chainId ?? null;
+    const request = { chainId, ...chartWindow(timestamp) };
+    const tvlDeltaDate = utcDateString(
+      new Date(timestamp - 1000 * 60 * 60 * 24),
+    );
+    const queries = await createQueries(c.env);
+
+    const [rows, tvlByToken, rawTvlDeltaByTokenByDate, pricedTokens] =
+      await Promise.all([
+        queries.getTvlChartRows(request),
+        queries.getTvlByToken(chainId),
+        queries.getTvlDeltaByTokenByDate(chainId, new Date(tvlDeltaDate)),
+        queries.listPricedErc20Tokens(chainId),
+      ]);
+
+    const totalsByChain = tvlTotalsByChain(
+      tvlByToken,
+      rawTvlDeltaByTokenByDate.map((row) =>
+        normalizeTvlDeltaRow(row as TvlDeltaRow),
+      ),
+      tvlDeltaDate,
+      pricedTokens,
+    );
+
+    const response = {
+      ...toUsdChart(rows, request.dates),
+      totals: {
+        ...sumFields(TVL_TOTAL_FIELDS, totalsByChain),
+        tvlDeltaDate,
+      },
+      totalsByChain,
+    } satisfies z.infer<typeof OverviewTvlChartResponseType>;
+
+    return c.json(response, 200, {
+      "cache-control": OVERVIEW_CACHE_CONTROL,
+    });
+  },
+);
+
+const OverviewVolumeChartResponseType = UsdChartType.extend({
+  totals: OverviewVolumeResponseType.shape.totals,
+  totalsByChain: OverviewVolumeResponseType.shape.totalsByChain,
+});
+
+export const GetOverviewVolumeChart = defineRoute(
+  createRoute({
+    method: "get",
+    path: "/overview/volume/chart",
+    tags: ["Stats"],
+    summary: "Get volume chart",
+    description:
+      "Returns the volume of each of the last 30 UTC days, priced at that day's closing token prices (today at the latest prices), with each network's total and its largest token symbols, with the totals of /overview/volume",
+    operationId: "get_GetOverviewVolumeChart",
+    request: {
+      query: ChainIdQuery,
+    },
+    responses: {
+      200: jsonResponse("The volume chart", OverviewVolumeChartResponseType),
+      ...errorResponses,
+    },
+  }),
+  async (c) => {
+    const timestamp = Date.now();
+    const chainId = c.req.valid("query").chainId ?? null;
+    const request = { chainId, ...chartWindow(timestamp) };
+    const queries = await createQueries(c.env);
+
+    const [rows, rawVolumeByToken_24h, pricedTokens] = await Promise.all([
+      queries.getVolumeChartRows(request),
+      queries.getTotalVolume({
+        chainId,
+        since: new Date(timestamp - 1000 * 60 * 60 * 24),
+        minVolumeUsd: 1000,
+      }),
+      queries.listPricedErc20Tokens(chainId),
+    ]);
+
+    const totalsByChain = volumeTotalsByChain(
+      rawVolumeByToken_24h.map((row) => normalizeVolumeRow(row as VolumeRow)),
+      pricedTokens,
+    );
+
+    const response = {
+      ...toUsdChart(rows, request.dates),
+      totals: sumFields(VOLUME_TOTAL_FIELDS, totalsByChain),
+      totalsByChain,
+    } satisfies z.infer<typeof OverviewVolumeChartResponseType>;
 
     return c.json(response, 200, {
       "cache-control": OVERVIEW_CACHE_CONTROL,

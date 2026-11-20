@@ -9,10 +9,50 @@ import {
   WETH,
   WETH_DECIMAL,
 } from "../fixtures";
+import { chartDates } from "../../routes/stats/chartSeries";
 
 const DAY = new Date("2026-09-28T00:00:00.000Z");
 const BLOCK_TIME = new Date("2026-09-28T12:34:56.000Z");
 const asDeclaredString = (date: Date) => date as unknown as string;
+
+const CHART_DATES = chartDates(Date.now());
+const TODAY = CHART_DATES[CHART_DATES.length - 1];
+
+const chartRows: QueryResult<"getTvlChartRows"> = [
+  {
+    chain_id: 1n,
+    symbol: "WETH",
+    rank: "1",
+    date: TODAY,
+    usd: 2500.5,
+    amount: 1,
+  },
+  {
+    chain_id: 1n,
+    symbol: "USDC",
+    rank: "2",
+    date: TODAY,
+    usd: 5000.5,
+    amount: 5000,
+  },
+  {
+    chain_id: 1n,
+    symbol: null,
+    rank: "6",
+    date: TODAY,
+    usd: 12.5,
+    amount: null,
+  },
+];
+
+const pricedTokens: QueryResult<"listPricedErc20Tokens"> = [
+  {
+    chain_id: 1n,
+    token_address: USDC_DECIMAL,
+    token_decimals: 6,
+    usd_price: "1.0001",
+  },
+];
 
 type PoolStatsRow = QueryResult<"getTopPools">[number];
 
@@ -279,6 +319,67 @@ export const statsCases: ContractCase[] = [
           token_address: WETH_DECIMAL,
           token_decimals: 18,
           usd_price: "2500.5",
+        },
+      ]);
+    },
+  },
+  {
+    operation: "/overview/tvl/chart",
+    request: "/overview/tvl/chart",
+    stub: () => {
+      stubQuery("getTvlChartRows", chartRows);
+      stubQuery("getTvlByToken", [
+        { chain_id: 1n, token: USDC_DECIMAL, balance: "5000000000" },
+      ]);
+      stubQuery("getTvlDeltaByTokenByDate", [
+        {
+          chain_id: 1n,
+          token: USDC_DECIMAL,
+          date: asDeclaredString(new Date(CHART_DATES[CHART_DATES.length - 2])),
+          delta: "-1000000",
+        },
+      ]);
+      stubQuery("listPricedErc20Tokens", pricedTokens);
+    },
+  },
+  {
+    operation: "/overview/volume/chart",
+    request: "/overview/volume/chart?chainId=1",
+    stub: () => {
+      stubQuery("getVolumeChartRows", chartRows);
+      stubQuery("getTotalVolume", [
+        {
+          chain_id: 1n,
+          token: USDC_DECIMAL,
+          volume: "1000000",
+          fees: "3000",
+          ve33_fees: "0",
+        },
+      ]);
+      stubQuery("listPricedErc20Tokens", pricedTokens);
+    },
+  },
+  {
+    operation: "/pair/{chainId}/{tokenA}/{tokenB}/tvl/chart",
+    request: `/pair/1/${WETH}/${USDC}/tvl/chart?coreAddress=${CORE}&poolId=1`,
+    stub: () => {
+      stubTokens(pairTokens);
+      stubQuery("getTvlChartRows", chartRows);
+    },
+  },
+  {
+    operation: "/pair/{chainId}/{tokenA}/{tokenB}/volume/chart",
+    request: `/pair/1/${USDC}/${WETH}/volume/chart`,
+    stub: () => {
+      stubTokens(pairTokens);
+      stubQuery("getVolumeChartRows", chartRows);
+      stubQuery("getTotalVolume", [
+        {
+          chain_id: 1n,
+          token: USDC_DECIMAL,
+          volume: "1000000",
+          fees: "3000",
+          ve33_fees: "0",
         },
       ]);
     },

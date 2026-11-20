@@ -1992,6 +1992,196 @@
         }
       }
     },
+    "/overview/tvl/chart": {
+      "get": {
+        "tags": [
+          "Stats"
+        ],
+        "summary": "Get TVL chart",
+        "description": "Returns TVL at the close of each of the last 30 UTC days, priced at that day's closing token prices (today at the latest prices), with each network's total and its largest token symbols, with the totals of /overview/tvl",
+        "operationId": "get_GetOverviewTvlChart",
+        "parameters": [
+          {
+            "schema": {
+              "type": "integer",
+              "title": "Chain ID",
+              "description": "The ID of the network that is being fetched",
+              "format": "int64",
+              "minimum": 1,
+              "maximum": 9223372036854776000
+            },
+            "required": false,
+            "description": "The ID of the network that is being fetched",
+            "name": "chainId",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The TVL chart",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "dates": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      },
+                      "description": "UTC dates of the chart, oldest first, as YYYY-MM-DD"
+                    },
+                    "networks": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "chain_id": {
+                            "type": "string",
+                            "pattern": "^0x[a-fA-F0-9]+$",
+                            "description": "A hexadecimal number"
+                          },
+                          "usd": {
+                            "type": "array",
+                            "items": {
+                              "type": "number"
+                            },
+                            "description": "USD value of the network on each date, at that date's closing prices"
+                          },
+                          "tokens": {
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "properties": {
+                                "symbol": {
+                                  "type": "string"
+                                },
+                                "usd": {
+                                  "type": "array",
+                                  "items": {
+                                    "type": "number"
+                                  },
+                                  "description": "USD value on each date, at that date's closing prices"
+                                },
+                                "amount": {
+                                  "type": "array",
+                                  "items": {
+                                    "type": "number"
+                                  },
+                                  "description": "Token amount on each date, in whole tokens"
+                                }
+                              },
+                              "required": [
+                                "symbol",
+                                "usd",
+                                "amount"
+                              ]
+                            },
+                            "description": "The network's five largest token symbols by their value over the last two dates, largest first"
+                          },
+                          "other": {
+                            "type": [
+                              "array",
+                              "null"
+                            ],
+                            "items": {
+                              "type": "number"
+                            },
+                            "description": "USD value of the network's other symbols on each date; null when there are none"
+                          }
+                        },
+                        "required": [
+                          "chain_id",
+                          "usd",
+                          "tokens",
+                          "other"
+                        ]
+                      },
+                      "description": "One entry per network, sorted by chain_id"
+                    },
+                    "totals": {
+                      "type": "object",
+                      "properties": {
+                        "tvlUsd": {
+                          "type": "number",
+                          "description": "USD value of tvlByToken, using the latest token prices; unpriced tokens count as 0"
+                        },
+                        "tvlDeltaUsdYesterday": {
+                          "type": "number",
+                          "description": "USD value of the tvlDeltaByTokenByDate entries dated tvlDeltaDate, at the latest token prices"
+                        },
+                        "tvlDeltaDate": {
+                          "type": "string",
+                          "description": "The UTC date (YYYY-MM-DD) summed into tvlDeltaUsdYesterday: the day before the response was computed"
+                        }
+                      },
+                      "required": [
+                        "tvlUsd",
+                        "tvlDeltaUsdYesterday",
+                        "tvlDeltaDate"
+                      ]
+                    },
+                    "totalsByChain": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "tvlUsd": {
+                            "type": "number",
+                            "description": "USD value of tvlByToken, using the latest token prices; unpriced tokens count as 0"
+                          },
+                          "tvlDeltaUsdYesterday": {
+                            "type": "number",
+                            "description": "USD value of the tvlDeltaByTokenByDate entries dated tvlDeltaDate, at the latest token prices"
+                          },
+                          "chain_id": {
+                            "type": "string",
+                            "pattern": "^0x[a-fA-F0-9]+$",
+                            "description": "A hexadecimal number"
+                          }
+                        },
+                        "required": [
+                          "tvlUsd",
+                          "tvlDeltaUsdYesterday",
+                          "chain_id"
+                        ]
+                      },
+                      "description": "The same totals per chain, sorted by chain_id"
+                    }
+                  },
+                  "required": [
+                    "dates",
+                    "networks",
+                    "totals",
+                    "totalsByChain"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The request parameters are invalid",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "An unexpected server error occurred",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/overview/volume": {
       "get": {
         "tags": [
@@ -2138,6 +2328,181 @@
                   "required": [
                     "volumeByTokenByDate",
                     "volumeByToken_24h",
+                    "totals",
+                    "totalsByChain"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The request parameters are invalid",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "An unexpected server error occurred",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/overview/volume/chart": {
+      "get": {
+        "tags": [
+          "Stats"
+        ],
+        "summary": "Get volume chart",
+        "description": "Returns the volume of each of the last 30 UTC days, priced at that day's closing token prices (today at the latest prices), with each network's total and its largest token symbols, with the totals of /overview/volume",
+        "operationId": "get_GetOverviewVolumeChart",
+        "parameters": [
+          {
+            "schema": {
+              "type": "integer",
+              "title": "Chain ID",
+              "description": "The ID of the network that is being fetched",
+              "format": "int64",
+              "minimum": 1,
+              "maximum": 9223372036854776000
+            },
+            "required": false,
+            "description": "The ID of the network that is being fetched",
+            "name": "chainId",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The volume chart",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "dates": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      },
+                      "description": "UTC dates of the chart, oldest first, as YYYY-MM-DD"
+                    },
+                    "networks": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "chain_id": {
+                            "type": "string",
+                            "pattern": "^0x[a-fA-F0-9]+$",
+                            "description": "A hexadecimal number"
+                          },
+                          "usd": {
+                            "type": "array",
+                            "items": {
+                              "type": "number"
+                            },
+                            "description": "USD value of the network on each date, at that date's closing prices"
+                          },
+                          "tokens": {
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "properties": {
+                                "symbol": {
+                                  "type": "string"
+                                },
+                                "usd": {
+                                  "type": "array",
+                                  "items": {
+                                    "type": "number"
+                                  },
+                                  "description": "USD value on each date, at that date's closing prices"
+                                },
+                                "amount": {
+                                  "type": "array",
+                                  "items": {
+                                    "type": "number"
+                                  },
+                                  "description": "Token amount on each date, in whole tokens"
+                                }
+                              },
+                              "required": [
+                                "symbol",
+                                "usd",
+                                "amount"
+                              ]
+                            },
+                            "description": "The network's five largest token symbols by their value over the last two dates, largest first"
+                          },
+                          "other": {
+                            "type": [
+                              "array",
+                              "null"
+                            ],
+                            "items": {
+                              "type": "number"
+                            },
+                            "description": "USD value of the network's other symbols on each date; null when there are none"
+                          }
+                        },
+                        "required": [
+                          "chain_id",
+                          "usd",
+                          "tokens",
+                          "other"
+                        ]
+                      },
+                      "description": "One entry per network, sorted by chain_id"
+                    },
+                    "totals": {
+                      "type": "object",
+                      "properties": {
+                        "volumeUsd24h": {
+                          "type": "number",
+                          "description": "USD value of volumeByToken_24h, using the latest token prices; unpriced tokens count as 0"
+                        }
+                      },
+                      "required": [
+                        "volumeUsd24h"
+                      ]
+                    },
+                    "totalsByChain": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "volumeUsd24h": {
+                            "type": "number",
+                            "description": "USD value of volumeByToken_24h, using the latest token prices; unpriced tokens count as 0"
+                          },
+                          "chain_id": {
+                            "type": "string",
+                            "pattern": "^0x[a-fA-F0-9]+$",
+                            "description": "A hexadecimal number"
+                          }
+                        },
+                        "required": [
+                          "volumeUsd24h",
+                          "chain_id"
+                        ]
+                      },
+                      "description": "The same totals per chain, sorted by chain_id"
+                    }
+                  },
+                  "required": [
+                    "dates",
+                    "networks",
                     "totals",
                     "totalsByChain"
                   ]
@@ -2376,6 +2741,233 @@
         }
       }
     },
+    "/pair/{chainId}/{tokenA}/{tokenB}/tvl/chart": {
+      "get": {
+        "tags": [
+          "Stats"
+        ],
+        "summary": "Get pair TVL chart",
+        "description": "Returns the pair's TVL at the close of each of the last 30 UTC days, priced at that day's closing token prices (today at the latest prices), per token symbol",
+        "operationId": "get_GetPairInfoTvlChart",
+        "parameters": [
+          {
+            "schema": {
+              "type": "integer",
+              "title": "Chain ID",
+              "description": "The ID of the network that is being fetched",
+              "format": "int64",
+              "minimum": 1,
+              "maximum": 9223372036854776000
+            },
+            "required": true,
+            "description": "The ID of the network that is being fetched",
+            "name": "chainId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "pattern": "^0x[a-fA-F0-9]+$",
+                  "description": "A hexadecimal number"
+                },
+                {
+                  "type": "string",
+                  "pattern": "^\\d+$",
+                  "description": "A decimal number"
+                }
+              ],
+              "title": "Address",
+              "description": "An address on the specified blockchain network"
+            },
+            "required": true,
+            "description": "An address on the specified blockchain network",
+            "name": "tokenA",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "pattern": "^0x[a-fA-F0-9]+$",
+                  "description": "A hexadecimal number"
+                },
+                {
+                  "type": "string",
+                  "pattern": "^\\d+$",
+                  "description": "A decimal number"
+                }
+              ],
+              "title": "Address",
+              "description": "An address on the specified blockchain network"
+            },
+            "required": true,
+            "description": "An address on the specified blockchain network",
+            "name": "tokenB",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "pattern": "^0x[a-fA-F0-9]+$",
+                  "description": "A hexadecimal number"
+                },
+                {
+                  "type": "string",
+                  "pattern": "^\\d+$",
+                  "description": "A decimal number"
+                }
+              ],
+              "title": "Address",
+              "description": "Restrict results to pools with the given core address."
+            },
+            "required": false,
+            "description": "Restrict results to pools with the given core address.",
+            "name": "coreAddress",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "pattern": "^0x[a-fA-F0-9]+$",
+                  "description": "A hexadecimal number"
+                },
+                {
+                  "type": "string",
+                  "pattern": "^\\d+$",
+                  "description": "A decimal number"
+                }
+              ],
+              "title": "Numeric",
+              "description": "Restrict results to pools with the given pool id."
+            },
+            "required": false,
+            "description": "Restrict results to pools with the given pool id.",
+            "name": "poolId",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The pair TVL chart",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "dates": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      },
+                      "description": "UTC dates of the chart, oldest first, as YYYY-MM-DD"
+                    },
+                    "networks": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "chain_id": {
+                            "type": "string",
+                            "pattern": "^0x[a-fA-F0-9]+$",
+                            "description": "A hexadecimal number"
+                          },
+                          "usd": {
+                            "type": "array",
+                            "items": {
+                              "type": "number"
+                            },
+                            "description": "USD value of the network on each date, at that date's closing prices"
+                          },
+                          "tokens": {
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "properties": {
+                                "symbol": {
+                                  "type": "string"
+                                },
+                                "usd": {
+                                  "type": "array",
+                                  "items": {
+                                    "type": "number"
+                                  },
+                                  "description": "USD value on each date, at that date's closing prices"
+                                },
+                                "amount": {
+                                  "type": "array",
+                                  "items": {
+                                    "type": "number"
+                                  },
+                                  "description": "Token amount on each date, in whole tokens"
+                                }
+                              },
+                              "required": [
+                                "symbol",
+                                "usd",
+                                "amount"
+                              ]
+                            },
+                            "description": "The network's five largest token symbols by their value over the last two dates, largest first"
+                          },
+                          "other": {
+                            "type": [
+                              "array",
+                              "null"
+                            ],
+                            "items": {
+                              "type": "number"
+                            },
+                            "description": "USD value of the network's other symbols on each date; null when there are none"
+                          }
+                        },
+                        "required": [
+                          "chain_id",
+                          "usd",
+                          "tokens",
+                          "other"
+                        ]
+                      },
+                      "description": "One entry per network, sorted by chain_id"
+                    }
+                  },
+                  "required": [
+                    "dates",
+                    "networks"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The request parameters are invalid",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "An unexpected server error occurred",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/pair/{chainId}/{tokenA}/{tokenB}/volume": {
       "get": {
         "tags": [
@@ -2579,6 +3171,260 @@
                   "required": [
                     "chain_id",
                     "volumeByTokenByDate",
+                    "volumeByToken_24h"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The request parameters are invalid",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "An unexpected server error occurred",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/pair/{chainId}/{tokenA}/{tokenB}/volume/chart": {
+      "get": {
+        "tags": [
+          "Stats"
+        ],
+        "summary": "Get pair volume chart",
+        "description": "Returns the pair's volume on each of the last 30 UTC days, priced at that day's closing token prices (today at the latest prices), per token symbol, with the volume of the last 24 hours as /pair/{chainId}/{tokenA}/{tokenB}/volume returns it",
+        "operationId": "get_GetPairInfoVolumeChart",
+        "parameters": [
+          {
+            "schema": {
+              "type": "integer",
+              "title": "Chain ID",
+              "description": "The ID of the network that is being fetched",
+              "format": "int64",
+              "minimum": 1,
+              "maximum": 9223372036854776000
+            },
+            "required": true,
+            "description": "The ID of the network that is being fetched",
+            "name": "chainId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "pattern": "^0x[a-fA-F0-9]+$",
+                  "description": "A hexadecimal number"
+                },
+                {
+                  "type": "string",
+                  "pattern": "^\\d+$",
+                  "description": "A decimal number"
+                }
+              ],
+              "title": "Address",
+              "description": "An address on the specified blockchain network"
+            },
+            "required": true,
+            "description": "An address on the specified blockchain network",
+            "name": "tokenA",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "pattern": "^0x[a-fA-F0-9]+$",
+                  "description": "A hexadecimal number"
+                },
+                {
+                  "type": "string",
+                  "pattern": "^\\d+$",
+                  "description": "A decimal number"
+                }
+              ],
+              "title": "Address",
+              "description": "An address on the specified blockchain network"
+            },
+            "required": true,
+            "description": "An address on the specified blockchain network",
+            "name": "tokenB",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "pattern": "^0x[a-fA-F0-9]+$",
+                  "description": "A hexadecimal number"
+                },
+                {
+                  "type": "string",
+                  "pattern": "^\\d+$",
+                  "description": "A decimal number"
+                }
+              ],
+              "title": "Address",
+              "description": "Restrict results to pools with the given core address."
+            },
+            "required": false,
+            "description": "Restrict results to pools with the given core address.",
+            "name": "coreAddress",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "pattern": "^0x[a-fA-F0-9]+$",
+                  "description": "A hexadecimal number"
+                },
+                {
+                  "type": "string",
+                  "pattern": "^\\d+$",
+                  "description": "A decimal number"
+                }
+              ],
+              "title": "Numeric",
+              "description": "Restrict results to pools with the given pool id."
+            },
+            "required": false,
+            "description": "Restrict results to pools with the given pool id.",
+            "name": "poolId",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The pair volume chart",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "dates": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      },
+                      "description": "UTC dates of the chart, oldest first, as YYYY-MM-DD"
+                    },
+                    "networks": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "chain_id": {
+                            "type": "string",
+                            "pattern": "^0x[a-fA-F0-9]+$",
+                            "description": "A hexadecimal number"
+                          },
+                          "usd": {
+                            "type": "array",
+                            "items": {
+                              "type": "number"
+                            },
+                            "description": "USD value of the network on each date, at that date's closing prices"
+                          },
+                          "tokens": {
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "properties": {
+                                "symbol": {
+                                  "type": "string"
+                                },
+                                "usd": {
+                                  "type": "array",
+                                  "items": {
+                                    "type": "number"
+                                  },
+                                  "description": "USD value on each date, at that date's closing prices"
+                                },
+                                "amount": {
+                                  "type": "array",
+                                  "items": {
+                                    "type": "number"
+                                  },
+                                  "description": "Token amount on each date, in whole tokens"
+                                }
+                              },
+                              "required": [
+                                "symbol",
+                                "usd",
+                                "amount"
+                              ]
+                            },
+                            "description": "The network's five largest token symbols by their value over the last two dates, largest first"
+                          },
+                          "other": {
+                            "type": [
+                              "array",
+                              "null"
+                            ],
+                            "items": {
+                              "type": "number"
+                            },
+                            "description": "USD value of the network's other symbols on each date; null when there are none"
+                          }
+                        },
+                        "required": [
+                          "chain_id",
+                          "usd",
+                          "tokens",
+                          "other"
+                        ]
+                      },
+                      "description": "One entry per network, sorted by chain_id"
+                    },
+                    "volumeByToken_24h": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "token": {
+                            "type": "string"
+                          },
+                          "volume": {
+                            "type": "string"
+                          },
+                          "fees": {
+                            "type": "string"
+                          },
+                          "ve33_fees": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "token",
+                          "volume",
+                          "fees",
+                          "ve33_fees"
+                        ]
+                      }
+                    }
+                  },
+                  "required": [
+                    "dates",
+                    "networks",
                     "volumeByToken_24h"
                   ]
                 }
