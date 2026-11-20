@@ -373,6 +373,15 @@ export const statsCases: ContractCase[] = [
     stub: () => {
       stubTokens(pairTokens);
       stubQuery("getVolumeChartRows", chartRows);
+      stubQuery("getTotalVolume", [
+        {
+          chain_id: 1n,
+          token: USDC_DECIMAL,
+          volume: "1000000",
+          fees: "3000",
+          ve33_fees: "0",
+        },
+      ]);
     },
   },
   {

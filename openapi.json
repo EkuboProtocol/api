@@ -3206,7 +3206,7 @@
           "Stats"
         ],
         "summary": "Get pair volume chart",
-        "description": "Returns the pair's volume on each of the last 30 UTC days, priced at that day's closing token prices (today at the latest prices), per token symbol",
+        "description": "Returns the pair's volume on each of the last 30 UTC days, priced at that day's closing token prices (today at the latest prices), per token symbol, with the volume of the last 24 hours as /pair/{chainId}/{tokenA}/{tokenB}/volume returns it",
         "operationId": "get_GetPairInfoVolumeChart",
         "parameters": [
           {
@@ -3394,11 +3394,38 @@
                         ]
                       },
                       "description": "One entry per network, sorted by chain_id"
+                    },
+                    "volumeByToken_24h": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "token": {
+                            "type": "string"
+                          },
+                          "volume": {
+                            "type": "string"
+                          },
+                          "fees": {
+                            "type": "string"
+                          },
+                          "ve33_fees": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "token",
+                          "volume",
+                          "fees",
+                          "ve33_fees"
+                        ]
+                      }
                     }
                   },
                   "required": [
                     "dates",
-                    "networks"
+                    "networks",
+                    "volumeByToken_24h"
                   ]
                 }
               }

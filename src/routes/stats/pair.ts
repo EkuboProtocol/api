@@ -404,76 +404,100 @@ export const GetPairInfoVolume = defineRoute(
   },
 );
 
-async function getPairChart(
+async function pairChartRequest(
   env: Env,
   params: z.infer<typeof PairPathParameters>,
   query: { coreAddress?: string; poolId?: string },
-  kind: "tvl" | "volume",
 ) {
   const { chainId } = params;
   const { queries, pair } = await parseOutTokens(env, params, chainId);
+  const poolKeyFilters = parsePoolKeyFilters(query);
   const window = chartWindow(Date.now());
-  const request = { chainId, pair, ...parsePoolKeyFilters(query), ...window };
-  const rows =
-    kind === "tvl"
-      ? await queries.getTvlChartRows(request)
-      : await queries.getVolumeChartRows(request);
-  return toUsdChart(rows, window.dates);
+  return {
+    queries,
+    pair,
+    poolKeyFilters,
+    request: { chainId, pair, ...poolKeyFilters, ...window },
+  };
 }
 
-const pairChartRoute = (kind: "tvl" | "volume") =>
+const PAIR_CHART_PRICING =
+  "priced at that day's closing token prices (today at the latest prices), per token symbol";
+
+export const GetPairInfoTvlChart = defineRoute(
   createRoute({
     method: "get",
-    path: `/pair/{chainId}/{tokenA}/{tokenB}/${kind}/chart`,
+    path: "/pair/{chainId}/{tokenA}/{tokenB}/tvl/chart",
     tags: ["Stats"],
-    summary: kind === "tvl" ? "Get pair TVL chart" : "Get pair volume chart",
-    description:
-      kind === "tvl"
-        ? "Returns the pair's TVL at the close of each of the last 30 UTC days, priced at that day's closing token prices (today at the latest prices), per token symbol"
-        : "Returns the pair's volume on each of the last 30 UTC days, priced at that day's closing token prices (today at the latest prices), per token symbol",
-    operationId:
-      kind === "tvl" ? "get_GetPairInfoTvlChart" : "get_GetPairInfoVolumeChart",
+    summary: "Get pair TVL chart",
+    description: `Returns the pair's TVL at the close of each of the last 30 UTC days, ${PAIR_CHART_PRICING}`,
+    operationId: "get_GetPairInfoTvlChart",
     request: {
       params: PairPathParameters,
       query: z.object(PoolFilterQueryParameters),
     },
     responses: {
-      200: jsonResponse(
-        kind === "tvl" ? "The pair TVL chart" : "The pair volume chart",
-        UsdChartType,
-      ),
+      200: jsonResponse("The pair TVL chart", UsdChartType),
       ...errorResponses,
     },
-  });
-
-export const GetPairInfoTvlChart = defineRoute(
-  pairChartRoute("tvl"),
-  async (c) =>
-    c.json(
-      await getPairChart(
-        c.env,
-        c.req.valid("param"),
-        c.req.valid("query"),
-        "tvl",
-      ),
-      200,
-      { "cache-control": "public, max-age=600" },
-    ),
+  }),
+  async (c) => {
+    const { queries, request } = await pairChartRequest(
+      c.env,
+      c.req.valid("param"),
+      c.req.valid("query"),
+    );
+    const rows = await queries.getTvlChartRows(request);
+    return c.json(toUsdChart(rows, request.dates), 200, {
+      "cache-control": "public, max-age=600",
+    });
+  },
 );
 
+const PairVolumeChartResponseType = UsdChartType.extend({
+  volumeByToken_24h: z.array(VolumeEntryType),
+});
+
 export const GetPairInfoVolumeChart = defineRoute(
-  pairChartRoute("volume"),
-  async (c) =>
-    c.json(
-      await getPairChart(
-        c.env,
-        c.req.valid("param"),
-        c.req.valid("query"),
-        "volume",
+  createRoute({
+    method: "get",
+    path: "/pair/{chainId}/{tokenA}/{tokenB}/volume/chart",
+    tags: ["Stats"],
+    summary: "Get pair volume chart",
+    description: `Returns the pair's volume on each of the last 30 UTC days, ${PAIR_CHART_PRICING}, with the volume of the last 24 hours as /pair/{chainId}/{tokenA}/{tokenB}/volume returns it`,
+    operationId: "get_GetPairInfoVolumeChart",
+    request: {
+      params: PairPathParameters,
+      query: z.object(PoolFilterQueryParameters),
+    },
+    responses: {
+      200: jsonResponse("The pair volume chart", PairVolumeChartResponseType),
+      ...errorResponses,
+    },
+  }),
+  async (c) => {
+    const { queries, pair, poolKeyFilters, request } = await pairChartRequest(
+      c.env,
+      c.req.valid("param"),
+      c.req.valid("query"),
+    );
+    const [rows, rawVolumeByToken_24h] = await Promise.all([
+      queries.getVolumeChartRows(request),
+      queries.getTotalVolume({
+        chainId: request.chainId,
+        since: new Date(Date.now() - 1000 * 60 * 60 * 24),
+        pair,
+        poolKeyFilters,
+      }),
+    ]);
+    const response = {
+      ...toUsdChart(rows, request.dates),
+      volumeByToken_24h: rawVolumeByToken_24h.map((row) =>
+        normalizePairVolumeRow(row as PairVolumeRow),
       ),
-      200,
-      { "cache-control": "public, max-age=600" },
-    ),
+    } satisfies z.infer<typeof PairVolumeChartResponseType>;
+    return c.json(response, 200, { "cache-control": "public, max-age=600" });
+  },
 );
 
 const MinTvlQueryParameter = z.coerce.number().min(0).default(1_000);
