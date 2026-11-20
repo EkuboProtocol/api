@@ -4,6 +4,11 @@ import {
   queryPositionHistoryPage,
   type HistoryPageRequest,
 } from "./routes/nft/queryPositionHistoryPage";
+import {
+  queryTvlChartRows,
+  queryVolumeChartRows,
+  type ChartSeriesRequest,
+} from "./routes/stats/chartSeriesQueries";
 
 type PositionHistoryRow = Awaited<
   ReturnType<Queries["getPositionHistory"]>
@@ -1811,6 +1816,14 @@ ORDER BY event_id DESC
       FROM all_balances
       GROUP BY token, chain_id
     `;
+  }
+
+  public getTvlChartRows(request: ChartSeriesRequest) {
+    return queryTvlChartRows(this.sql, request);
+  }
+
+  public getVolumeChartRows(request: ChartSeriesRequest) {
+    return queryVolumeChartRows(this.sql, request);
   }
 
   public getTvlDeltaByTokenByDate(

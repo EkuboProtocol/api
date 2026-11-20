@@ -13,6 +13,13 @@ import { errorResponses } from "../../shared/errors";
 import { createQueries } from "../../queries";
 import { parseOutTokens } from "../../shared/parseOutTokens";
 import toHex from "../../shared/toHex";
+import { Env } from "../../env";
+import {
+  chartWindow,
+  MAX_CHART_GROUPS,
+  toUsdChartSeries,
+  UsdChartSeriesType,
+} from "./chartSeries";
 
 const TimestampType = z.union([z.date(), z.string()]);
 
@@ -400,6 +407,85 @@ export const GetPairInfoVolume = defineRoute(
       "cache-control": "public, max-age=600",
     });
   },
+);
+
+async function getPairChart(
+  env: Env,
+  params: z.infer<typeof PairPathParameters>,
+  query: { coreAddress?: string; poolId?: string },
+  kind: "tvl" | "volume",
+) {
+  const { chainId } = params;
+  const { queries, pair } = await parseOutTokens(env, params, chainId);
+  const window = chartWindow(Date.now());
+  const request = {
+    chainId,
+    pair,
+    ...parsePoolKeyFilters(query),
+    groupBy: "token",
+    maxGroups: MAX_CHART_GROUPS.token,
+    ...window,
+  } as const;
+  const rows =
+    kind === "tvl"
+      ? await queries.getTvlChartRows(request)
+      : await queries.getVolumeChartRows(request);
+  return toUsdChartSeries(rows, window.dates, "token");
+}
+
+const pairChartRoute = (kind: "tvl" | "volume") =>
+  createRoute({
+    method: "get",
+    path: `/pair/{chainId}/{tokenA}/{tokenB}/${kind}/chart`,
+    tags: ["Stats"],
+    summary: kind === "tvl" ? "Get pair TVL chart" : "Get pair volume chart",
+    description:
+      kind === "tvl"
+        ? "Returns the pair's TVL at the close of each of the last 30 UTC days, priced at that day's closing token prices (today at the latest prices), as one series per token symbol"
+        : "Returns the pair's volume on each of the last 30 UTC days, priced at that day's closing token prices (today at the latest prices), as one series per token symbol",
+    operationId:
+      kind === "tvl" ? "get_GetPairInfoTvlChart" : "get_GetPairInfoVolumeChart",
+    request: {
+      params: PairPathParameters,
+      query: z.object(PoolFilterQueryParameters),
+    },
+    responses: {
+      200: jsonResponse(
+        kind === "tvl" ? "The pair TVL chart" : "The pair volume chart",
+        UsdChartSeriesType,
+      ),
+      ...errorResponses,
+    },
+  });
+
+export const GetPairInfoTvlChart = defineRoute(
+  pairChartRoute("tvl"),
+  async (c) =>
+    c.json(
+      await getPairChart(
+        c.env,
+        c.req.valid("param"),
+        c.req.valid("query"),
+        "tvl",
+      ),
+      200,
+      { "cache-control": "public, max-age=600" },
+    ),
+);
+
+export const GetPairInfoVolumeChart = defineRoute(
+  pairChartRoute("volume"),
+  async (c) =>
+    c.json(
+      await getPairChart(
+        c.env,
+        c.req.valid("param"),
+        c.req.valid("query"),
+        "volume",
+      ),
+      200,
+      { "cache-control": "public, max-age=600" },
+    ),
 );
 
 const MinTvlQueryParameter = z.coerce.number().min(0).default(1_000);

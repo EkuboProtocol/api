@@ -24,14 +24,14 @@ describe("Hono app integration", () => {
       ),
     );
 
-    expect(Object.keys(schema.paths ?? {})).toHaveLength(61);
-    expect(operations).toHaveLength(61);
+    expect(Object.keys(schema.paths ?? {})).toHaveLength(65);
+    expect(operations).toHaveLength(65);
     expect(
       operations.reduce(
         (count, operation) => count + (operation.parameters?.length ?? 0),
         0,
       ),
-    ).toBe(207);
+    ).toBe(221);
 
     const getToken = operations.find(
       (operation) =>
