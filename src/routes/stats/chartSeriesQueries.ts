@@ -1,7 +1,5 @@
 import type { Sql } from "postgres";
 
-export type ChartGroupBy = "chain" | "token";
-
 export type ChartSeriesFilters = {
   chainId: bigint | null;
   /** Restricts to one pair, and includes its tokens whatever their visibility. */
@@ -11,19 +9,22 @@ export type ChartSeriesFilters = {
 };
 
 export type ChartSeriesRequest = ChartSeriesFilters & {
-  groupBy: ChartGroupBy;
-  /** Groups shown on their own; the rest are summed into one null group. */
-  maxGroups: number;
+  /** Token symbols shown on their own per network; the rest are summed. */
+  maxSymbols: number;
   /** First and last UTC day of the chart, as YYYY-MM-DD. */
   firstDate: string;
   lastDate: string;
-  /** Groups are ranked by their value on the days from this one, YYYY-MM-DD. */
+  /** Symbols are ranked by their value on the days from this one, YYYY-MM-DD. */
   rankFromDate: string;
 };
 
-/** One chart value: a ranked group, or every other group (group_key null). */
+/**
+ * One chart value of a network: a ranked token symbol, or every other symbol
+ * of the network (symbol null).
+ */
 export type ChartSeriesRow = {
-  group_key: string | null;
+  chain_id: bigint;
+  symbol: string | null;
   rank: string | number;
   date: string;
   usd: number;
@@ -94,15 +95,14 @@ function dayClosePrice(sql: Db, recentFrom: Date) {
 }
 
 // Prices each token-day (today and small tokens at the current price), sums
-// the values per group and day, ranks the groups by their value from
-// rankFromDate and folds every group past maxGroups into one null group.
+// the values per network, symbol and day, ranks each network's symbols by
+// their value from rankFromDate and folds every symbol past maxSymbols into
+// one null symbol per network.
 function priceGroupAndRank(
   sql: Db,
   request: ChartSeriesRequest,
   recentFrom: Date,
 ) {
-  const groupKey =
-    request.groupBy === "chain" ? sql`chain_id::text` : sql`token_symbol::text`;
   return sql`
     priced AS (
       SELECT td.*,
@@ -114,31 +114,35 @@ function priceGroupAndRank(
       FROM token_days td
     ),
     grouped AS (
-      SELECT ${groupKey} AS group_key,
+      SELECT chain_id,
+             token_symbol::text      AS symbol,
              date,
              SUM(amount * usd_price) AS usd,
              SUM(amount)             AS amount
       FROM priced
-      GROUP BY 1, 2
+      GROUP BY 1, 2, 3
     ),
     ranked AS (
-      SELECT group_key,
+      SELECT chain_id,
+             symbol,
              ROW_NUMBER() OVER (
+               PARTITION BY chain_id
                ORDER BY COALESCE(SUM(usd) FILTER (WHERE date >= ${request.rankFromDate}), 0) DESC,
-                        group_key
+                        symbol
              ) AS rank
       FROM grouped
-      GROUP BY group_key
+      GROUP BY chain_id, symbol
     )
-    SELECT CASE WHEN r.rank <= ${request.maxGroups} THEN g.group_key END AS group_key,
-           MIN(r.rank)                                                   AS rank,
+    SELECT g.chain_id,
+           CASE WHEN r.rank <= ${request.maxSymbols} THEN g.symbol END AS symbol,
+           MIN(r.rank)                                                AS rank,
            g.date,
-           SUM(g.usd)::float8                                            AS usd,
-           CASE WHEN MIN(r.rank) <= ${request.maxGroups} THEN SUM(g.amount)::float8 END AS amount
+           SUM(g.usd)::float8                                         AS usd,
+           CASE WHEN MIN(r.rank) <= ${request.maxSymbols} THEN SUM(g.amount)::float8 END AS amount
     FROM grouped g
-             JOIN ranked r USING (group_key)
-    GROUP BY 1, 3
-    ORDER BY 2, 3
+             JOIN ranked r USING (chain_id, symbol)
+    GROUP BY 1, 2, 4
+    ORDER BY 1, 3, 4
   `;
 }
 

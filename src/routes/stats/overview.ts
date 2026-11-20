@@ -12,14 +12,7 @@ import {
   sumUsdByChain,
   utcDateString,
 } from "./usdTotals";
-import {
-  ChartGroupByType,
-  chartWindow,
-  MAX_CHART_GROUPS,
-  toUsdChartSeries,
-  UsdChartSeriesType,
-} from "./chartSeries";
-import type { ChartSeriesRequest } from "./chartSeriesQueries";
+import { chartWindow, toUsdChart, UsdChartType } from "./chartSeries";
 
 const TimestampType = z.union([z.date(), z.string()]);
 const TokenIdentifierSchema = z.union([z.string(), z.number()]);
@@ -572,26 +565,7 @@ export const GetOverviewTvl = defineRoute(
   },
 );
 
-const ChartQuery = z.object({
-  chainId: ChainIdType.optional(),
-  groupBy: ChartGroupByType.optional(),
-});
-
-const chartRequest = (
-  query: z.infer<typeof ChartQuery>,
-  now: number,
-): ChartSeriesRequest & { dates: string[] } => {
-  const chainId = query.chainId ?? null;
-  const groupBy = query.groupBy ?? (chainId === null ? "chain" : "token");
-  return {
-    chainId,
-    groupBy,
-    maxGroups: MAX_CHART_GROUPS[groupBy],
-    ...chartWindow(now),
-  };
-};
-
-const OverviewTvlChartResponseType = UsdChartSeriesType.extend({
+const OverviewTvlChartResponseType = UsdChartType.extend({
   totals: OverviewTvlResponseType.shape.totals,
   totalsByChain: OverviewTvlResponseType.shape.totalsByChain,
 });
@@ -603,10 +577,10 @@ export const GetOverviewTvlChart = defineRoute(
     tags: ["Stats"],
     summary: "Get TVL chart",
     description:
-      "Returns TVL at the close of each of the last 30 UTC days, priced at that day's closing token prices (today at the latest prices), as one series per network or token symbol, with the totals of /overview/tvl",
+      "Returns TVL at the close of each of the last 30 UTC days, priced at that day's closing token prices (today at the latest prices), with each network's total and its largest token symbols, with the totals of /overview/tvl",
     operationId: "get_GetOverviewTvlChart",
     request: {
-      query: ChartQuery,
+      query: ChainIdQuery,
     },
     responses: {
       200: jsonResponse("The TVL chart", OverviewTvlChartResponseType),
@@ -615,8 +589,8 @@ export const GetOverviewTvlChart = defineRoute(
   }),
   async (c) => {
     const timestamp = Date.now();
-    const request = chartRequest(c.req.valid("query"), timestamp);
-    const { chainId } = request;
+    const chainId = c.req.valid("query").chainId ?? null;
+    const request = { chainId, ...chartWindow(timestamp) };
     const tvlDeltaDate = utcDateString(
       new Date(timestamp - 1000 * 60 * 60 * 24),
     );
@@ -640,7 +614,7 @@ export const GetOverviewTvlChart = defineRoute(
     );
 
     const response = {
-      ...toUsdChartSeries(rows, request.dates, request.groupBy),
+      ...toUsdChart(rows, request.dates),
       totals: {
         ...sumFields(TVL_TOTAL_FIELDS, totalsByChain),
         tvlDeltaDate,
@@ -654,7 +628,7 @@ export const GetOverviewTvlChart = defineRoute(
   },
 );
 
-const OverviewVolumeChartResponseType = UsdChartSeriesType.extend({
+const OverviewVolumeChartResponseType = UsdChartType.extend({
   totals: OverviewVolumeResponseType.shape.totals,
   totalsByChain: OverviewVolumeResponseType.shape.totalsByChain,
 });
@@ -666,10 +640,10 @@ export const GetOverviewVolumeChart = defineRoute(
     tags: ["Stats"],
     summary: "Get volume chart",
     description:
-      "Returns the volume of each of the last 30 UTC days, priced at that day's closing token prices (today at the latest prices), as one series per network or token symbol, with the totals of /overview/volume",
+      "Returns the volume of each of the last 30 UTC days, priced at that day's closing token prices (today at the latest prices), with each network's total and its largest token symbols, with the totals of /overview/volume",
     operationId: "get_GetOverviewVolumeChart",
     request: {
-      query: ChartQuery,
+      query: ChainIdQuery,
     },
     responses: {
       200: jsonResponse("The volume chart", OverviewVolumeChartResponseType),
@@ -678,8 +652,8 @@ export const GetOverviewVolumeChart = defineRoute(
   }),
   async (c) => {
     const timestamp = Date.now();
-    const request = chartRequest(c.req.valid("query"), timestamp);
-    const { chainId } = request;
+    const chainId = c.req.valid("query").chainId ?? null;
+    const request = { chainId, ...chartWindow(timestamp) };
     const queries = await createQueries(c.env);
 
     const [rows, rawVolumeByToken_24h, pricedTokens] = await Promise.all([
@@ -698,7 +672,7 @@ export const GetOverviewVolumeChart = defineRoute(
     );
 
     const response = {
-      ...toUsdChartSeries(rows, request.dates, request.groupBy),
+      ...toUsdChart(rows, request.dates),
       totals: sumFields(VOLUME_TOTAL_FIELDS, totalsByChain),
       totalsByChain,
     } satisfies z.infer<typeof OverviewVolumeChartResponseType>;

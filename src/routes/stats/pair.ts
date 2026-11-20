@@ -14,12 +14,7 @@ import { createQueries } from "../../queries";
 import { parseOutTokens } from "../../shared/parseOutTokens";
 import toHex from "../../shared/toHex";
 import { Env } from "../../env";
-import {
-  chartWindow,
-  MAX_CHART_GROUPS,
-  toUsdChartSeries,
-  UsdChartSeriesType,
-} from "./chartSeries";
+import { chartWindow, toUsdChart, UsdChartType } from "./chartSeries";
 
 const TimestampType = z.union([z.date(), z.string()]);
 
@@ -418,19 +413,12 @@ async function getPairChart(
   const { chainId } = params;
   const { queries, pair } = await parseOutTokens(env, params, chainId);
   const window = chartWindow(Date.now());
-  const request = {
-    chainId,
-    pair,
-    ...parsePoolKeyFilters(query),
-    groupBy: "token",
-    maxGroups: MAX_CHART_GROUPS.token,
-    ...window,
-  } as const;
+  const request = { chainId, pair, ...parsePoolKeyFilters(query), ...window };
   const rows =
     kind === "tvl"
       ? await queries.getTvlChartRows(request)
       : await queries.getVolumeChartRows(request);
-  return toUsdChartSeries(rows, window.dates, "token");
+  return toUsdChart(rows, window.dates);
 }
 
 const pairChartRoute = (kind: "tvl" | "volume") =>
@@ -441,8 +429,8 @@ const pairChartRoute = (kind: "tvl" | "volume") =>
     summary: kind === "tvl" ? "Get pair TVL chart" : "Get pair volume chart",
     description:
       kind === "tvl"
-        ? "Returns the pair's TVL at the close of each of the last 30 UTC days, priced at that day's closing token prices (today at the latest prices), as one series per token symbol"
-        : "Returns the pair's volume on each of the last 30 UTC days, priced at that day's closing token prices (today at the latest prices), as one series per token symbol",
+        ? "Returns the pair's TVL at the close of each of the last 30 UTC days, priced at that day's closing token prices (today at the latest prices), per token symbol"
+        : "Returns the pair's volume on each of the last 30 UTC days, priced at that day's closing token prices (today at the latest prices), per token symbol",
     operationId:
       kind === "tvl" ? "get_GetPairInfoTvlChart" : "get_GetPairInfoVolumeChart",
     request: {
@@ -452,7 +440,7 @@ const pairChartRoute = (kind: "tvl" | "volume") =>
     responses: {
       200: jsonResponse(
         kind === "tvl" ? "The pair TVL chart" : "The pair volume chart",
-        UsdChartSeriesType,
+        UsdChartType,
       ),
       ...errorResponses,
     },

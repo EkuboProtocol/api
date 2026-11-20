@@ -18,14 +18,31 @@ const asDeclaredString = (date: Date) => date as unknown as string;
 const CHART_DATES = chartDates(Date.now());
 const TODAY = CHART_DATES[CHART_DATES.length - 1];
 
-const chainChartRows: QueryResult<"getTvlChartRows"> = [
-  { group_key: "1", rank: "1", date: TODAY, usd: 5000.25, amount: null },
-  { group_key: null, rank: "9", date: TODAY, usd: 12.5, amount: null },
-];
-
-const tokenChartRows: QueryResult<"getTvlChartRows"> = [
-  { group_key: "WETH", rank: "1", date: TODAY, usd: 2500.5, amount: 1 },
-  { group_key: "USDC", rank: "2", date: TODAY, usd: 5000.5, amount: 5000 },
+const chartRows: QueryResult<"getTvlChartRows"> = [
+  {
+    chain_id: 1n,
+    symbol: "WETH",
+    rank: "1",
+    date: TODAY,
+    usd: 2500.5,
+    amount: 1,
+  },
+  {
+    chain_id: 1n,
+    symbol: "USDC",
+    rank: "2",
+    date: TODAY,
+    usd: 5000.5,
+    amount: 5000,
+  },
+  {
+    chain_id: 1n,
+    symbol: null,
+    rank: "6",
+    date: TODAY,
+    usd: 12.5,
+    amount: null,
+  },
 ];
 
 const pricedTokens: QueryResult<"listPricedErc20Tokens"> = [
@@ -310,7 +327,7 @@ export const statsCases: ContractCase[] = [
     operation: "/overview/tvl/chart",
     request: "/overview/tvl/chart",
     stub: () => {
-      stubQuery("getTvlChartRows", chainChartRows);
+      stubQuery("getTvlChartRows", chartRows);
       stubQuery("getTvlByToken", [
         { chain_id: 1n, token: USDC_DECIMAL, balance: "5000000000" },
       ]);
@@ -329,7 +346,7 @@ export const statsCases: ContractCase[] = [
     operation: "/overview/volume/chart",
     request: "/overview/volume/chart?chainId=1",
     stub: () => {
-      stubQuery("getVolumeChartRows", tokenChartRows);
+      stubQuery("getVolumeChartRows", chartRows);
       stubQuery("getTotalVolume", [
         {
           chain_id: 1n,
@@ -347,7 +364,7 @@ export const statsCases: ContractCase[] = [
     request: `/pair/1/${WETH}/${USDC}/tvl/chart?coreAddress=${CORE}&poolId=1`,
     stub: () => {
       stubTokens(pairTokens);
-      stubQuery("getTvlChartRows", tokenChartRows);
+      stubQuery("getTvlChartRows", chartRows);
     },
   },
   {
@@ -355,7 +372,7 @@ export const statsCases: ContractCase[] = [
     request: `/pair/1/${USDC}/${WETH}/volume/chart`,
     stub: () => {
       stubTokens(pairTokens);
-      stubQuery("getVolumeChartRows", tokenChartRows);
+      stubQuery("getVolumeChartRows", chartRows);
     },
   },
   {

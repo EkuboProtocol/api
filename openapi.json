@@ -1998,7 +1998,7 @@
           "Stats"
         ],
         "summary": "Get TVL chart",
-        "description": "Returns TVL at the close of each of the last 30 UTC days, priced at that day's closing token prices (today at the latest prices), as one series per network or token symbol, with the totals of /overview/tvl",
+        "description": "Returns TVL at the close of each of the last 30 UTC days, priced at that day's closing token prices (today at the latest prices), with each network's total and its largest token symbols, with the totals of /overview/tvl",
         "operationId": "get_GetOverviewTvlChart",
         "parameters": [
           {
@@ -2013,20 +2013,6 @@
             "required": false,
             "description": "The ID of the network that is being fetched",
             "name": "chainId",
-            "in": "query"
-          },
-          {
-            "schema": {
-              "type": "string",
-              "enum": [
-                "chain",
-                "token"
-              ],
-              "description": "What a series is: a network, or a token symbol. Defaults to network without a chainId and to token with one."
-            },
-            "required": false,
-            "description": "What a series is: a network, or a token symbol. Defaults to network without a chainId and to token with one.",
-            "name": "groupBy",
             "in": "query"
           }
         ],
@@ -2045,31 +2031,55 @@
                       },
                       "description": "UTC dates of the chart, oldest first, as YYYY-MM-DD"
                     },
-                    "groupBy": {
-                      "type": "string",
-                      "enum": [
-                        "chain",
-                        "token"
-                      ],
-                      "description": "What a series is: a network, or a token symbol. Defaults to network without a chainId and to token with one."
-                    },
-                    "series": {
+                    "networks": {
                       "type": "array",
                       "items": {
                         "type": "object",
                         "properties": {
-                          "key": {
+                          "chain_id": {
                             "type": "string",
-                            "description": "The network's chain ID in hex when grouped by network, the token symbol when grouped by token"
+                            "pattern": "^0x[a-fA-F0-9]+$",
+                            "description": "A hexadecimal number"
                           },
                           "usd": {
                             "type": "array",
                             "items": {
                               "type": "number"
                             },
-                            "description": "USD value on each date, at that date's closing prices"
+                            "description": "USD value of the network on each date, at that date's closing prices"
                           },
-                          "amount": {
+                          "tokens": {
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "properties": {
+                                "symbol": {
+                                  "type": "string"
+                                },
+                                "usd": {
+                                  "type": "array",
+                                  "items": {
+                                    "type": "number"
+                                  },
+                                  "description": "USD value on each date, at that date's closing prices"
+                                },
+                                "amount": {
+                                  "type": "array",
+                                  "items": {
+                                    "type": "number"
+                                  },
+                                  "description": "Token amount on each date, in whole tokens"
+                                }
+                              },
+                              "required": [
+                                "symbol",
+                                "usd",
+                                "amount"
+                              ]
+                            },
+                            "description": "The network's five largest token symbols by their value over the last two dates, largest first"
+                          },
+                          "other": {
                             "type": [
                               "array",
                               "null"
@@ -2077,26 +2087,17 @@
                             "items": {
                               "type": "number"
                             },
-                            "description": "Token amount on each date, in whole tokens; null when grouped by network"
+                            "description": "USD value of the network's other symbols on each date; null when there are none"
                           }
                         },
                         "required": [
-                          "key",
+                          "chain_id",
                           "usd",
-                          "amount"
+                          "tokens",
+                          "other"
                         ]
                       },
-                      "description": "The largest groups by their value over the last two dates, largest first"
-                    },
-                    "other": {
-                      "type": [
-                        "array",
-                        "null"
-                      ],
-                      "items": {
-                        "type": "number"
-                      },
-                      "description": "USD value of every group not in series on each date; null when there are none"
+                      "description": "One entry per network, sorted by chain_id"
                     },
                     "totals": {
                       "type": "object",
@@ -2150,9 +2151,7 @@
                   },
                   "required": [
                     "dates",
-                    "groupBy",
-                    "series",
-                    "other",
+                    "networks",
                     "totals",
                     "totalsByChain"
                   ]
@@ -2365,7 +2364,7 @@
           "Stats"
         ],
         "summary": "Get volume chart",
-        "description": "Returns the volume of each of the last 30 UTC days, priced at that day's closing token prices (today at the latest prices), as one series per network or token symbol, with the totals of /overview/volume",
+        "description": "Returns the volume of each of the last 30 UTC days, priced at that day's closing token prices (today at the latest prices), with each network's total and its largest token symbols, with the totals of /overview/volume",
         "operationId": "get_GetOverviewVolumeChart",
         "parameters": [
           {
@@ -2380,20 +2379,6 @@
             "required": false,
             "description": "The ID of the network that is being fetched",
             "name": "chainId",
-            "in": "query"
-          },
-          {
-            "schema": {
-              "type": "string",
-              "enum": [
-                "chain",
-                "token"
-              ],
-              "description": "What a series is: a network, or a token symbol. Defaults to network without a chainId and to token with one."
-            },
-            "required": false,
-            "description": "What a series is: a network, or a token symbol. Defaults to network without a chainId and to token with one.",
-            "name": "groupBy",
             "in": "query"
           }
         ],
@@ -2412,31 +2397,55 @@
                       },
                       "description": "UTC dates of the chart, oldest first, as YYYY-MM-DD"
                     },
-                    "groupBy": {
-                      "type": "string",
-                      "enum": [
-                        "chain",
-                        "token"
-                      ],
-                      "description": "What a series is: a network, or a token symbol. Defaults to network without a chainId and to token with one."
-                    },
-                    "series": {
+                    "networks": {
                       "type": "array",
                       "items": {
                         "type": "object",
                         "properties": {
-                          "key": {
+                          "chain_id": {
                             "type": "string",
-                            "description": "The network's chain ID in hex when grouped by network, the token symbol when grouped by token"
+                            "pattern": "^0x[a-fA-F0-9]+$",
+                            "description": "A hexadecimal number"
                           },
                           "usd": {
                             "type": "array",
                             "items": {
                               "type": "number"
                             },
-                            "description": "USD value on each date, at that date's closing prices"
+                            "description": "USD value of the network on each date, at that date's closing prices"
                           },
-                          "amount": {
+                          "tokens": {
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "properties": {
+                                "symbol": {
+                                  "type": "string"
+                                },
+                                "usd": {
+                                  "type": "array",
+                                  "items": {
+                                    "type": "number"
+                                  },
+                                  "description": "USD value on each date, at that date's closing prices"
+                                },
+                                "amount": {
+                                  "type": "array",
+                                  "items": {
+                                    "type": "number"
+                                  },
+                                  "description": "Token amount on each date, in whole tokens"
+                                }
+                              },
+                              "required": [
+                                "symbol",
+                                "usd",
+                                "amount"
+                              ]
+                            },
+                            "description": "The network's five largest token symbols by their value over the last two dates, largest first"
+                          },
+                          "other": {
                             "type": [
                               "array",
                               "null"
@@ -2444,26 +2453,17 @@
                             "items": {
                               "type": "number"
                             },
-                            "description": "Token amount on each date, in whole tokens; null when grouped by network"
+                            "description": "USD value of the network's other symbols on each date; null when there are none"
                           }
                         },
                         "required": [
-                          "key",
+                          "chain_id",
                           "usd",
-                          "amount"
+                          "tokens",
+                          "other"
                         ]
                       },
-                      "description": "The largest groups by their value over the last two dates, largest first"
-                    },
-                    "other": {
-                      "type": [
-                        "array",
-                        "null"
-                      ],
-                      "items": {
-                        "type": "number"
-                      },
-                      "description": "USD value of every group not in series on each date; null when there are none"
+                      "description": "One entry per network, sorted by chain_id"
                     },
                     "totals": {
                       "type": "object",
@@ -2502,9 +2502,7 @@
                   },
                   "required": [
                     "dates",
-                    "groupBy",
-                    "series",
-                    "other",
+                    "networks",
                     "totals",
                     "totalsByChain"
                   ]
@@ -2749,7 +2747,7 @@
           "Stats"
         ],
         "summary": "Get pair TVL chart",
-        "description": "Returns the pair's TVL at the close of each of the last 30 UTC days, priced at that day's closing token prices (today at the latest prices), as one series per token symbol",
+        "description": "Returns the pair's TVL at the close of each of the last 30 UTC days, priced at that day's closing token prices (today at the latest prices), per token symbol",
         "operationId": "get_GetPairInfoTvlChart",
         "parameters": [
           {
@@ -2870,31 +2868,55 @@
                       },
                       "description": "UTC dates of the chart, oldest first, as YYYY-MM-DD"
                     },
-                    "groupBy": {
-                      "type": "string",
-                      "enum": [
-                        "chain",
-                        "token"
-                      ],
-                      "description": "What a series is: a network, or a token symbol. Defaults to network without a chainId and to token with one."
-                    },
-                    "series": {
+                    "networks": {
                       "type": "array",
                       "items": {
                         "type": "object",
                         "properties": {
-                          "key": {
+                          "chain_id": {
                             "type": "string",
-                            "description": "The network's chain ID in hex when grouped by network, the token symbol when grouped by token"
+                            "pattern": "^0x[a-fA-F0-9]+$",
+                            "description": "A hexadecimal number"
                           },
                           "usd": {
                             "type": "array",
                             "items": {
                               "type": "number"
                             },
-                            "description": "USD value on each date, at that date's closing prices"
+                            "description": "USD value of the network on each date, at that date's closing prices"
                           },
-                          "amount": {
+                          "tokens": {
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "properties": {
+                                "symbol": {
+                                  "type": "string"
+                                },
+                                "usd": {
+                                  "type": "array",
+                                  "items": {
+                                    "type": "number"
+                                  },
+                                  "description": "USD value on each date, at that date's closing prices"
+                                },
+                                "amount": {
+                                  "type": "array",
+                                  "items": {
+                                    "type": "number"
+                                  },
+                                  "description": "Token amount on each date, in whole tokens"
+                                }
+                              },
+                              "required": [
+                                "symbol",
+                                "usd",
+                                "amount"
+                              ]
+                            },
+                            "description": "The network's five largest token symbols by their value over the last two dates, largest first"
+                          },
+                          "other": {
                             "type": [
                               "array",
                               "null"
@@ -2902,33 +2924,22 @@
                             "items": {
                               "type": "number"
                             },
-                            "description": "Token amount on each date, in whole tokens; null when grouped by network"
+                            "description": "USD value of the network's other symbols on each date; null when there are none"
                           }
                         },
                         "required": [
-                          "key",
+                          "chain_id",
                           "usd",
-                          "amount"
+                          "tokens",
+                          "other"
                         ]
                       },
-                      "description": "The largest groups by their value over the last two dates, largest first"
-                    },
-                    "other": {
-                      "type": [
-                        "array",
-                        "null"
-                      ],
-                      "items": {
-                        "type": "number"
-                      },
-                      "description": "USD value of every group not in series on each date; null when there are none"
+                      "description": "One entry per network, sorted by chain_id"
                     }
                   },
                   "required": [
                     "dates",
-                    "groupBy",
-                    "series",
-                    "other"
+                    "networks"
                   ]
                 }
               }
@@ -3195,7 +3206,7 @@
           "Stats"
         ],
         "summary": "Get pair volume chart",
-        "description": "Returns the pair's volume on each of the last 30 UTC days, priced at that day's closing token prices (today at the latest prices), as one series per token symbol",
+        "description": "Returns the pair's volume on each of the last 30 UTC days, priced at that day's closing token prices (today at the latest prices), per token symbol",
         "operationId": "get_GetPairInfoVolumeChart",
         "parameters": [
           {
@@ -3316,31 +3327,55 @@
                       },
                       "description": "UTC dates of the chart, oldest first, as YYYY-MM-DD"
                     },
-                    "groupBy": {
-                      "type": "string",
-                      "enum": [
-                        "chain",
-                        "token"
-                      ],
-                      "description": "What a series is: a network, or a token symbol. Defaults to network without a chainId and to token with one."
-                    },
-                    "series": {
+                    "networks": {
                       "type": "array",
                       "items": {
                         "type": "object",
                         "properties": {
-                          "key": {
+                          "chain_id": {
                             "type": "string",
-                            "description": "The network's chain ID in hex when grouped by network, the token symbol when grouped by token"
+                            "pattern": "^0x[a-fA-F0-9]+$",
+                            "description": "A hexadecimal number"
                           },
                           "usd": {
                             "type": "array",
                             "items": {
                               "type": "number"
                             },
-                            "description": "USD value on each date, at that date's closing prices"
+                            "description": "USD value of the network on each date, at that date's closing prices"
                           },
-                          "amount": {
+                          "tokens": {
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "properties": {
+                                "symbol": {
+                                  "type": "string"
+                                },
+                                "usd": {
+                                  "type": "array",
+                                  "items": {
+                                    "type": "number"
+                                  },
+                                  "description": "USD value on each date, at that date's closing prices"
+                                },
+                                "amount": {
+                                  "type": "array",
+                                  "items": {
+                                    "type": "number"
+                                  },
+                                  "description": "Token amount on each date, in whole tokens"
+                                }
+                              },
+                              "required": [
+                                "symbol",
+                                "usd",
+                                "amount"
+                              ]
+                            },
+                            "description": "The network's five largest token symbols by their value over the last two dates, largest first"
+                          },
+                          "other": {
                             "type": [
                               "array",
                               "null"
@@ -3348,33 +3383,22 @@
                             "items": {
                               "type": "number"
                             },
-                            "description": "Token amount on each date, in whole tokens; null when grouped by network"
+                            "description": "USD value of the network's other symbols on each date; null when there are none"
                           }
                         },
                         "required": [
-                          "key",
+                          "chain_id",
                           "usd",
-                          "amount"
+                          "tokens",
+                          "other"
                         ]
                       },
-                      "description": "The largest groups by their value over the last two dates, largest first"
-                    },
-                    "other": {
-                      "type": [
-                        "array",
-                        "null"
-                      ],
-                      "items": {
-                        "type": "number"
-                      },
-                      "description": "USD value of every group not in series on each date; null when there are none"
+                      "description": "One entry per network, sorted by chain_id"
                     }
                   },
                   "required": [
                     "dates",
-                    "groupBy",
-                    "series",
-                    "other"
+                    "networks"
                   ]
                 }
               }
