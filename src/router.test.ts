@@ -1,5 +1,6 @@
 import { describe, expect, spyOn, test } from "bun:test";
 import { Env } from "./env";
+import { tokenRow } from "./contract/fixtures";
 import { Queries } from "./queries";
 import { app, openApiDocument } from "./router";
 
@@ -239,6 +240,32 @@ describe("Hono app integration", () => {
       expect(listErc20Tokens).toHaveBeenCalledWith(
         expect.objectContaining({ search: "éETH" }),
       );
+    } finally {
+      listErc20Tokens.mockRestore();
+    }
+  });
+
+  test("returns each token's UI multiplier as an exact decimal, 1 by default", async () => {
+    const listErc20Tokens = spyOn(
+      Queries.prototype,
+      "listErc20Tokens",
+    ).mockResolvedValue([
+      tokenRow({ ui_multiplier: "8000000000000000000" }),
+      tokenRow({ ui_multiplier: "3001352514631277880" }),
+      tokenRow({ ui_multiplier: null }),
+    ] as unknown as Awaited<ReturnType<Queries["listErc20Tokens"]>>);
+    try {
+      const response = await app.fetch(
+        new Request("http://localhost/tokens?chainId=4663"),
+        { PG_CONNECTION_STRING: "postgres://test:test@127.0.0.1:1/test" },
+      );
+      expect(response.status).toBe(200);
+      const tokens = (await response.json()) as { multiplier: string }[];
+      expect(tokens.map((token) => token.multiplier)).toEqual([
+        "8",
+        "3.00135251463127788",
+        "1",
+      ]);
     } finally {
       listErc20Tokens.mockRestore();
     }

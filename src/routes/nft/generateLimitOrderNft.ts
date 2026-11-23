@@ -38,11 +38,11 @@ export async function generateLimitOrderNft(
     !sellToken || !buyToken
       ? undefined
       : reversed
-        ? `${formattedPrice(-firstOrderMetadata.tick, sellToken.decimals, buyToken.decimals)} ${sellToken.symbol} / ${buyToken.symbol}`
-        : `${formattedPrice(firstOrderMetadata.tick, buyToken.decimals, sellToken.decimals)} ${buyToken.symbol} / ${sellToken.symbol}`;
+        ? `${formattedPrice(-firstOrderMetadata.tick, sellToken, buyToken)} ${sellToken.symbol} / ${buyToken.symbol}`
+        : `${formattedPrice(firstOrderMetadata.tick, buyToken, sellToken)} ${buyToken.symbol} / ${sellToken.symbol}`;
 
   const formattedSellAmount = sellToken
-    ? `${formatAmount(firstOrderMetadata.amount, sellToken.decimals)} ${sellToken.symbol}`
+    ? `${formatAmount(firstOrderMetadata.amount, sellToken)} ${sellToken.symbol}`
     : undefined;
 
   return await generateLimitOrderSvg(id, chainId, {

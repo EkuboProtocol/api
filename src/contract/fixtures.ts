@@ -22,6 +22,7 @@ export const tokenRow = (
   sort_order: 0,
   total_supply: "1000000000000",
   usd_price: "1.0001",
+  ui_multiplier: null,
   bridge_infos: {
     "23448594291968334": { bridge_address: "0x1234" },
     "8453": {

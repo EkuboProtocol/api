@@ -85,30 +85,14 @@ export async function generatePositionNftMetadata(
       ? [
           token0,
           token1,
-          formattedPrice(
-            -Number(positionMetadata.upper_bound),
-            token0.decimals,
-            token1.decimals,
-          ),
-          formattedPrice(
-            -Number(positionMetadata.lower_bound),
-            token0.decimals,
-            token1.decimals,
-          ),
+          formattedPrice(-Number(positionMetadata.upper_bound), token0, token1),
+          formattedPrice(-Number(positionMetadata.lower_bound), token0, token1),
         ]
       : [
           token1,
           token0,
-          formattedPrice(
-            Number(positionMetadata.lower_bound),
-            token1.decimals,
-            token0.decimals,
-          ),
-          formattedPrice(
-            Number(positionMetadata.upper_bound),
-            token1.decimals,
-            token0.decimals,
-          ),
+          formattedPrice(Number(positionMetadata.lower_bound), token1, token0),
+          formattedPrice(Number(positionMetadata.upper_bound), token1, token0),
         ];
 
     return {

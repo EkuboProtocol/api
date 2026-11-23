@@ -172,6 +172,12 @@
                             "maximum": 78,
                             "description": "The number of decimals used for display of token balances"
                           },
+                          "multiplier": {
+                            "type": "string",
+                            "pattern": "^\\d+(\\.\\d+)?$",
+                            "description": "Display scale applied next to decimals, as an exact decimal string: one token (10^decimals raw units) is shown as this many units. Read from the token contract's uiMultiplier(), with a scheduled change applied from its effectiveAt(), such as a stock token's split ratio and compounded dividends. Amounts, prices and supplies elsewhere in the API stay per raw token: multiply an amount by it and divide a price by it to show them. \"1\" for tokens without one.",
+                            "example": "1"
+                          },
                           "address": {
                             "type": "string",
                             "description": "The address of the token for the specified chain"
@@ -190,7 +196,7 @@
                               "null"
                             ],
                             "minimum": 0,
-                            "description": "The total supply of the token"
+                            "description": "The total supply of the token in units of 10^decimals raw units, before the multiplier"
                           },
                           "logo_url": {
                             "type": "string",
@@ -202,7 +208,7 @@
                               "null"
                             ],
                             "minimum": 0,
-                            "description": "The USD price for one unit of the token"
+                            "description": "The USD price for one unit of the token (10^decimals raw units), before the multiplier"
                           },
                           "bridgeInfos": {
                             "type": [
@@ -275,6 +281,7 @@
                           "name",
                           "symbol",
                           "decimals",
+                          "multiplier",
                           "address",
                           "visibility_priority",
                           "sort_order",
@@ -311,6 +318,12 @@
                             "maximum": 78,
                             "description": "The number of decimals used for display of token balances"
                           },
+                          "multiplier": {
+                            "type": "string",
+                            "pattern": "^\\d+(\\.\\d+)?$",
+                            "description": "Display scale applied next to decimals, as an exact decimal string: one token (10^decimals raw units) is shown as this many units. Read from the token contract's uiMultiplier(), with a scheduled change applied from its effectiveAt(), such as a stock token's split ratio and compounded dividends. Amounts, prices and supplies elsewhere in the API stay per raw token: multiply an amount by it and divide a price by it to show them. \"1\" for tokens without one.",
+                            "example": "1"
+                          },
                           "address": {
                             "type": "string",
                             "description": "The address of the token for the specified chain"
@@ -329,7 +342,7 @@
                               "null"
                             ],
                             "minimum": 0,
-                            "description": "The total supply of the token"
+                            "description": "The total supply of the token in units of 10^decimals raw units, before the multiplier"
                           },
                           "logo_url": {
                             "type": "string",
@@ -406,6 +419,7 @@
                           "name",
                           "symbol",
                           "decimals",
+                          "multiplier",
                           "address",
                           "visibility_priority",
                           "sort_order",
@@ -500,6 +514,12 @@
                         "maximum": 78,
                         "description": "The number of decimals used for display of token balances"
                       },
+                      "multiplier": {
+                        "type": "string",
+                        "pattern": "^\\d+(\\.\\d+)?$",
+                        "description": "Display scale applied next to decimals, as an exact decimal string: one token (10^decimals raw units) is shown as this many units. Read from the token contract's uiMultiplier(), with a scheduled change applied from its effectiveAt(), such as a stock token's split ratio and compounded dividends. Amounts, prices and supplies elsewhere in the API stay per raw token: multiply an amount by it and divide a price by it to show them. \"1\" for tokens without one.",
+                        "example": "1"
+                      },
                       "address": {
                         "type": "string",
                         "description": "The address of the token for the specified chain"
@@ -518,7 +538,7 @@
                           "null"
                         ],
                         "minimum": 0,
-                        "description": "The total supply of the token"
+                        "description": "The total supply of the token in units of 10^decimals raw units, before the multiplier"
                       },
                       "logo_url": {
                         "type": "string",
@@ -530,7 +550,7 @@
                           "null"
                         ],
                         "minimum": 0,
-                        "description": "The USD price for one unit of the token"
+                        "description": "The USD price for one unit of the token (10^decimals raw units), before the multiplier"
                       },
                       "bridgeInfos": {
                         "type": [
@@ -603,6 +623,7 @@
                       "name",
                       "symbol",
                       "decimals",
+                      "multiplier",
                       "address",
                       "visibility_priority",
                       "sort_order",
@@ -889,6 +910,12 @@
                       "maximum": 78,
                       "description": "The number of decimals used for display of token balances"
                     },
+                    "multiplier": {
+                      "type": "string",
+                      "pattern": "^\\d+(\\.\\d+)?$",
+                      "description": "Display scale applied next to decimals, as an exact decimal string: one token (10^decimals raw units) is shown as this many units. Read from the token contract's uiMultiplier(), with a scheduled change applied from its effectiveAt(), such as a stock token's split ratio and compounded dividends. Amounts, prices and supplies elsewhere in the API stay per raw token: multiply an amount by it and divide a price by it to show them. \"1\" for tokens without one.",
+                      "example": "1"
+                    },
                     "address": {
                       "type": "string",
                       "description": "The address of the token for the specified chain"
@@ -907,7 +934,7 @@
                         "null"
                       ],
                       "minimum": 0,
-                      "description": "The total supply of the token"
+                      "description": "The total supply of the token in units of 10^decimals raw units, before the multiplier"
                     },
                     "logo_url": {
                       "type": "string",
@@ -919,7 +946,7 @@
                         "null"
                       ],
                       "minimum": 0,
-                      "description": "The USD price for one unit of the token"
+                      "description": "The USD price for one unit of the token (10^decimals raw units), before the multiplier"
                     },
                     "bridgeInfos": {
                       "type": [
@@ -992,6 +1019,7 @@
                     "name",
                     "symbol",
                     "decimals",
+                    "multiplier",
                     "address",
                     "visibility_priority",
                     "sort_order",

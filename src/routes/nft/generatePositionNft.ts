@@ -74,25 +74,25 @@ export async function generatePositionNft(
         ? [
             `${formattedPrice(
               -Number(positionMetadata.upper_bound),
-              token0.decimals,
-              token1.decimals,
+              token0,
+              token1,
             )} ${token0.symbol} / ${token1.symbol}`,
             `${formattedPrice(
               -Number(positionMetadata.lower_bound),
-              token0.decimals,
-              token1.decimals,
+              token0,
+              token1,
             )} ${token0.symbol} / ${token1.symbol}`,
           ]
         : [
             `${formattedPrice(
               Number(positionMetadata.lower_bound),
-              token1.decimals,
-              token0.decimals,
+              token1,
+              token0,
             )} ${token1.symbol} / ${token0.symbol}`,
             `${formattedPrice(
               Number(positionMetadata.upper_bound),
-              token1.decimals,
-              token0.decimals,
+              token1,
+              token0,
             )} ${token1.symbol} / ${token0.symbol}`,
           ];
 
