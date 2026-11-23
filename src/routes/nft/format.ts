@@ -1,4 +1,9 @@
 import { z } from "@hono/zod-openapi";
+import {
+  toDisplayAmount,
+  toDisplayPairPrice,
+  type TokenDisplayScale,
+} from "../../shared/displayScale";
 import { NumericStringType } from "../../shared/validation/address";
 
 export const NFTAttributeSchema = z.object({
@@ -35,12 +40,17 @@ function collapseSubscripts(str: string) {
   });
 }
 
+/**
+ * The price at `tick` (raw `numerator` units per raw `denominator` unit) as
+ * shown, in `numerator` per `denominator`, with both tokens' decimals and UI
+ * multipliers applied.
+ */
 export function formattedPrice(
   tick: number,
-  numeratorDecimals: number,
-  denominatorDecimals: number,
+  numerator: TokenDisplayScale,
+  denominator: TokenDisplayScale,
 ): string {
-  const p = BASE ** tick * 10 ** (denominatorDecimals - numeratorDecimals);
+  const p = toDisplayPairPrice(BASE ** tick, denominator, numerator);
 
   if (p < MIN_PRICE_RENDER) {
     return "0.0";
@@ -97,14 +107,13 @@ export function formatTimeToUTC(date: Date) {
 
 export function formatAmount(
   amount: bigint | string,
-  decimals = 18,
+  token: TokenDisplayScale,
   significantDigits = 6,
   locale = "en-US",
 ) {
-  return (Number(amount.toString()) / Math.pow(10, decimals)).toLocaleString(
-    locale,
-    { maximumSignificantDigits: significantDigits },
-  );
+  return toDisplayAmount(amount, token).toLocaleString(locale, {
+    maximumSignificantDigits: significantDigits,
+  });
 }
 
 export const TokenIdType = NumericStringType;

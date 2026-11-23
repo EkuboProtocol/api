@@ -21,6 +21,14 @@ export const metaCases: ContractCase[] = [
           usd_price: null,
           bridge_infos: null,
         }),
+        tokenRow({
+          token_address: "1056388564648119647376901457999504815167941927936",
+          token_symbol: "SNDK",
+          token_decimals: 18,
+          total_supply: "8000000000000000000000",
+          ui_multiplier: "8000000000000000000",
+          bridge_infos: null,
+        }),
       ]),
   },
   {

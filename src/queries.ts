@@ -185,6 +185,8 @@ export interface RawErc20TokenRow {
   sort_order: number;
   total_supply: string | null;
   usd_price: string | null;
+  /** Effective UI multiplier, 18 decimals; null when the token has none. */
+  ui_multiplier: string | null;
   bridge_infos: Record<string, RawBridgeInfo> | null;
 }
 
@@ -241,9 +243,11 @@ export class Queries {
       SELECT 
         chain_id, token_address, token_symbol, token_name, token_decimals,
         logo_url, visibility_priority, sort_order, total_supply, p.value AS usd_price,
+        m.ui_multiplier::TEXT AS ui_multiplier,
         bridge.bridge_infos AS bridge_infos
       FROM erc20_tokens t
       LEFT JOIN erc20_tokens_latest_price p USING (chain_id, token_address)
+      LEFT JOIN erc20_tokens_effective_ui_multipliers m USING (chain_id, token_address)
       LEFT JOIN LATERAL (
         SELECT jsonb_object_agg(
           dest_chain_id,
@@ -331,9 +335,11 @@ export class Queries {
         sort_order,
         total_supply,
         p.value AS usd_price,
+        m.ui_multiplier::TEXT AS ui_multiplier,
         bridge.bridge_infos AS bridge_infos
       FROM erc20_tokens t
       LEFT JOIN erc20_tokens_latest_price AS p USING (chain_id, token_address)
+      LEFT JOIN erc20_tokens_effective_ui_multipliers m USING (chain_id, token_address)
       LEFT JOIN LATERAL (
         SELECT jsonb_object_agg(
           dest_chain_id,
@@ -502,9 +508,11 @@ export class Queries {
         sort_order,
         total_supply,
         p.value AS usd_price,
+        m.ui_multiplier::TEXT AS ui_multiplier,
         bridge.bridge_infos AS bridge_infos
       FROM erc20_tokens t
       LEFT JOIN erc20_tokens_latest_price AS p USING (chain_id, token_address)
+      LEFT JOIN erc20_tokens_effective_ui_multipliers m USING (chain_id, token_address)
       LEFT JOIN LATERAL (
         SELECT jsonb_object_agg(
           dest_chain_id,

@@ -13,6 +13,7 @@ import {
 } from "../../shared/validation/address";
 import { createQueries, Queries, RawErc20TokenRow } from "../../queries";
 import toHex from "../../shared/toHex";
+import { formatUiMultiplier } from "../../shared/displayScale";
 
 const BridgeInfoType = z.object({
   bridge_address: z
@@ -56,6 +57,13 @@ export const TokenType = z
       .min(0)
       .max(78)
       .int(),
+    multiplier: z
+      .string()
+      .regex(/^\d+(\.\d+)?$/)
+      .describe(
+        "Display scale applied next to decimals, as an exact decimal string: one token (10^decimals raw units) is shown as this many units. Read from the token contract's uiMultiplier(), with a scheduled change applied from its effectiveAt(), such as a stock token's split ratio and compounded dividends. Amounts, prices and supplies elsewhere in the API stay per raw token: multiply an amount by it and divide a price by it to show them. \"1\" for tokens without one.",
+      )
+      .openapi({ example: "1" }),
     address: z
       .string()
       .describe("The address of the token for the specified chain"),
@@ -75,14 +83,20 @@ export const TokenType = z
       z
         .number()
         .openapi({
-          description: "The total supply of the token",
+          description:
+            "The total supply of the token in units of 10^decimals raw units, before the multiplier",
         })
         .int()
         .gte(0),
     ),
     logo_url: z.optional(z.url()),
     usd_price: z.nullable(
-      z.number().describe("The USD price for one unit of the token").gte(0),
+      z
+        .number()
+        .describe(
+          "The USD price for one unit of the token (10^decimals raw units), before the multiplier",
+        )
+        .gte(0),
     ),
     bridgeInfos: z.nullable(
       z.record(z.string().describe("Destination chain ID"), BridgeInfoType),
@@ -94,6 +108,7 @@ export const TokenType = z
     name: true,
     symbol: true,
     decimals: true,
+    multiplier: true,
     visibility_priority: true,
     sort_order: true,
     total_supply: true,
@@ -145,6 +160,7 @@ function buildTokenInfo(row: RawErc20TokenRow): TokenInfo {
     name: row.token_name,
     symbol: row.token_symbol,
     decimals,
+    multiplier: formatUiMultiplier(row.ui_multiplier),
     address: toHex(BigInt(row.token_address), 20),
     sort_order: row.sort_order,
     visibility_priority: row.visibility_priority,
@@ -260,6 +276,7 @@ const IncludePricesType = z
   .default("true")
   .transform((value) => value === "true");
 
+// max-age stays within the indexer's 5 minute UI multiplier refresh.
 const PRICE_FREE_TOKEN_LIST_CACHE_CONTROL =
   "public, max-age=300, stale-while-revalidate=3600";
 
@@ -634,8 +651,10 @@ export const GetToken = defineRoute(
     }
 
     const response = token satisfies TokenInfo;
+    // No longer than the indexer's UI multiplier refresh (5 minutes), so a
+    // multiplier change shows up within one refresh of it being read.
     return c.json(response, 200, {
-      "cache-control": "public, max-age=600",
+      "cache-control": "public, max-age=300",
     });
   },
 );
