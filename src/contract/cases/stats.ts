@@ -22,6 +22,7 @@ const chartRows: QueryResult<"getTvlChartRows"> = [
   {
     chain_id: 1n,
     symbol: "WETH",
+    ui_multiplier: null,
     rank: "1",
     date: TODAY,
     usd: 2500.5,
@@ -30,6 +31,7 @@ const chartRows: QueryResult<"getTvlChartRows"> = [
   {
     chain_id: 1n,
     symbol: "USDC",
+    ui_multiplier: "8000000000000000000",
     rank: "2",
     date: TODAY,
     usd: 5000.5,
@@ -38,6 +40,7 @@ const chartRows: QueryResult<"getTvlChartRows"> = [
   {
     chain_id: 1n,
     symbol: null,
+    ui_multiplier: null,
     rank: "6",
     date: TODAY,
     usd: 12.5,

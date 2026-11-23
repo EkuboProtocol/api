@@ -28,6 +28,7 @@ describe("toUsdChart", () => {
         {
           chain_id: 8453n,
           symbol: "USDC",
+          ui_multiplier: "1000000000000000000",
           rank: "1",
           date: "2026-11-19",
           usd: 5,
@@ -36,6 +37,7 @@ describe("toUsdChart", () => {
         {
           chain_id: 1n,
           symbol: "WETH",
+          ui_multiplier: "1000000000000000000",
           rank: "2",
           date: "2026-11-20",
           usd: 30,
@@ -44,6 +46,7 @@ describe("toUsdChart", () => {
         {
           chain_id: 1n,
           symbol: "USDC",
+          ui_multiplier: "1000000000000000000",
           rank: "1",
           date: "2026-11-18",
           usd: 100.004,
@@ -52,6 +55,7 @@ describe("toUsdChart", () => {
         {
           chain_id: 1n,
           symbol: "USDC",
+          ui_multiplier: "1000000000000000000",
           rank: "1",
           date: "2026-11-20",
           usd: 101,
@@ -60,6 +64,7 @@ describe("toUsdChart", () => {
         {
           chain_id: 1n,
           symbol: null,
+          ui_multiplier: null,
           rank: "6",
           date: "2026-11-19",
           usd: 4.5,
@@ -68,6 +73,7 @@ describe("toUsdChart", () => {
         {
           chain_id: 1n,
           symbol: "USDC",
+          ui_multiplier: "1000000000000000000",
           rank: "1",
           date: "2026-01-01",
           usd: 1,
@@ -84,19 +90,68 @@ describe("toUsdChart", () => {
           chain_id: "0x1",
           usd: [100, 4.5, 131],
           tokens: [
-            { symbol: "USDC", usd: [100, 0, 101], amount: [100, 0, 101] },
-            { symbol: "WETH", usd: [0, 0, 30], amount: [0, 0, 0.01] },
+            {
+              symbol: "USDC",
+              multiplier: "1",
+              usd: [100, 0, 101],
+              amount: [100, 0, 101],
+            },
+            {
+              symbol: "WETH",
+              multiplier: "1",
+              usd: [0, 0, 30],
+              amount: [0, 0, 0.01],
+            },
           ],
           other: [0, 4.5, 0],
         },
         {
           chain_id: "0x2105",
           usd: [0, 5, 0],
-          tokens: [{ symbol: "USDC", usd: [0, 5, 0], amount: [0, 5, 0] }],
+          tokens: [
+            {
+              symbol: "USDC",
+              multiplier: "1",
+              usd: [0, 5, 0],
+              amount: [0, 5, 0],
+            },
+          ],
           other: null,
         },
       ],
     });
+  });
+
+  it("keeps a symbol's tokens with different multipliers apart", () => {
+    const row = {
+      chain_id: 1n,
+      symbol: "SNDK",
+      date: "2026-11-20",
+    };
+    const result = toUsdChart(
+      [
+        {
+          ...row,
+          ui_multiplier: "8000000000000000000",
+          rank: "1",
+          usd: 712,
+          amount: 1,
+        },
+        {
+          ...row,
+          ui_multiplier: "1000000000000000000",
+          rank: "2",
+          usd: 3,
+          amount: 2,
+        },
+      ],
+      dates,
+    );
+
+    expect(result.networks[0].tokens).toEqual([
+      { symbol: "SNDK", multiplier: "8", usd: [0, 0, 712], amount: [0, 0, 1] },
+      { symbol: "SNDK", multiplier: "1", usd: [0, 0, 3], amount: [0, 0, 2] },
+    ]);
   });
 
   it("has no networks without rows", () => {
