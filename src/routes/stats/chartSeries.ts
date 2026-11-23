@@ -1,4 +1,5 @@
 import { z } from "@hono/zod-openapi";
+import { formatUiMultiplier } from "../../shared/displayScale";
 import toHex from "../../shared/toHex";
 import { HexStringType } from "../../shared/validation/address";
 import type { ChartSeriesRow } from "./chartSeriesQueries";
@@ -11,11 +12,17 @@ export const MAX_CHART_SYMBOLS = 5;
 
 const TokenSeriesType = z.object({
   symbol: z.string(),
+  multiplier: z.string().openapi({
+    description:
+      "UI multiplier of the symbol's tokens, as an exact decimal string, the same as the multiplier of /tokens. Tokens that share a symbol but not a multiplier have one entry each. Multiply amount by it to show it in display units",
+    example: "1",
+  }),
   usd: z.array(z.number()).openapi({
     description: "USD value on each date, at that date's closing prices",
   }),
   amount: z.array(z.number()).openapi({
-    description: "Token amount on each date, in whole tokens",
+    description:
+      "Token amount on each date, in whole tokens (10^decimals raw units), before the multiplier",
   }),
 });
 
@@ -73,12 +80,18 @@ const roundUsd = (value: number) => Math.round(value * 100) / 100;
 const roundAmount = (value: number) =>
   value === 0 ? 0 : Number(value.toPrecision(6));
 
+type SymbolEntry = {
+  symbol: string | null;
+  multiplier: string | null;
+  rank: number;
+  usd: number[];
+  amount: number[];
+};
+
 type NetworkEntry = {
   total: number[];
-  bySymbol: Map<
-    string | null,
-    { rank: number; usd: number[]; amount: number[] }
-  >;
+  /** Keyed by symbol and multiplier; the other symbols are under null. */
+  bySymbol: Map<string | null, SymbolEntry>;
 };
 
 function networkEntry(
@@ -95,14 +108,18 @@ function networkEntry(
 }
 
 function symbolEntry(network: NetworkEntry, row: ChartSeriesRow, days: number) {
-  let entry = network.bySymbol.get(row.symbol);
+  const key =
+    row.symbol === null ? null : `${row.symbol}\u0000${row.ui_multiplier}`;
+  let entry = network.bySymbol.get(key);
   if (!entry) {
     entry = {
+      symbol: row.symbol,
+      multiplier: row.ui_multiplier,
       rank: Number(row.rank),
       usd: Array<number>(days).fill(0),
       amount: Array<number>(days).fill(0),
     };
-    network.bySymbol.set(row.symbol, entry);
+    network.bySymbol.set(key, entry);
   }
   return entry;
 }
@@ -129,11 +146,12 @@ export function toUsdChart(rows: ChartSeriesRow[], dates: string[]): UsdChart {
       .map(([chainId, { total, bySymbol }]) => ({
         chain_id: toHex(chainId),
         usd: total.map(roundUsd),
-        tokens: [...bySymbol.entries()]
-          .filter(([symbol]) => symbol !== null)
-          .sort(([, a], [, b]) => a.rank - b.rank)
-          .map(([symbol, { usd, amount }]) => ({
+        tokens: [...bySymbol.values()]
+          .filter((entry) => entry.symbol !== null)
+          .sort((a, b) => a.rank - b.rank)
+          .map(({ symbol, multiplier, usd, amount }) => ({
             symbol: symbol as string,
+            multiplier: formatUiMultiplier(multiplier),
             usd,
             amount,
           })),

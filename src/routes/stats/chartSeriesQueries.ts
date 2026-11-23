@@ -19,12 +19,14 @@ export type ChartSeriesRequest = ChartSeriesFilters & {
 };
 
 /**
- * One chart value of a network: a ranked token symbol, or every other symbol
- * of the network (symbol null).
+ * One chart value of a network: a ranked token symbol and UI multiplier, or
+ * every other symbol of the network (symbol and multiplier null).
  */
 export type ChartSeriesRow = {
   chain_id: bigint;
   symbol: string | null;
+  /** UI multiplier of the symbol's tokens, 18 decimals; null for the rest. */
+  ui_multiplier: string | null;
   rank: string | number;
   date: string;
   usd: number;
@@ -94,10 +96,21 @@ function dayClosePrice(sql: Db, recentFrom: Date) {
   )`;
 }
 
+// The UI multiplier in effect now, 18 decimals, of the token aliased t; 1e18
+// for a token without one. Applied to the whole history like decimals: it is a
+// display unit, not a value at a date.
+const uiMultiplier = (sql: Db) => sql`
+  COALESCE((SELECT m.ui_multiplier
+            FROM erc20_tokens_effective_ui_multipliers m
+            WHERE m.chain_id = t.chain_id
+              AND m.token_address = t.token_address), 1e18)`;
+
 // Prices each token-day (today and small tokens at the current price), sums
-// the values per network, symbol and day, ranks each network's symbols by
-// their value from rankFromDate and folds every symbol past maxSymbols into
-// one null symbol per network.
+// the values per network, symbol, UI multiplier and day, ranks each network's
+// symbols by their value from rankFromDate and folds every symbol past
+// maxSymbols into one null symbol per network. Tokens sharing a symbol are only
+// summed when they share a multiplier, so the summed amount has one display
+// unit.
 function priceGroupAndRank(
   sql: Db,
   request: ChartSeriesRequest,
@@ -116,33 +129,37 @@ function priceGroupAndRank(
     grouped AS (
       SELECT chain_id,
              token_symbol::text      AS symbol,
+             ui_multiplier,
              date,
              SUM(amount * usd_price) AS usd,
              SUM(amount)             AS amount
       FROM priced
-      GROUP BY 1, 2, 3
+      GROUP BY 1, 2, 3, 4
     ),
     ranked AS (
       SELECT chain_id,
              symbol,
+             ui_multiplier,
              ROW_NUMBER() OVER (
                PARTITION BY chain_id
                ORDER BY COALESCE(SUM(usd) FILTER (WHERE date >= ${request.rankFromDate}), 0) DESC,
-                        symbol
+                        symbol,
+                        ui_multiplier
              ) AS rank
       FROM grouped
-      GROUP BY chain_id, symbol
+      GROUP BY chain_id, symbol, ui_multiplier
     )
     SELECT g.chain_id,
            CASE WHEN r.rank <= ${request.maxSymbols} THEN g.symbol END AS symbol,
+           CASE WHEN r.rank <= ${request.maxSymbols} THEN g.ui_multiplier::text END AS ui_multiplier,
            MIN(r.rank)                                                AS rank,
            g.date,
            SUM(g.usd)::float8                                         AS usd,
            CASE WHEN MIN(r.rank) <= ${request.maxSymbols} THEN SUM(g.amount)::float8 END AS amount
     FROM grouped g
-             JOIN ranked r USING (chain_id, symbol)
-    GROUP BY 1, 2, 4
-    ORDER BY 1, 3, 4
+             JOIN ranked r USING (chain_id, symbol, ui_multiplier)
+    GROUP BY 1, 2, 3, 5
+    ORDER BY 1, 4, 5
   `;
 }
 
@@ -184,6 +201,7 @@ export function queryTvlChartRows(sql: Db, request: ChartSeriesRequest) {
              b.token,
              b.balance,
              t.token_symbol,
+             ${uiMultiplier(sql)}          AS ui_multiplier,
              10::float8 ^ t.token_decimals AS scale,
              lp.value                      AS latest_price
       FROM balances b
@@ -195,6 +213,7 @@ export function queryTvlChartRows(sql: Db, request: ChartSeriesRequest) {
       SELECT tk.chain_id,
              tk.token,
              tk.token_symbol,
+             tk.ui_multiplier,
              tk.latest_price,
              d.day_start,
              d.date,
@@ -237,6 +256,7 @@ export function queryVolumeChartRows(sql: Db, request: ChartSeriesRequest) {
       SELECT v.chain_id,
              v.token,
              t.token_symbol,
+             ${uiMultiplier(sql)}                           AS ui_multiplier,
              lp.value                                       AS latest_price,
              d.day_start,
              d.date,

@@ -2084,6 +2084,11 @@
                                 "symbol": {
                                   "type": "string"
                                 },
+                                "multiplier": {
+                                  "type": "string",
+                                  "description": "UI multiplier of the symbol's tokens, as an exact decimal string, the same as the multiplier of /tokens. Tokens that share a symbol but not a multiplier have one entry each. Multiply amount by it to show it in display units",
+                                  "example": "1"
+                                },
                                 "usd": {
                                   "type": "array",
                                   "items": {
@@ -2096,11 +2101,12 @@
                                   "items": {
                                     "type": "number"
                                   },
-                                  "description": "Token amount on each date, in whole tokens"
+                                  "description": "Token amount on each date, in whole tokens (10^decimals raw units), before the multiplier"
                                 }
                               },
                               "required": [
                                 "symbol",
+                                "multiplier",
                                 "usd",
                                 "amount"
                               ]
@@ -2450,6 +2456,11 @@
                                 "symbol": {
                                   "type": "string"
                                 },
+                                "multiplier": {
+                                  "type": "string",
+                                  "description": "UI multiplier of the symbol's tokens, as an exact decimal string, the same as the multiplier of /tokens. Tokens that share a symbol but not a multiplier have one entry each. Multiply amount by it to show it in display units",
+                                  "example": "1"
+                                },
                                 "usd": {
                                   "type": "array",
                                   "items": {
@@ -2462,11 +2473,12 @@
                                   "items": {
                                     "type": "number"
                                   },
-                                  "description": "Token amount on each date, in whole tokens"
+                                  "description": "Token amount on each date, in whole tokens (10^decimals raw units), before the multiplier"
                                 }
                               },
                               "required": [
                                 "symbol",
+                                "multiplier",
                                 "usd",
                                 "amount"
                               ]
@@ -2921,6 +2933,11 @@
                                 "symbol": {
                                   "type": "string"
                                 },
+                                "multiplier": {
+                                  "type": "string",
+                                  "description": "UI multiplier of the symbol's tokens, as an exact decimal string, the same as the multiplier of /tokens. Tokens that share a symbol but not a multiplier have one entry each. Multiply amount by it to show it in display units",
+                                  "example": "1"
+                                },
                                 "usd": {
                                   "type": "array",
                                   "items": {
@@ -2933,11 +2950,12 @@
                                   "items": {
                                     "type": "number"
                                   },
-                                  "description": "Token amount on each date, in whole tokens"
+                                  "description": "Token amount on each date, in whole tokens (10^decimals raw units), before the multiplier"
                                 }
                               },
                               "required": [
                                 "symbol",
+                                "multiplier",
                                 "usd",
                                 "amount"
                               ]
@@ -3380,6 +3398,11 @@
                                 "symbol": {
                                   "type": "string"
                                 },
+                                "multiplier": {
+                                  "type": "string",
+                                  "description": "UI multiplier of the symbol's tokens, as an exact decimal string, the same as the multiplier of /tokens. Tokens that share a symbol but not a multiplier have one entry each. Multiply amount by it to show it in display units",
+                                  "example": "1"
+                                },
                                 "usd": {
                                   "type": "array",
                                   "items": {
@@ -3392,11 +3415,12 @@
                                   "items": {
                                     "type": "number"
                                   },
-                                  "description": "Token amount on each date, in whole tokens"
+                                  "description": "Token amount on each date, in whole tokens (10^decimals raw units), before the multiplier"
                                 }
                               },
                               "required": [
                                 "symbol",
+                                "multiplier",
                                 "usd",
                                 "amount"
                               ]
