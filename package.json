@@ -14,7 +14,7 @@
     "oxlint": "1.94.0",
     "oxlint-tsgolint": "^7.0.2006",
     "postgres": "^3.4.9",
-    "wrangler": "4.163.0",
+    "wrangler": "4.165.0",
     "zod": "^4.6.7"
   },
   "engines": {
