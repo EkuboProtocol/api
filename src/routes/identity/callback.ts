@@ -25,8 +25,7 @@ export function validReturnTo(env: Env, value: string): boolean {
     return false;
   }
   if (url.username || url.password) return false;
-  const patterns = (env.X_LINK_RETURN_ORIGINS ?? "")
-    .split(",")
+  const patterns = env.X_LINK_RETURN_ORIGINS.split(",")
     .map((p) => p.trim())
     .filter(Boolean);
   return patterns.some((pattern) => originMatches(pattern, url));

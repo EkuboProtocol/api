@@ -14,7 +14,6 @@ import { jsonResponse } from "../../shared/openapi";
 import { callbackPage, returnUrl, validReturnTo } from "./callback";
 import {
   checkCode,
-  database,
   iso,
   limit,
   LINK_TTL_SECONDS,
@@ -39,7 +38,7 @@ import {
   removeLinksOfXUser,
   takeUnlinkAttemptByState,
 } from "./store";
-import { authorizationUrl, verifiedXAccount, xConfigured } from "./x";
+import { authorizationUrl, verifiedXAccount } from "./x";
 
 export const StartXUnlink = defineRoute(
   createRoute({
@@ -64,10 +63,7 @@ export const StartXUnlink = defineRoute(
   }),
   async (c) => {
     const body = c.req.valid("json");
-    const db = database(c.env);
-    if (!xConfigured(c.env)) {
-      throw new StatusError(503, "Sign in with X is not configured here");
-    }
+    const db = c.env.IDENTITY_DB;
     const returnTo = body.return_to ?? null;
     if (returnTo !== null && !validReturnTo(c.env, returnTo)) {
       throw new StatusError(400, "return_to is not an allowed Ekubo page");
@@ -174,7 +170,7 @@ export const CompleteXUnlink = defineRoute(
   async (c) => {
     const { unlink_id } = c.req.valid("param");
     const { code } = c.req.valid("json");
-    const db = database(c.env);
+    const db = c.env.IDENTITY_DB;
     await limit(c);
     const idHash = await sha256(unlink_id);
     const attempt = await getUnlinkAttempt(db, idHash, nowSeconds());

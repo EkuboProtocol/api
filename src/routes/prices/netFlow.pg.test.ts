@@ -1,5 +1,6 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import postgres from "postgres";
+import type { Env } from "../../env";
 import { createQueries, type Queries } from "../../queries";
 
 const URL = process.env.TEST_PG_CONNECTION_STRING;
@@ -53,7 +54,7 @@ describe.skipIf(!URL)("getTokenNetFlow", () => {
     `);
     queries = await createQueries({
       PG_CONNECTION_STRING: `${URL}${URL?.includes("?") ? "&" : "?"}search_path=${SCHEMA}`,
-    });
+    } as Env);
   });
 
   afterAll(async () => {

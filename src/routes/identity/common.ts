@@ -2,7 +2,6 @@
 // unlink routes (xUnlink.ts).
 import type { Context } from "hono";
 import type { D1Database } from "@cloudflare/workers-types";
-import type { Env } from "../../env";
 import type { AppEnv } from "../../shared/context";
 import { StatusError } from "../../shared/errors";
 import type { Chain } from "./chains";
@@ -20,13 +19,6 @@ export const nowSeconds = () => Math.floor(Date.now() / 1000);
 export const iso = (seconds: number) => new Date(seconds * 1000).toISOString();
 
 export type Ctx = Context<AppEnv>;
-
-export function database(env: Env): D1Database {
-  if (!env.IDENTITY_DB) {
-    throw new StatusError(503, "X linking is not enabled on this deployment");
-  }
-  return env.IDENTITY_DB;
-}
 
 function clientIp(c: Ctx): string {
   return c.req.header("cf-connecting-ip") ?? "unknown";

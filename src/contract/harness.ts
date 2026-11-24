@@ -30,9 +30,9 @@ export interface ContractCase {
   readonly knownDrift?: string;
 }
 
-export const env: Env = {
+export const env = {
   PG_CONNECTION_STRING: "postgres://contract:contract@127.0.0.1:1/contract",
-};
+} as Env;
 
 export function stubQuery<K extends QueryName>(
   name: K,

@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, setSystemTime } from "bun:test";
+import type { Env } from "./env";
 import { createWorker } from "./worker";
 
 const entries = new Map<string, { response: Response; expires: number }>();
@@ -44,7 +45,7 @@ function run(url = "https://api.test/overview/tvl") {
     passThroughOnException: () => {},
   } as unknown as ExecutionContext;
   return worker
-    .fetch(new Request(url), {}, ctx)
+    .fetch(new Request(url), {} as Env, ctx)
     .then(async (response: Response) => ({ response, waits }));
 }
 
@@ -170,7 +171,7 @@ describe("worker identity routes", () => {
         method: "OPTIONS",
         headers: { "access-control-request-headers": "content-type" },
       }),
-      {},
+      {} as Env,
       ctx,
     );
     expect(response.headers.get("access-control-allow-methods")).toContain(

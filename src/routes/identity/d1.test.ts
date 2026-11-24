@@ -111,7 +111,7 @@ describe("identity store on D1", () => {
     const found = await lookupLinks(db, "evm", "1", addresses);
     expect([...found.keys()].toSorted()).toEqual(addresses.slice(0, 3));
 
-    const env: Env = { IDENTITY_DB: db };
+    const env = { IDENTITY_DB: db } as Env;
     const query = addresses.map((a) => `address=${a}`).join("&");
     const response = await app.fetch(
       new Request(`https://api.test/v1/identity/addresses?chainId=1&${query}`),
