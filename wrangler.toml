@@ -40,8 +40,10 @@ d1_databases = [
 PUBLIC_ORIGIN = "https://ekubo-api-preview.ekubo.workers.dev"
 X_LINK_RETURN_ORIGINS = "https://interface-9yz.pages.dev,https://*.interface-9yz.pages.dev,http://localhost:5173,http://localhost:4173"
 
-# Per IP across the identity routes, and per address on start, complete and
-# unlink. Namespace IDs only need to be unique within this Worker.
+# Per IP across the identity routes, and per IP and address on start,
+# complete and unlink (keyed by both, so nobody can use up an owner's budget).
+# Both are required: with IDENTITY_DB bound and either missing, the identity
+# routes answer 503. Namespace IDs only need to be unique within this Worker.
 [[env.preview.ratelimits]]
 name = "IDENTITY_IP_LIMITER"
 namespace_id = "3113"

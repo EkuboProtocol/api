@@ -146,6 +146,52 @@ export const UnlinkResponseType = z.object({
     ),
 });
 
+export const UnlinkIdType = z
+  .string()
+  .regex(LINK_ID_PATTERN)
+  .describe("Unlink ID returned by the start call. Keep it private");
+
+export const XUnlinkStartRequestType = z.object({
+  return_to: z
+    .string()
+    .url()
+    .max(2048)
+    .optional()
+    .describe(
+      "Page on an allowed Ekubo origin to send the browser back to after X, with x_unlink=complete|cancelled|failed and x_unlink_code. Omit it (agents) to show the code on a page instead",
+    ),
+});
+
+export const XUnlinkStartResponseType = z.object({
+  unlink_id: UnlinkIdType,
+  authorization_url: z
+    .string()
+    .describe("Open this in the person's browser to sign in on x.com"),
+  expires_at: z.string().describe("ISO 8601; X approval must finish by then"),
+});
+
+export const XUnlinkCompleteRequestType = z.object({
+  code: CodeType.describe(
+    "Completion code shown to the person after signing in on X (on the callback page, or as x_unlink_code on the return URL). Case and dashes are ignored",
+  ),
+});
+
+export const XUnlinkCompleteResponseType = z.object({
+  x_user_id: z.string().describe("The X account that signed in"),
+  x_handle: z.string().describe("Its current handle, without the @"),
+  removed: z
+    .array(
+      z.object({
+        address: z.string().describe("Canonical address"),
+        scope: z.enum(["namespace", "chain"]),
+        verified_chain_id: z.string(),
+      }),
+    )
+    .describe(
+      "Every link to this X account, now removed. Empty if there were none",
+    ),
+});
+
 export const LookupResponseType = z.object({
   chain_id: z.string(),
   identities: z
@@ -174,5 +220,14 @@ export const linkErrors = {
   401: errorResponse("The signature does not prove the address signed"),
   403: errorResponse("The completion code is wrong"),
   404: errorResponse("Unknown or expired link; start again"),
-  409: errorResponse("Not ready for this step, or the nonce was already used"),
+  409: errorResponse(
+    "Not ready for this step, the nonce was already used, or a contract-account signature cannot remove a link made with the address's own key",
+  ),
+} as const;
+
+export const xUnlinkErrors = {
+  ...identityErrors,
+  403: errorResponse("The completion code is wrong"),
+  404: errorResponse("Unknown or expired unlink; start again"),
+  409: errorResponse("The person has not signed in on X yet"),
 } as const;
