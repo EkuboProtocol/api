@@ -145,15 +145,16 @@ describe("worker identity routes", () => {
     computed = 0;
   });
 
-  it("never caches links in progress or the X callback", async () => {
+  it("never caches links in progress, the X callback or the own lookup", async () => {
     for (const path of [
       "/v1/identity/x/link/abc?code=X",
       "/v1/identity/x/callback?state=s",
+      "/v1/identity/x/address?chainId=1&address=0x1",
     ]) {
       await run(`https://api.test${path}`);
       await run(`https://api.test${path}`);
     }
-    expect(computed).toBe(4);
+    expect(computed).toBe(6);
     expect(entries.size).toBe(0);
   });
 

@@ -276,6 +276,35 @@ async function lookup(chainId: string, ...addresses: string[]) {
   };
 }
 
+async function ownLookup(chainId: string, address: string) {
+  const response = await request(
+    "GET",
+    `/v1/identity/x/address?chainId=${chainId}&address=${address}`,
+  );
+  expect(response.status).toBe(200);
+  expect(response.headers.get("cache-control")).toBe("no-store");
+  const body = await json(response);
+  expect(
+    responseSchema("/v1/identity/x/address")!.safeParse(body).error,
+  ).toBeUndefined();
+  return body as Awaited<ReturnType<typeof lookup>>;
+}
+
+async function unlinkSigned(account: PrivateKeyAccount, chainId = "1") {
+  const message = await json<{ nonce: string; typed_data: TypedData }>(
+    await request("POST", "/v1/identity/x/unlink/message", {
+      chain_id: chainId,
+      address: account.address,
+    }),
+  );
+  return request("DELETE", "/v1/identity/x/link", {
+    chain_id: chainId,
+    address: account.address,
+    nonce: message.nonce,
+    signature: await signEvm(account, message.typed_data),
+  });
+}
+
 function history() {
   return sqlite
     .prepare(
@@ -693,6 +722,42 @@ describe("relink and unlink", () => {
     expect(response.status).toBe(409);
   });
 
+  test("one X account links to several wallets, and unlinking one keeps the rest", async () => {
+    const first = privateKeyToAccount(generatePrivateKey());
+    const second = privateKeyToAccount(generatePrivateKey());
+    const starknet =
+      "0x4c1d9da136846ab084ae18cf6ce7a652df7793b666a16ce46b1bf5850cc739d";
+    const padded = `0x0${starknet.slice(2)}`;
+    for (const { response } of [
+      await link("1", first.address, (td) => signEvm(first, td)),
+      await link("8453", second.address, (td) => signEvm(second, td)),
+      await link(STARKNET, starknet, async () => ["0x1", "0x2"]),
+    ]) {
+      expect(response.status).toBe(200);
+    }
+    const a = first.address.toLowerCase();
+    const b = second.address.toLowerCase();
+    const both = (await lookup("1", a, b)).identities;
+    expect(both[a]?.x_handle).toBe("alice");
+    expect(both[b]?.x_handle).toBe("alice");
+    expect(
+      (await lookup(STARKNET, starknet)).identities[padded]?.x_handle,
+    ).toBe("alice");
+    // Linking another wallet relinks nothing.
+    expect(history()).toEqual([]);
+
+    expect((await unlinkSigned(first)).status).toBe(200);
+    const after = (await lookup("8453", a, b)).identities;
+    expect(after[a]).toBeNull();
+    expect(after[b]?.x_handle).toBe("alice");
+    expect(
+      (await ownLookup(STARKNET, starknet)).identities[padded]?.x_handle,
+    ).toBe("alice");
+    expect(history()).toEqual([
+      { address: a, x_handle: "alice", end_reason: "unlinked" },
+    ]);
+  });
+
   test("there is nothing to unlink without a link", async () => {
     const response = await request("POST", "/v1/identity/x/unlink/message", {
       chain_id: "1",
@@ -842,6 +907,38 @@ describe("Starknet accounts", () => {
       "0x2",
     ]);
     expect(response.status).toBe(401);
+  });
+});
+
+describe("the wallet's own lookup", () => {
+  test("is uncached and shows a link and an unlink at once", async () => {
+    const account = privateKeyToAccount(generatePrivateKey());
+    const address = account.address.toLowerCase();
+    expect((await ownLookup("1", account.address)).identities).toEqual({
+      [address]: null,
+    });
+    await link("1", account.address, (td) => signEvm(account, td));
+    expect(
+      (await ownLookup("8453", account.address)).identities[address],
+    ).toMatchObject({ x_handle: "alice", scope: "namespace" });
+    expect((await unlinkSigned(account)).status).toBe(200);
+    expect((await ownLookup("1", account.address)).identities[address]).toBe(
+      null,
+    );
+  });
+
+  test("takes one address and is rate limited", async () => {
+    const two = await request(
+      "GET",
+      "/v1/identity/x/address?chainId=1&address=0x7a16ff8270133f063aab6c9977183d9e72835428&address=0x7a16ff8270133f063aab6c9977183d9e72835429",
+    );
+    expect(two.status).toBe(400);
+    limited = true;
+    const response = await request(
+      "GET",
+      "/v1/identity/x/address?chainId=1&address=0x7a16ff8270133f063aab6c9977183d9e72835428",
+    );
+    expect(response.status).toBe(429);
   });
 });
 
