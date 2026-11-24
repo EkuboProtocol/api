@@ -22,3 +22,32 @@ routes = [{ pattern = "prod-api.ekubo.org", custom_domain = true }]
 [observability]
 enabled = true
 head_sampling_rate = 1 # optional. default = 1.
+
+# Preview: the same API on workers.dev, reading the production indexer
+# through the same Hyperdrive, plus wallet to X linking (src/routes/identity)
+# on its own preview D1. X_CLIENT_ID and X_CLIENT_SECRET are Worker secrets.
+[env.preview]
+workers_dev = true
+preview_urls = false
+hyperdrive = [
+  { binding = "HYPERDRIVE", id = "c6bd83f26cc840e3aa09870557f286f4" },
+]
+d1_databases = [
+  { binding = "IDENTITY_DB", database_name = "ekubo-identity-preview", database_id = "8f9ceee6-8114-4c21-a920-f22935924fe2", migrations_dir = "migrations/identity" },
+]
+
+[env.preview.vars]
+PUBLIC_ORIGIN = "https://ekubo-api-preview.ekubo.workers.dev"
+X_LINK_RETURN_ORIGINS = "https://interface-9yz.pages.dev,https://*.interface-9yz.pages.dev,http://localhost:5173,http://localhost:4173"
+
+# Per IP across the identity routes, and per address on start, complete and
+# unlink. Namespace IDs only need to be unique within this Worker.
+[[env.preview.ratelimits]]
+name = "IDENTITY_IP_LIMITER"
+namespace_id = "3113"
+simple = { limit = 30, period = 60 }
+
+[[env.preview.ratelimits]]
+name = "IDENTITY_ADDRESS_LIMITER"
+namespace_id = "3114"
+simple = { limit = 10, period = 60 }

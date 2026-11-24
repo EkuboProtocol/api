@@ -1,4 +1,5 @@
 import { Env } from "./env";
+import { UNCACHED_IDENTITY_PREFIX } from "./routes/identity";
 import { notModified, withEtag } from "./shared/etag";
 import {
   fromStoredResponse,
@@ -102,6 +103,11 @@ function getCacheKey(request: Request): URL | null {
     return null;
   }
 
+  // Links in progress and the X callback are per-person and never cached.
+  if (new URL(request.url).pathname.startsWith(UNCACHED_IDENTITY_PREFIX)) {
+    return null;
+  }
+
   return normalizeRequestForCache(request);
 }
 
@@ -110,7 +116,7 @@ function preflight(request: Request): Response | null {
 
   const headers = new Headers({
     "access-control-allow-origin": "*",
-    "access-control-allow-methods": "GET,OPTIONS",
+    "access-control-allow-methods": "GET,POST,DELETE,OPTIONS",
     "access-control-max-age": "86400",
   });
   const requestedHeaders = request.headers.get(

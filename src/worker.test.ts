@@ -137,3 +137,47 @@ describe("worker cache key for unlisted parameters", () => {
     expect(await body(response)).toEqual({ version: 2 });
   });
 });
+
+describe("worker identity routes", () => {
+  beforeEach(() => {
+    entries.clear();
+    computed = 0;
+  });
+
+  it("never caches links in progress or the X callback", async () => {
+    for (const path of [
+      "/v1/identity/x/link/abc?code=X",
+      "/v1/identity/x/callback?state=s",
+    ]) {
+      await run(`https://api.test${path}`);
+      await run(`https://api.test${path}`);
+    }
+    expect(computed).toBe(4);
+    expect(entries.size).toBe(0);
+  });
+
+  it("still caches the address lookup", async () => {
+    const url = "https://api.test/v1/identity/addresses?chainId=1&address=0x1";
+    await run(url);
+    await run(url);
+    expect(computed).toBe(1);
+  });
+
+  it("allows the POST and DELETE preflight", async () => {
+    const ctx = {} as ExecutionContext;
+    const response = await worker.fetch(
+      new Request("https://api.test/v1/identity/x/link", {
+        method: "OPTIONS",
+        headers: { "access-control-request-headers": "content-type" },
+      }),
+      {},
+      ctx,
+    );
+    expect(response.headers.get("access-control-allow-methods")).toContain(
+      "DELETE",
+    );
+    expect(response.headers.get("access-control-allow-headers")).toBe(
+      "content-type",
+    );
+  });
+});
