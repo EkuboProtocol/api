@@ -7,4 +7,5 @@ export const UNCOVERED_OPERATIONS: Record<string, string> = {
   "/v1/identity/x/callback": "Returns HTML or a redirect, not JSON",
   "/v1/identity/x/link/{link_id}": IDENTITY,
   "/v1/identity/addresses": IDENTITY,
+  "/v1/identity/x/address": IDENTITY,
 };

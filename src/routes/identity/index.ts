@@ -553,24 +553,57 @@ export const LookupXIdentities = defineRoute(
     if (addresses.length === 0 || addresses.length > MAX_LOOKUP_ADDRESSES) {
       throw new StatusError(400, "Pass between 1 and 100 address parameters");
     }
-    const canonical = [
-      ...new Set(addresses.map((a) => canonicalAddress(chain.namespace, a))),
-    ];
-    const links = await lookupLinks(
-      c.env.IDENTITY_DB,
-      chain.namespace,
-      chain.id,
-      canonical,
+    return c.json(
+      await identitiesOf(c.env.IDENTITY_DB, chain, addresses),
+      200,
+      {
+        "cache-control": LOOKUP_CACHE_CONTROL,
+      },
     );
-    const identities = Object.fromEntries(
-      canonical.map((address) => {
-        const row = links.get(address);
-        return [address, row ? identityOf(row) : null];
-      }),
+  },
+);
+
+async function identitiesOf(db: D1Database, chain: Chain, addresses: string[]) {
+  const canonical = [
+    ...new Set(addresses.map((a) => canonicalAddress(chain.namespace, a))),
+  ];
+  const links = await lookupLinks(db, chain.namespace, chain.id, canonical);
+  const identities = Object.fromEntries(
+    canonical.map((address) => {
+      const row = links.get(address);
+      return [address, row ? identityOf(row) : null];
+    }),
+  );
+  return { chain_id: chain.id, identities };
+}
+
+export const LookupOwnXIdentity = defineRoute(
+  createRoute({
+    method: "get",
+    path: "/v1/identity/x/address",
+    tags: ["Identity"],
+    summary: "Look up one address's X account, uncached",
+    description:
+      "The linked X account of one address, read fresh and never cached. For a wallet showing its own link right after linking or unlinking; use GET /v1/identity/addresses for everyone else",
+    operationId: "get_LookupOwnXIdentity",
+    request: {
+      query: z.object({ chainId: ChainIdType, address: AddressType }),
+    },
+    responses: {
+      200: jsonResponse("Linked X account", LookupResponseType),
+      ...errorResponses,
+      ...identityErrors,
+    },
+  }),
+  async (c) => {
+    const { chainId, address } = c.req.valid("query");
+    const chain = parseChain(chainId);
+    await limit(c);
+    return c.json(
+      await identitiesOf(c.env.IDENTITY_DB, chain, [address]),
+      200,
+      NO_STORE,
     );
-    return c.json({ chain_id: chain.id, identities }, 200, {
-      "cache-control": LOOKUP_CACHE_CONTROL,
-    });
   },
 );
 
@@ -584,4 +617,5 @@ export const identityRoutes = [
   StartXUnlink,
   CompleteXUnlink,
   LookupXIdentities,
+  LookupOwnXIdentity,
 ];

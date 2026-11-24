@@ -15276,6 +15276,173 @@
           }
         }
       }
+    },
+    "/v1/identity/x/address": {
+      "get": {
+        "tags": [
+          "Identity"
+        ],
+        "summary": "Look up one address's X account, uncached",
+        "description": "The linked X account of one address, read fresh and never cached. For a wallet showing its own link right after linking or unlinking; use GET /v1/identity/addresses for everyone else",
+        "operationId": "get_LookupOwnXIdentity",
+        "parameters": [
+          {
+            "schema": {
+              "type": "integer",
+              "title": "Chain ID",
+              "description": "The ID of the network that is being fetched",
+              "format": "int64",
+              "minimum": 1,
+              "maximum": 9223372036854776000
+            },
+            "required": true,
+            "description": "The ID of the network that is being fetched",
+            "name": "chainId",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "pattern": "^0x[a-fA-F0-9]+$",
+                  "description": "A hexadecimal number"
+                },
+                {
+                  "type": "string",
+                  "pattern": "^\\d+$",
+                  "description": "A decimal number"
+                }
+              ],
+              "title": "Address",
+              "description": "An address on the specified blockchain network"
+            },
+            "required": true,
+            "description": "An address on the specified blockchain network",
+            "name": "address",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Linked X account",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "chain_id": {
+                      "type": "string"
+                    },
+                    "identities": {
+                      "type": "object",
+                      "additionalProperties": {
+                        "type": [
+                          "object",
+                          "null"
+                        ],
+                        "properties": {
+                          "x_user_id": {
+                            "type": "string",
+                            "description": "Immutable numeric X user ID"
+                          },
+                          "x_handle": {
+                            "type": "string",
+                            "description": "X handle without the @, as it was when linked. A renamed account shows its old handle until relinked"
+                          },
+                          "x_url": {
+                            "type": "string",
+                            "description": "Profile URL on x.com, by user ID"
+                          },
+                          "linked_at": {
+                            "type": "string",
+                            "description": "When the link was made, ISO 8601"
+                          },
+                          "scope": {
+                            "type": "string",
+                            "enum": [
+                              "namespace",
+                              "chain"
+                            ],
+                            "description": "namespace: proven by the address's own key, holds on every EVM chain. chain: proven by a contract account, holds only on verified_chain_id"
+                          },
+                          "verified_chain_id": {
+                            "type": "string",
+                            "description": "Decimal ID of the chain the signature was checked on"
+                          },
+                          "signature_kind": {
+                            "type": "string",
+                            "enum": [
+                              "ecdsa",
+                              "erc1271",
+                              "erc6492",
+                              "starknet"
+                            ]
+                          }
+                        },
+                        "required": [
+                          "x_user_id",
+                          "x_handle",
+                          "x_url",
+                          "linked_at",
+                          "scope",
+                          "verified_chain_id",
+                          "signature_kind"
+                        ]
+                      },
+                      "description": "Keyed by canonical address (EVM lowercase; Starknet 0x + 64 hex). Null when the address has no link on this chain"
+                    }
+                  },
+                  "required": [
+                    "chain_id",
+                    "identities"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The request parameters are invalid",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many requests from this IP or for this address",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "An unexpected server error occurred",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "The chain could not be reached, or rate limits are not configured; retry",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "webhooks": {}

@@ -19,7 +19,11 @@ compromised), or a link is otherwise abusive.
    curl 'https://prod-api.ekubo.org/v1/identity/addresses?chainId=1&address=0x...'
    ```
 
-   Lookups are cached for 30 seconds.
+   Lookups are cached for 30 seconds. For one address, read it uncached:
+
+   ```sh
+   curl 'https://prod-api.ekubo.org/v1/identity/x/address?chainId=1&address=0x...'
+   ```
 
 3. **Remove it**, archiving to `link_history` with the end reason `removed`.
    The commands name the production database `ekubo-identity`; use the name
