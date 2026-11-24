@@ -1,6 +1,7 @@
 import { describe, expect, it } from "bun:test";
 import { openApiDocument } from "./router";
 import { NUMERIC_QUERY_PARAMS } from "./worker";
+import { UNCACHED_IDENTITY_PREFIX } from "./routes/identity";
 
 type Schema = {
   type?: string | string[];
@@ -78,6 +79,8 @@ describe("cache key normalization contract", () => {
 
   it("has no path parameters that integer folding would corrupt", () => {
     const unsafe = parameters("path")
+      // Never cached, so never given a cache key (worker.ts getCacheKey).
+      .filter(({ route }) => !route.includes(` ${UNCACHED_IDENTITY_PREFIX}`))
       .filter(({ param }) => !isPathSafeSchema(param.schema))
       .map(({ route, param }) => `${route} {${param.name}}`);
     expect(unsafe).toEqual([]);

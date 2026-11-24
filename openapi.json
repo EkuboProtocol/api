@@ -13763,6 +13763,1220 @@
           }
         }
       }
+    },
+    "/v1/identity/x/link/start": {
+      "post": {
+        "tags": [
+          "Identity"
+        ],
+        "summary": "Start linking an X account",
+        "description": "Starts linking an X account to a wallet address. Returns the x.com authorization URL for the person to open and a private link ID. Linking is public: once linked, anyone can see the address's X handle. Then: GET /v1/identity/x/link/{link_id} with the code from X, sign typed_data, POST .../complete. Expires in 10 minutes",
+        "operationId": "post_StartXLink",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "chain_id": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "pattern": "^0x[a-fA-F0-9]+$",
+                        "description": "A hexadecimal number"
+                      },
+                      {
+                        "type": "string",
+                        "pattern": "^\\d+$",
+                        "description": "A decimal number"
+                      },
+                      {
+                        "type": "integer",
+                        "exclusiveMinimum": 0
+                      }
+                    ],
+                    "description": "Chain ID, decimal or 0x hex. Starknet mainnet is 0x534e5f4d41494e"
+                  },
+                  "address": {
+                    "type": "string",
+                    "maxLength": 66,
+                    "description": "Wallet address, 0x hex",
+                    "example": "0x7a16fF8270133F063aAb6C9977183D9e72835428"
+                  },
+                  "return_to": {
+                    "type": "string",
+                    "maxLength": 2048,
+                    "format": "uri",
+                    "description": "Page on an allowed Ekubo origin to send the browser back to after X, with x_link=complete|cancelled|failed and x_link_code. Omit it (agents) to show the code on a page instead"
+                  }
+                },
+                "required": [
+                  "chain_id",
+                  "address"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Link started",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "link_id": {
+                      "type": "string",
+                      "pattern": "^[A-Za-z0-9_-]{43}$",
+                      "description": "Link ID returned by the start call. Keep it private"
+                    },
+                    "authorization_url": {
+                      "type": "string",
+                      "description": "Open this in the person's browser to approve on x.com"
+                    },
+                    "expires_at": {
+                      "type": "string",
+                      "description": "ISO 8601; X approval must finish by then"
+                    }
+                  },
+                  "required": [
+                    "link_id",
+                    "authorization_url",
+                    "expires_at"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The request parameters are invalid",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many requests from this IP or for this address",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "An unexpected server error occurred",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Linking is not available here, or the chain could not be reached; retry",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/identity/x/callback": {
+      "get": {
+        "tags": [
+          "Identity"
+        ],
+        "summary": "X authorization callback",
+        "description": "Where x.com sends the browser after approval. Records the verified X account against the link but never links on its own: it shows the completion code, or redirects to return_to with it",
+        "operationId": "get_XLinkCallback",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "maxLength": 128
+            },
+            "required": false,
+            "name": "state",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "maxLength": 512
+            },
+            "required": false,
+            "name": "code",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "maxLength": 256
+            },
+            "required": false,
+            "name": "error",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Page showing the completion code",
+            "content": {
+              "text/html": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "302": {
+            "description": "Redirect to return_to"
+          },
+          "400": {
+            "description": "The link expired or was already used",
+            "content": {
+              "text/html": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/identity/x/link/{link_id}/complete": {
+      "post": {
+        "tags": [
+          "Identity"
+        ],
+        "summary": "Complete a link with the wallet signature",
+        "description": "Verifies the wallet's signature over typed_data and links the address to the X account. An ECDSA signature links the address on every chain of its namespace; a contract-account signature (ERC-1271, ERC-6492, Starknet) only on the chain it was verified on. Relinking replaces the previous link, which is kept in history",
+        "operationId": "post_CompleteXLink",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9_-]{43}$",
+              "description": "Link ID returned by the start call. Keep it private"
+            },
+            "required": true,
+            "description": "Link ID returned by the start call. Keep it private",
+            "name": "link_id",
+            "in": "path"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "code": {
+                    "type": "string",
+                    "minLength": 10,
+                    "maxLength": 18,
+                    "description": "Completion code shown to the person after approving on X (on the callback page, or as x_link_code on the return URL). Case and dashes are ignored"
+                  },
+                  "signature": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "maxLength": 16384
+                      },
+                      {
+                        "type": "array",
+                        "items": {
+                          "type": "string",
+                          "maxLength": 80
+                        },
+                        "maxItems": 32
+                      }
+                    ],
+                    "description": "EVM: the 0x hex signature over typed_data (ECDSA, ERC-1271 or ERC-6492). Starknet: the array of signature felts"
+                  }
+                },
+                "required": [
+                  "code",
+                  "signature"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Linked",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "chain_id": {
+                      "type": "string"
+                    },
+                    "address": {
+                      "type": "string"
+                    },
+                    "identity": {
+                      "type": "object",
+                      "properties": {
+                        "x_user_id": {
+                          "type": "string",
+                          "description": "Immutable numeric X user ID"
+                        },
+                        "x_handle": {
+                          "type": "string",
+                          "description": "X handle without the @, as it was when linked. A renamed account shows its old handle until relinked"
+                        },
+                        "x_url": {
+                          "type": "string",
+                          "description": "Profile URL on x.com, by user ID"
+                        },
+                        "linked_at": {
+                          "type": "string",
+                          "description": "When the link was made, ISO 8601"
+                        },
+                        "scope": {
+                          "type": "string",
+                          "enum": [
+                            "namespace",
+                            "chain"
+                          ],
+                          "description": "namespace: proven by the address's own key, holds on every EVM chain. chain: proven by a contract account, holds only on verified_chain_id"
+                        },
+                        "verified_chain_id": {
+                          "type": "string",
+                          "description": "Decimal ID of the chain the signature was checked on"
+                        },
+                        "signature_kind": {
+                          "type": "string",
+                          "enum": [
+                            "ecdsa",
+                            "erc1271",
+                            "erc6492",
+                            "starknet"
+                          ]
+                        }
+                      },
+                      "required": [
+                        "x_user_id",
+                        "x_handle",
+                        "x_url",
+                        "linked_at",
+                        "scope",
+                        "verified_chain_id",
+                        "signature_kind"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "chain_id",
+                    "address",
+                    "identity"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The request parameters are invalid",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "The signature does not prove the address signed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The completion code is wrong",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Unknown or expired link; start again",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Not ready for this step, or the nonce was already used",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many requests from this IP or for this address",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "An unexpected server error occurred",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Linking is not available here, or the chain could not be reached; retry",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/identity/x/link/{link_id}": {
+      "get": {
+        "tags": [
+          "Identity"
+        ],
+        "summary": "Get a link in progress and the message to sign",
+        "description": "Status of a link. Once the person has approved on X, pass the completion code to get the verified X account and typed_data: the exact message the wallet at address must sign, unchanged. Five wrong codes discard the link",
+        "operationId": "get_GetXLink",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9_-]{43}$",
+              "description": "Link ID returned by the start call. Keep it private"
+            },
+            "required": true,
+            "description": "Link ID returned by the start call. Keep it private",
+            "name": "link_id",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "maxLength": 32
+            },
+            "required": false,
+            "name": "code",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The link",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "link_id": {
+                      "type": "string",
+                      "pattern": "^[A-Za-z0-9_-]{43}$",
+                      "description": "Link ID returned by the start call. Keep it private"
+                    },
+                    "status": {
+                      "type": "string",
+                      "enum": [
+                        "awaiting_x",
+                        "awaiting_signature"
+                      ],
+                      "description": "awaiting_x: the person has not approved on X yet. awaiting_signature: X is verified; with the code, typed_data is returned to sign"
+                    },
+                    "chain_id": {
+                      "type": "string",
+                      "description": "Decimal chain ID"
+                    },
+                    "address": {
+                      "type": "string",
+                      "description": "Canonical address being linked"
+                    },
+                    "expires_at": {
+                      "type": "string",
+                      "description": "ISO 8601"
+                    },
+                    "x_user_id": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "x_handle": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "typed_data": {
+                      "type": [
+                        "object",
+                        "null"
+                      ],
+                      "properties": {
+                        "types": {
+                          "type": "object",
+                          "additionalProperties": {
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "properties": {
+                                "name": {
+                                  "type": "string"
+                                },
+                                "type": {
+                                  "type": "string"
+                                }
+                              },
+                              "required": [
+                                "name",
+                                "type"
+                              ]
+                            }
+                          }
+                        },
+                        "primaryType": {
+                          "type": "string"
+                        },
+                        "domain": {
+                          "type": "object",
+                          "additionalProperties": {
+                            "anyOf": [
+                              {
+                                "type": "string"
+                              },
+                              {
+                                "type": "number"
+                              }
+                            ]
+                          }
+                        },
+                        "message": {
+                          "type": "object",
+                          "additionalProperties": {
+                            "anyOf": [
+                              {
+                                "type": "string"
+                              },
+                              {
+                                "type": "number"
+                              }
+                            ]
+                          }
+                        }
+                      },
+                      "required": [
+                        "types",
+                        "primaryType",
+                        "domain",
+                        "message"
+                      ],
+                      "description": "Null until X is verified and the right code is given"
+                    }
+                  },
+                  "required": [
+                    "link_id",
+                    "status",
+                    "chain_id",
+                    "address",
+                    "expires_at",
+                    "x_user_id",
+                    "x_handle",
+                    "typed_data"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The request parameters are invalid",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "The signature does not prove the address signed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The completion code is wrong",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Unknown or expired link; start again",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Not ready for this step, or the nonce was already used",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many requests from this IP or for this address",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "An unexpected server error occurred",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Linking is not available here, or the chain could not be reached; retry",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/identity/x/unlink/message": {
+      "post": {
+        "tags": [
+          "Identity"
+        ],
+        "summary": "Get the message to sign to unlink",
+        "description": "Returns typed_data for the wallet to sign to remove its X link, then DELETE /v1/identity/x/link. Expires in 10 minutes",
+        "operationId": "post_GetXUnlinkMessage",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "chain_id": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "pattern": "^0x[a-fA-F0-9]+$",
+                        "description": "A hexadecimal number"
+                      },
+                      {
+                        "type": "string",
+                        "pattern": "^\\d+$",
+                        "description": "A decimal number"
+                      },
+                      {
+                        "type": "integer",
+                        "exclusiveMinimum": 0
+                      }
+                    ],
+                    "description": "Chain ID, decimal or 0x hex. Starknet mainnet is 0x534e5f4d41494e"
+                  },
+                  "address": {
+                    "type": "string",
+                    "maxLength": 66,
+                    "description": "Wallet address, 0x hex",
+                    "example": "0x7a16fF8270133F063aAb6C9977183D9e72835428"
+                  }
+                },
+                "required": [
+                  "chain_id",
+                  "address"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The message",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "nonce": {
+                      "type": "string"
+                    },
+                    "expires_at": {
+                      "type": "string",
+                      "description": "ISO 8601"
+                    },
+                    "typed_data": {
+                      "type": "object",
+                      "properties": {
+                        "types": {
+                          "type": "object",
+                          "additionalProperties": {
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "properties": {
+                                "name": {
+                                  "type": "string"
+                                },
+                                "type": {
+                                  "type": "string"
+                                }
+                              },
+                              "required": [
+                                "name",
+                                "type"
+                              ]
+                            }
+                          }
+                        },
+                        "primaryType": {
+                          "type": "string"
+                        },
+                        "domain": {
+                          "type": "object",
+                          "additionalProperties": {
+                            "anyOf": [
+                              {
+                                "type": "string"
+                              },
+                              {
+                                "type": "number"
+                              }
+                            ]
+                          }
+                        },
+                        "message": {
+                          "type": "object",
+                          "additionalProperties": {
+                            "anyOf": [
+                              {
+                                "type": "string"
+                              },
+                              {
+                                "type": "number"
+                              }
+                            ]
+                          }
+                        }
+                      },
+                      "required": [
+                        "types",
+                        "primaryType",
+                        "domain",
+                        "message"
+                      ],
+                      "description": "The exact message to sign: EIP-712 typed data on EVM chains (eth_signTypedData_v4), SNIP-12 revision 1 typed data on Starknet. Sign it unchanged"
+                    }
+                  },
+                  "required": [
+                    "nonce",
+                    "expires_at",
+                    "typed_data"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The request parameters are invalid",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "The signature does not prove the address signed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The completion code is wrong",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Unknown or expired link; start again",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Not ready for this step, or the nonce was already used",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many requests from this IP or for this address",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "An unexpected server error occurred",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Linking is not available here, or the chain could not be reached; retry",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/identity/x/link": {
+      "delete": {
+        "tags": [
+          "Identity"
+        ],
+        "summary": "Unlink with a wallet signature",
+        "description": "Removes the address's X link, proven by a signature over the unlink message. An ECDSA signature removes every link of the address; a contract-account signature only the link on its chain",
+        "operationId": "delete_DeleteXLink",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "chain_id": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "pattern": "^0x[a-fA-F0-9]+$",
+                        "description": "A hexadecimal number"
+                      },
+                      {
+                        "type": "string",
+                        "pattern": "^\\d+$",
+                        "description": "A decimal number"
+                      },
+                      {
+                        "type": "integer",
+                        "exclusiveMinimum": 0
+                      }
+                    ],
+                    "description": "Chain ID, decimal or 0x hex. Starknet mainnet is 0x534e5f4d41494e"
+                  },
+                  "address": {
+                    "type": "string",
+                    "maxLength": 66,
+                    "description": "Wallet address, 0x hex",
+                    "example": "0x7a16fF8270133F063aAb6C9977183D9e72835428"
+                  },
+                  "nonce": {
+                    "type": "string",
+                    "pattern": "^0x[0-9a-f]{62,64}$"
+                  },
+                  "signature": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "maxLength": 16384
+                      },
+                      {
+                        "type": "array",
+                        "items": {
+                          "type": "string",
+                          "maxLength": 80
+                        },
+                        "maxItems": 32
+                      }
+                    ],
+                    "description": "EVM: the 0x hex signature over typed_data (ECDSA, ERC-1271 or ERC-6492). Starknet: the array of signature felts"
+                  }
+                },
+                "required": [
+                  "chain_id",
+                  "address",
+                  "nonce",
+                  "signature"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Unlinked",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "removed": {
+                      "type": "integer",
+                      "description": "Links removed. An ECDSA signature removes every link of the address; a contract-account signature only the link on its chain"
+                    }
+                  },
+                  "required": [
+                    "removed"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The request parameters are invalid",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "The signature does not prove the address signed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The completion code is wrong",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Unknown or expired link; start again",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Not ready for this step, or the nonce was already used",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many requests from this IP or for this address",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "An unexpected server error occurred",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Linking is not available here, or the chain could not be reached; retry",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/identity/addresses": {
+      "get": {
+        "tags": [
+          "Identity"
+        ],
+        "summary": "Look up linked X accounts",
+        "description": "Linked X accounts for up to 100 addresses on one chain. Repeat address. Cached for 30 seconds",
+        "operationId": "get_LookupXIdentities",
+        "parameters": [
+          {
+            "schema": {
+              "type": "integer",
+              "title": "Chain ID",
+              "description": "The ID of the network that is being fetched",
+              "format": "int64",
+              "minimum": 1,
+              "maximum": 9223372036854776000
+            },
+            "required": true,
+            "description": "The ID of the network that is being fetched",
+            "name": "chainId",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "array",
+              "items": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "pattern": "^0x[a-fA-F0-9]+$",
+                    "description": "A hexadecimal number"
+                  },
+                  {
+                    "type": "string",
+                    "pattern": "^\\d+$",
+                    "description": "A decimal number"
+                  }
+                ],
+                "title": "Address",
+                "description": "An address on the specified blockchain network"
+              },
+              "description": "Repeat for each address (?address=0x...&address=0x...)"
+            },
+            "required": true,
+            "description": "Repeat for each address (?address=0x...&address=0x...)",
+            "name": "address",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Linked X accounts",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "chain_id": {
+                      "type": "string"
+                    },
+                    "identities": {
+                      "type": "object",
+                      "additionalProperties": {
+                        "type": [
+                          "object",
+                          "null"
+                        ],
+                        "properties": {
+                          "x_user_id": {
+                            "type": "string",
+                            "description": "Immutable numeric X user ID"
+                          },
+                          "x_handle": {
+                            "type": "string",
+                            "description": "X handle without the @, as it was when linked. A renamed account shows its old handle until relinked"
+                          },
+                          "x_url": {
+                            "type": "string",
+                            "description": "Profile URL on x.com, by user ID"
+                          },
+                          "linked_at": {
+                            "type": "string",
+                            "description": "When the link was made, ISO 8601"
+                          },
+                          "scope": {
+                            "type": "string",
+                            "enum": [
+                              "namespace",
+                              "chain"
+                            ],
+                            "description": "namespace: proven by the address's own key, holds on every EVM chain. chain: proven by a contract account, holds only on verified_chain_id"
+                          },
+                          "verified_chain_id": {
+                            "type": "string",
+                            "description": "Decimal ID of the chain the signature was checked on"
+                          },
+                          "signature_kind": {
+                            "type": "string",
+                            "enum": [
+                              "ecdsa",
+                              "erc1271",
+                              "erc6492",
+                              "starknet"
+                            ]
+                          }
+                        },
+                        "required": [
+                          "x_user_id",
+                          "x_handle",
+                          "x_url",
+                          "linked_at",
+                          "scope",
+                          "verified_chain_id",
+                          "signature_kind"
+                        ]
+                      },
+                      "description": "Keyed by canonical address (EVM lowercase; Starknet 0x + 64 hex). Null when the address has no link on this chain"
+                    }
+                  },
+                  "required": [
+                    "chain_id",
+                    "identities"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The request parameters are invalid",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many requests from this IP or for this address",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "An unexpected server error occurred",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Linking is not available here, or the chain could not be reached; retry",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "webhooks": {}

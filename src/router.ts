@@ -77,6 +77,8 @@ import {
   ListVe33Voters,
 } from "./routes/ve33";
 
+import { identityRoutes } from "./routes/identity";
+
 import type { ApiRoute } from "./shared/context";
 import { createApp } from "./shared/context";
 
@@ -146,6 +148,7 @@ const routes: readonly ApiRoute[] = [
   ListCampaigns,
   ListRewardsForLocker,
   ListClaimsForAddress,
+  ...identityRoutes,
 ] as unknown as readonly ApiRoute[];
 
 export const app = createApp();
