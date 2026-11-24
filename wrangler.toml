@@ -65,13 +65,15 @@ X_LINK_RETURN_ORIGINS = "https://interface-9yz.pages.dev,https://*.interface-9yz
 # Per IP across the identity routes, and per IP and address on start,
 # complete and unlink (keyed by both, so nobody can use up an owner's budget).
 # Both are required: with either missing, the identity routes answer 503.
-# Namespace IDs only need to be unique within this Worker.
+# Namespace IDs are scoped to the Cloudflare account: bindings that share an
+# ID share counters, across Workers too. Production uses 3113 and 3114,
+# preview 3115 and 3116; no other Worker may reuse them.
 [[env.preview.ratelimits]]
 name = "IDENTITY_IP_LIMITER"
-namespace_id = "3113"
+namespace_id = "3115"
 simple = { limit = 30, period = 60 }
 
 [[env.preview.ratelimits]]
 name = "IDENTITY_ADDRESS_LIMITER"
-namespace_id = "3114"
+namespace_id = "3116"
 simple = { limit = 10, period = 60 }
