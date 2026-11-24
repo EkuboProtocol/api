@@ -87,6 +87,14 @@ const X_RESPONSES: Record<string, () => Response> = {
   "https://api.x.com/2/oauth2/revoke": () => new Response("{}"),
 };
 
+// Contract-account signatures are checked only against Ekubo's Alchemy app.
+const RPC_URLS: Record<string, string> = {
+  "1": "https://eth-mainnet.g.alchemy.com/v2/alchemy-key",
+  "8453": "https://base-mainnet.g.alchemy.com/v2/alchemy-key",
+  [STARKNET_MAINNET_CHAIN_ID.toString()]:
+    "https://starknet-mainnet.g.alchemy.com/starknet/version/rpc/v0_10/alchemy-key",
+};
+
 function rpcResponse(chainId: string, body: string) {
   if (rpcDown) return new Response("bad gateway", { status: 502 });
   const parsed = JSON.parse(body);
@@ -106,8 +114,8 @@ async function fakeFetch(input: RequestInfo | URL, init?: RequestInit) {
   calls.push({ url, body });
   const x = X_RESPONSES[url];
   if (x) return x();
-  const rpc = /^https:\/\/rpc\.test\/(\d+)$/.exec(url);
-  if (rpc) return rpcResponse(rpc[1], body);
+  const rpc = Object.entries(RPC_URLS).find(([, rpcUrl]) => rpcUrl === url);
+  if (rpc) return rpcResponse(rpc[0], body);
   throw new Error(`Unexpected fetch ${url}`);
 }
 
@@ -120,14 +128,7 @@ beforeEach(() => {
     X_CLIENT_ID: "client-id",
     X_CLIENT_SECRET: "client-secret",
     X_LINK_RETURN_ORIGINS: `${RETURN_ORIGIN},https://*.interface-9yz.pages.dev`,
-    RPC_URLS: JSON.stringify(
-      Object.fromEntries(
-        ["1", "8453", STARKNET_MAINNET_CHAIN_ID.toString()].map((id) => [
-          id,
-          `https://rpc.test/${id}`,
-        ]),
-      ),
-    ),
+    ALCHEMY_API_KEY: "alchemy-key",
     IDENTITY_IP_LIMITER: limiter,
     IDENTITY_ADDRESS_LIMITER: limiter,
   };
@@ -424,8 +425,8 @@ describe("replay and expiry", () => {
       expiresAt: nonce.expires_at,
     };
     const now = Math.floor(Date.now() / 1000);
-    expect(await consumeNonce(env.IDENTITY_DB!, params, now)).toBe(true);
-    expect(await consumeNonce(env.IDENTITY_DB!, params, now)).toBe(false);
+    expect(await consumeNonce(env.IDENTITY_DB, params, now)).toBe(true);
+    expect(await consumeNonce(env.IDENTITY_DB, params, now)).toBe(false);
     expect(linkId).toBeString();
   });
 
@@ -761,7 +762,7 @@ describe("contract accounts", () => {
       signature_kind: "erc6492",
     });
     const validatorCall = calls.find(
-      (c) => c.url === "https://rpc.test/8453" && !c.body.includes('"to"'),
+      (c) => c.url === RPC_URLS["8453"] && !c.body.includes('"to"'),
     );
     expect(validatorCall).toBeDefined();
   });
@@ -810,8 +811,9 @@ describe("Starknet accounts", () => {
       signature_kind: "starknet",
     });
     const call = JSON.parse(
-      calls.find((c) => c.url.endsWith(STARKNET_MAINNET_CHAIN_ID.toString()))!
-        .body,
+      calls.find(
+        (c) => c.url === RPC_URLS[STARKNET_MAINNET_CHAIN_ID.toString()],
+      )!.body,
     );
     expect(call.method).toBe("starknet_call");
     expect(call.params.request.calldata.slice(1)).toEqual([
@@ -853,13 +855,12 @@ describe("guards", () => {
     expect(response.status).toBe(429);
   });
 
-  test("without the identity database the routes answer 503", async () => {
-    env = { ...env, IDENTITY_DB: undefined };
-    const response = await request(
-      "GET",
-      "/v1/identity/addresses?chainId=1&address=0x7a16ff8270133f063aab6c9977183d9e72835428",
-    );
-    expect(response.status).toBe(503);
+  test("Elysium is not supported: Alchemy does not serve it", async () => {
+    const response = await request("POST", "/v1/identity/x/link/start", {
+      chain_id: "99901",
+      address: privateKeyToAccount(generatePrivateKey()).address,
+    });
+    expect(response.status).toBe(400);
   });
 
   test("unsupported chains and malformed addresses are 400", async () => {

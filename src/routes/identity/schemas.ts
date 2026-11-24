@@ -211,7 +211,7 @@ function errorResponse(description: string) {
 export const identityErrors = {
   429: errorResponse("Too many requests from this IP or for this address"),
   503: errorResponse(
-    "Linking is not available here, or the chain could not be reached; retry",
+    "The chain could not be reached, or rate limits are not configured; retry",
   ),
 } as const;
 

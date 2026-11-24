@@ -5,27 +5,28 @@ export type Namespace = "evm" | "starknet";
 
 export const STARKNET_MAINNET_CHAIN_ID = 0x534e5f4d41494en;
 
-// The networks Ekubo is deployed on, with a public RPC used to verify
-// contract-account signatures. RPC_URLS (a JSON object of decimal chain ID to
-// URL, set as a secret) overrides any of them.
-const PUBLIC_RPC_URLS: Readonly<Record<string, string>> = {
-  "1": "https://ethereum-rpc.publicnode.com",
-  "10": "https://optimism-rpc.publicnode.com",
-  "56": "https://bsc-rpc.publicnode.com",
-  "100": "https://gnosis-rpc.publicnode.com",
-  "130": "https://mainnet.unichain.org",
-  "137": "https://polygon-bor-rpc.publicnode.com",
-  "143": "https://rpc.monad.xyz",
-  "4663": "https://rpc.mainnet.chain.robinhood.com",
-  "8453": "https://base-rpc.publicnode.com",
-  "42161": "https://arbitrum-one-rpc.publicnode.com",
-  "57073": "https://rpc-gel.inkonchain.com",
-  "99901": "https://rpc.elysium.kinetiq.xyz",
-  [STARKNET_MAINNET_CHAIN_ID.toString()]: "https://starknet-rpc.publicnode.com",
+// The networks a link can be verified on, with the Alchemy network each
+// contract-account signature (ERC-1271, ERC-6492, Starknet) is checked
+// against. These checks trust the RPC: a wrong answer would link any address
+// on that chain, so they go only to Ekubo's own Alchemy app (ALCHEMY_API_KEY),
+// never to a public endpoint. A chain Alchemy does not serve is not listed.
+const ALCHEMY_NETWORKS: Readonly<Record<string, string>> = {
+  "1": "eth-mainnet",
+  "10": "opt-mainnet",
+  "56": "bnb-mainnet",
+  "100": "gnosis-mainnet",
+  "130": "unichain-mainnet",
+  "137": "polygon-mainnet",
+  "143": "monad-mainnet",
+  "4663": "robinhood-mainnet",
+  "8453": "base-mainnet",
+  "42161": "arb-mainnet",
+  "57073": "ink-mainnet",
+  [STARKNET_MAINNET_CHAIN_ID.toString()]: "starknet-mainnet",
 };
 
 export const SUPPORTED_CHAIN_IDS: readonly string[] =
-  Object.keys(PUBLIC_RPC_URLS);
+  Object.keys(ALCHEMY_NETWORKS);
 
 export interface Chain {
   /** Decimal chain ID. */
@@ -41,7 +42,7 @@ export function parseChain(value: string | bigint): Chain {
     throw new StatusError(400, "chain_id must be a decimal or 0x number");
   }
   const key = id.toString();
-  if (!(key in PUBLIC_RPC_URLS)) {
+  if (!(key in ALCHEMY_NETWORKS)) {
     throw new StatusError(
       400,
       `chain_id ${key} is not supported; use one of ${SUPPORTED_CHAIN_IDS.join(", ")}`,
@@ -79,18 +80,11 @@ export function canonicalAddress(namespace: Namespace, value: string): string {
 }
 
 export function rpcUrl(env: Env, chainId: string): string {
-  if (env.RPC_URLS) {
-    try {
-      const overrides: unknown = JSON.parse(env.RPC_URLS);
-      if (overrides && typeof overrides === "object" && chainId in overrides) {
-        const url = (overrides as Record<string, unknown>)[chainId];
-        if (typeof url === "string") return url;
-      }
-    } catch {
-      // A malformed override falls back to the public RPC.
-    }
-  }
-  const url = PUBLIC_RPC_URLS[chainId];
-  if (!url) throw new StatusError(400, `chain_id ${chainId} is not supported`);
-  return url;
+  const network = ALCHEMY_NETWORKS[chainId];
+  if (!network)
+    throw new StatusError(400, `chain_id ${chainId} is not supported`);
+  const key = encodeURIComponent(env.ALCHEMY_API_KEY);
+  return chainId === STARKNET_MAINNET_CHAIN_ID.toString()
+    ? `https://${network}.g.alchemy.com/starknet/version/rpc/v0_10/${key}`
+    : `https://${network}.g.alchemy.com/v2/${key}`;
 }

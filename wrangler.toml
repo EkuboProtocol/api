@@ -18,6 +18,27 @@ hyperdrive = [
   { binding = "HYPERDRIVE", id = "c6bd83f26cc840e3aa09870557f286f4" },
 ]
 routes = [{ pattern = "prod-api.ekubo.org", custom_domain = true }]
+# Wallet to X links (src/routes/identity). X_CLIENT_ID, X_CLIENT_SECRET and
+# ALCHEMY_API_KEY are Worker secrets. Apply new migrations in
+# migrations/identity to this database before the deploy that needs them.
+d1_databases = [
+  { binding = "IDENTITY_DB", database_name = "ekubo-identity", database_id = "30ba8c1c-14b0-4751-ae30-307d65f05d19", migrations_dir = "migrations/identity" },
+]
+
+[env.prod.vars]
+PUBLIC_ORIGIN = "https://prod-api.ekubo.org"
+# Exact origins only: no wildcard, no localhost.
+X_LINK_RETURN_ORIGINS = "https://ekubo.org"
+
+[[env.prod.ratelimits]]
+name = "IDENTITY_IP_LIMITER"
+namespace_id = "3113"
+simple = { limit = 30, period = 60 }
+
+[[env.prod.ratelimits]]
+name = "IDENTITY_ADDRESS_LIMITER"
+namespace_id = "3114"
+simple = { limit = 10, period = 60 }
 
 [observability]
 enabled = true
@@ -25,7 +46,8 @@ head_sampling_rate = 1 # optional. default = 1.
 
 # Preview: the same API on workers.dev, reading the production indexer
 # through the same Hyperdrive, plus wallet to X linking (src/routes/identity)
-# on its own preview D1. X_CLIENT_ID and X_CLIENT_SECRET are Worker secrets.
+# on its own preview D1. X_CLIENT_ID, X_CLIENT_SECRET and ALCHEMY_API_KEY are
+# Worker secrets.
 [env.preview]
 workers_dev = true
 preview_urls = false
@@ -42,8 +64,8 @@ X_LINK_RETURN_ORIGINS = "https://interface-9yz.pages.dev,https://*.interface-9yz
 
 # Per IP across the identity routes, and per IP and address on start,
 # complete and unlink (keyed by both, so nobody can use up an owner's budget).
-# Both are required: with IDENTITY_DB bound and either missing, the identity
-# routes answer 503. Namespace IDs only need to be unique within this Worker.
+# Both are required: with either missing, the identity routes answer 503.
+# Namespace IDs only need to be unique within this Worker.
 [[env.preview.ratelimits]]
 name = "IDENTITY_IP_LIMITER"
 namespace_id = "3113"

@@ -16,16 +16,12 @@ export interface XAccount {
   readonly username: string;
 }
 
-export function xConfigured(env: Env): boolean {
-  return Boolean(env.X_CLIENT_ID && env.X_CLIENT_SECRET && env.PUBLIC_ORIGIN);
-}
-
 export function callbackUrl(env: Env): string {
-  return `${env.PUBLIC_ORIGIN!.replace(/\/$/, "")}/v1/identity/x/callback`;
+  return `${env.PUBLIC_ORIGIN.replace(/\/$/, "")}/v1/identity/x/callback`;
 }
 
 function basicAuth(env: Env) {
-  return `Basic ${btoa(`${encodeURIComponent(env.X_CLIENT_ID!)}:${encodeURIComponent(env.X_CLIENT_SECRET!)}`)}`;
+  return `Basic ${btoa(`${encodeURIComponent(env.X_CLIENT_ID)}:${encodeURIComponent(env.X_CLIENT_SECRET)}`)}`;
 }
 
 export async function authorizationUrl(
@@ -36,7 +32,7 @@ export async function authorizationUrl(
   const url = new URL("https://x.com/i/oauth2/authorize");
   url.search = new URLSearchParams({
     response_type: "code",
-    client_id: env.X_CLIENT_ID!,
+    client_id: env.X_CLIENT_ID,
     redirect_uri: callbackUrl(env),
     scope: SCOPES,
     state,

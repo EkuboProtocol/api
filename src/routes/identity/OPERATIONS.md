@@ -56,22 +56,30 @@ Removal does not stop the same X account and wallet linking again. If the
 report is about an X account that is still compromised, the owner should
 remove the links themselves once they have it back.
 
-## Launch configuration
+## Configuration
 
-Production (`env.prod` in `wrangler.toml`) has no identity database, so the
-identity routes answer 503 there. Turning them on is one change, which adds:
+Every deployment serves the identity routes; there is no switch to turn them
+off. Each `wrangler.toml` environment that deploys the Worker needs:
 
-- the production `IDENTITY_DB` D1 binding, with both migrations applied
-  before the deploy;
+- the `IDENTITY_DB` D1 binding (`ekubo-identity` in `env.prod`,
+  `ekubo-identity-preview` in `env.preview`), with every migration in
+  `migrations/identity` applied before the deploy that needs it:
+
+  ```sh
+  npx wrangler d1 migrations apply ekubo-identity --env prod --remote
+  ```
+
 - both `ratelimits` bindings (`IDENTITY_IP_LIMITER`, `IDENTITY_ADDRESS_LIMITER`).
   Without either, the routes answer 503 rather than running unlimited;
-- `PUBLIC_ORIGIN = "https://prod-api.ekubo.org"`, and the callback URL
-  registered with the X app;
-- `X_LINK_RETURN_ORIGINS` with exact origins only (`https://ekubo.org`): no
-  `*.` wildcard, no localhost;
+- `PUBLIC_ORIGIN` (`https://prod-api.ekubo.org` in production), with
+  `<PUBLIC_ORIGIN>/v1/identity/x/callback` registered as a callback URL on the
+  X app;
+- `X_LINK_RETURN_ORIGINS`: in production exact origins only
+  (`https://ekubo.org`), no `*.` wildcard and no localhost;
 - `X_CLIENT_ID` and `X_CLIENT_SECRET` as Worker secrets;
-- `RPC_URLS` (secret) naming a provider Ekubo has an account with for every
-  supported chain. Contract-account signatures (ERC-1271, ERC-6492, Starknet)
-  are checked by `eth_call`/`starknet_call` at `latest`, and a wrong answer
-  from the RPC would link any address on that chain, so the public defaults
-  in `chains.ts` are not acceptable in production.
+- `ALCHEMY_API_KEY` as a Worker secret: the key of Ekubo's Alchemy app with
+  every network in `chains.ts` enabled. Contract-account signatures (ERC-1271,
+  ERC-6492, Starknet) are checked by `eth_call`/`starknet_call` at `latest`,
+  and a wrong answer from the RPC would link any address on that chain, so
+  they never go to a public endpoint. A chain Alchemy does not serve is not
+  supported for linking.

@@ -17,7 +17,6 @@ import { AddressType, ChainIdType } from "../../shared/validation/address";
 import { canonicalAddress, parseChain, type Chain } from "./chains";
 import {
   checkCode,
-  database,
   iso,
   limit,
   LINK_TTL_SECONDS,
@@ -59,7 +58,7 @@ import {
   type LinkRow,
 } from "./store";
 import { verifySignature, type Signature } from "./verify";
-import { authorizationUrl, verifiedXAccount, xConfigured } from "./x";
+import { authorizationUrl, verifiedXAccount } from "./x";
 import { callbackPage, returnUrl, validReturnTo } from "./callback";
 import { CompleteXUnlink, StartXUnlink, unlinkCallback } from "./xUnlink";
 
@@ -138,10 +137,7 @@ export const StartXLink = defineRoute(
   }),
   async (c) => {
     const body = c.req.valid("json");
-    const db = database(c.env);
-    if (!xConfigured(c.env)) {
-      throw new StatusError(503, "Sign in with X is not configured here");
-    }
+    const db = c.env.IDENTITY_DB;
     const { chain, address } = target(body.chain_id, body.address);
     const returnTo = body.return_to ?? null;
     if (returnTo !== null && !validReturnTo(c.env, returnTo)) {
@@ -189,7 +185,7 @@ async function finishCallback(
   if (!account) return null;
   const now = nowSeconds();
   const completion = completionCode();
-  await recordXResult(database(env), {
+  await recordXResult(env.IDENTITY_DB, {
     idHash: attempt.id_hash,
     namespace: attempt.namespace,
     address: attempt.address,
@@ -256,7 +252,7 @@ export const XLinkCallback = defineRoute(
   }),
   async (c) => {
     const { state, code } = c.req.valid("query");
-    const db = database(c.env);
+    const db = c.env.IDENTITY_DB;
     await limit(c);
     if (!state || !STATE_PATTERN.test(state)) {
       return callbackPage(c, { outcome: "expired" });
@@ -291,7 +287,7 @@ export const GetXLink = defineRoute(
   async (c) => {
     const { link_id } = c.req.valid("param");
     const { code } = c.req.valid("query");
-    const db = database(c.env);
+    const db = c.env.IDENTITY_DB;
     await limit(c);
     const attempt = await findAttempt(db, link_id);
     const approved = attempt.x_user_id !== null;
@@ -373,7 +369,7 @@ export const CompleteXLink = defineRoute(
   async (c) => {
     const { link_id } = c.req.valid("param");
     const { code, signature } = c.req.valid("json");
-    const db = database(c.env);
+    const db = c.env.IDENTITY_DB;
     const attempt = await findAttempt(db, link_id);
     await limit(c, parseChain(attempt.chain_id), attempt.address);
     if (attempt.x_user_id === null) {
@@ -432,7 +428,7 @@ export const GetXUnlinkMessage = defineRoute(
   }),
   async (c) => {
     const body = c.req.valid("json");
-    const db = database(c.env);
+    const db = c.env.IDENTITY_DB;
     const { chain, address } = target(body.chain_id, body.address);
     await limit(c, chain, address);
     const links = await lookupLinks(db, chain.namespace, chain.id, [address]);
@@ -485,7 +481,7 @@ export const DeleteXLink = defineRoute(
   }),
   async (c) => {
     const body = c.req.valid("json");
-    const db = database(c.env);
+    const db = c.env.IDENTITY_DB;
     const { chain, address } = target(body.chain_id, body.address);
     await limit(c, chain, address);
     const now = nowSeconds();
@@ -561,7 +557,7 @@ export const LookupXIdentities = defineRoute(
       ...new Set(addresses.map((a) => canonicalAddress(chain.namespace, a))),
     ];
     const links = await lookupLinks(
-      database(c.env),
+      c.env.IDENTITY_DB,
       chain.namespace,
       chain.id,
       canonical,
