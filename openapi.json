@@ -13899,7 +13899,7 @@
           "Identity"
         ],
         "summary": "X authorization callback",
-        "description": "Where x.com sends the browser after approval. Records the verified X account against the link but never links on its own: it shows the completion code, or redirects to return_to with it",
+        "description": "Where x.com sends the browser after approval, for links and X-side unlinks. Records the verified X account against the attempt but never links or unlinks on its own: it shows the completion code, or redirects to return_to with it",
         "operationId": "get_XLinkCallback",
         "parameters": [
           {
@@ -14133,7 +14133,7 @@
             }
           },
           "409": {
-            "description": "Not ready for this step, or the nonce was already used",
+            "description": "Not ready for this step, the nonce was already used, or a contract-account signature cannot remove a link made with the address's own key",
             "content": {
               "application/json": {
                 "schema": {
@@ -14371,7 +14371,7 @@
             }
           },
           "409": {
-            "description": "Not ready for this step, or the nonce was already used",
+            "description": "Not ready for this step, the nonce was already used, or a contract-account signature cannot remove a link made with the address's own key",
             "content": {
               "application/json": {
                 "schema": {
@@ -14590,7 +14590,7 @@
             }
           },
           "409": {
-            "description": "Not ready for this step, or the nonce was already used",
+            "description": "Not ready for this step, the nonce was already used, or a contract-account signature cannot remove a link made with the address's own key",
             "content": {
               "application/json": {
                 "schema": {
@@ -14638,7 +14638,7 @@
           "Identity"
         ],
         "summary": "Unlink with a wallet signature",
-        "description": "Removes the address's X link, proven by a signature over the unlink message. An ECDSA signature removes every link of the address; a contract-account signature only the link on its chain",
+        "description": "Removes the address's X link, proven by a signature over the unlink message. An ECDSA signature removes every link of the address; a contract-account signature only the link made on its chain, and is refused with 409 (the nonce stays usable) when the address's link there is its all-chain ECDSA link",
         "operationId": "delete_DeleteXLink",
         "requestBody": {
           "required": true,
@@ -14765,7 +14765,306 @@
             }
           },
           "409": {
-            "description": "Not ready for this step, or the nonce was already used",
+            "description": "Not ready for this step, the nonce was already used, or a contract-account signature cannot remove a link made with the address's own key",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many requests from this IP or for this address",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "An unexpected server error occurred",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Linking is not available here, or the chain could not be reached; retry",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/identity/x/unlink/start": {
+      "post": {
+        "tags": [
+          "Identity"
+        ],
+        "summary": "Start removing an X account's links",
+        "description": "For the owner of an X account: removes every link between that X account and wallet addresses, proven by signing in with X, without a wallet. Returns the x.com authorization URL for the person to open and a private unlink ID. Then POST /v1/identity/x/unlink/{unlink_id}/complete with the code from X. Expires in 10 minutes",
+        "operationId": "post_StartXUnlink",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "return_to": {
+                    "type": "string",
+                    "maxLength": 2048,
+                    "format": "uri",
+                    "description": "Page on an allowed Ekubo origin to send the browser back to after X, with x_unlink=complete|cancelled|failed and x_unlink_code. Omit it (agents) to show the code on a page instead"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Unlink started",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "unlink_id": {
+                      "type": "string",
+                      "pattern": "^[A-Za-z0-9_-]{43}$",
+                      "description": "Unlink ID returned by the start call. Keep it private"
+                    },
+                    "authorization_url": {
+                      "type": "string",
+                      "description": "Open this in the person's browser to sign in on x.com"
+                    },
+                    "expires_at": {
+                      "type": "string",
+                      "description": "ISO 8601; X approval must finish by then"
+                    }
+                  },
+                  "required": [
+                    "unlink_id",
+                    "authorization_url",
+                    "expires_at"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The request parameters are invalid",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The completion code is wrong",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Unknown or expired unlink; start again",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The person has not signed in on X yet",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many requests from this IP or for this address",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "An unexpected server error occurred",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Linking is not available here, or the chain could not be reached; retry",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/identity/x/unlink/{unlink_id}/complete": {
+      "post": {
+        "tags": [
+          "Identity"
+        ],
+        "summary": "Remove an X account's links",
+        "description": "With the code shown after signing in on X, removes every link between that X account and wallet addresses, on every chain, and discards links to it still in progress. Removed links are kept in history",
+        "operationId": "post_CompleteXUnlink",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9_-]{43}$",
+              "description": "Unlink ID returned by the start call. Keep it private"
+            },
+            "required": true,
+            "description": "Unlink ID returned by the start call. Keep it private",
+            "name": "unlink_id",
+            "in": "path"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "code": {
+                    "type": "string",
+                    "minLength": 10,
+                    "maxLength": 18,
+                    "description": "Completion code shown to the person after signing in on X (on the callback page, or as x_unlink_code on the return URL). Case and dashes are ignored"
+                  }
+                },
+                "required": [
+                  "code"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Unlinked",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "x_user_id": {
+                      "type": "string",
+                      "description": "The X account that signed in"
+                    },
+                    "x_handle": {
+                      "type": "string",
+                      "description": "Its current handle, without the @"
+                    },
+                    "removed": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "address": {
+                            "type": "string",
+                            "description": "Canonical address"
+                          },
+                          "scope": {
+                            "type": "string",
+                            "enum": [
+                              "namespace",
+                              "chain"
+                            ]
+                          },
+                          "verified_chain_id": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "address",
+                          "scope",
+                          "verified_chain_id"
+                        ]
+                      },
+                      "description": "Every link to this X account, now removed. Empty if there were none"
+                    }
+                  },
+                  "required": [
+                    "x_user_id",
+                    "x_handle",
+                    "removed"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The request parameters are invalid",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The completion code is wrong",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Unknown or expired unlink; start again",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The person has not signed in on X yet",
             "content": {
               "application/json": {
                 "schema": {

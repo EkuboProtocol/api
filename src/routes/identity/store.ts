@@ -153,18 +153,22 @@ export async function getAttempt(db: D1Database, idHash: string, now: number) {
     .first<AttemptRow>();
 }
 
+export type AttemptTable = "link_attempts" | "unlink_attempts";
+
 /** Counts a wrong completion code; the attempt is discarded at the limit. */
-export async function recordCodeFailure(db: D1Database, idHash: string) {
+export async function recordCodeFailure(
+  db: D1Database,
+  idHash: string,
+  table: AttemptTable = "link_attempts",
+) {
   await db.batch([
     db
       .prepare(
-        "UPDATE link_attempts SET code_failures = code_failures + 1 WHERE id_hash = ?",
+        `UPDATE ${table} SET code_failures = code_failures + 1 WHERE id_hash = ?`,
       )
       .bind(idHash),
     db
-      .prepare(
-        "DELETE FROM link_attempts WHERE id_hash = ? AND code_failures >= ?",
-      )
+      .prepare(`DELETE FROM ${table} WHERE id_hash = ? AND code_failures >= ?`)
       .bind(idHash, MAX_CODE_FAILURES),
   ]);
 }
@@ -332,6 +336,167 @@ export async function removeLinks(
   return results[1]?.meta.changes ?? 0;
 }
 
+/** Whether the address has a link stored at exactly this scope. */
+export async function hasLinkAtScope(
+  db: D1Database,
+  namespace: Namespace,
+  address: string,
+  scope: string,
+): Promise<boolean> {
+  const row = await db
+    .prepare(
+      "SELECT 1 AS found FROM links WHERE namespace = ? AND address = ? AND chain_scope = ?",
+    )
+    .bind(namespace, address, scope)
+    .first<{ found: number }>();
+  return row !== null;
+}
+
+export interface UnlinkAttemptRow {
+  id_hash: string;
+  return_to: string | null;
+  x_user_id: string | null;
+  x_handle: string | null;
+  code_hash: string | null;
+  code_failures: number;
+  expires_at: number;
+}
+
+export async function createUnlinkAttempt(
+  db: D1Database,
+  attempt: {
+    idHash: string;
+    stateHash: string;
+    verifier: string;
+    returnTo: string | null;
+    now: number;
+    expiresAt: number;
+  },
+) {
+  await db.batch([
+    db
+      .prepare("DELETE FROM unlink_attempts WHERE expires_at <= ?")
+      .bind(attempt.now),
+    db
+      .prepare(
+        `INSERT INTO unlink_attempts
+          (id_hash, state_hash, verifier, return_to, created_at, expires_at)
+         VALUES (?, ?, ?, ?, ?, ?)`,
+      )
+      .bind(
+        attempt.idHash,
+        attempt.stateHash,
+        attempt.verifier,
+        attempt.returnTo,
+        attempt.now,
+        attempt.expiresAt,
+      ),
+  ]);
+}
+
+/** Consumes the OAuth state of an X-side unlink, as takeAttemptByState. */
+export async function takeUnlinkAttemptByState(
+  db: D1Database,
+  stateHash: string,
+  now: number,
+) {
+  return db
+    .prepare(
+      `UPDATE unlink_attempts SET state_hash = NULL
+       WHERE state_hash = ? AND verifier IS NOT NULL AND expires_at > ?
+       RETURNING id_hash, verifier, return_to`,
+    )
+    .bind(stateHash, now)
+    .first<{ id_hash: string; verifier: string; return_to: string | null }>();
+}
+
+/** Records the verified X account and opens the confirmation window. */
+export async function recordUnlinkXResult(
+  db: D1Database,
+  result: {
+    idHash: string;
+    xUserId: string;
+    xHandle: string;
+    codeHash: string;
+    expiresAt: number;
+  },
+) {
+  await db
+    .prepare(
+      `UPDATE unlink_attempts
+       SET verifier = NULL, x_user_id = ?, x_handle = ?, code_hash = ?, expires_at = ?
+       WHERE id_hash = ?`,
+    )
+    .bind(
+      result.xUserId,
+      result.xHandle,
+      result.codeHash,
+      result.expiresAt,
+      result.idHash,
+    )
+    .run();
+}
+
+export async function getUnlinkAttempt(
+  db: D1Database,
+  idHash: string,
+  now: number,
+) {
+  return db
+    .prepare(
+      `SELECT id_hash, return_to, x_user_id, x_handle, code_hash, code_failures, expires_at
+       FROM unlink_attempts WHERE id_hash = ? AND expires_at > ?`,
+    )
+    .bind(idHash, now)
+    .first<UnlinkAttemptRow>();
+}
+
+export type RemovedLink = Pick<
+  LinkRow,
+  "namespace" | "address" | "chain_scope" | "verified_chain_id"
+>;
+
+/**
+ * Removes every link to this X account, moving them to the history, and
+ * discards links to it still in progress, which would otherwise complete
+ * after the owner's unlink. `endReason` is x_unlinked when the owner proved
+ * the X account, removed when an operator acted on a report.
+ */
+export async function removeLinksOfXUser(
+  db: D1Database,
+  xUserId: string,
+  now: number,
+  endReason: "x_unlinked" | "removed",
+  unlinkAttemptIdHash?: string,
+): Promise<RemovedLink[]> {
+  const statements = [
+    db
+      .prepare(
+        `INSERT INTO link_history
+          (namespace, address, chain_scope, x_user_id, x_handle, signature_kind, verified_chain_id, linked_at, ended_at, end_reason)
+         SELECT namespace, address, chain_scope, x_user_id, x_handle, signature_kind, verified_chain_id, linked_at, ?, ?
+         FROM links WHERE x_user_id = ?`,
+      )
+      .bind(now, endReason, xUserId),
+    db
+      .prepare(
+        `DELETE FROM links WHERE x_user_id = ?
+         RETURNING namespace, address, chain_scope, verified_chain_id`,
+      )
+      .bind(xUserId),
+    db.prepare("DELETE FROM link_attempts WHERE x_user_id = ?").bind(xUserId),
+  ];
+  if (unlinkAttemptIdHash !== undefined) {
+    statements.push(
+      db
+        .prepare("DELETE FROM unlink_attempts WHERE id_hash = ?")
+        .bind(unlinkAttemptIdHash),
+    );
+  }
+  const results = await db.batch<RemovedLink>(statements);
+  return results[1]?.results ?? [];
+}
+
 /** The link that applies to each address on this chain. */
 export async function lookupLinks(
   db: D1Database,
@@ -341,14 +506,16 @@ export async function lookupLinks(
 ): Promise<Map<string, LinkRow>> {
   const found = new Map<string, LinkRow>();
   if (addresses.length === 0) return found;
+  // The addresses go in as one JSON parameter: D1 allows 100 bound
+  // parameters per statement, so one per address fails near the cap.
   const { results } = await db
     .prepare(
       `SELECT namespace, address, chain_scope, x_user_id, x_handle, signature_kind, verified_chain_id, linked_at
        FROM links
        WHERE namespace = ? AND chain_scope IN (?, ?)
-         AND address IN (${addresses.map(() => "?").join(", ")})`,
+         AND address IN (SELECT value FROM json_each(?))`,
     )
-    .bind(namespace, NAMESPACE_SCOPE, chainId, ...addresses)
+    .bind(namespace, NAMESPACE_SCOPE, chainId, JSON.stringify(addresses))
     .all<LinkRow>();
   for (const row of results) {
     // A chain-scoped link overrides the namespace link on its chain.

@@ -75,7 +75,10 @@ const IS_VALID_SIGNATURE_ABI = [
     outputs: [{ name: "magicValue", type: "bytes4" }],
   },
 ] as const;
-const ERC1271_MAGIC = "0x1626ba7e";
+// The whole 32-byte return word: bytes4 magic, then 28 zero bytes. A prefix
+// check would accept contracts that return caller-influenced data, such as
+// the SHA-256 precompile.
+const ERC1271_MAGIC_WORD = `0x1626ba7e${"0".repeat(56)}`;
 
 type Client = ReturnType<typeof createPublicClient>;
 
@@ -106,7 +109,7 @@ async function verifyErc1271(
       args: [hash, signature],
     }),
   });
-  return data !== null && data.length === 66 && data.startsWith(ERC1271_MAGIC);
+  return data?.toLowerCase() === ERC1271_MAGIC_WORD;
 }
 
 // ERC-6492: the universal validator, run deployless, deploys the account

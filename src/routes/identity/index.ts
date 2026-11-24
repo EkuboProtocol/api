@@ -8,21 +8,24 @@
 // as the link ID held by whoever started it, so an approval obtained by
 // sending someone a link is useless without their cooperation.
 import { createRoute, z } from "@hono/zod-openapi";
-import type { Context } from "hono";
 import type { D1Database } from "@cloudflare/workers-types";
 import type { Env } from "../../env";
-import { defineRoute, type AppEnv } from "../../shared/context";
+import { defineRoute } from "../../shared/context";
 import { errorResponses, StatusError } from "../../shared/errors";
 import { jsonResponse, queryArray } from "../../shared/openapi";
 import { AddressType, ChainIdType } from "../../shared/validation/address";
 import { canonicalAddress, parseChain, type Chain } from "./chains";
 import {
-  CODE_PATTERN,
-  completionCode,
-  normalizeCode,
-  randomToken,
-  sha256,
-} from "./crypto";
+  checkCode,
+  database,
+  iso,
+  limit,
+  LINK_TTL_SECONDS,
+  NO_STORE,
+  nowSeconds,
+  type Ctx,
+} from "./common";
+import { completionCode, randomToken, sha256 } from "./crypto";
 import { newNonce, typedDataFor, type MessageParams } from "./messages";
 import {
   identityErrors,
@@ -45,10 +48,9 @@ import {
   createNonce,
   getAttempt,
   getNonce,
+  hasLinkAtScope,
   lookupLinks,
-  MAX_CODE_FAILURES,
   NAMESPACE_SCOPE,
-  recordCodeFailure,
   recordXResult,
   removeLinks,
   takeAttemptByState,
@@ -59,50 +61,15 @@ import {
 import { verifySignature, type Signature } from "./verify";
 import { authorizationUrl, verifiedXAccount, xConfigured } from "./x";
 import { callbackPage, returnUrl, validReturnTo } from "./callback";
+import { CompleteXUnlink, StartXUnlink, unlinkCallback } from "./xUnlink";
 
 /** Paths under this prefix are never edge-cached (see src/worker.ts). */
 export const UNCACHED_IDENTITY_PREFIX = "/v1/identity/x/";
 
-export const LINK_TTL_SECONDS = 600;
+export { LINK_TTL_SECONDS } from "./common";
 export const LOOKUP_CACHE_CONTROL =
   "public, max-age=30, stale-while-revalidate=30";
-const NO_STORE = { "cache-control": "no-store" };
 const MAX_LOOKUP_ADDRESSES = 100;
-
-const nowSeconds = () => Math.floor(Date.now() / 1000);
-const iso = (seconds: number) => new Date(seconds * 1000).toISOString();
-
-type Ctx = Context<AppEnv>;
-
-function database(env: Env): D1Database {
-  if (!env.IDENTITY_DB) {
-    throw new StatusError(503, "X linking is not enabled on this deployment");
-  }
-  return env.IDENTITY_DB;
-}
-
-function clientIp(c: Ctx): string {
-  return c.req.header("cf-connecting-ip") ?? "unknown";
-}
-
-async function limit(c: Ctx, chain?: Chain, address?: string) {
-  const allowed = { success: true };
-  const checks = [
-    c.env.IDENTITY_IP_LIMITER?.limit({ key: clientIp(c) }) ??
-      Promise.resolve(allowed),
-  ];
-  if (chain && address) {
-    checks.push(
-      c.env.IDENTITY_ADDRESS_LIMITER?.limit({
-        key: `${chain.namespace}:${address}`,
-      }) ?? Promise.resolve(allowed),
-    );
-  }
-  const outcomes = await Promise.all(checks);
-  if (outcomes.some((outcome) => !outcome.success)) {
-    throw new StatusError(429, "Too many requests; wait a minute and retry");
-  }
-}
 
 function target(chainId: string | number, address: string) {
   const chain = parseChain(String(chainId));
@@ -146,24 +113,6 @@ async function findAttempt(db: D1Database, linkId: string) {
     throw new StatusError(404, "Link not found or expired; start again");
   }
   return attempt;
-}
-
-async function checkCode(db: D1Database, attempt: AttemptRow, code: string) {
-  const normalized = normalizeCode(code);
-  if (
-    CODE_PATTERN.test(normalized) &&
-    (await sha256(normalized)) === attempt.code_hash
-  ) {
-    return;
-  }
-  await recordCodeFailure(db, attempt.id_hash);
-  const left = MAX_CODE_FAILURES - attempt.code_failures - 1;
-  throw new StatusError(
-    403,
-    left > 0
-      ? `The code is wrong; ${left} ${left === 1 ? "try" : "tries"} left`
-      : "The code is wrong; this link is discarded, start again",
-  );
 }
 
 export const StartXLink = defineRoute(
@@ -227,10 +176,7 @@ export const StartXLink = defineRoute(
   },
 );
 
-async function attemptForState(db: D1Database, state: string | undefined) {
-  if (!state || !/^[A-Za-z0-9_-]{43}$/.test(state)) return null;
-  return takeAttemptByState(db, await sha256(state), nowSeconds());
-}
+const STATE_PATTERN = /^[A-Za-z0-9_-]{43}$/;
 
 async function finishCallback(
   env: Env,
@@ -258,6 +204,28 @@ async function finishCallback(
   return { account, completion };
 }
 
+async function linkCallback(
+  c: Ctx,
+  attempt: NonNullable<Awaited<ReturnType<typeof takeAttemptByState>>>,
+  code: string | undefined,
+) {
+  const result = code ? await finishCallback(c.env, attempt, code) : null;
+  const outcome = !code ? "cancelled" : result ? "complete" : "failed";
+  if (attempt.return_to) {
+    return c.redirect(
+      returnUrl(attempt.return_to, outcome, result?.completion),
+      302,
+    );
+  }
+  return callbackPage(c, {
+    outcome,
+    code: result?.completion,
+    handle: result?.account.username,
+    address: attempt.address,
+    chainId: attempt.chain_id,
+  });
+}
+
 export const XLinkCallback = defineRoute(
   createRoute({
     method: "get",
@@ -265,7 +233,7 @@ export const XLinkCallback = defineRoute(
     tags: ["Identity"],
     summary: "X authorization callback",
     description:
-      "Where x.com sends the browser after approval. Records the verified X account against the link but never links on its own: it shows the completion code, or redirects to return_to with it",
+      "Where x.com sends the browser after approval, for links and X-side unlinks. Records the verified X account against the attempt but never links or unlinks on its own: it shows the completion code, or redirects to return_to with it",
     operationId: "get_XLinkCallback",
     request: {
       query: z.object({
@@ -290,23 +258,14 @@ export const XLinkCallback = defineRoute(
     const { state, code } = c.req.valid("query");
     const db = database(c.env);
     await limit(c);
-    const attempt = await attemptForState(db, state);
-    if (!attempt) return callbackPage(c, { outcome: "expired" });
-    const result = code ? await finishCallback(c.env, attempt, code) : null;
-    const outcome = !code ? "cancelled" : result ? "complete" : "failed";
-    if (attempt.return_to) {
-      return c.redirect(
-        returnUrl(attempt.return_to, outcome, result?.completion),
-        302,
-      );
+    if (!state || !STATE_PATTERN.test(state)) {
+      return callbackPage(c, { outcome: "expired" });
     }
-    return callbackPage(c, {
-      outcome,
-      code: result?.completion,
-      handle: result?.account.username,
-      address: attempt.address,
-      chainId: attempt.chain_id,
-    });
+    const stateHash = await sha256(state);
+    const attempt = await takeAttemptByState(db, stateHash, nowSeconds());
+    if (attempt) return linkCallback(c, attempt, code);
+    const unlink = await unlinkCallback(c, db, stateHash, code);
+    return unlink ?? callbackPage(c, { outcome: "expired" });
   },
 );
 
@@ -337,7 +296,7 @@ export const GetXLink = defineRoute(
     const attempt = await findAttempt(db, link_id);
     const approved = attempt.x_user_id !== null;
     const reveal = approved && code !== undefined;
-    if (reveal) await checkCode(db, attempt, code);
+    if (reveal) await checkCode(db, "link_attempts", attempt, code);
     return c.json(
       {
         link_id,
@@ -420,7 +379,7 @@ export const CompleteXLink = defineRoute(
     if (attempt.x_user_id === null) {
       throw new StatusError(409, "The person has not approved on X yet");
     }
-    await checkCode(db, attempt, code);
+    await checkCode(db, "link_attempts", attempt, code);
     const params = linkParams(attempt);
     const { kind, scope } = await provenScope(c.env, params, signature);
     const now = nowSeconds();
@@ -510,7 +469,7 @@ export const DeleteXLink = defineRoute(
     tags: ["Identity"],
     summary: "Unlink with a wallet signature",
     description:
-      "Removes the address's X link, proven by a signature over the unlink message. An ECDSA signature removes every link of the address; a contract-account signature only the link on its chain",
+      "Removes the address's X link, proven by a signature over the unlink message. An ECDSA signature removes every link of the address; a contract-account signature only the link made on its chain, and is refused with 409 (the nonce stays usable) when the address's link there is its all-chain ECDSA link",
     operationId: "delete_DeleteXLink",
     request: {
       body: {
@@ -549,6 +508,18 @@ export const DeleteXLink = defineRoute(
       content: { kind: "unlink" },
     };
     const { scope } = await provenScope(c.env, params, body.signature);
+    if (
+      scope !== NAMESPACE_SCOPE &&
+      !(await hasLinkAtScope(db, chain.namespace, address, scope))
+    ) {
+      // The link on this chain is the address's all-chain link, made with
+      // its own key. A contract signature proves control on this chain only,
+      // so it cannot remove a link that holds on every chain.
+      throw new StatusError(
+        409,
+        "This address is linked on every chain with its own key; a contract-account signature only removes a link made on its chain. Sign the unlink message with the address's key, or unlink from the X side",
+      );
+    }
     if (!(await consumeNonce(db, nonceOf(params, "unlink"), now))) {
       throw new StatusError(409, "This message was already used; start again");
     }
@@ -614,5 +585,7 @@ export const identityRoutes = [
   GetXLink,
   GetXUnlinkMessage,
   DeleteXLink,
+  StartXUnlink,
+  CompleteXUnlink,
   LookupXIdentities,
 ];

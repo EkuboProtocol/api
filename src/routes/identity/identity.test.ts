@@ -23,6 +23,7 @@ import { responseSchema } from "../../contract/harness";
 import { fakeD1 } from "../../testing/fakeD1";
 import { STARKNET_MAINNET_CHAIN_ID } from "./chains";
 import { consumeNonce } from "./store";
+import { XUnlinkCompleteResponseType } from "./schemas";
 import { sha256 } from "./crypto";
 
 const MIGRATIONS = join(import.meta.dir, "../../../migrations/identity");
@@ -34,6 +35,8 @@ let sqlite: Database;
 let xAccount: { id: string; username: string };
 // Contract accounts: address -> chain IDs on which their ERC-1271 check passes.
 let contracts: Map<string, Set<string>>;
+// Exact eth_call return data for an address, overriding contracts.
+let rawReturns: Map<string, string>;
 let erc6492Valid: boolean;
 let starknetResult: string[] | "error";
 let rpcDown: boolean;
@@ -60,6 +63,8 @@ function evmRpc(
       `0x${(erc6492Valid ? 1 : 0).toString(16).padStart(64, "0")}`,
     );
   }
+  const raw = rawReturns.get(to);
+  if (raw !== undefined) return jsonRpc(body.id, raw);
   const valid = contracts.get(to)?.has(chainId) ?? false;
   return jsonRpc(body.id, valid ? `0x1626ba7e${"0".repeat(56)}` : "0x");
 }
@@ -128,6 +133,7 @@ beforeEach(() => {
   };
   xAccount = { id: "1234567890", username: "alice" };
   contracts = new Map();
+  rawReturns = new Map();
   erc6492Valid = false;
   starknetResult = ["0x56414c4944"];
   rpcDown = false;
@@ -141,13 +147,18 @@ afterEach(() => {
   setSystemTime();
 });
 
-function request(method: string, path: string, body?: unknown) {
+function request(
+  method: string,
+  path: string,
+  body?: unknown,
+  ip = "203.0.113.7",
+) {
   return app.fetch(
     new Request(`https://api.test${path}`, {
       method,
       headers: {
         "content-type": "application/json",
-        "cf-connecting-ip": "203.0.113.7",
+        "cf-connecting-ip": ip,
       },
       body: body === undefined ? undefined : JSON.stringify(body),
     }),
@@ -881,5 +892,273 @@ describe("guards", () => {
     expect(
       (await request("GET", `/v1/identity/addresses?chainId=1&${many}`)).status,
     ).toBe(400);
+  });
+});
+
+interface XUnlinkResult {
+  x_user_id: string;
+  x_handle: string;
+  removed: { address: string; scope: string; verified_chain_id: string }[];
+}
+
+async function signInForUnlink(returnTo?: string) {
+  const started = await request("POST", "/v1/identity/x/unlink/start", {
+    return_to: returnTo,
+  });
+  expect(started.status).toBe(200);
+  const { unlink_id, authorization_url } = await json<{
+    unlink_id: string;
+    authorization_url: string;
+  }>(started);
+  const state = new URL(authorization_url).searchParams.get("state")!;
+  const callback = await request(
+    "GET",
+    `/v1/identity/x/callback?state=${state}&code=oauth-code`,
+  );
+  return { unlinkId: unlink_id, callback };
+}
+
+function completeUnlink(unlinkId: string, code: string) {
+  return request("POST", `/v1/identity/x/unlink/${unlinkId}/complete`, {
+    code,
+  });
+}
+
+async function unlinkFromX(): Promise<XUnlinkResult> {
+  const { unlinkId, callback } = await signInForUnlink();
+  const response = await completeUnlink(unlinkId, await codeFromPage(callback));
+  expect(response.status).toBe(200);
+  const body = await json(response);
+  expect(
+    XUnlinkCompleteResponseType.strict().safeParse(body).error,
+  ).toBeUndefined();
+  return body as unknown as XUnlinkResult;
+}
+
+describe("unlinking from the X side", () => {
+  const SMART = "0x7a16ff8270133f063aab6c9977183d9e72835428";
+
+  test("removes only that X account's links, on every chain, into history", async () => {
+    const mine = privateKeyToAccount(generatePrivateKey());
+    await link("1", mine.address, (td) => signEvm(mine, td));
+    contracts.set(SMART, new Set(["8453"]));
+    await link("8453", SMART, async () => "0x1234");
+    xAccount = { id: "42", username: "bob" };
+    const theirs = privateKeyToAccount(generatePrivateKey());
+    await link("1", theirs.address, (td) => signEvm(theirs, td));
+
+    xAccount = { id: "1234567890", username: "alice_renamed" };
+    const result = await unlinkFromX();
+    const address = mine.address.toLowerCase();
+    expect(result.x_user_id).toBe("1234567890");
+    expect(result.x_handle).toBe("alice_renamed");
+    expect(
+      result.removed.toSorted((a, b) => a.address.localeCompare(b.address)),
+    ).toEqual(
+      [
+        { address, scope: "namespace", verified_chain_id: "1" },
+        { address: SMART, scope: "chain", verified_chain_id: "8453" },
+      ].toSorted((a, b) => a.address.localeCompare(b.address)),
+    );
+    for (const chain of ["1", "8453"]) {
+      const { identities } = await lookup(chain, address, SMART);
+      expect(identities[address]).toBeNull();
+      expect(identities[SMART]).toBeNull();
+    }
+    const other = theirs.address.toLowerCase();
+    expect((await lookup("1", other)).identities[other]?.x_handle).toBe("bob");
+    expect(
+      sqlite
+        .prepare(
+          "SELECT address, x_user_id, end_reason FROM link_history ORDER BY address",
+        )
+        .all(),
+    ).toEqual(
+      [
+        { address, x_user_id: "1234567890", end_reason: "x_unlinked" },
+        { address: SMART, x_user_id: "1234567890", end_reason: "x_unlinked" },
+      ].toSorted((a, b) => a.address.localeCompare(b.address)),
+    );
+  });
+
+  test("a sign-in as another X account removes nothing", async () => {
+    const account = privateKeyToAccount(generatePrivateKey());
+    await link("1", account.address, (td) => signEvm(account, td));
+    xAccount = { id: "42", username: "bob" };
+    expect((await unlinkFromX()).removed).toEqual([]);
+    const address = account.address.toLowerCase();
+    expect((await lookup("1", address)).identities[address]?.x_handle).toBe(
+      "alice",
+    );
+    expect(history()).toEqual([]);
+  });
+
+  test("the callback alone removes nothing, and five wrong codes discard the unlink", async () => {
+    const account = privateKeyToAccount(generatePrivateKey());
+    await link("1", account.address, (td) => signEvm(account, td));
+    const { unlinkId, callback } = await signInForUnlink();
+    const html = await callback.text();
+    expect(html).toContain("@alice");
+    expect(html).toContain("nothing is removed without this code");
+    const address = account.address.toLowerCase();
+    expect((await lookup("1", address)).identities[address]?.x_handle).toBe(
+      "alice",
+    );
+    for (let i = 0; i < 5; i++) {
+      expect((await completeUnlink(unlinkId, "AAAAAAAAAA")).status).toBe(403);
+    }
+    expect((await completeUnlink(unlinkId, "AAAAAAAAAA")).status).toBe(404);
+    expect((await lookup("1", address)).identities[address]?.x_handle).toBe(
+      "alice",
+    );
+  });
+
+  test("an unlink completes once, and not before X sign-in", async () => {
+    const started = await json<{ unlink_id: string }>(
+      await request("POST", "/v1/identity/x/unlink/start", {}),
+    );
+    expect((await completeUnlink(started.unlink_id, "AAAAAAAAAA")).status).toBe(
+      409,
+    );
+    const { unlinkId, callback } = await signInForUnlink();
+    const code = await codeFromPage(callback);
+    expect((await completeUnlink(unlinkId, code)).status).toBe(200);
+    expect((await completeUnlink(unlinkId, code)).status).toBe(404);
+  });
+
+  test("it discards links to the account still in progress", async () => {
+    const account = privateKeyToAccount(generatePrivateKey());
+    const { linkId, callback } = await approveOnX("1", account.address);
+    const code = await codeFromPage(callback);
+    const status = await messageFor(linkId, code);
+    const signature = await signEvm(account, status.typed_data!);
+    await unlinkFromX();
+    const late = await request(
+      "POST",
+      `/v1/identity/x/link/${linkId}/complete`,
+      { code, signature },
+    );
+    expect(late.status).toBe(404);
+  });
+
+  test("the browser returns to an allowed page with x_unlink and its code", async () => {
+    const account = privateKeyToAccount(generatePrivateKey());
+    await link("1", account.address, (td) => signEvm(account, td));
+    const { unlinkId, callback } = await signInForUnlink(
+      `${RETURN_ORIGIN}/settings`,
+    );
+    expect(callback.status).toBe(302);
+    const location = new URL(callback.headers.get("location")!);
+    expect(location.origin).toBe(RETURN_ORIGIN);
+    expect(location.searchParams.get("x_unlink")).toBe("complete");
+    expect(location.searchParams.get("x_link")).toBeNull();
+    const code = location.searchParams.get("x_unlink_code")!;
+    expect((await completeUnlink(unlinkId, code)).status).toBe(200);
+    expect(
+      (
+        await request("POST", "/v1/identity/x/unlink/start", {
+          return_to: "https://evil.example/",
+        })
+      ).status,
+    ).toBe(400);
+  });
+});
+
+describe("security review regressions", () => {
+  test("unlink still works after ten start calls for the address from another IP", async () => {
+    const counts = new Map<string, number>();
+    const counting: RateLimit = {
+      limit: async ({ key }) => {
+        counts.set(key, (counts.get(key) ?? 0) + 1);
+        return { success: counts.get(key)! <= 10 };
+      },
+    };
+    const account = privateKeyToAccount(generatePrivateKey());
+    await link("1", account.address, (td) => signEvm(account, td));
+    env = { ...env, IDENTITY_ADDRESS_LIMITER: counting };
+    for (let i = 0; i < 11; i++) {
+      await request(
+        "POST",
+        "/v1/identity/x/link/start",
+        { chain_id: "1", address: account.address },
+        "198.51.100.9",
+      );
+    }
+    const message = await request("POST", "/v1/identity/x/unlink/message", {
+      chain_id: "1",
+      address: account.address,
+    });
+    expect(message.status).toBe(200);
+    const { nonce, typed_data } = await json<{
+      nonce: string;
+      typed_data: TypedData;
+    }>(message);
+    const removed = await request("DELETE", "/v1/identity/x/link", {
+      chain_id: "1",
+      address: account.address,
+      nonce,
+      signature: await signEvm(account, typed_data),
+    });
+    expect(removed.status).toBe(200);
+    expect(await json(removed)).toEqual({ removed: 1 });
+  });
+
+  test("an ERC-1271 magic value followed by non-zero bytes is refused", async () => {
+    const precompile = "0x0000000000000000000000000000000000000002";
+    rawReturns.set(precompile, `0x1626ba7e${"ab".repeat(28)}`);
+    const { response } = await link("8453", precompile, async () => "0x1234");
+    expect(response.status).toBe(401);
+    rawReturns.set(precompile, `0x1626ba7e${"0".repeat(56)}`);
+    const exact = await link("8453", precompile, async () => "0x1234");
+    expect(exact.response.status).toBe(200);
+  });
+
+  test("a missing limiter binding answers 503 instead of running unlimited", async () => {
+    for (const missing of [
+      "IDENTITY_IP_LIMITER",
+      "IDENTITY_ADDRESS_LIMITER",
+    ] as const) {
+      const saved = env;
+      env = { ...env, [missing]: undefined };
+      const response = await request("POST", "/v1/identity/x/link/start", {
+        chain_id: "1",
+        address: privateKeyToAccount(generatePrivateKey()).address,
+      });
+      expect(response.status).toBe(503);
+      expect(
+        (await request("POST", "/v1/identity/x/unlink/start", {})).status,
+      ).toBe(503);
+      env = saved;
+    }
+  });
+
+  test("a contract-signature unlink of an all-chain link is refused and keeps its nonce", async () => {
+    const account = privateKeyToAccount(generatePrivateKey());
+    const address = account.address.toLowerCase();
+    await link("1", account.address, (td) => signEvm(account, td));
+    contracts.set(address, new Set(["8453"]));
+    const message = await json<{ nonce: string; typed_data: TypedData }>(
+      await request("POST", "/v1/identity/x/unlink/message", {
+        chain_id: "8453",
+        address,
+      }),
+    );
+    const body = {
+      chain_id: "8453",
+      address,
+      nonce: message.nonce,
+      signature: "0x1234",
+    };
+    const refused = await request("DELETE", "/v1/identity/x/link", body);
+    expect(refused.status).toBe(409);
+    expect((await json<{ error: string }>(refused)).error).toContain("own key");
+    expect((await lookup("8453", address)).identities[address]?.x_handle).toBe(
+      "alice",
+    );
+    const removed = await request("DELETE", "/v1/identity/x/link", {
+      ...body,
+      signature: await signEvm(account, message.typed_data),
+    });
+    expect(await json(removed)).toEqual({ removed: 1 });
   });
 });

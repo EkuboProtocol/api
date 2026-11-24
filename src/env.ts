@@ -16,6 +16,7 @@ export interface Env {
   readonly X_CLIENT_SECRET?: string;
   /** JSON object of decimal chain ID to RPC URL, overriding the public RPCs. */
   readonly RPC_URLS?: string;
+  /** Both limiters are required; without them the identity routes 503. */
   readonly IDENTITY_IP_LIMITER?: RateLimit;
   readonly IDENTITY_ADDRESS_LIMITER?: RateLimit;
 }
