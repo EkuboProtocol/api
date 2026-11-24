@@ -10,9 +10,14 @@ concurrency: deploy-cf
 jobs:
   deploy:
     strategy:
+      # A failed preview deploy must not cancel the production one.
+      fail-fast: false
       matrix:
         include:
           - deploy_env: prod
+          # ekubo-api-preview.ekubo.workers.dev, with wallet to X linking
+          # on the preview identity D1.
+          - deploy_env: preview
 
     runs-on: ubuntu-latest
     name: Deploy to Cloudflare
