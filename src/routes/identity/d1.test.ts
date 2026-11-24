@@ -6,12 +6,28 @@ import { mkdtempSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { D1Database } from "@cloudflare/workers-types";
-import { getPlatformProxy } from "wrangler";
 import { app } from "../../router";
 import type { Env } from "../../env";
 import { lookupLinks, removeLinksOfXUser } from "./store";
 
 const MIGRATIONS = join(import.meta.dir, "../../../migrations/identity");
+
+// Imported by a non-literal specifier so that wrangler's type declarations
+// stay out of the project: loading them makes unrelated *.pg.test.ts files
+// fail the typecheck.
+const WRANGLER: string = "wrangler";
+
+interface PlatformProxy {
+  env: { IDENTITY_DB: D1Database };
+  dispose: () => Promise<void>;
+}
+
+interface Wrangler {
+  getPlatformProxy: (options: {
+    configPath: string;
+    persist: { path: string };
+  }) => Promise<PlatformProxy>;
+}
 
 let db: D1Database;
 let dispose: () => Promise<void>;
@@ -43,7 +59,8 @@ beforeAll(async () => {
       ],
     }),
   );
-  const proxy = await getPlatformProxy<{ IDENTITY_DB: D1Database }>({
+  const { getPlatformProxy } = (await import(WRANGLER)) as Wrangler;
+  const proxy = await getPlatformProxy({
     configPath: config,
     persist: { path: join(dir, "state") },
   });
