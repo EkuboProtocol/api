@@ -824,6 +824,7 @@ FROM token_mint AS mint
             transaction_hash: string;
             timestamp: string;
             block_number: bigint;
+            sender: string | null;
             from_address: string;
             to_address: string;
             liquidity_delta: null;
@@ -836,6 +837,7 @@ FROM token_mint AS mint
             transaction_hash: string;
             timestamp: string;
             block_number: bigint;
+            sender: string | null;
             from_address: null;
             to_address: null;
             liquidity_delta: string;
@@ -848,6 +850,7 @@ FROM token_mint AS mint
             transaction_hash: string;
             timestamp: string;
             block_number: bigint;
+            sender: string | null;
             from_address: null;
             to_address: null;
             liquidity_delta: null;
@@ -860,6 +863,7 @@ FROM token_mint AS mint
             transaction_hash: string;
             timestamp: string;
             block_number: bigint;
+            sender: string | null;
             from_address: null;
             to_address: null;
             liquidity_delta: null;
@@ -873,6 +877,7 @@ FROM token_mint AS mint
         SELECT nft.transaction_hash,
                b.block_time AS timestamp,
                nft.block_number,
+               nft.transaction_index,
                nft.from_address,
                nft.to_address
         FROM nonfungible_token_transfers AS nft
@@ -893,6 +898,7 @@ FROM token_mint AS mint
         SELECT pu.transaction_hash,
                b.block_time AS timestamp,
                pu.block_number,
+               pu.transaction_index,
                pu.liquidity_delta,
                pu.delta0,
                pu.delta1
@@ -917,6 +923,7 @@ FROM token_mint AS mint
         SELECT pfc.transaction_hash,
                b.block_time AS timestamp,
                pfc.block_number,
+               pfc.transaction_index,
                pfc.delta0,
                pfc.delta1
         FROM position_fees_collected AS pfc
@@ -940,6 +947,7 @@ FROM token_mint AS mint
         SELECT vrc.transaction_hash,
                b.block_time AS timestamp,
                vrc.block_number,
+               vrc.transaction_index,
                vrc.amount::text AS reward_amount
         FROM ve33_rewards_claimed AS vrc
                  JOIN blocks AS b ON b.block_number = vrc.block_number
@@ -962,6 +970,7 @@ FROM token_mint AS mint
                transaction_hash,
                timestamp,
                block_number,
+               transaction_index,
                from_address,
                to_address,
                NULL AS liquidity_delta,
@@ -974,6 +983,7 @@ FROM token_mint AS mint
                transaction_hash,
                timestamp,
                block_number,
+               transaction_index,
                NULL AS from_address,
                NULL AS to_address,
                liquidity_delta,
@@ -986,6 +996,7 @@ FROM token_mint AS mint
                transaction_hash,
                timestamp,
                block_number,
+               transaction_index,
                NULL AS from_address,
                NULL AS to_address,
                NULL AS liquidity_delta,
@@ -998,6 +1009,7 @@ FROM token_mint AS mint
                transaction_hash,
                timestamp,
                block_number,
+               transaction_index,
                NULL AS from_address,
                NULL AS to_address,
                NULL AS liquidity_delta,
@@ -1006,8 +1018,12 @@ FROM token_mint AS mint
                reward_amount
         FROM reward_claims
       )
-      SELECT *
+      SELECT all_events.*, ts.sender::text AS sender
       FROM all_events
+               LEFT JOIN transaction_senders AS ts
+                         ON ts.chain_id = ${chainId}
+                           AND ts.block_number = all_events.block_number
+                           AND ts.transaction_index = all_events.transaction_index
       ORDER BY timestamp DESC
     `;
     return rows;
@@ -1623,6 +1639,7 @@ FROM token_mint AS mint
         timestamp: string;
 
         transaction_hash: string;
+        sender: string | null;
 
         delta0: string;
         delta1: string;
@@ -1665,6 +1682,7 @@ WITH last_block AS (SELECT public.get_chain_head_time(${chainId}) AS block_time)
                               s.chain_id,
                               s.event_id,
                               s.block_number,
+                              s.transaction_index,
                               s.transaction_hash,
                               s.delta0,
                               s.delta1,
@@ -1675,6 +1693,7 @@ WITH last_block AS (SELECT public.get_chain_head_time(${chainId}) AS block_time)
                            SELECT chain_id,
                                   event_id,
                                   block_number,
+                                  transaction_index,
                                   transaction_hash,
                                   delta0,
                                   delta1,
@@ -1696,6 +1715,7 @@ WITH last_block AS (SELECT public.get_chain_head_time(${chainId}) AS block_time)
                               pu.chain_id,
                               pu.event_id,
                               pu.block_number,
+                              pu.transaction_index,
                               pu.transaction_hash,
                               pu.delta0,
                               pu.delta1,
@@ -1706,6 +1726,7 @@ WITH last_block AS (SELECT public.get_chain_head_time(${chainId}) AS block_time)
                            SELECT chain_id,
                                   event_id,
                                   block_number,
+                                  transaction_index,
                                   transaction_hash,
                                   delta0,
                                   delta1,
@@ -1728,9 +1749,11 @@ SELECT core_address,
        tick_spacing,
        block_time     AS timestamp,
        transaction_hash,
+       ts.sender::text AS sender,
        event_type     AS type
 FROM recent_events
          JOIN blocks USING (chain_id, block_number)
+         LEFT JOIN transaction_senders ts USING (chain_id, block_number, transaction_index)
 ORDER BY event_id DESC
     `;
   }

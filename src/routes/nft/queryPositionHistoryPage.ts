@@ -91,9 +91,9 @@ export function queryPositionHistoryPage<Row>(
       SELECT DISTINCT reward_salt AS salt, COALESCE(locker, emitter) AS owner
       FROM mints
     ), page AS (
-      SELECT events.*, b.block_time AS timestamp
+      SELECT events.*, b.block_time AS timestamp, ts.sender::text AS sender
       FROM (
-        SELECT 0 AS type, nft.event_id, nft.block_number, nft.transaction_hash,
+        SELECT 0 AS type, nft.event_id, nft.block_number, nft.transaction_index, nft.transaction_hash,
                nft.from_address, nft.to_address, NULL::numeric AS liquidity_delta,
                NULL::numeric AS delta0, NULL::numeric AS delta1, NULL::text AS reward_amount
         FROM nonfungible_token_transfers nft CROSS JOIN bounds
@@ -106,21 +106,21 @@ export function queryPositionHistoryPage<Row>(
               AND nlm.nft_address = nft.emitter AND nlm.locker = ${locker}::numeric
           ))
         UNION ALL
-        SELECT 1, pu.event_id, pu.block_number, pu.transaction_hash,
+        SELECT 1, pu.event_id, pu.block_number, pu.transaction_index, pu.transaction_hash,
                NULL, NULL, pu.liquidity_delta, pu.delta0, pu.delta1, NULL
         FROM position_updates pu CROSS JOIN bounds
         WHERE pu.chain_id = ${chainId} AND pu.event_id <= bounds.upper_event_id
           AND (bounds.last_id IS NULL OR (pu.event_id, 1) < (bounds.last_id, bounds.last_type))
           AND pu.salt IN (SELECT salt FROM salts)
         UNION ALL
-        SELECT 2, pfc.event_id, pfc.block_number, pfc.transaction_hash,
+        SELECT 2, pfc.event_id, pfc.block_number, pfc.transaction_index, pfc.transaction_hash,
                NULL, NULL, NULL, pfc.delta0, pfc.delta1, NULL
         FROM position_fees_collected pfc CROSS JOIN bounds
         WHERE pfc.chain_id = ${chainId} AND pfc.event_id <= bounds.upper_event_id
           AND (bounds.last_id IS NULL OR (pfc.event_id, 2) < (bounds.last_id, bounds.last_type))
           AND pfc.salt IN (SELECT salt FROM salts)
         UNION ALL
-        SELECT 3, vrc.event_id, vrc.block_number, vrc.transaction_hash,
+        SELECT 3, vrc.event_id, vrc.block_number, vrc.transaction_index, vrc.transaction_hash,
                NULL, NULL, NULL, NULL, NULL, vrc.amount::text
         FROM ve33_rewards_claimed vrc CROSS JOIN bounds
         WHERE vrc.chain_id = ${chainId} AND vrc.event_id <= bounds.upper_event_id
@@ -128,6 +128,9 @@ export function queryPositionHistoryPage<Row>(
           AND (vrc.salt, vrc.owner) IN (SELECT salt, owner FROM reward_keys)
       ) events
       JOIN blocks b ON b.chain_id = ${chainId} AND b.block_number = events.block_number
+      LEFT JOIN transaction_senders ts ON ts.chain_id = ${chainId}
+        AND ts.block_number = events.block_number
+        AND ts.transaction_index = events.transaction_index
       ORDER BY events.event_id DESC, events.type DESC
       LIMIT ${limit + 1}
     )

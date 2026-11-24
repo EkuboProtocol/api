@@ -6492,6 +6492,13 @@
                           "transaction_hash": {
                             "type": "string"
                           },
+                          "sender": {
+                            "type": [
+                              "string",
+                              "null"
+                            ],
+                            "description": "The account that sent the transaction, as a decimal string like locker: the EVM transaction's from, or the Starknet transaction's sender_address. locker is the contract that called Core (usually a router); this is the wallet behind the trade, or the relayer for a relayed transaction (ERC-4337 bundler, Starknet paymaster). Null where the indexer has no sender recorded yet."
+                          },
                           "delta0": {
                             "type": "string"
                           },
@@ -6508,6 +6515,7 @@
                           "locker",
                           "timestamp",
                           "transaction_hash",
+                          "sender",
                           "delta0",
                           "delta1"
                         ]
@@ -7952,6 +7960,14 @@
                                 "pattern": "^0x[a-fA-F0-9]+$",
                                 "description": "A hexadecimal number"
                               },
+                              "sender": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ],
+                                "pattern": "^0x[a-fA-F0-9]+$",
+                                "description": "The account that sent the transaction: the EVM transaction's from, or the Starknet transaction's sender_address. A relayed transaction (ERC-4337 bundler, Starknet paymaster) names the relayer. Null where the indexer has no sender recorded yet."
+                              },
                               "timestamp": {
                                 "anyOf": [
                                   {
@@ -7978,6 +7994,7 @@
                               "type",
                               "block_number",
                               "transaction_hash",
+                              "sender",
                               "timestamp",
                               "from_address",
                               "to_address"
@@ -7999,6 +8016,14 @@
                                 "type": "string",
                                 "pattern": "^0x[a-fA-F0-9]+$",
                                 "description": "A hexadecimal number"
+                              },
+                              "sender": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ],
+                                "pattern": "^0x[a-fA-F0-9]+$",
+                                "description": "The account that sent the transaction: the EVM transaction's from, or the Starknet transaction's sender_address. A relayed transaction (ERC-4337 bundler, Starknet paymaster) names the relayer. Null where the indexer has no sender recorded yet."
                               },
                               "timestamp": {
                                 "anyOf": [
@@ -8025,6 +8050,7 @@
                               "type",
                               "block_number",
                               "transaction_hash",
+                              "sender",
                               "timestamp",
                               "liquidity_delta",
                               "delta0",
@@ -8048,6 +8074,14 @@
                                 "pattern": "^0x[a-fA-F0-9]+$",
                                 "description": "A hexadecimal number"
                               },
+                              "sender": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ],
+                                "pattern": "^0x[a-fA-F0-9]+$",
+                                "description": "The account that sent the transaction: the EVM transaction's from, or the Starknet transaction's sender_address. A relayed transaction (ERC-4337 bundler, Starknet paymaster) names the relayer. Null where the indexer has no sender recorded yet."
+                              },
                               "timestamp": {
                                 "anyOf": [
                                   {
@@ -8070,6 +8104,7 @@
                               "type",
                               "block_number",
                               "transaction_hash",
+                              "sender",
                               "timestamp",
                               "delta0",
                               "delta1"
@@ -8092,6 +8127,14 @@
                                 "pattern": "^0x[a-fA-F0-9]+$",
                                 "description": "A hexadecimal number"
                               },
+                              "sender": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ],
+                                "pattern": "^0x[a-fA-F0-9]+$",
+                                "description": "The account that sent the transaction: the EVM transaction's from, or the Starknet transaction's sender_address. A relayed transaction (ERC-4337 bundler, Starknet paymaster) names the relayer. Null where the indexer has no sender recorded yet."
+                              },
                               "timestamp": {
                                 "anyOf": [
                                   {
@@ -8111,6 +8154,7 @@
                               "type",
                               "block_number",
                               "transaction_hash",
+                              "sender",
                               "timestamp",
                               "reward_amount"
                             ]
@@ -8327,6 +8371,14 @@
                                 "pattern": "^0x[a-fA-F0-9]+$",
                                 "description": "A hexadecimal number"
                               },
+                              "sender": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ],
+                                "pattern": "^0x[a-fA-F0-9]+$",
+                                "description": "The account that sent the transaction: the EVM transaction's from, or the Starknet transaction's sender_address. A relayed transaction (ERC-4337 bundler, Starknet paymaster) names the relayer. Null where the indexer has no sender recorded yet."
+                              },
                               "timestamp": {
                                 "anyOf": [
                                   {
@@ -8353,6 +8405,7 @@
                               "type",
                               "block_number",
                               "transaction_hash",
+                              "sender",
                               "timestamp",
                               "from_address",
                               "to_address"
@@ -8374,6 +8427,14 @@
                                 "type": "string",
                                 "pattern": "^0x[a-fA-F0-9]+$",
                                 "description": "A hexadecimal number"
+                              },
+                              "sender": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ],
+                                "pattern": "^0x[a-fA-F0-9]+$",
+                                "description": "The account that sent the transaction: the EVM transaction's from, or the Starknet transaction's sender_address. A relayed transaction (ERC-4337 bundler, Starknet paymaster) names the relayer. Null where the indexer has no sender recorded yet."
                               },
                               "timestamp": {
                                 "anyOf": [
@@ -8400,6 +8461,7 @@
                               "type",
                               "block_number",
                               "transaction_hash",
+                              "sender",
                               "timestamp",
                               "liquidity_delta",
                               "delta0",
@@ -8423,6 +8485,14 @@
                                 "pattern": "^0x[a-fA-F0-9]+$",
                                 "description": "A hexadecimal number"
                               },
+                              "sender": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ],
+                                "pattern": "^0x[a-fA-F0-9]+$",
+                                "description": "The account that sent the transaction: the EVM transaction's from, or the Starknet transaction's sender_address. A relayed transaction (ERC-4337 bundler, Starknet paymaster) names the relayer. Null where the indexer has no sender recorded yet."
+                              },
                               "timestamp": {
                                 "anyOf": [
                                   {
@@ -8445,6 +8515,7 @@
                               "type",
                               "block_number",
                               "transaction_hash",
+                              "sender",
                               "timestamp",
                               "delta0",
                               "delta1"
@@ -8467,6 +8538,14 @@
                                 "pattern": "^0x[a-fA-F0-9]+$",
                                 "description": "A hexadecimal number"
                               },
+                              "sender": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ],
+                                "pattern": "^0x[a-fA-F0-9]+$",
+                                "description": "The account that sent the transaction: the EVM transaction's from, or the Starknet transaction's sender_address. A relayed transaction (ERC-4337 bundler, Starknet paymaster) names the relayer. Null where the indexer has no sender recorded yet."
+                              },
                               "timestamp": {
                                 "anyOf": [
                                   {
@@ -8486,6 +8565,7 @@
                               "type",
                               "block_number",
                               "transaction_hash",
+                              "sender",
                               "timestamp",
                               "reward_amount"
                             ]

@@ -176,6 +176,7 @@ const historyRow = (
     transaction_hash: TX_HASH,
     timestamp: MINTED_AT,
     block_number: 21000000n,
+    sender: OWNER_DECIMAL,
     from_address: null,
     to_address: null,
     liquidity_delta: null,
@@ -307,7 +308,11 @@ export const nftCases: ContractCase[] = [
           delta1: "-400000000000000",
         }),
         historyRow({ type: 2, delta0: "500", delta1: "200000000000" }),
-        historyRow({ type: 3, reward_amount: "1000000000000000000" }),
+        historyRow({
+          type: 3,
+          reward_amount: "1000000000000000000",
+          sender: null,
+        }),
       ]),
   },
   {

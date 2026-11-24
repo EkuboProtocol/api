@@ -132,6 +132,7 @@ const pairEventRow = (overrides: Partial<PairEventRow> = {}): PairEventRow => ({
   timestamp: asDeclaredString(BLOCK_TIME),
   transaction_hash:
     "51922968585348276285304963292200960000000000000000000000000000000000000000",
+  sender: BigInt(OWNER).toString(),
   delta0: "1000000",
   delta1: "-400000000000000",
   ...overrides,
@@ -497,6 +498,8 @@ export const statsCases: ContractCase[] = [
           type: 1,
           delta0: "-5000000",
           delta1: "-2000000000000000",
+          // A transaction the indexer has no sender for yet.
+          sender: null,
         }),
       ]);
     },

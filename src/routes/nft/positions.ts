@@ -33,10 +33,15 @@ import { generatePositionNftMetadata } from "../../shared/metadatas/positions";
 
 const PositionEventsTimestampType = z.union([z.date(), z.string()]);
 
+const TransactionSenderType = HexStringType.nullable().describe(
+  "The account that sent the transaction: the EVM transaction's from, or the Starknet transaction's sender_address. A relayed transaction (ERC-4337 bundler, Starknet paymaster) names the relayer. Null where the indexer has no sender recorded yet.",
+);
+
 const PositionTransferEventType = z.object({
   type: z.literal("transfer"),
   block_number: z.string(),
   transaction_hash: HexStringType,
+  sender: TransactionSenderType,
   timestamp: PositionEventsTimestampType,
   from_address: HexStringType,
   to_address: HexStringType,
@@ -46,6 +51,7 @@ const PositionUpdateEventType = z.object({
   type: z.literal("update"),
   block_number: z.string(),
   transaction_hash: HexStringType,
+  sender: TransactionSenderType,
   timestamp: PositionEventsTimestampType,
   liquidity_delta: z.string(),
   delta0: z.string(),
@@ -56,6 +62,7 @@ const PositionCollectFeesEventType = z.object({
   type: z.literal("collect_fees"),
   block_number: z.string(),
   transaction_hash: HexStringType,
+  sender: TransactionSenderType,
   timestamp: PositionEventsTimestampType,
   delta0: z.string(),
   delta1: z.string(),
@@ -65,6 +72,7 @@ const PositionClaimRewardsEventType = z.object({
   type: z.literal("claim_rewards"),
   block_number: z.string(),
   transaction_hash: HexStringType,
+  sender: TransactionSenderType,
   timestamp: PositionEventsTimestampType,
   reward_amount: z.string(),
 });
@@ -500,28 +508,31 @@ const formatHistoryEvent: (
   block_number,
   timestamp,
   type,
+  sender,
   from_address,
   to_address,
   liquidity_delta,
   delta0,
   delta1,
   reward_amount,
-}) =>
-  type === 0
+}) => {
+  const base = {
+    block_number: block_number.toString(),
+    transaction_hash: toHex(transaction_hash),
+    sender: sender ? toHex(sender) : null,
+    timestamp,
+  };
+  return type === 0
     ? {
         type: "transfer",
-        block_number: block_number.toString(),
-        transaction_hash: toHex(transaction_hash),
-        timestamp,
+        ...base,
         from_address: toHex(from_address),
         to_address: toHex(to_address),
       }
     : type === 1
       ? {
           type: "update",
-          block_number: block_number.toString(),
-          transaction_hash: toHex(transaction_hash),
-          timestamp,
+          ...base,
           liquidity_delta,
           delta0,
           delta1,
@@ -529,19 +540,16 @@ const formatHistoryEvent: (
       : type === 2
         ? {
             type: "collect_fees",
-            block_number: block_number.toString(),
-            transaction_hash: toHex(transaction_hash),
-            timestamp,
+            ...base,
             delta0,
             delta1,
           }
         : {
             type: "claim_rewards",
-            block_number: block_number.toString(),
-            transaction_hash: toHex(transaction_hash),
-            timestamp,
+            ...base,
             reward_amount,
           };
+};
 
 export const ListPositionNftEvents = defineRoute(
   createRoute({

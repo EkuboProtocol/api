@@ -129,6 +129,12 @@ const PairEventType = z.object({
   locker: z.string(),
   timestamp: TimestampType,
   transaction_hash: z.string(),
+  sender: z
+    .string()
+    .nullable()
+    .describe(
+      "The account that sent the transaction, as a decimal string like locker: the EVM transaction's from, or the Starknet transaction's sender_address. locker is the contract that called Core (usually a router); this is the wallet behind the trade, or the relayer for a relayed transaction (ERC-4337 bundler, Starknet paymaster). Null where the indexer has no sender recorded yet.",
+    ),
   delta0: z.string(),
   delta1: z.string(),
 });
