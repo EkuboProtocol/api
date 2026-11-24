@@ -72,7 +72,11 @@ export async function createAttempt(db: D1Database, attempt: NewAttempt) {
   ]);
 }
 
-/** Consumes the OAuth state: a callback is accepted once per attempt. */
+/**
+ * Consumes the OAuth state: a callback is accepted once per attempt.
+ * RETURNING yields the updated row, so the verifier is cleared afterwards,
+ * by recordXResult, not here.
+ */
 export async function takeAttemptByState(
   db: D1Database,
   stateHash: string,
@@ -80,7 +84,7 @@ export async function takeAttemptByState(
 ) {
   return db
     .prepare(
-      `UPDATE link_attempts SET state_hash = NULL, verifier = NULL
+      `UPDATE link_attempts SET state_hash = NULL
        WHERE state_hash = ? AND verifier IS NOT NULL AND expires_at > ?
        RETURNING id_hash, verifier, namespace, address, chain_id, return_to`,
     )
@@ -114,7 +118,7 @@ export async function recordXResult(db: D1Database, result: XResult) {
     db
       .prepare(
         `UPDATE link_attempts
-         SET x_user_id = ?, x_handle = ?, code_hash = ?, nonce = ?, issued_at = ?, expires_at = ?
+         SET verifier = NULL, x_user_id = ?, x_handle = ?, code_hash = ?, nonce = ?, issued_at = ?, expires_at = ?
          WHERE id_hash = ?`,
       )
       .bind(

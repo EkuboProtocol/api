@@ -23,6 +23,7 @@ import { responseSchema } from "../../contract/harness";
 import { fakeD1 } from "../../testing/fakeD1";
 import { STARKNET_MAINNET_CHAIN_ID } from "./chains";
 import { consumeNonce } from "./store";
+import { sha256 } from "./crypto";
 
 const MIGRATIONS = join(import.meta.dir, "../../../migrations/identity");
 const STARKNET = `0x${STARKNET_MAINNET_CHAIN_ID.toString(16)}`;
@@ -317,6 +318,29 @@ describe("linking an EOA", () => {
     expect(Number(td.message.expiresAt) - Number(td.message.issuedAt)).toBe(
       600,
     );
+  });
+
+  test("the token exchange sends the PKCE verifier of the challenge", async () => {
+    const account = privateKeyToAccount(generatePrivateKey());
+    const started = await json<{ authorization_url: string }>(
+      await request("POST", "/v1/identity/x/link/start", {
+        chain_id: "1",
+        address: account.address,
+      }),
+    );
+    const authorization = new URL(started.authorization_url);
+    const state = authorization.searchParams.get("state");
+    await request("GET", `/v1/identity/x/callback?state=${state}&code=c`);
+    const token = calls.find((c) => c.url.endsWith("/oauth2/token"))!;
+    const verifier = new URLSearchParams(token.body).get("code_verifier")!;
+    expect(verifier).toMatch(/^[A-Za-z0-9_-]{43,128}$/);
+    expect(await sha256(verifier)).toBe(
+      authorization.searchParams.get("code_challenge")!,
+    );
+    const stored = sqlite
+      .prepare("SELECT verifier, state_hash FROM link_attempts")
+      .get();
+    expect(stored).toEqual({ verifier: null, state_hash: null });
   });
 
   test("the access token is revoked and never stored", async () => {

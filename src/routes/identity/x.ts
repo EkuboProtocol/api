@@ -106,7 +106,22 @@ export async function verifiedXAccount(
       code_verifier: verifier,
     }),
   });
-  if (!tokenResponse.ok) return null;
+  if (!tokenResponse.ok) {
+    const failure = (await tokenResponse.json().catch(() => null)) as {
+      error?: unknown;
+      error_description?: unknown;
+    } | null;
+    console.warn("x_link", {
+      stage: "token",
+      status: tokenResponse.status,
+      error: typeof failure?.error === "string" ? failure.error : "",
+      description:
+        typeof failure?.error_description === "string"
+          ? failure.error_description.slice(0, 200)
+          : "",
+    });
+    return null;
+  }
   const accessToken = accessTokenOf(await tokenResponse.json());
   if (accessToken === null) return null;
   try {
@@ -114,7 +129,10 @@ export async function verifiedXAccount(
       signal: AbortSignal.timeout(PROVIDER_TIMEOUT_MS),
       headers: { Authorization: `Bearer ${accessToken}` },
     });
-    if (!me.ok) return null;
+    if (!me.ok) {
+      console.warn("x_link", { stage: "users_me", status: me.status });
+      return null;
+    }
     return accountOf(await me.json());
   } finally {
     await revoke(env, accessToken);
