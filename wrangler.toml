@@ -3,8 +3,14 @@ main = "src/index.ts"
 compatibility_flags = ["nodejs_compat"]
 compatibility_date = "2024-09-23"
 
+# Run next to the database. Every request that misses the cache makes one or
+# more serial queries to the indexer database in New York, so each query pays
+# the round trip from wherever the Worker runs. Smart placement sometimes
+# chose a data center far from it (for example Melbourne for Asian clients),
+# which added hundreds of milliseconds per request. Pin it to the closest
+# major cloud region instead.
 [placement]
-mode = "smart"
+region = "aws:us-east-1"
 
 [limits]
 cpu_ms = 5000
