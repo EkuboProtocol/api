@@ -16,7 +16,7 @@
     "postgres": "^3.4.9",
     "starknet": "^10.8.0",
     "viem": "2.58.4",
-    "wrangler": "4.166.0",
+    "wrangler": "4.167.0",
     "zod": "^4.6.7"
   },
   "engines": {
