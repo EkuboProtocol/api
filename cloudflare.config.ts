@@ -10,7 +10,7 @@ export default defineConfig((ctx) => {
           compatibilityFlags: ["nodejs_compat"],
           entrypoint: "src/index.ts",
           placement: {
-            mode: "smart",
+            region: "aws:us-east-1",
           },
           limits: {
             cpuMs: 5000,
@@ -36,7 +36,7 @@ export default defineConfig((ctx) => {
           compatibilityFlags: ["nodejs_compat"],
           entrypoint: "src/index.ts",
           placement: {
-            mode: "smart",
+            region: "aws:us-east-1",
           },
           limits: {
             cpuMs: 5000,
